@@ -102,7 +102,7 @@ local RawTowerData = {
 	["Sword Master Dummy"] = {
 		Index = 18,
 		Rarity = "Epic",
-		TowerImage = "rbxassetid://88067744482503",
+		TowerImage = "rbxassetid://97665280501423",
 		MaxTowers = 4,
 	},
 	["Swordsman Dummy"] = {
@@ -144,7 +144,7 @@ local RawTowerData = {
 	["Mecha Demian"] = {
 		Index = 25,
 		Rarity = "Absolute",
-		TowerImage = "rbxassetid://87536273909504",
+		TowerImage = "rbxassetid://139342833082196",
 		MaxTowers = 1,
 	},
 	["Mecha Fist"] = {
