@@ -1,0 +1,222 @@
+option ClientOutput = "shared/Net/client.luau"
+option ServerOutput = "shared/Net/server.luau"
+option PromiseLibrary = "ReplicatedStorage.Packages.Promise"
+
+scope GroupReward {
+    event SendPromptJoin {
+        from: Server,
+        type: Reliable,
+        call: SingleSync,
+    }
+}  
+
+scope NotificationService {
+    event Popup {
+        from: Server,
+        type: Reliable,
+        call: SingleSync,
+        data: struct {
+            Message: string,
+            DurationMs: u16,
+        }
+    }
+}
+
+scope RoomService {
+    event RoomRefreshed {
+        from: Server,
+        type: Reliable,
+        call: SingleSync,
+        data: map {
+            [u16]: unknown
+        },
+    }
+
+    event RoomStarted {
+        from: Server,
+        type: Reliable,
+        call: SingleSync,
+    }
+
+    function GetRooms {
+        Yield: Promise,
+        Return: map {
+            [u16]: unknown
+        },
+    }
+
+    function RequestJoin {
+        Yield: Promise,
+        Data: u16,
+        Return: boolean,
+    }
+
+    function RequestLeave {
+        Yield: Promise,
+        Data: u16,
+        Return: boolean,
+    }
+
+    function RequestStart {
+        Yield: Promise,
+        Data: u16,
+        Return: boolean,
+    }
+
+    function RequestCreate {
+        Yield: Promise,
+        Data: struct {
+            MaxPlayers: u8,
+            OnlyFriends: boolean,
+            Map: string,
+            Difficulty: string,
+        },
+        Return: struct {
+            Success: boolean,
+            RoomId: u16,
+        },
+    }
+}
+
+scope SummonService {
+    event BannerUpdated {
+        from: Server,
+        type: Reliable,
+        call: SingleSync,
+        data: unknown
+    }
+
+    function DoSummon {
+        Yield: Promise,
+        Data: u8,
+        Return: struct {
+            Success: boolean,
+            PulledUnits: unknown
+        },
+    }
+
+    function GetBanner {
+        Yield: Promise,
+        Return: unknown,
+    }
+}
+
+scope StoreService {
+    event BannerUpdated {
+        from: Server,
+        type: Reliable,
+        call: SingleSync,
+        data: unknown
+    }
+}
+
+scope LoadoutService {
+    function SetLoadout {
+        Yield: Promise,
+        Data: struct {
+            requestType: enum {Equip, Unequip, UnequipAll},
+            targetTower: struct { towerName: string, towerKey: u32}?,
+        },
+        Return: unknown,
+    }
+}
+
+scope SettingsService {
+    function GetSettings {
+        Yield: Promise,
+        Data: string?,
+        Return: unknown
+    }
+    function SaveSetting {
+        Yield: Promise,
+        Data: struct {
+            SettingName: string,
+            Value: unknown
+        },
+        Return: boolean,
+    }
+}
+
+scope DataService {
+    function GetDataValue {
+        Yield: Promise,
+        Data: string,
+        Return: unknown,
+    }
+    
+    function UpdateSetting {
+        Yield: Promise,
+        Data: struct {
+            SettingName: string,
+            SubKey: string?,
+            Value: unknown,
+        },
+        Return: boolean,
+    }
+    
+    event CurrencyChanged {
+        from: Server,
+        type: Reliable,
+        call: ManySync,
+        data: struct {
+            CurrencyName: string,
+            CurrencyValue: u32,
+        }
+    }
+    
+    event OwnedTowersAdded {
+        from: Server,
+        type: Reliable,
+        call: ManySync,
+        data: struct {
+            towerIndex: u8,
+            towerKeyId: u32,
+            towerData: unknown,
+        }
+    }
+    
+    event OwnedTowersRemoved {
+        from: Server,
+        type: Reliable,
+        call: ManySync,
+        data: struct {
+            towerIndex: u8,
+            towerKeyId: u32,
+        }
+    }
+}
+
+scope CraftService {
+    function Craft {
+        Yield: Promise,
+        Data: struct {
+            craftKey: string,
+            consumedTowers: map {
+                [string]: string[]
+            },
+        },
+        Return: boolean,
+    }
+}
+
+scope GlobalExistService {
+    function GetCount {
+        Yield: Promise,
+        Data: struct {
+            category: string,
+            itemName: string,
+        },
+        Return: u32,
+    }
+    
+    event CountUpdated {
+        from: Server,
+        type: Reliable,
+        call: SingleSync,
+        data: struct {
+            category: string,
+            itemName: string,
+            newCount: u32,
+        }
+    }
+}

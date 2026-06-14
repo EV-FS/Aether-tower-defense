@@ -1,0 +1,369 @@
+option ClientOutput = "shared/Net/client.luau"
+option ServerOutput = "shared/Net/server.luau"
+option PromiseLibrary = "ReplicatedStorage.Packages.Promise"
+
+scope EnemyService {
+    event ReplicatedEnemy {
+        from: Server,
+        type: Reliable,
+        call: SingleSync,
+        data: struct {
+            enemyId: u16,
+            enemyIndex: u8,
+            sendTimeMs: u16,
+            isBoss: boolean?,
+            startPathAlpha: f32?
+        }
+    }
+    event DestroyEnemy {
+        from: Server,
+        type: Reliable,
+        call: SingleSync,
+        data: u16
+    }
+
+    event UpdateSpeed {
+        from: Server,
+        type: Reliable,
+        call: SingleSync,
+        data: struct {
+            enemyId: u16,
+            WalkSpeed: u16,
+            sendTimeMs: u16
+        }
+    }
+
+    event UpdateDirection {
+        from: Server,
+        type: Reliable,
+        call: SingleSync,
+        data: struct {
+            enemyId: u16,
+            MoveDirection: boolean,
+            sendTimeMs: u16
+        }
+    }
+
+    event TakeKnockback {
+        from: Server,
+        type: Reliable,
+        call: SingleSync,
+        data: struct {
+            enemyId: u16,
+            studs: u8
+        }
+    }
+    
+    event OnDamaged {
+        from: Server,
+        type: Reliable,
+        call: SingleSync,
+        data: struct {
+            enemyId: u16,
+            damaged: u32,
+        }
+    }
+}  
+
+scope DataService {
+    function GetDataValue {
+        Yield: Promise,
+        Data: string,
+        Return: unknown,
+    }
+}
+
+scope TowerService {
+    event OnAttackEnemy {
+        from: Server,
+        type: Reliable,
+        call: SingleSync,
+        data: struct {
+            towerId: u16,
+            enemyId: u16,
+            attackSlot: u8?,
+        }
+    }
+
+    event TowerUpdated {
+        from: Server,
+        type: Reliable,
+        call: SingleSync,
+        data: struct {
+            towerId: u16,
+            towerLevel: u8,
+        }
+    }
+
+    event TowerDestroyed {
+        from: Server,
+        type: Reliable,
+        call: SingleSync,
+        data: u16,
+    }
+
+    event TowerSpawned {
+        from: Server,
+        type: Reliable,
+        call: SingleSync,
+        data: struct {
+            towerId: u16,
+            towerIndex: u8,
+            ownerSlot: u8,
+            spawnLocation: vector,
+        }
+    }
+
+    function SpawnNewTower {
+        Yield: Promise,
+        Data: struct {
+            towerIndex: u8,
+            spawnLocation: vector,
+        },
+        Return: u16?
+    }
+
+    function UpgradeTower {
+        Yield: Promise,
+        Data: u16,
+        Return: boolean
+    }
+
+    function SellTower {
+        Yield: Promise,
+        Data: u16,
+        Return: boolean
+    }
+
+    function SetTargetMode {
+        Yield: Promise,
+        Data: struct {
+            towerId: u16,
+            targetMode: string,
+        },
+        Return: boolean
+    }
+
+    event TowerTargetModeUpdated {
+        from: Server,
+        type: Reliable,
+        call: SingleSync,
+        data: struct {
+            towerId: u16,
+            targetMode: string,
+        }
+    }
+}
+
+scope UnitService {
+    event ReplicatedUnit {
+        from: Server,
+        type: Reliable,
+        call: SingleSync,
+        data: struct {
+            unitId: u16,
+            unitIndex: u8,
+            summonerId: u16,
+            sendTimeMs: u16,
+            pathAlpha: u16?,
+            isEnemyType: boolean?
+        }
+    }
+
+    event OnAttackEnemy {
+        from: Server,
+        type: Reliable,
+        call: SingleSync,
+        data: struct {
+            unitId: u16,
+            enemyId: u16,
+        }
+    }
+
+    event UnitDestroyed {
+        from: Server,
+        type: Reliable,
+        call: SingleSync,
+        data: u16,
+    }
+
+    event OnDamaged {
+        from: Server,
+        type: Reliable,
+        call: SingleSync,
+        data: struct {
+            unitId: u16,
+            damaged: u32,
+        }
+    }
+}
+
+scope BaseService {
+    event BaseHealthChanged {
+        from: Server,
+        type: Reliable,
+        call: SingleSync,
+        data: u16,
+    }
+}
+
+scope NotificationService {
+    event Popup {
+        from: Server,
+        type: Reliable,
+        call: SingleSync,
+        data: struct {
+            Message: string,
+            DurationMs: u16,
+        }
+    }
+}
+
+scope SettingsService {
+    function GetSettings {
+        Yield: Promise,
+        Data: string?,
+        Return: unknown
+    }
+    function SaveSetting {
+        Yield: Promise,
+        Data: struct {
+            SettingName: string,
+            Value: unknown
+        },
+        Return: boolean,
+    }
+}
+
+scope GameEvent {
+    function GetGameInfo {
+        Yield: Promise,
+        Return: struct {
+            Difficulty: string,
+            StartPlayerCount: u8,
+        },
+    }
+
+    event GameInfoSynced {
+        from: Server,
+        type: Reliable,
+        call: SingleSync,
+        data: struct {
+            Difficulty: string,
+            StartPlayerCount: u8,
+        }
+    }
+
+    event WaveStarted {
+        from: Server,
+        type: Reliable,
+        call: SingleSync,
+        data: u16,
+    }
+    event WaveCompleted {
+        from: Server,
+        type: Reliable,
+        call: SingleSync,
+    }
+
+    event GameOver {
+        from: Server,
+        type: Reliable,
+        call: SingleSync,
+        data: struct {
+            isWin: boolean,
+            coins: u16,
+            exp: u16,
+            gems: u16,
+        }
+    }
+    event TeleportToLobby {
+        from: Client,
+        type: Reliable,
+        call: SingleSync,
+    }
+    event VoteRestart {
+        from: Client,
+        type: Reliable,
+        call: SingleSync,
+    }
+    event Ready {
+        from: Client,
+        type: Reliable,
+        call: SingleSync,
+    }
+    event ReadyVoted {
+        from: Server,
+        type: Reliable,
+        call: SingleSync,
+        data: u8,
+    }
+    event RestartVoted {
+        from: Server,
+        type: Reliable,
+        call: SingleSync,
+        data: u8,
+    }
+    event SkipVoted {
+        from: Server,
+        type: Reliable,
+        call: SingleSync,
+        data: u8,
+    }
+    event Restarted {
+        from: Server,
+        type: Reliable,
+        call: SingleSync,
+    }
+    event CanSkip {
+        from: Server,
+        type: Reliable,
+        call: SingleSync,
+    }
+    event VoteSkip {
+        from: Client,
+        type: Reliable,
+        call: SingleSync,
+    }
+}
+
+scope TimeService {
+    function ChangeGameSpeed {
+        Yield: Promise,
+        Data: u8,
+        Return: boolean
+    }
+
+    event GameSpeedChanged {
+        From: Server,
+        Type: Reliable,
+        Call: SingleSync,
+        Data: struct {
+            newSpeed: u8,
+            sendTimeMs: u16,
+        },
+    }
+}
+
+scope GlobalExistService {
+    function GetCount {
+        Yield: Promise,
+        Data: struct {
+            category: string,
+            itemName: string,
+        },
+        Return: u32,
+    }
+    
+    event CountUpdated {
+        from: Server,
+        type: Reliable,
+        call: SingleSync,
+        data: struct {
+            category: string,
+            itemName: string,
+            newCount: u32,
+        }
+    }
+}
+
