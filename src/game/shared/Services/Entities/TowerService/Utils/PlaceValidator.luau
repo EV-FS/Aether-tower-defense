@@ -4,6 +4,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 --/Modules
 local TowerData = require(ReplicatedStorage.Settings.Data.TowerData)
+local NumberUtils = require(ReplicatedStorage.Shared.Modules.Utils.NumberUtils)
 
 --/Constants
 local OFFSET = 0.01
@@ -91,7 +92,7 @@ function PlaceValidator.CheckSpawn(data: requestData, isPlaceHolder: boolean?)
 	end
 
 	if not isPlaceHolder and data.CurrentCash < towerInfo.Stats[0].Cost then
-		return false, `You don't enough {towerInfo.Stats[0].Cost - data.CurrentCash} cash!`
+		return false, `You don't enough {NumberUtils.FormatComma(towerInfo.Stats[0].Cost - data.CurrentCash)} cash!`
 	end
 
 	if data.CurrentCount >= towerInfo.MaxTowers then

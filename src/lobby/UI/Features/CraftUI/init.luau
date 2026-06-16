@@ -6,22 +6,35 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local TowerConsumeBtn = require(script.Components.TowerConsumeBtn)
 local TowerResultBtn = require(script.Components.TowerResultBtn)
 local TowerIngredient = require(script.Components.TowerIngredient)
+local ItemIngredient = require(script.Components.ItemIngredient)
 
 --/Modules
 local Vide = require(ReplicatedStorage.Packages.Vide)
 local CraftRecipes = require(ReplicatedStorage.Settings.Data.CraftRecipes)
 local TowerData = require(ReplicatedStorage.Settings.Data.TowerData)
+local ItemData = require(ReplicatedStorage.Settings.Data.ItemData)
 local RarityColor = require(ReplicatedStorage.Settings.Visuals.RarityColor)
 local ServiceRegistry = require(ReplicatedStorage.Shared.Modules.Core.ServiceRegistry)
 local useButtonEffect = require(ReplicatedStorage.Shared.Modules.UI.Hooks.useButtonEffect)
 local TouchZone = require(ReplicatedStorage.Shared.Modules.Utils.TouchZone)
 local Net = require(ReplicatedStorage.Shared.Net)
+local UIState = require(script.Parent.Parent.Utils.UIState)
 local UIController
 local NotificationService
 local InventoryClient
 
 --/Constants
 local CRAFT_TOUCH: BasePart = workspace:WaitForChild("TouchZone"):WaitForChild("CraftTouch")
+local RARITY_ORDER: { [string]: number } = {
+	Exclusive = 1,
+	Absolute = 2,
+	Mythic = 3,
+	Legendary = 4,
+	Epic = 5,
+	Rare = 6,
+	Uncommon = 7,
+	Common = 8,
+}
 
 --/UI Variables
 local create = Vide.create
@@ -34,6 +47,15 @@ local untrack = Vide.untrack
 local SelectedRecipe = source(nil)
 local ConsumedTowers = source({})
 local ConsumeTarget = source(nil)
+local ClientInventory = source({ Items = {}, Crates = {} })
+
+local function updateInventory()
+	Net.DataService.GetDataValue.Invoke("Inventory"):andThen(function(inv)
+		ClientInventory(inv or { Items = {}, Crates = {} })
+	end):catch(function(err)
+		warn(`Failed to update craft inventory: {err}`)
+	end)
+end
 
 -------------------------------------------------
 --// Local Functions
@@ -109,12 +131,39 @@ local function RequestCraft(): boolean
 
 	if success then
 		ConsumedTowers({})
+		updateInventory()
 		if NotificationService then
 			NotificationService:Popup(`+{recipe}!`)
 		end
 	end
 
 	return success
+end
+
+local function getSortedRecipes(): { any }
+	local sortedRecipes = {}
+	for _, recipe in pairs(CraftRecipes) do
+		table.insert(sortedRecipes, recipe)
+	end
+
+	table.sort(sortedRecipes, function(a: any, b: any): boolean
+		local dataA = TowerData.ByName[a.ResultName] or ItemData.ByName[a.ResultName]
+		local dataB = TowerData.ByName[b.ResultName] or ItemData.ByName[b.ResultName]
+
+		local rarityA = dataA and dataA.Rarity or "Common"
+		local rarityB = dataB and dataB.Rarity or "Common"
+
+		local orderA = RARITY_ORDER[rarityA] or 9
+		local orderB = RARITY_ORDER[rarityB] or 9
+
+		if orderA ~= orderB then
+			return orderA < orderB
+		end
+
+		return a.ResultName < b.ResultName
+	end)
+
+	return sortedRecipes
 end
 
 local function RecipeList()
@@ -187,7 +236,7 @@ local function RecipeList()
 
 			untrack(function()
 				local buttons = {}
-				for _, recipe in CraftRecipes do
+				for _, recipe in getSortedRecipes() do
 					local newBtn = TowerResultBtn({
 						TowerName = recipe.ResultName,
 						Size = UDim2.fromScale(0.195, 0.195),
@@ -239,7 +288,7 @@ end
 local function Crafting()
 	local towerInfo = derive(function()
 		local recipeName = SelectedRecipe()
-		return recipeName and TowerData.ByName[recipeName] or nil
+		return recipeName and (TowerData.ByName[recipeName] or ItemData.ByName[recipeName]) or nil
 	end)
 
 	local CurrentIngredients = derive(function()
@@ -260,6 +309,26 @@ local function Crafting()
 			end
 		end
 		return towers
+	end)
+
+	local CurrentItemIngredients = derive(function()
+		local recipeName = SelectedRecipe()
+		if not recipeName then
+			return {}
+		end
+
+		local recipe = CraftRecipes[recipeName]
+		if not recipe then
+			return {}
+		end
+
+		local items = {}
+		for _, ingredient in recipe.Ingredients do
+			if ingredient.Type == "Item" then
+				table.insert(items, ingredient)
+			end
+		end
+		return items
 	end)
 
 	return create("Frame")({
@@ -390,7 +459,7 @@ local function Crafting()
 				ZIndex = 1,
 				Image = function()
 					local info = towerInfo()
-					return info and info.TowerImage or ""
+					return info and (info.TowerImage or info.ItemImage) or ""
 				end,
 			}),
 
@@ -559,10 +628,59 @@ local function Crafting()
 				),
 				Position = UDim2.fromScale(0.525, 0.5),
 				Size = UDim2.fromScale(0.45, 0.045),
-				Text = "(0/1)",
 				TextColor3 = Color3.new(0, 0.5, 1),
 				TextScaled = true,
 				TextXAlignment = Enum.TextXAlignment.Right,
+				Text = function()
+					local satisfiedCount = 0
+					local ingredients = CurrentItemIngredients()
+					for _, ingredient in ingredients do
+						local current = ClientInventory().Items[ingredient.Name] or 0
+						if current >= ingredient.Amount then
+							satisfiedCount += 1
+						end
+					end
+					return `({satisfiedCount}/{#ingredients})`
+				end,
+			}),
+
+			create("ScrollingFrame")({
+				Name = "Items",
+				BackgroundTransparency = 1,
+				Position = UDim2.fromScale(0.04, 0.58),
+				Size = UDim2.fromScale(0.96, 0.2),
+				AutomaticCanvasSize = Enum.AutomaticSize.X,
+				CanvasSize = UDim2.fromScale(0, 0),
+
+				indexes(CurrentItemIngredients, function(ingredientSource)
+					local ingredient = ingredientSource()
+
+					local needAmount = function()
+						return ingredient.Amount
+					end
+
+					local currentAmount = function()
+						return ClientInventory().Items[ingredient.Name] or 0
+					end
+
+					return ItemIngredient({
+						ItemName = ingredient.Name,
+						CurrentAmount = currentAmount,
+						NeedAmount = needAmount,
+					})
+				end),
+
+				create("UIListLayout")({
+					FillDirection = Enum.FillDirection.Horizontal,
+					Padding = UDim.new(0.05, 0),
+					SortOrder = Enum.SortOrder.LayoutOrder,
+					VerticalAlignment = Enum.VerticalAlignment.Center,
+				}),
+
+				create("UIPadding")({
+					PaddingLeft = UDim.new(0.02, 0),
+					PaddingRight = UDim.new(0.02, 0),
+				}),
 			}),
 
 			create("TextLabel")({
@@ -934,6 +1052,7 @@ function CraftUI.Init()
 	InventoryClient = ServiceRegistry:GetService("InventoryClient")
 	UIController = require(script.Parent.Parent.Controllers.UIController)
 	NotificationService = ServiceRegistry:GetService("NotificationService")
+	task.spawn(updateInventory)
 end
 
 function CraftUI.Start(): ()
@@ -944,6 +1063,7 @@ function CraftUI.Start(): ()
 		end
 
 		if targetState then
+			updateInventory()
 			UIController:Open("Craft")
 		else
 			UIController:Close("Craft")
@@ -962,6 +1082,15 @@ function CraftUI.Start(): ()
 		if Players.LocalPlayer == plr then
 			handleTouch(plr, false)
 		end
+	end)
+
+	Vide.root(function()
+		Vide.effect(function()
+			local current = UIState.CurrentFrame()
+			if current == "Craft" then
+				updateInventory()
+			end
+		end)
 	end)
 end
 

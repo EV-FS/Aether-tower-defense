@@ -12,6 +12,7 @@ ServiceRegistry:RegisterServices({
 	ServerServices.Core.GameService,
 	ServerServices.Core.MapService,
 	ServerServices.Core.WaveService,
+	ServerServices.Core.LootService,
 
 	--/System
 	SharedServices.System.EconomyService,

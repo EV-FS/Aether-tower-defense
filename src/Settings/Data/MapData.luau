@@ -1,7 +1,27 @@
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local TableUtils = require(ReplicatedStorage.Shared.Modules.Utils.TableUtils)
 
-local DEFAULT_DIFFICULTIES = {
+--/Types
+export type Difficulty = "Easy" | "Normal" | "Hard" | "Extreme" | "Eternal"
+
+export type RewardDetail = {
+	WinCoins: number,
+	WinExp: number,
+	WinGems: number,
+	LoseCoinsPerWave: number,
+	LoseExpPerWave: number,
+}
+
+export type MapInfo = {
+	MapImage: string,
+	Difficulties: { Difficulty },
+	DifficultyWaves: { [Difficulty]: number },
+	Rewards: { [Difficulty]: RewardDetail },
+}
+
+export type MapData = { [string]: MapInfo }
+
+local DEFAULT_DIFFICULTIES: { Difficulty } = {
 	"Easy",
 	"Normal",
 	"Hard",
@@ -108,4 +128,4 @@ return TableUtils.DeepFreeze({
 			},
 		},
 	},
-})
+}) :: MapData

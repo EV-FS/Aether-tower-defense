@@ -1,13 +1,14 @@
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Vide = require(ReplicatedStorage.Packages.Vide)
 local TowerData = require(ReplicatedStorage.Settings.Data.TowerData)
+local ItemData = require(ReplicatedStorage.Settings.Data.ItemData)
 local RarityColor = require(ReplicatedStorage.Settings.Visuals.RarityColor)
 
 local create = Vide.create
 
 return function(props)
-	local towerInfo = TowerData.ByName[props.TowerName]
-	if not towerInfo then
+	local info = TowerData.ByName[props.TowerName] or ItemData.ByName[props.TowerName]
+	if not info then
 		warn(`{props.TowerName}의 정보가 존재 하지 않음.`)
 		return
 	end
@@ -52,7 +53,7 @@ return function(props)
 
 			create("UIStroke")({
 				Name = "Outline",
-				Color = RarityColor[towerInfo.Rarity],
+				Color = RarityColor[info.Rarity] or Color3.new(1, 1, 1),
 				StrokeSizingMode = Enum.StrokeSizingMode.ScaledSize,
 				Thickness = 0.06,
 
@@ -81,7 +82,7 @@ return function(props)
 				Name = "ImageLabel",
 				AnchorPoint = Vector2.new(0.5, 1),
 				BackgroundTransparency = 1,
-				Image = towerInfo.TowerImage,
+				Image = info.TowerImage or info.ItemImage or "",
 				Position = UDim2.fromScale(0.5, 1),
 				Size = UDim2.fromScale(1.2, 1.2),
 			}),

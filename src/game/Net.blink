@@ -219,6 +219,18 @@ scope NotificationService {
     }
 }
 
+scope LootService {
+    event ReplicateDrop {
+        from: Server,
+        type: Reliable,
+        call: SingleSync,
+        data: struct {
+            itemName: string,
+            amount: u8,
+        }
+    }
+}
+
 scope SettingsService {
     function GetSettings {
         Yield: Promise,

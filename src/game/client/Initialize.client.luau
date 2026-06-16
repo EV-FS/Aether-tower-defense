@@ -21,6 +21,7 @@ ServiceRegistry:RegisterServices({
 	SharedServices.System.VFXService,
 	SharedServices.System.SettingsClient,
 	SharedServices.System.NotificationService,
+	SharedServices.System.LootClient,
 })
 
 GetPath.Init()

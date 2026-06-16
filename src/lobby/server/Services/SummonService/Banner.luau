@@ -6,7 +6,7 @@ Banner._UnitPool = {
 	Rare = { "Gunner Dummy", "Katana Noob" },
 	Epic = { "Lancer Dummy", "Poor Bacon", "Smith Dummy" },
 	Legendary = { "Minigunner Dummy", "RPG Noob", "King Noob", "Mecha" },
-	Mythic = { "Cyborg Dummy", "Poseidon Noob", "Railgunner Dummy" },
+	Mythic = { "Cyborg Dummy", "Poseidon Noob", "Laser Dummy" },
 	Absolute = { "Hacker" },
 }
 

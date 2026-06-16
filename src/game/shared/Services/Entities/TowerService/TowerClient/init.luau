@@ -21,6 +21,7 @@ local TowerData = require(ReplicatedStorage.Settings.Data.TowerData)
 local MouseRayCast = require(ReplicatedStorage.Shared.Modules.Utils.MouseRayCast)
 local TableUtils = require(ReplicatedStorage.Shared.Modules.Utils.TableUtils)
 local CharacterUtils = require(ReplicatedStorage.Shared.Modules.Utils.CharacterUtils)
+local NotificationService = require(ReplicatedStorage.Shared.Services.System.NotificationService)
 local CreateRangeIndicator = require(script.Parent.Utils.CreateRangeIndicator)
 
 --/Constants
@@ -329,7 +330,7 @@ function TowerClient.RequestSpawn()
 
 	local canSpawn, errorMsg = PlaceValidator.CheckSpawn(validationData)
 	if not canSpawn then
-		warn("[TowerClient] Spawn failed:", errorMsg)
+		NotificationService:Popup(PLAYER, errorMsg, 3)
 		return
 	end
 

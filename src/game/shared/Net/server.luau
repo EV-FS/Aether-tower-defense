@@ -164,15 +164,15 @@ Queue.Reliable[11] = table.create(256)
 Queue.Reliable[12] = table.create(256)
 Queue.Reliable[13] = table.create(256)
 Queue.Reliable[14] = table.create(256)
-Queue.Reliable[22] = table.create(256)
 Queue.Reliable[23] = table.create(256)
 Queue.Reliable[24] = table.create(256)
-Queue.Reliable[29] = table.create(256)
+Queue.Reliable[25] = table.create(256)
 Queue.Reliable[30] = table.create(256)
 Queue.Reliable[31] = table.create(256)
-Queue.Reliable[37] = table.create(256)
+Queue.Reliable[32] = table.create(256)
 Queue.Reliable[38] = table.create(256)
-Queue.Reliable[40] = table.create(256)
+Queue.Reliable[39] = table.create(256)
+Queue.Reliable[41] = table.create(256)
 local function EnemyService_WriteEVENT_ReplicatedEnemy(Value: { enemyId: number, enemyIndex: number, sendTimeMs: number, isBoss: boolean?, startPathAlpha: number? }): ()
 	-- Allocate BLOCK: 8 bytes
 	local BLOCK_START = Allocate(8)
@@ -445,6 +445,17 @@ local function NotificationService_WriteEVENT_Popup(Value: { Message: string, Du
 	buffer.writeu16(SendBuffer, BLOCK_START + 3, Value.DurationMs)
 end
 
+local function LootService_WriteEVENT_ReplicateDrop(Value: { itemName: string, amount: number }): ()
+	-- Allocate BLOCK: 4 bytes
+	local BLOCK_START = Allocate(4)
+	buffer.writeu8(SendBuffer, BLOCK_START + 0, 22)
+	local Length = #Value.itemName
+	buffer.writeu16(SendBuffer, BLOCK_START + 1, Length)
+	Allocate(Length)
+	buffer.writestring(SendBuffer, SendOffset, Value.itemName, Length)
+	buffer.writeu8(SendBuffer, BLOCK_START + 3, Value.amount)
+end
+
 local function SettingsService_ReadFUNCTION_DATA_GetSettings(): (string?)
 	-- Read BLOCK: 1 bytes
 	local BLOCK_START = Read(1)
@@ -461,7 +472,7 @@ end
 local function SettingsService_WriteFUNCTION_RETURN_GetSettings(Value: any, InvocationIdentifier: number): ()
 	-- Allocate BLOCK: 3 bytes
 	local BLOCK_START = Allocate(3)
-	buffer.writeu8(SendBuffer, BLOCK_START + 0, 22)
+	buffer.writeu8(SendBuffer, BLOCK_START + 0, 23)
 	buffer.writeu8(SendBuffer, BLOCK_START + 1, InvocationIdentifier)
 	buffer.writeu8(SendBuffer, BLOCK_START + 2, 1)
 	table.insert(SendInstances, if Value == nil then Null else Value)
@@ -481,7 +492,7 @@ end
 local function SettingsService_WriteFUNCTION_RETURN_SaveSetting(Value: boolean, InvocationIdentifier: number): ()
 	-- Allocate BLOCK: 4 bytes
 	local BLOCK_START = Allocate(4)
-	buffer.writeu8(SendBuffer, BLOCK_START + 0, 23)
+	buffer.writeu8(SendBuffer, BLOCK_START + 0, 24)
 	buffer.writeu8(SendBuffer, BLOCK_START + 1, InvocationIdentifier)
 	buffer.writeu8(SendBuffer, BLOCK_START + 2, 1)
 	buffer.writeu8(SendBuffer, BLOCK_START + 3, Value and 1 or 0)
@@ -494,7 +505,7 @@ end
 local function GameEvent_WriteFUNCTION_RETURN_GetGameInfo(Value: { Difficulty: string, StartPlayerCount: number }, InvocationIdentifier: number): ()
 	-- Allocate BLOCK: 6 bytes
 	local BLOCK_START = Allocate(6)
-	buffer.writeu8(SendBuffer, BLOCK_START + 0, 24)
+	buffer.writeu8(SendBuffer, BLOCK_START + 0, 25)
 	buffer.writeu8(SendBuffer, BLOCK_START + 1, InvocationIdentifier)
 	buffer.writeu8(SendBuffer, BLOCK_START + 2, 1)
 	local Length = #Value.Difficulty
@@ -507,7 +518,7 @@ end
 local function GameEvent_WriteEVENT_GameInfoSynced(Value: { Difficulty: string, StartPlayerCount: number }): ()
 	-- Allocate BLOCK: 4 bytes
 	local BLOCK_START = Allocate(4)
-	buffer.writeu8(SendBuffer, BLOCK_START + 0, 25)
+	buffer.writeu8(SendBuffer, BLOCK_START + 0, 26)
 	local Length = #Value.Difficulty
 	buffer.writeu16(SendBuffer, BLOCK_START + 1, Length)
 	Allocate(Length)
@@ -518,20 +529,20 @@ end
 local function GameEvent_WriteEVENT_WaveStarted(Value: number): ()
 	-- Allocate BLOCK: 3 bytes
 	local BLOCK_START = Allocate(3)
-	buffer.writeu8(SendBuffer, BLOCK_START + 0, 26)
+	buffer.writeu8(SendBuffer, BLOCK_START + 0, 27)
 	buffer.writeu16(SendBuffer, BLOCK_START + 1, Value)
 end
 
 local function GameEvent_WriteEVENT_WaveCompleted(Value: nil): ()
 	-- Allocate BLOCK: 1 bytes
 	local BLOCK_START = Allocate(1)
-	buffer.writeu8(SendBuffer, BLOCK_START + 0, 27)
+	buffer.writeu8(SendBuffer, BLOCK_START + 0, 28)
 end
 
 local function GameEvent_WriteEVENT_GameOver(Value: { isWin: boolean, coins: number, exp: number, gems: number }): ()
 	-- Allocate BLOCK: 8 bytes
 	local BLOCK_START = Allocate(8)
-	buffer.writeu8(SendBuffer, BLOCK_START + 0, 28)
+	buffer.writeu8(SendBuffer, BLOCK_START + 0, 29)
 	buffer.writeu8(SendBuffer, BLOCK_START + 1, Value.isWin and 1 or 0)
 	buffer.writeu16(SendBuffer, BLOCK_START + 2, Value.coins)
 	buffer.writeu16(SendBuffer, BLOCK_START + 4, Value.exp)
@@ -553,34 +564,34 @@ end
 local function GameEvent_WriteEVENT_ReadyVoted(Value: number): ()
 	-- Allocate BLOCK: 2 bytes
 	local BLOCK_START = Allocate(2)
-	buffer.writeu8(SendBuffer, BLOCK_START + 0, 32)
+	buffer.writeu8(SendBuffer, BLOCK_START + 0, 33)
 	buffer.writeu8(SendBuffer, BLOCK_START + 1, Value)
 end
 
 local function GameEvent_WriteEVENT_RestartVoted(Value: number): ()
 	-- Allocate BLOCK: 2 bytes
 	local BLOCK_START = Allocate(2)
-	buffer.writeu8(SendBuffer, BLOCK_START + 0, 33)
+	buffer.writeu8(SendBuffer, BLOCK_START + 0, 34)
 	buffer.writeu8(SendBuffer, BLOCK_START + 1, Value)
 end
 
 local function GameEvent_WriteEVENT_SkipVoted(Value: number): ()
 	-- Allocate BLOCK: 2 bytes
 	local BLOCK_START = Allocate(2)
-	buffer.writeu8(SendBuffer, BLOCK_START + 0, 34)
+	buffer.writeu8(SendBuffer, BLOCK_START + 0, 35)
 	buffer.writeu8(SendBuffer, BLOCK_START + 1, Value)
 end
 
 local function GameEvent_WriteEVENT_Restarted(Value: nil): ()
 	-- Allocate BLOCK: 1 bytes
 	local BLOCK_START = Allocate(1)
-	buffer.writeu8(SendBuffer, BLOCK_START + 0, 35)
+	buffer.writeu8(SendBuffer, BLOCK_START + 0, 36)
 end
 
 local function GameEvent_WriteEVENT_CanSkip(Value: nil): ()
 	-- Allocate BLOCK: 1 bytes
 	local BLOCK_START = Allocate(1)
-	buffer.writeu8(SendBuffer, BLOCK_START + 0, 36)
+	buffer.writeu8(SendBuffer, BLOCK_START + 0, 37)
 end
 
 local function GameEvent_ReadEVENT_VoteSkip(): (nil)
@@ -597,7 +608,7 @@ end
 local function TimeService_WriteFUNCTION_RETURN_ChangeGameSpeed(Value: boolean, InvocationIdentifier: number): ()
 	-- Allocate BLOCK: 4 bytes
 	local BLOCK_START = Allocate(4)
-	buffer.writeu8(SendBuffer, BLOCK_START + 0, 38)
+	buffer.writeu8(SendBuffer, BLOCK_START + 0, 39)
 	buffer.writeu8(SendBuffer, BLOCK_START + 1, InvocationIdentifier)
 	buffer.writeu8(SendBuffer, BLOCK_START + 2, 1)
 	buffer.writeu8(SendBuffer, BLOCK_START + 3, Value and 1 or 0)
@@ -606,7 +617,7 @@ end
 local function TimeService_WriteEVENT_GameSpeedChanged(Value: { newSpeed: number, sendTimeMs: number }): ()
 	-- Allocate BLOCK: 4 bytes
 	local BLOCK_START = Allocate(4)
-	buffer.writeu8(SendBuffer, BLOCK_START + 0, 39)
+	buffer.writeu8(SendBuffer, BLOCK_START + 0, 40)
 	buffer.writeu8(SendBuffer, BLOCK_START + 1, Value.newSpeed)
 	buffer.writeu16(SendBuffer, BLOCK_START + 2, Value.sendTimeMs)
 end
@@ -625,7 +636,7 @@ end
 local function GlobalExistService_WriteFUNCTION_RETURN_GetCount(Value: number, InvocationIdentifier: number): ()
 	-- Allocate BLOCK: 7 bytes
 	local BLOCK_START = Allocate(7)
-	buffer.writeu8(SendBuffer, BLOCK_START + 0, 40)
+	buffer.writeu8(SendBuffer, BLOCK_START + 0, 41)
 	buffer.writeu8(SendBuffer, BLOCK_START + 1, InvocationIdentifier)
 	buffer.writeu8(SendBuffer, BLOCK_START + 2, 1)
 	buffer.writeu32(SendBuffer, BLOCK_START + 3, Value)
@@ -634,7 +645,7 @@ end
 local function GlobalExistService_WriteEVENT_CountUpdated(Value: { category: string, itemName: string, newCount: number }): ()
 	-- Allocate BLOCK: 9 bytes
 	local BLOCK_START = Allocate(9)
-	buffer.writeu8(SendBuffer, BLOCK_START + 0, 41)
+	buffer.writeu8(SendBuffer, BLOCK_START + 0, 42)
 	local Length = #Value.category
 	buffer.writeu16(SendBuffer, BLOCK_START + 1, Length)
 	Allocate(Length)
@@ -772,6 +783,14 @@ if not RunService:IsRunning() then
 	},
 	NotificationService = {
 		Popup = {
+			Fire = NOOP,
+			FireAll = NOOP,
+			FireList = NOOP,
+			FireExcept = NOOP
+		},
+	},
+	LootService = {
+		ReplicateDrop = {
 			Fire = NOOP,
 			FireAll = NOOP,
 			FireList = NOOP,
@@ -1006,29 +1025,16 @@ Reliable.OnServerEvent:Connect(function(Player: Player, Buffer: buffer, Instance
 				end
 				table.insert(Queue.Reliable[14], {Player, Value, InvocationIdentifier} :: {any})
 			end
-		elseif Index == 22 then
-			-- Read BLOCK: 1 bytes
-			local BLOCK_START = Read(1)
-			local InvocationIdentifier = buffer.readu8(RecieveBuffer, BLOCK_START + 0)
-			local Value: string? = SettingsService_ReadFUNCTION_DATA_GetSettings()
-			if Events.Reliable[22] ~= nil then
-				task.spawn(Events.Reliable[22], Player, Value, InvocationIdentifier)
-			else
-				if #Queue.Reliable[22] > 256 then
-					warn("[Blink]: Event queue of \"GetSettings\" exceeded 256, did you forget to implement a listener?")
-				end
-				table.insert(Queue.Reliable[22], {Player, Value, InvocationIdentifier} :: {any})
-			end
 		elseif Index == 23 then
 			-- Read BLOCK: 1 bytes
 			local BLOCK_START = Read(1)
 			local InvocationIdentifier = buffer.readu8(RecieveBuffer, BLOCK_START + 0)
-			local Value: { SettingName: string, Value: any } = SettingsService_ReadFUNCTION_DATA_SaveSetting()
+			local Value: string? = SettingsService_ReadFUNCTION_DATA_GetSettings()
 			if Events.Reliable[23] ~= nil then
 				task.spawn(Events.Reliable[23], Player, Value, InvocationIdentifier)
 			else
 				if #Queue.Reliable[23] > 256 then
-					warn("[Blink]: Event queue of \"SaveSetting\" exceeded 256, did you forget to implement a listener?")
+					warn("[Blink]: Event queue of \"GetSettings\" exceeded 256, did you forget to implement a listener?")
 				end
 				table.insert(Queue.Reliable[23], {Player, Value, InvocationIdentifier} :: {any})
 			end
@@ -1036,84 +1042,97 @@ Reliable.OnServerEvent:Connect(function(Player: Player, Buffer: buffer, Instance
 			-- Read BLOCK: 1 bytes
 			local BLOCK_START = Read(1)
 			local InvocationIdentifier = buffer.readu8(RecieveBuffer, BLOCK_START + 0)
-			local Value: nil = GameEvent_ReadFUNCTION_DATA_GetGameInfo()
+			local Value: { SettingName: string, Value: any } = SettingsService_ReadFUNCTION_DATA_SaveSetting()
 			if Events.Reliable[24] ~= nil then
 				task.spawn(Events.Reliable[24], Player, Value, InvocationIdentifier)
 			else
 				if #Queue.Reliable[24] > 256 then
-					warn("[Blink]: Event queue of \"GetGameInfo\" exceeded 256, did you forget to implement a listener?")
+					warn("[Blink]: Event queue of \"SaveSetting\" exceeded 256, did you forget to implement a listener?")
 				end
 				table.insert(Queue.Reliable[24], {Player, Value, InvocationIdentifier} :: {any})
 			end
-		elseif Index == 29 then
-			local Value: nil = GameEvent_ReadEVENT_TeleportToLobby()
-			if Events.Reliable[29] ~= nil then
-				SerdesEvent = "TeleportToLobby"
-				Events.Reliable[29](Player, Value)
+		elseif Index == 25 then
+			-- Read BLOCK: 1 bytes
+			local BLOCK_START = Read(1)
+			local InvocationIdentifier = buffer.readu8(RecieveBuffer, BLOCK_START + 0)
+			local Value: nil = GameEvent_ReadFUNCTION_DATA_GetGameInfo()
+			if Events.Reliable[25] ~= nil then
+				task.spawn(Events.Reliable[25], Player, Value, InvocationIdentifier)
 			else
-				if #Queue.Reliable[29] > 256 then
-					warn("[Blink]: Event queue of \"TeleportToLobby\" exceeded 256, did you forget to implement a listener?")
+				if #Queue.Reliable[25] > 256 then
+					warn("[Blink]: Event queue of \"GetGameInfo\" exceeded 256, did you forget to implement a listener?")
 				end
-				table.insert(Queue.Reliable[29], {Player, Value} :: {any})
+				table.insert(Queue.Reliable[25], {Player, Value, InvocationIdentifier} :: {any})
 			end
 		elseif Index == 30 then
-			local Value: nil = GameEvent_ReadEVENT_VoteRestart()
+			local Value: nil = GameEvent_ReadEVENT_TeleportToLobby()
 			if Events.Reliable[30] ~= nil then
-				SerdesEvent = "VoteRestart"
+				SerdesEvent = "TeleportToLobby"
 				Events.Reliable[30](Player, Value)
 			else
 				if #Queue.Reliable[30] > 256 then
-					warn("[Blink]: Event queue of \"VoteRestart\" exceeded 256, did you forget to implement a listener?")
+					warn("[Blink]: Event queue of \"TeleportToLobby\" exceeded 256, did you forget to implement a listener?")
 				end
 				table.insert(Queue.Reliable[30], {Player, Value} :: {any})
 			end
 		elseif Index == 31 then
-			local Value: nil = GameEvent_ReadEVENT_Ready()
+			local Value: nil = GameEvent_ReadEVENT_VoteRestart()
 			if Events.Reliable[31] ~= nil then
-				SerdesEvent = "Ready"
+				SerdesEvent = "VoteRestart"
 				Events.Reliable[31](Player, Value)
 			else
 				if #Queue.Reliable[31] > 256 then
-					warn("[Blink]: Event queue of \"Ready\" exceeded 256, did you forget to implement a listener?")
+					warn("[Blink]: Event queue of \"VoteRestart\" exceeded 256, did you forget to implement a listener?")
 				end
 				table.insert(Queue.Reliable[31], {Player, Value} :: {any})
 			end
-		elseif Index == 37 then
-			local Value: nil = GameEvent_ReadEVENT_VoteSkip()
-			if Events.Reliable[37] ~= nil then
-				SerdesEvent = "VoteSkip"
-				Events.Reliable[37](Player, Value)
+		elseif Index == 32 then
+			local Value: nil = GameEvent_ReadEVENT_Ready()
+			if Events.Reliable[32] ~= nil then
+				SerdesEvent = "Ready"
+				Events.Reliable[32](Player, Value)
 			else
-				if #Queue.Reliable[37] > 256 then
-					warn("[Blink]: Event queue of \"VoteSkip\" exceeded 256, did you forget to implement a listener?")
+				if #Queue.Reliable[32] > 256 then
+					warn("[Blink]: Event queue of \"Ready\" exceeded 256, did you forget to implement a listener?")
 				end
-				table.insert(Queue.Reliable[37], {Player, Value} :: {any})
+				table.insert(Queue.Reliable[32], {Player, Value} :: {any})
 			end
 		elseif Index == 38 then
+			local Value: nil = GameEvent_ReadEVENT_VoteSkip()
+			if Events.Reliable[38] ~= nil then
+				SerdesEvent = "VoteSkip"
+				Events.Reliable[38](Player, Value)
+			else
+				if #Queue.Reliable[38] > 256 then
+					warn("[Blink]: Event queue of \"VoteSkip\" exceeded 256, did you forget to implement a listener?")
+				end
+				table.insert(Queue.Reliable[38], {Player, Value} :: {any})
+			end
+		elseif Index == 39 then
 			-- Read BLOCK: 1 bytes
 			local BLOCK_START = Read(1)
 			local InvocationIdentifier = buffer.readu8(RecieveBuffer, BLOCK_START + 0)
 			local Value: number = TimeService_ReadFUNCTION_DATA_ChangeGameSpeed()
-			if Events.Reliable[38] ~= nil then
-				task.spawn(Events.Reliable[38], Player, Value, InvocationIdentifier)
+			if Events.Reliable[39] ~= nil then
+				task.spawn(Events.Reliable[39], Player, Value, InvocationIdentifier)
 			else
-				if #Queue.Reliable[38] > 256 then
+				if #Queue.Reliable[39] > 256 then
 					warn("[Blink]: Event queue of \"ChangeGameSpeed\" exceeded 256, did you forget to implement a listener?")
 				end
-				table.insert(Queue.Reliable[38], {Player, Value, InvocationIdentifier} :: {any})
+				table.insert(Queue.Reliable[39], {Player, Value, InvocationIdentifier} :: {any})
 			end
-		elseif Index == 40 then
+		elseif Index == 41 then
 			-- Read BLOCK: 1 bytes
 			local BLOCK_START = Read(1)
 			local InvocationIdentifier = buffer.readu8(RecieveBuffer, BLOCK_START + 0)
 			local Value: { category: string, itemName: string } = GlobalExistService_ReadFUNCTION_DATA_GetCount()
-			if Events.Reliable[40] ~= nil then
-				task.spawn(Events.Reliable[40], Player, Value, InvocationIdentifier)
+			if Events.Reliable[41] ~= nil then
+				task.spawn(Events.Reliable[41], Player, Value, InvocationIdentifier)
 			else
-				if #Queue.Reliable[40] > 256 then
+				if #Queue.Reliable[41] > 256 then
 					warn("[Blink]: Event queue of \"GetCount\" exceeded 256, did you forget to implement a listener?")
 				end
-				table.insert(Queue.Reliable[40], {Player, Value, InvocationIdentifier} :: {any})
+				table.insert(Queue.Reliable[41], {Player, Value, InvocationIdentifier} :: {any})
 			end
 		end
 	end
@@ -2074,39 +2093,59 @@ local Returns = table.freeze({
 			end,
 		},
 	},
+	LootService = {
+		ReplicateDrop = {
+			Fire = function(Player: Player, Value: { itemName: string, amount: number }): ()
+				Load(PlayersMap[Player])
+				LootService_WriteEVENT_ReplicateDrop(Value)
+				PlayersMap[Player] = Save()
+			end,
+			FireAll = function(Value: { itemName: string, amount: number }): ()
+				Load()
+				LootService_WriteEVENT_ReplicateDrop(Value)
+				local Buffer, Size, Instances = SendBuffer, SendCursor, SendInstances
+				for _, Player in Players:GetPlayers() do
+					Load(PlayersMap[Player])
+					local Position = Allocate(Size)
+					buffer.copy(SendBuffer, Position, Buffer, 0, Size)
+					table.move(Instances, 1, #Instances, #SendInstances + 1, SendInstances)
+					PlayersMap[Player] = Save()
+				end
+			end,
+			FireList = function(List: {Player}, Value: { itemName: string, amount: number }): ()
+				Load()
+				LootService_WriteEVENT_ReplicateDrop(Value)
+				local Buffer, Size, Instances = SendBuffer, SendCursor, SendInstances
+				for _, Player in List do
+					Load(PlayersMap[Player])
+					local Position = Allocate(Size)
+					buffer.copy(SendBuffer, Position, Buffer, 0, Size)
+					table.move(Instances, 1, #Instances, #SendInstances + 1, SendInstances)
+					PlayersMap[Player] = Save()
+				end
+			end,
+			FireExcept = function(Except: Player, Value: { itemName: string, amount: number }): ()
+				Load()
+				LootService_WriteEVENT_ReplicateDrop(Value)
+				local Buffer, Size, Instances = SendBuffer, SendCursor, SendInstances
+				for _, Player in Players:GetPlayers() do
+					if Player == Except then
+						continue
+					end
+					Load(PlayersMap[Player])
+					local Position = Allocate(Size)
+					buffer.copy(SendBuffer, Position, Buffer, 0, Size)
+					table.move(Instances, 1, #Instances, #SendInstances + 1, SendInstances)
+					PlayersMap[Player] = Save()
+				end
+			end,
+		},
+	},
 	SettingsService = {
 		GetSettings = {
 		On = function(Listener: (Player, string?) -> (any)): ()
-			Events.Reliable[22] = function(Player: Player, Value: string?, InvocationIdentifier: number): ()
+			Events.Reliable[23] = function(Player: Player, Value: string?, InvocationIdentifier: number): ()
 				local ReturnValue: any;
-				local Success, Error = pcall(function ()
-					ReturnValue = Listener(Player, Value)
-				end)
-				Load(PlayersMap[Player])
-				if Success ~= true then
-					local Position = Allocate(3)
-					buffer.writeu8(SendBuffer, Position, 22)
-					buffer.writeu8(SendBuffer, Position + 1, InvocationIdentifier)
-					buffer.writeu8(SendBuffer, Position + 2, 0)
-					warn(`"GetSettings" encountered an error, {Error}`)
-				else
-					SettingsService_WriteFUNCTION_RETURN_GetSettings(ReturnValue, InvocationIdentifier)
-				end
-				PlayersMap[Player] = Save()
-			end
-			task.spawn(function (): ()
-				local EventQueue = Queue.Reliable[22] or {}
-				Queue.Reliable[22] = nil
-				for Index, Arguments in EventQueue do
-					Events.Reliable[22](table.unpack(Arguments))
-				end
-			end)
-		end
-		},
-		SaveSetting = {
-		On = function(Listener: (Player, { SettingName: string, Value: any }) -> (boolean)): ()
-			Events.Reliable[23] = function(Player: Player, Value: { SettingName: string, Value: any }, InvocationIdentifier: number): ()
-				local ReturnValue: boolean;
 				local Success, Error = pcall(function ()
 					ReturnValue = Listener(Player, Value)
 				end)
@@ -2116,9 +2155,9 @@ local Returns = table.freeze({
 					buffer.writeu8(SendBuffer, Position, 23)
 					buffer.writeu8(SendBuffer, Position + 1, InvocationIdentifier)
 					buffer.writeu8(SendBuffer, Position + 2, 0)
-					warn(`"SaveSetting" encountered an error, {Error}`)
+					warn(`"GetSettings" encountered an error, {Error}`)
 				else
-					SettingsService_WriteFUNCTION_RETURN_SaveSetting(ReturnValue, InvocationIdentifier)
+					SettingsService_WriteFUNCTION_RETURN_GetSettings(ReturnValue, InvocationIdentifier)
 				end
 				PlayersMap[Player] = Save()
 			end
@@ -2131,12 +2170,10 @@ local Returns = table.freeze({
 			end)
 		end
 		},
-	},
-	GameEvent = {
-		GetGameInfo = {
-		On = function(Listener: (Player, nil) -> ({ Difficulty: string, StartPlayerCount: number })): ()
-			Events.Reliable[24] = function(Player: Player, Value: nil, InvocationIdentifier: number): ()
-				local ReturnValue: { Difficulty: string, StartPlayerCount: number };
+		SaveSetting = {
+		On = function(Listener: (Player, { SettingName: string, Value: any }) -> (boolean)): ()
+			Events.Reliable[24] = function(Player: Player, Value: { SettingName: string, Value: any }, InvocationIdentifier: number): ()
+				local ReturnValue: boolean;
 				local Success, Error = pcall(function ()
 					ReturnValue = Listener(Player, Value)
 				end)
@@ -2146,9 +2183,9 @@ local Returns = table.freeze({
 					buffer.writeu8(SendBuffer, Position, 24)
 					buffer.writeu8(SendBuffer, Position + 1, InvocationIdentifier)
 					buffer.writeu8(SendBuffer, Position + 2, 0)
-					warn(`"GetGameInfo" encountered an error, {Error}`)
+					warn(`"SaveSetting" encountered an error, {Error}`)
 				else
-					GameEvent_WriteFUNCTION_RETURN_GetGameInfo(ReturnValue, InvocationIdentifier)
+					SettingsService_WriteFUNCTION_RETURN_SaveSetting(ReturnValue, InvocationIdentifier)
 				end
 				PlayersMap[Player] = Save()
 			end
@@ -2157,6 +2194,36 @@ local Returns = table.freeze({
 				Queue.Reliable[24] = nil
 				for Index, Arguments in EventQueue do
 					Events.Reliable[24](table.unpack(Arguments))
+				end
+			end)
+		end
+		},
+	},
+	GameEvent = {
+		GetGameInfo = {
+		On = function(Listener: (Player, nil) -> ({ Difficulty: string, StartPlayerCount: number })): ()
+			Events.Reliable[25] = function(Player: Player, Value: nil, InvocationIdentifier: number): ()
+				local ReturnValue: { Difficulty: string, StartPlayerCount: number };
+				local Success, Error = pcall(function ()
+					ReturnValue = Listener(Player, Value)
+				end)
+				Load(PlayersMap[Player])
+				if Success ~= true then
+					local Position = Allocate(3)
+					buffer.writeu8(SendBuffer, Position, 25)
+					buffer.writeu8(SendBuffer, Position + 1, InvocationIdentifier)
+					buffer.writeu8(SendBuffer, Position + 2, 0)
+					warn(`"GetGameInfo" encountered an error, {Error}`)
+				else
+					GameEvent_WriteFUNCTION_RETURN_GetGameInfo(ReturnValue, InvocationIdentifier)
+				end
+				PlayersMap[Player] = Save()
+			end
+			task.spawn(function (): ()
+				local EventQueue = Queue.Reliable[25] or {}
+				Queue.Reliable[25] = nil
+				for Index, Arguments in EventQueue do
+					Events.Reliable[25](table.unpack(Arguments))
 				end
 			end)
 		end
@@ -2347,20 +2414,6 @@ local Returns = table.freeze({
 		},
 		TeleportToLobby = {
 			On = function(Listener: (Player: Player, Value: nil) -> ()): () -> ()
-				Events.Reliable[29] = Listener
-				for Index, Arguments in Queue.Reliable[29] do
-					Listener(table.unpack(Arguments))
-				end
-				Queue.Reliable[29] = {}
-				return function (): ()
-					if Events.Reliable[29] == Listener then
-						Events.Reliable[29] = nil
-					end
-				end
-			end
-		},
-		VoteRestart = {
-			On = function(Listener: (Player: Player, Value: nil) -> ()): () -> ()
 				Events.Reliable[30] = Listener
 				for Index, Arguments in Queue.Reliable[30] do
 					Listener(table.unpack(Arguments))
@@ -2373,7 +2426,7 @@ local Returns = table.freeze({
 				end
 			end
 		},
-		Ready = {
+		VoteRestart = {
 			On = function(Listener: (Player: Player, Value: nil) -> ()): () -> ()
 				Events.Reliable[31] = Listener
 				for Index, Arguments in Queue.Reliable[31] do
@@ -2383,6 +2436,20 @@ local Returns = table.freeze({
 				return function (): ()
 					if Events.Reliable[31] == Listener then
 						Events.Reliable[31] = nil
+					end
+				end
+			end
+		},
+		Ready = {
+			On = function(Listener: (Player: Player, Value: nil) -> ()): () -> ()
+				Events.Reliable[32] = Listener
+				for Index, Arguments in Queue.Reliable[32] do
+					Listener(table.unpack(Arguments))
+				end
+				Queue.Reliable[32] = {}
+				return function (): ()
+					if Events.Reliable[32] == Listener then
+						Events.Reliable[32] = nil
 					end
 				end
 			end
@@ -2619,14 +2686,14 @@ local Returns = table.freeze({
 		},
 		VoteSkip = {
 			On = function(Listener: (Player: Player, Value: nil) -> ()): () -> ()
-				Events.Reliable[37] = Listener
-				for Index, Arguments in Queue.Reliable[37] do
+				Events.Reliable[38] = Listener
+				for Index, Arguments in Queue.Reliable[38] do
 					Listener(table.unpack(Arguments))
 				end
-				Queue.Reliable[37] = {}
+				Queue.Reliable[38] = {}
 				return function (): ()
-					if Events.Reliable[37] == Listener then
-						Events.Reliable[37] = nil
+					if Events.Reliable[38] == Listener then
+						Events.Reliable[38] = nil
 					end
 				end
 			end
@@ -2635,7 +2702,7 @@ local Returns = table.freeze({
 	TimeService = {
 		ChangeGameSpeed = {
 		On = function(Listener: (Player, number) -> (boolean)): ()
-			Events.Reliable[38] = function(Player: Player, Value: number, InvocationIdentifier: number): ()
+			Events.Reliable[39] = function(Player: Player, Value: number, InvocationIdentifier: number): ()
 				local ReturnValue: boolean;
 				local Success, Error = pcall(function ()
 					ReturnValue = Listener(Player, Value)
@@ -2643,7 +2710,7 @@ local Returns = table.freeze({
 				Load(PlayersMap[Player])
 				if Success ~= true then
 					local Position = Allocate(3)
-					buffer.writeu8(SendBuffer, Position, 38)
+					buffer.writeu8(SendBuffer, Position, 39)
 					buffer.writeu8(SendBuffer, Position + 1, InvocationIdentifier)
 					buffer.writeu8(SendBuffer, Position + 2, 0)
 					warn(`"ChangeGameSpeed" encountered an error, {Error}`)
@@ -2653,10 +2720,10 @@ local Returns = table.freeze({
 				PlayersMap[Player] = Save()
 			end
 			task.spawn(function (): ()
-				local EventQueue = Queue.Reliable[38] or {}
-				Queue.Reliable[38] = nil
+				local EventQueue = Queue.Reliable[39] or {}
+				Queue.Reliable[39] = nil
 				for Index, Arguments in EventQueue do
-					Events.Reliable[38](table.unpack(Arguments))
+					Events.Reliable[39](table.unpack(Arguments))
 				end
 			end)
 		end
@@ -2711,7 +2778,7 @@ local Returns = table.freeze({
 	GlobalExistService = {
 		GetCount = {
 		On = function(Listener: (Player, { category: string, itemName: string }) -> (number)): ()
-			Events.Reliable[40] = function(Player: Player, Value: { category: string, itemName: string }, InvocationIdentifier: number): ()
+			Events.Reliable[41] = function(Player: Player, Value: { category: string, itemName: string }, InvocationIdentifier: number): ()
 				local ReturnValue: number;
 				local Success, Error = pcall(function ()
 					ReturnValue = Listener(Player, Value)
@@ -2719,7 +2786,7 @@ local Returns = table.freeze({
 				Load(PlayersMap[Player])
 				if Success ~= true then
 					local Position = Allocate(3)
-					buffer.writeu8(SendBuffer, Position, 40)
+					buffer.writeu8(SendBuffer, Position, 41)
 					buffer.writeu8(SendBuffer, Position + 1, InvocationIdentifier)
 					buffer.writeu8(SendBuffer, Position + 2, 0)
 					warn(`"GetCount" encountered an error, {Error}`)
@@ -2729,10 +2796,10 @@ local Returns = table.freeze({
 				PlayersMap[Player] = Save()
 			end
 			task.spawn(function (): ()
-				local EventQueue = Queue.Reliable[40] or {}
-				Queue.Reliable[40] = nil
+				local EventQueue = Queue.Reliable[41] or {}
+				Queue.Reliable[41] = nil
 				for Index, Arguments in EventQueue do
-					Events.Reliable[40](table.unpack(Arguments))
+					Events.Reliable[41](table.unpack(Arguments))
 				end
 			end)
 		end

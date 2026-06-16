@@ -154,6 +154,7 @@ function RoomService:StartGame(player: Player, roomId: number): boolean
 	local success = targetRoom:StartGame(player)
 	if success then
 		Net.RoomService.RoomStarted.FireList(targetRoom.Players)
+		self:DisbandRoom(roomId)
 	end
 
 	return success

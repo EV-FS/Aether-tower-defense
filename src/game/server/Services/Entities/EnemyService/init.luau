@@ -53,7 +53,7 @@ function EnemyService.SetupNewEnemy(name: string, isBoss: boolean?, pathAlpha: n
 		end
 
 		EnemyRegistry.remove(self.Id)
-		EnemyService.EnemyDefeated:Fire()
+		EnemyService.EnemyDefeated:Fire(self)
 	end)
 
 	EnemyRegistry.add(self)
