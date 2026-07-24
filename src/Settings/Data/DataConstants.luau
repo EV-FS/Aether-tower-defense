@@ -5,6 +5,7 @@ return TableUtils.DeepFreeze({
 	KST_OFFSET = 9 * 3600,
 	MAX_LOADOUT_SIZE = 5,
 	MAX_TOWER_LEVEL = 30,
+	STARTER_TOWER = "Fighter Noob",
 
 	PROFILE_TEMPLATE = {
 		Coins = 200,
@@ -16,6 +17,7 @@ return TableUtils.DeepFreeze({
 		Inventory = {
 			Crates = {},
 			Items = {},
+			Emotes = {},
 		},
 		GamePasses = {},
 		DevProducts = {},
@@ -23,6 +25,7 @@ return TableUtils.DeepFreeze({
 		Settings = {},
 		_NextId = 1,
 		_StructureVersion = "v2",
+		_StarterTowerReceived = false,
 	},
 
 	PUBLIC_DATA_KEYS = {

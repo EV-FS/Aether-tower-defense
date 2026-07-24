@@ -19,7 +19,7 @@ local RawEnemyData = {
 	},
 	["Big Goblin"] = {
 		Index = 4,
-		MaxHealth = 3500,
+		MaxHealth = 350,
 		WalkSpeed = 3,
 	},
 	["Necromancer Goblin"] = {

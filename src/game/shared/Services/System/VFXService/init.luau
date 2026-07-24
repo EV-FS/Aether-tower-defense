@@ -120,6 +120,10 @@ function VFXService.GetRecipes(sourceName: string, effectType: string, sourceLev
 		return nil
 	end
 
+	if effectRecipes[1] then
+		return effectRecipes
+	end
+
 	local level = sourceLevel or 0
 
 	for currentLevel = level, 0, -1 do
@@ -135,6 +139,9 @@ function VFXService.GetRecipes(sourceName: string, effectType: string, sourceLev
 end
 
 function VFXService.PlayVFX(vfxRecipes: Recipes, sourceModel: Model, targetModel: Model, range: number?, delay: number?)
+	if typeof(vfxRecipes) ~= "table" then
+		return
+	end
 	for _, recipe in vfxRecipes do
 		if (recipe.Delay and recipe.Delay > 0) or delay then
 			local delayedRecipe = table.clone(recipe)

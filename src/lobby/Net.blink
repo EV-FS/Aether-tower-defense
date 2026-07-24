@@ -22,6 +22,40 @@ scope NotificationService {
     }
 }
 
+scope EmoteService {
+    function RequestPlayEmote {
+        Yield: Promise,
+        Data: struct {
+            EmoteId: string,
+        },
+        Return: boolean,
+    }
+
+    function RequestStopEmote {
+        Yield: Promise,
+        Return: boolean,
+    }
+
+    event EmoteStarted {
+        from: Server,
+        type: Reliable,
+        call: ManySync,
+        data: struct {
+            Player: unknown,
+            EmoteId: string,
+        }
+    }
+
+    event EmoteStopped {
+        from: Server,
+        type: Reliable,
+        call: ManySync,
+        data: struct {
+            Player: unknown,
+        }
+    }
+}
+
 scope RoomService {
     event RoomRefreshed {
         from: Server,

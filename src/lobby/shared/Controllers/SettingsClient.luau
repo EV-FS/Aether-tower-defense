@@ -6,7 +6,7 @@ local TableUtils = require(ReplicatedStorage.Shared.Modules.Utils.TableUtils)
 local Net = require(ReplicatedStorage.Shared.Net)
 local SettingsData = require(ReplicatedStorage.Settings.Data.SettingsData)
 
-local AudioService
+local AudioController
 
 local Settings = {}
 local dirtySettings = {}
@@ -41,8 +41,8 @@ local SettingApplier = {
 	end,
 	Night = function(value: boolean)
 		smoothSetTime(if value then 0 else 11, 3)
-		if AudioService then
-			AudioService.SetBGMState(
+		if AudioController then
+			AudioController.SetBGMState(
 				nil,
 				nil,
 				if value then "rbxassetid://79315968132597" else "rbxassetid://109718857077158"
@@ -51,13 +51,13 @@ local SettingApplier = {
 	end,
 
 	MusicVolume = function(value: number)
-		if AudioService then
-			AudioService.SetBGMState(nil, (value / 50))
+		if AudioController then
+			AudioController.SetBGMState(nil, (value / 50))
 		end
 	end,
 	SFXVolume = function(value: number)
-		if AudioService then
-			AudioService.SFXVolume = (value / 50)
+		if AudioController then
+			AudioController.SFXVolume = (value / 50)
 		end
 	end,
 }
@@ -161,7 +161,7 @@ function SettingsClient._SaveSettings()
 end
 
 function SettingsClient.Init(services)
-	AudioService = services:GetService("AudioService")
+	AudioController = services:GetService("AudioController")
 
 	SettingsClient.FetchSettings()
 end

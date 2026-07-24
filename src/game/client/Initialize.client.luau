@@ -22,6 +22,7 @@ ServiceRegistry:RegisterServices({
 	SharedServices.System.SettingsClient,
 	SharedServices.System.NotificationService,
 	SharedServices.System.LootClient,
+	SharedServices.System.SprintClient,
 })
 
 GetPath.Init()

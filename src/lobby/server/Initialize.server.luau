@@ -13,17 +13,19 @@ ServiceRegistry:RegisterServices({
 	ServerServices.CmdrService,
 	ServerServices.DataService,
 	ServerServices.LoadoutService,
-	ServerServices.RoomService,
 	ServerServices.SettingsService,
 	ServerServices.StoreService,
 	ServerServices.SummonService,
 	ServerServices.GlobalExistService,
 	ServerServices.CraftService,
+	ServerServices.EmoteService,
 
 	SharedServices.NotificationService,
 })
 
-ServiceRegistry:Start()
+ServiceRegistry:Start():andThen(function()
+	print("서버 로드 완료.")
+end)
 
 -------------------------------------------------
 --// Load Matter

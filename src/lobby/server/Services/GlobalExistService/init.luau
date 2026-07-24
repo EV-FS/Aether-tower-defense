@@ -6,6 +6,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 --/Modules
 local Net = require(ReplicatedStorage.Shared.Net)
+local DataService
 
 --/Settings
 local DB_UPDATE_INTERVAL = 300
@@ -183,7 +184,9 @@ end
 -------------------------------------------------
 local GlobalExistService = {}
 
-function GlobalExistService.Init() end
+function GlobalExistService.Init(services)
+	DataService = services:GetService("DataService")
+end
 
 function GlobalExistService.Start()
 	globalCounts = FetchAllGlobalCounts()
@@ -244,6 +247,13 @@ function GlobalExistService.Start()
 				})
 			end
 		end
+	end)
+
+	DataService:GetChangedSignal("OwnedTowersAdded"):Connect(function(targetTower)
+		GlobalExistService:AddExistCount("Towers", targetTower.towerName)
+	end)
+	DataService:GetChangedSignal("OwnedTowersRemoved"):Connect(function(targetTower)
+		GlobalExistService:AddExistCount("Towers", targetTower.towerName, -1)
 	end)
 
 	game:BindToClose(function()

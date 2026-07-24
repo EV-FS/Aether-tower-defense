@@ -4,8 +4,8 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local ServerScriptService = game:GetService("ServerScriptService")
 
 --/Modules
-local DataConstants = require(script.DataConstants)
-local DataSignals = require(script.DataSignals)
+local Signal = require(ReplicatedStorage.Packages.Signal)
+local DataConstants = require(ReplicatedStorage.Settings.Data.DataConstants)
 
 local Net = require(ReplicatedStorage.Shared.Net)
 local TowerData = require(ReplicatedStorage.Settings.Data.TowerData)
@@ -13,22 +13,20 @@ local PurchaseData = require(ReplicatedStorage.Settings.Data.PurchaseData)
 local TableUtils = require(ReplicatedStorage.Shared.Modules.Utils.TableUtils)
 local ProfileStore = require(ServerScriptService.ServerPackages.ProfileStore)
 
-local GlobalExistService
-
 --/Variables
 local PlayerStore = ProfileStore.New("TowerDefenseData_v1", DataConstants.PROFILE_TEMPLATE)
 local Profiles: { [Player]: profile } = {}
 
 --/Types
 type profile = typeof(PlayerStore:StartSessionAsync())
-
+type PlayerData = typeof(DataConstants.PROFILE_TEMPLATE)
 type PurchaseType = "Owned" | "Gifted" | "Token" | "Unknown"
 type towerTemplate = typeof(DataConstants.TOWER_TEMPLATE)
 
 export type DataService = {
 	Init: () -> nil,
 	GetProfile: (self: DataService, player: Player) -> profile?,
-	GetData: (self: DataService, player: Player) -> typeof(DataConstants.PROFILE_TEMPLATE)?,
+	GetData: (self: DataService, player: Player) -> PlayerData?,
 	SaveData: (self: DataService, player: Player) -> nil,
 
 	AddData: (self: DataService, player: Player, mainKey: string, amount: number, ...any) -> number?,
@@ -45,11 +43,15 @@ export type DataService = {
 		purchaseType: PurchaseType?
 	) -> boolean,
 	ProcessProduct: (self: DataService, player: Player, productId: number) -> Enum.ProductPurchaseDecision,
+
+	GetChangedSignal: (self: DataService, mainKey: string) -> typeof(Signal.new()),
+	FireChanged: (self: DataService, player: Player, mainKey: string, value: any) -> nil,
 }
+
 -------------------------------------------------
 --// Local Functions
 -------------------------------------------------
-local function UpdateLeaderstats(player: Player, playerData)
+local function UpdateLeaderstats(player: Player, playerData: PlayerData)
 	local leaderstats = player:FindFirstChild("leaderstats") or Instance.new("Folder")
 	leaderstats.Name = "leaderstats"
 	leaderstats.Parent = player
@@ -70,7 +72,7 @@ local function UpdateLeaderstats(player: Player, playerData)
 	gems.Parent = leaderstats
 end
 
-local function IsOldData(playerData): boolean
+local function IsOldData(playerData: PlayerData): boolean
 	return playerData.Health ~= nil
 		or playerData.EndlessSeason ~= nil
 		or playerData.HaveUnit ~= nil
@@ -83,52 +85,27 @@ local function IsOldData(playerData): boolean
 		or playerData.ReceivedStarterUnit ~= nil
 end
 
-local function ExpLogic(currentLevel: number)
+local function ExpLogic(currentLevel: number): number
 	return 50 * (currentLevel + math.ceil(currentLevel / 10)) + 50
 end
 
-local function GetTowerRequiredExp(level)
+local function GetTowerRequiredExp(level: number): number
 	return 100 * (level + 1)
 end
 
-local function SetLevel(playerData)
-	local requireExp = ExpLogic(playerData.Level)
-
-	while playerData.Exp >= requireExp do
-		playerData.Exp -= requireExp
-		playerData.Level += 1
-
-		requireExp = ExpLogic(playerData.Level)
-	end
-end
-
-local function SetTowerLevel(towerData: towerTemplate)
-	local maxLevel = DataConstants.MAX_TOWER_LEVEL or 30
-	if towerData.Lv >= maxLevel then
-		towerData.Exp = 0
-		return false
-	end
-
-	local requireExp = GetTowerRequiredExp(towerData.Lv)
-
-	local hasLevelUp = false
-	while towerData.Exp >= requireExp do
-		hasLevelUp = true
-		towerData.Exp -= requireExp
-		towerData.Lv += 1
-
-		if towerData.Lv >= maxLevel then
-			towerData.Exp = 0
-			break
+local function ensurePath(rootTable: { [any]: any }, subKeys: { any }): ({ [any]: any }, any)
+	local current = rootTable
+	for i = 1, #subKeys - 1 do
+		local k = subKeys[i]
+		if type(current[k]) ~= "table" then
+			current[k] = {}
 		end
-
-		requireExp = GetTowerRequiredExp(towerData.Lv)
+		current = current[k]
 	end
-
-	return hasLevelUp
+	return current, subKeys[#subKeys]
 end
 
-local function patchTowerRenames(playerData)
+local function patchTowerRenames(playerData: PlayerData)
 	local nameMapping = {
 		["Glitch"] = "Hacker",
 		["Batter Noob"] = "Batter Bacon",
@@ -170,10 +147,9 @@ end
 --// DataService
 -------------------------------------------------
 local DataService = {} :: DataService
+DataService.KeySignals = {}
 
-function DataService.Init(services)
-	GlobalExistService = services:GetService("GlobalExistService")
-end
+function DataService.Init() end
 
 function DataService.Start()
 	for _, player in ipairs(Players:GetPlayers()) do
@@ -200,12 +176,12 @@ function DataService.Start()
 	end)
 
 	for _, currencyName in { "Coins", "Gems", "Exp", "Level" } do
-		DataSignals:GetChangedSignal(currencyName):Connect(function(player, value)
+		DataService:GetChangedSignal(currencyName):Connect(function(player, value)
 			Net.DataService.CurrencyChanged.Fire(player, { CurrencyName = currencyName, CurrencyValue = value })
 		end)
 	end
 
-	DataSignals:GetChangedSignal("OwnedTowersAdded"):Connect(function(player, data)
+	DataService:GetChangedSignal("OwnedTowersAdded"):Connect(function(player, data)
 		local towerInfo = TowerData.ByName[data.towerName]
 		if not towerInfo then
 			return
@@ -218,7 +194,7 @@ function DataService.Start()
 		})
 	end)
 
-	DataSignals:GetChangedSignal("OwnedTowersRemoved"):Connect(function(player, data)
+	DataService:GetChangedSignal("OwnedTowersRemoved"):Connect(function(player, data)
 		local towerInfo = TowerData.ByName[data.towerName]
 		if not towerInfo then
 			return
@@ -232,18 +208,19 @@ function DataService.Start()
 end
 
 function DataService:GetProfile(player: Player): profile
-	while not Profiles[player] do
+	local passTime = 0
+	while not Profiles[player] and passTime <= 30 do
 		if player.Parent ~= Players then
 			return nil
 		end
 
-		task.wait(0.1)
+		passTime += task.wait(0.1)
 	end
 
 	return Profiles[player]
 end
 
-function DataService:GetData(player: Player)
+function DataService:GetData(player: Player): PlayerData?
 	local profile = DataService:GetProfile(player)
 	if profile then
 		return profile.Data
@@ -259,14 +236,13 @@ function DataService:SaveData(player: Player)
 	end
 end
 
-function DataService:AddData(player: Player, mainKey: string, amount: number, ...): number?
+function DataService:AddData(player: Player, mainKey: string, amount: number, ...: any): number?
 	local playerData = DataService:GetData(player)
 	if not playerData then
 		return
 	end
 
 	assert(typeof(amount) == "number", `유효하지 않은 수량타입: {typeof(amount)}.`)
-
 	local function check(current)
 		local val = current or 0
 		if val + amount < 0 then
@@ -290,36 +266,24 @@ function DataService:AddData(player: Player, mainKey: string, amount: number, ..
 			playerData[mainKey] = {}
 		end
 
-		local current = playerData[mainKey]
+		local parentTable, lastKey = ensurePath(playerData[mainKey], subKeys)
 
-		for i = 1, #subKeys - 1 do
-			local k = subKeys[i]
-			if type(current[k]) ~= "table" then
-				current[k] = {}
-			end
-			current = current[k]
-		end
-
-		local lastKey = subKeys[#subKeys]
-
-		if not check(current[lastKey]) then
+		if not check(parentTable[lastKey]) then
 			return
 		end
-		current[lastKey] = (current[lastKey] or 0) + amount
-		totalValue = current[lastKey]
+		parentTable[lastKey] = (parentTable[lastKey] or 0) + amount
+		totalValue = parentTable[lastKey]
 	end
 
 	if string.upper(mainKey) == "EXP" then
-		SetLevel(playerData)
-		DataSignals:Fire(player, "Level", playerData.Level)
-		totalValue = playerData.Exp
+		DataService._SetLevel(player, playerData)
 	elseif mainKey == "OwnedTowers" and string.upper(subKeys[#subKeys]) == "EXP" then
 		local towerName = subKeys[1]
 		local towerKey = subKeys[2]
 		local towerData = playerData.OwnedTowers[towerName][towerKey]
-		local hasLevelUp = SetTowerLevel(towerData)
+		local hasLevelUp = DataService._SetTowerLevel(towerData)
 
-		DataSignals:Fire(player, "TowerExpChanged", {
+		self:FireChanged(player, "TowerExpChanged", {
 			TowerName = towerName,
 			TowerKey = towerKey,
 			Exp = towerData.Exp,
@@ -330,12 +294,12 @@ function DataService:AddData(player: Player, mainKey: string, amount: number, ..
 	end
 
 	UpdateLeaderstats(player, playerData)
-	DataSignals:Fire(player, mainKey, totalValue)
+	self:FireChanged(player, mainKey, totalValue)
 
 	return totalValue
 end
 
-function DataService:UpdateData(player: Player, mainKey: string, value: any, ...): any?
+function DataService:UpdateData(player: Player, mainKey: string, value: any, ...: any): any?
 	local playerData = self:GetData(player)
 	if not playerData then
 		return
@@ -350,27 +314,21 @@ function DataService:UpdateData(player: Player, mainKey: string, value: any, ...
 			playerData[mainKey] = {}
 		end
 
-		local current = playerData[mainKey]
-
-		for i = 1, #subKeys - 1 do
-			local k = subKeys[i]
-			if type(current[k]) ~= "table" then
-				current[k] = {}
-			end
-			current = current[k]
-		end
-
-		local lastKey = subKeys[#subKeys]
-		current[lastKey] = value
+		local parentTable, lastKey = ensurePath(playerData[mainKey], subKeys)
+		parentTable[lastKey] = value
 	end
 
-	DataSignals:Fire(player, mainKey, value)
+	UpdateLeaderstats(player, playerData)
+	self:FireChanged(player, mainKey, value)
 
 	return value
 end
 
-function DataService:AddTower(player: Player, towerName: string, towerData: typeof(DataConstants.TOWER_TEMPLATE) | nil)
+function DataService:AddTower(player: Player, towerName: string, towerData: towerTemplate?)
 	local playerData = self:GetData(player)
+	if not playerData then
+		return
+	end
 
 	local towerId = playerData._NextId
 	local towerKey = `t_{towerId}`
@@ -379,9 +337,7 @@ function DataService:AddTower(player: Player, towerName: string, towerData: type
 	self:UpdateData(player, "OwnedTowers", newTower, towerName, towerKey)
 	playerData._NextId += 1
 
-	GlobalExistService:AddExistCount("Towers", towerName)
-
-	DataSignals:Fire(player, "OwnedTowersAdded", {
+	self:FireChanged(player, "OwnedTowersAdded", {
 		towerName = towerName,
 		towerKeyId = towerId,
 		towerData = newTower,
@@ -390,6 +346,9 @@ end
 
 function DataService:RemoveTower(player: Player, towerName: string, towerKey: string)
 	local playerData = self:GetData(player)
+	if not playerData then
+		return
+	end
 
 	local targetTowerType = playerData.OwnedTowers[towerName]
 	if not targetTowerType then
@@ -405,8 +364,6 @@ function DataService:RemoveTower(player: Player, towerName: string, towerKey: st
 
 	self:UpdateData(player, "OwnedTowers", nil, towerName, towerKey)
 
-	GlobalExistService:AddExistCount("Towers", towerName, -1)
-
 	for index, equippedTower in playerData.Loadout do
 		if equippedTower.Name == towerName and equippedTower.Key == towerKey then
 			self:UpdateData(player, "Loadout", nil, index)
@@ -414,7 +371,7 @@ function DataService:RemoveTower(player: Player, towerName: string, towerKey: st
 	end
 
 	local towerKeyId = tonumber(towerKey:match("%d+$") or towerKey) or towerKey
-	DataSignals:Fire(player, "OwnedTowersRemoved", {
+	self:FireChanged(player, "OwnedTowersRemoved", {
 		towerName = towerName,
 		towerKeyId = towerKeyId,
 	})
@@ -475,13 +432,14 @@ function DataService:ProcessProduct(player: Player, receiptInfo): Enum.ProductPu
 		return Enum.ProductPurchaseDecision.NotProcessedYet
 	end
 
-	if targetProduct.MaxPurchases then
-		if (playerData.DevProducts[tostring(productId)] or 0) >= targetProduct.MaxPurchases then
-			warn(
-				`요청한 개발자 상품 Id: {productId}의 최대 구매 횟수 {targetProduct.MaxPurchases}를 초과함.`
-			)
-			return Enum.ProductPurchaseDecision.PurchaseGranted
-		end
+	if
+		targetProduct.MaxPurchases
+		and (playerData.DevProducts[tostring(productId)] or 0) >= targetProduct.MaxPurchases
+	then
+		warn(
+			`요청한 개발자 상품 Id: {productId}의 최대 구매 횟수 {targetProduct.MaxPurchases}를 초과함.`
+		)
+		return Enum.ProductPurchaseDecision.PurchaseGranted
 	end
 
 	local targetRewards = targetProduct.Rewards
@@ -501,18 +459,24 @@ function DataService:ProcessProduct(player: Player, receiptInfo): Enum.ProductPu
 	end
 
 	self:AddData(player, "DevProducts", 1, tostring(productId))
-	playerData.ProcessedPurchases[tostring(receiptInfo.PurchaseId)] = os.time()
-
-	local saveSuccess = pcall(function()
-		self:SaveData(player)
-	end)
-
-	if not saveSuccess then
-		playerData.ProcessedPurchases[tostring(receiptInfo.PurchaseId)] = nil
-		return Enum.ProductPurchaseDecision.NotProcessedYet
-	end
+	self:UpdateData(player, "ProcessedPurchases", os.time(), tostring(receiptInfo.PurchaseId))
 
 	return Enum.ProductPurchaseDecision.PurchaseGranted
+end
+
+function DataService:GetChangedSignal(mainKey: string): typeof(Signal.new())
+	if not self.KeySignals[mainKey] then
+		self.KeySignals[mainKey] = Signal.new()
+	end
+
+	return self.KeySignals[mainKey]
+end
+
+function DataService:FireChanged(player: Player, mainKey: string, value: any)
+	local signal = self.KeySignals[mainKey]
+	if signal then
+		signal:Fire(player, value)
+	end
 end
 
 --/내부 함수
@@ -621,7 +585,7 @@ function DataService:_v1Tov2(playerData)
 	playerData.ReceivedStarterUnit = nil
 end
 
-function DataService:_MigrateData(profile, player: Player)
+function DataService:_MigrateData(profile: profile, player: Player)
 	local playerData = profile.Data
 	local version = if IsOldData(playerData) then "v1" else "v2"
 
@@ -632,6 +596,48 @@ function DataService:_MigrateData(profile, player: Player)
 	patchTowerRenames(playerData)
 end
 
+function DataService._SetLevel(player: Player, playerData: PlayerData)
+	local requireExp = ExpLogic(playerData.Level)
+	local playerExp = playerData.Exp
+	local totalLevel = 0
+
+	while playerExp >= requireExp do
+		playerExp -= requireExp
+		totalLevel += 1
+
+		requireExp = ExpLogic(playerData.Level + totalLevel)
+	end
+
+	DataService:UpdateData(player, "Exp", playerExp)
+	DataService:AddData(player, "Level", totalLevel)
+end
+
+function DataService._SetTowerLevel(towerData: towerTemplate): boolean
+	local maxLevel = DataConstants.MAX_TOWER_LEVEL or 30
+	if towerData.Lv >= maxLevel then
+		towerData.Exp = 0
+		return false
+	end
+
+	local requireExp = GetTowerRequiredExp(towerData.Lv)
+
+	local hasLevelUp = false
+	while towerData.Exp >= requireExp do
+		hasLevelUp = true
+		towerData.Exp -= requireExp
+		towerData.Lv += 1
+
+		if towerData.Lv >= maxLevel then
+			towerData.Exp = 0
+			break
+		end
+
+		requireExp = GetTowerRequiredExp(towerData.Lv)
+	end
+
+	return hasLevelUp
+end
+
 function DataService._PlayerAdded(player: Player)
 	local profile = PlayerStore:StartSessionAsync(`Player_{player.UserId}`, {
 		Cancel = function()
@@ -639,47 +645,44 @@ function DataService._PlayerAdded(player: Player)
 		end,
 	})
 
-	if profile ~= nil then
-		profile:AddUserId(player.UserId)
-		profile:Reconcile()
+	if not profile then
+		player:Kick("Data load failed. Please rejoin(데이터 로딩에 실패했습니다. 재접속 해주세요).")
+		return
+	end
 
-		DataService:_MigrateData(profile, player)
-		SetLevel(profile.Data)
-		UpdateLeaderstats(player, profile.Data)
+	profile:AddUserId(player.UserId)
+	profile:Reconcile()
 
-		profile.OnSessionEnd:Connect(function()
-			Profiles[player] = nil
-			player:Kick(
-				`Profile session end. Please rejoin(프로필 세션이 만료되었습니다. 재접속 해주세요).`
-			)
-		end)
+	DataService:_MigrateData(profile, player)
+	DataService._SetLevel(player, profile.Data)
+	UpdateLeaderstats(player, profile.Data)
 
-		if player:IsDescendantOf(Players) == true then
-			Profiles[player] = profile
-			print(`플레이어 {player.DisplayName}의 데이터 로딩 성공.`)
-			print(profile)
+	profile.OnSessionEnd:Connect(function()
+		Profiles[player] = nil
+		player:Kick(
+			`Profile session end. Please rejoin(프로필 세션이 만료되었습니다. 재접속 해주세요).`
+		)
+	end)
 
-			local playerData = profile.Data
-			local hasFighterNoob = playerData.OwnedTowers["Fighter Noob"] ~= nil
-				and next(playerData.OwnedTowers["Fighter Noob"]) ~= nil
-			if not hasFighterNoob then
-				DataService:AddTower(player, "Fighter Noob")
-				local ownedFighterMap = playerData.OwnedTowers["Fighter Noob"]
-				if ownedFighterMap then
-					local firstKey = next(ownedFighterMap)
-					if firstKey then
-						local currentEquipped = playerData.Loadout["1"] or playerData.Loadout[1]
-						if not currentEquipped then
-							DataService:UpdateData(player, "Loadout", { Name = "Fighter Noob", Key = firstKey }, "1")
-						end
-					end
-				end
-			end
-		else
-			profile:EndSession()
+	if not player:IsDescendantOf(Players) then
+		profile:EndSession()
+		return
+	end
+
+	Profiles[player] = profile
+	print(`플레이어 {player.DisplayName}의 데이터 로딩 성공.`, profile)
+
+	local playerData = profile.Data
+	if not playerData._StarterTowerReceived then
+		playerData._StarterTowerReceived = true
+		DataService:AddTower(player, DataConstants.STARTER_TOWER)
+
+		local firstKey = next(playerData.OwnedTowers[DataConstants.STARTER_TOWER])
+		local isLoadoutEmpty = not next(playerData.Loadout)
+
+		if firstKey and isLoadoutEmpty and not playerData.Loadout["1"] then
+			DataService:UpdateData(player, "Loadout", { Name = DataConstants.STARTER_TOWER, Key = firstKey }, "1")
 		end
-	else
-		player:Kick(`Data load failed. Please rejoin(데이터 로딩에 실패했습니다. 재접속 해주세요).`)
 	end
 end
 

@@ -43,6 +43,14 @@ local TableUtils = require(ReplicatedStorage.Shared.Modules.Utils.TableUtils)
 --]]
 
 return TableUtils.DeepFreeze({
+	--/Emotes
+	["CameraFlash"] = {
+		Emote = {
+			Steps.Emit("Emote/CameraFlash", { At = "Source.EmoteProps.Camera" }),
+		},
+	},
+
+	--/Towers
 	["Bacon"] = {
 		AttackEnd = {
 			[0] = {

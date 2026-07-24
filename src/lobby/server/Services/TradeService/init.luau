@@ -9,7 +9,7 @@ local HttpService = game:GetService("HttpService")
 local Net = require(ReplicatedStorage.Shared.Net)
 local TableUtils = require(ReplicatedStorage.Shared.Modules.Utils.TableUtils)
 
-local DataService -- Init 시점 지연 로드
+local DataService: any -- Init 시점 지연 로드
 
 --/Variables
 local TradeLogStore = DataStoreService:GetDataStore("TradeLogs_v1")
@@ -24,7 +24,7 @@ local LOG_FLUSH_INTERVAL = 60 -- 거래 로그 배치 저장 주기(초)
 local MAX_LOG_QUEUE = 500 -- 큐 상한. 초과 시 가장 오래된 로그부터 폐기
 local LOG_BATCH_MAX = 50 -- 한 키에 담는 최대 레코드 수
 
-local LogQueue: { any } = {}
+local LogQueue: { SerializedSession } = {}
 
 --/Configuration (취약점 해소: 내부 데이터 거래 방지용 화이트리스트)
 local TradeConfig = {
@@ -60,6 +60,34 @@ type TradeSession = {
 	Confirmed: { [Player]: boolean },
 }
 
+type TowerSnapshot = {
+	Name: string,
+	Data: any,
+}
+
+type TradeSidePayload = {
+	Currency: { [string]: number },
+	Items: { [string]: number },
+	Towers: { [string]: TowerSnapshot },
+}
+
+type TradeSide = {
+	TradeId: string,
+	At: number,
+	Gives: TradeSidePayload,
+	Receives: TradeSidePayload,
+}
+
+type SerializedSession = {
+	Id: string,
+	Version: number,
+	State: string,
+	Created: number,
+	SavedAt: number,
+	Members: { string },
+	Offers: { [string]: TradeOffer },
+}
+
 -------------------------------------------------
 --// Local Functions
 -------------------------------------------------
@@ -75,7 +103,7 @@ local function IsValidAmount(value: any): boolean
 	return type(value) == "number" and value > 0 and value % 1 == 0 and value < 1e15
 end
 
-local function SafeFire(remote, player: Player, payload: any?)
+local function SafeFire(remote: any, player: Player, payload: any?)
 	if player and player.Parent == Players then
 		remote.Fire(player, payload)
 	end
@@ -108,6 +136,39 @@ local function OnOfferChanged(session: TradeSession)
 	BroadcastState(session)
 end
 
+local function GetEditableSession(player: Player): (TradeSession?, string?)
+	local sessionId = PlayerToSession[player]
+	if not sessionId then
+		return nil, "진행 중인 거래가 없습니다."
+	end
+	local session = ActiveSessions[sessionId]
+	if not session or session.State ~= "Building" then
+		return nil, "지금은 거래 내용을 수정할 수 없습니다."
+	end
+	return session, nil
+end
+
+local function GetSessionAndData(player: Player): (TradeSession?, any, string?)
+	local session, err = GetEditableSession(player)
+	if not session then
+		return nil, nil, err
+	end
+	local playerData = DataService:GetData(player)
+	if not playerData then
+		return nil, nil, "데이터 미로드"
+	end
+	return session, playerData, nil
+end
+
+local function IsTowerEquipped(playerData: any, towerKey: string): boolean
+	for _, loadoutData in playerData.Loadout do
+		if loadoutData.Key == towerKey then
+			return true
+		end
+	end
+	return false
+end
+
 local function ValidateOffer(player: Player, offer: TradeOffer): (boolean, string?)
 	local playerData = DataService:GetData(player)
 	if not playerData then
@@ -126,22 +187,17 @@ local function ValidateOffer(player: Player, offer: TradeOffer): (boolean, strin
 		end
 	end
 
-	local equippedKeys = {}
-	for _, loadoutData in playerData.Loadout do
-		equippedKeys[loadoutData.Key] = true
-	end
-
 	for towerKey, towerName in offer.Towers do
 		local towerType = playerData.OwnedTowers[towerName]
 		if not towerType or not towerType[towerKey] then
 			return false, `타워 누락: {towerName}`
 		end
-		if equippedKeys[towerKey] then
+		if IsTowerEquipped(playerData, towerKey) then
 			return false, `장착 중인 타워는 거래할 수 없습니다: {towerName}`
 		end
 	end
 
-	return true
+	return true, nil
 end
 
 local function CanReceiveOffer(receiver: Player, incoming: TradeOffer): (boolean, string?)
@@ -149,22 +205,10 @@ local function CanReceiveOffer(receiver: Player, incoming: TradeOffer): (boolean
 	if not receiverData then
 		return false, "수신자 데이터 미로드"
 	end
-	return true
+	return true, nil
 end
 
-local function GetEditableSession(player: Player): (TradeSession?, string?)
-	local sessionId = PlayerToSession[player]
-	if not sessionId then
-		return nil, "진행 중인 거래가 없습니다."
-	end
-	local session = ActiveSessions[sessionId]
-	if not session or session.State ~= "Building" then
-		return nil, "지금은 거래 내용을 수정할 수 없습니다."
-	end
-	return session
-end
-
-local function ApplyTradeSide(player: Player, gives, receives)
+local function ApplyTradeSide(player: Player, gives: TradeSidePayload, receives: TradeSidePayload)
 	for currencyId, amount in gives.Currency do
 		DataService:AddData(player, currencyId, -amount)
 	end
@@ -186,14 +230,128 @@ local function ApplyTradeSide(player: Player, gives, receives)
 	end
 end
 
+local function ValidateSession(session: TradeSession): (boolean, string?)
+	local plr1, plr2 = session.Members[1], session.Members[2]
+	local ok1, why1 = ValidateOffer(plr1, session.Offers[plr1])
+	if not ok1 then return false, why1 end
+	local ok2, why2 = ValidateOffer(plr2, session.Offers[plr2])
+	if not ok2 then return false, why2 end
+
+	local rOk1, rWhy1 = CanReceiveOffer(plr2, session.Offers[plr1])
+	if not rOk1 then return false, rWhy1 end
+	local rOk2, rWhy2 = CanReceiveOffer(plr1, session.Offers[plr2])
+	if not rOk2 then return false, rWhy2 end
+
+	return true, nil
+end
+
+local function SnapshotTowers(player: Player, session: TradeSession): { [string]: TowerSnapshot }
+	local data = DataService:GetData(player)
+	local snap = {}
+	if not data then return snap end
+
+	for towerKey, towerName in session.Offers[player].Towers do
+		local towerData = data.OwnedTowers[towerName] and data.OwnedTowers[towerName][towerKey]
+		if towerData then
+			snap[towerKey] = {
+				Name = towerName,
+				Data = TableUtils.DeepCopy(towerData),
+			}
+		end
+	end
+	return snap
+end
+
+local function BuildTradeSide(
+	sessionId: string,
+	givesOffer: TradeOffer,
+	givesSnap: { [string]: TowerSnapshot },
+	receivesOffer: TradeOffer,
+	receivesSnap: { [string]: TowerSnapshot }
+): TradeSide
+	return {
+		TradeId = sessionId,
+		At = os.time(),
+		Gives = {
+			Currency = givesOffer.Currency,
+			Items = givesOffer.Items,
+			Towers = givesSnap,
+		},
+		Receives = {
+			Currency = receivesOffer.Currency,
+			Items = receivesOffer.Items,
+			Towers = receivesSnap,
+		},
+	}
+end
+
+local function WritePendingEscrow(plr1: Player, plr2: Player, sideA: TradeSide, sideB: TradeSide): boolean
+	local escrowOk = pcall(function()
+		PendingTradeStore:SetAsync(`Pending_{plr1.UserId}`, sideA)
+		PendingTradeStore:SetAsync(`Pending_{plr2.UserId}`, sideB)
+	end)
+	return escrowOk
+end
+
+local function RemovePendingEscrow(plr1: Player, plr2: Player)
+	pcall(function()
+		PendingTradeStore:RemoveAsync(`Pending_{plr1.UserId}`)
+		PendingTradeStore:RemoveAsync(`Pending_{plr2.UserId}`)
+	end)
+end
+
+local function WriteCommitToken(sessionId: string): boolean
+	local commitKey = `Committed_{sessionId}`
+	local tokenOk = pcall(function()
+		PendingTradeStore:SetAsync(commitKey, { TradeId = sessionId, At = os.time() })
+	end)
+	return tokenOk
+end
+
+local function RemoveCommitToken(sessionId: string)
+	local commitKey = `Committed_{sessionId}`
+	pcall(function()
+		PendingTradeStore:RemoveAsync(commitKey)
+	end)
+end
+
+local function SettlePlayerTrade(player: Player, side: TradeSide, sessionId: string)
+	ApplyTradeSide(player, side.Gives, side.Receives)
+	DataService:UpdateData(player, "LastTradeId", sessionId)
+	local saveOk = pcall(function()
+		DataService:SaveData(player)
+	end)
+	if saveOk then
+		pcall(function()
+			PendingTradeStore:RemoveAsync(`Pending_{player.UserId}`)
+		end)
+	end
+	SafeFire(Net.TradeService.TradeCompleted, player, { SessionId = sessionId })
+end
+
+local function SerializeSession(session: TradeSession): SerializedSession
+	local serialized: SerializedSession = {
+		Id = session.Id,
+		Version = session.Version,
+		State = session.State,
+		Created = session.Created,
+		SavedAt = os.time(),
+		Members = {},
+		Offers = {},
+	}
+	for _, player in session.Members do
+		local userId = tostring(player.UserId)
+		table.insert(serialized.Members, userId)
+		serialized.Offers[userId] = TableUtils.DeepCopy(session.Offers[player])
+	end
+	return serialized
+end
+
 -------------------------------------------------
 --// TradeService
 -------------------------------------------------
 local TradeService = {}
 
--- [취약점 해소: TOCTOU 방어]
--- 상점(Shop)이나 인벤토리 조작 스크립트에서 유저가 아이템을 쓰기 전 이 함수를 호출하여
--- 거래 중일 때는 소비를 막아야 이중 지불을 완벽히 차단할 수 있습니다.
 function TradeService.IsPlayerTrading(player: Player): boolean
 	local sessionId = PlayerToSession[player]
 	if not sessionId then
@@ -232,25 +390,12 @@ function TradeService.CreateSession(plr1: Player, plr2: Player): (TradeSession?,
 	ActiveSessions[sessionId] = session
 	PlayerToSession[plr1] = sessionId
 	PlayerToSession[plr2] = sessionId
-	return session
+	return session, nil
 end
 
 function TradeService.LogSession(session: TradeSession, id: string?): boolean
 	local key = id or session.Id
-	local serializable = {
-		Id = session.Id,
-		Version = session.Version,
-		State = session.State,
-		Created = session.Created,
-		SavedAt = os.time(),
-		Members = {},
-		Offers = {},
-	}
-	for _, player in session.Members do
-		local userId = tostring(player.UserId)
-		table.insert(serializable.Members, userId)
-		serializable.Offers[userId] = TableUtils.DeepCopy(session.Offers[player])
-	end
+	local serializable = SerializeSession(session)
 
 	local ok, err = pcall(function()
 		TradeLogStore:SetAsync(key, serializable)
@@ -269,20 +414,13 @@ function TradeService.AddItem(player: Player, id: string, amount: number): (bool
 	if not IsValidAmount(amount) then
 		return false, "잘못된 수량입니다."
 	end
-
-	-- [취약점 해소: 화이트리스트 검증]
 	if not TradeConfig.IsItemTradeable(id) then
 		return false, "거래가 불가능한 아이템입니다."
 	end
 
-	local session, reason = GetEditableSession(player)
-	if not session then
-		return false, reason
-	end
-
-	local playerData = DataService:GetData(player)
-	if not playerData then
-		return false, "데이터 미로드"
+	local session, playerData, err = GetSessionAndData(player)
+	if not session or not playerData then
+		return false, err
 	end
 
 	local offer = session.Offers[player]
@@ -294,16 +432,16 @@ function TradeService.AddItem(player: Player, id: string, amount: number): (bool
 
 	offer.Items[id] = alreadyOffered + amount
 	OnOfferChanged(session)
-	return true
+	return true, nil
 end
 
 function TradeService.RemoveItem(player: Player, id: string, amount: number?): (boolean, string?)
 	if not IsValidId(id) then
 		return false, "잘못된 아이템 식별자입니다."
 	end
-	local session, reason = GetEditableSession(player)
+	local session, err = GetEditableSession(player)
 	if not session then
-		return false, reason
+		return false, err
 	end
 
 	local offer = session.Offers[player]
@@ -321,7 +459,7 @@ function TradeService.RemoveItem(player: Player, id: string, amount: number?): (
 	end
 
 	OnOfferChanged(session)
-	return true
+	return true, nil
 end
 
 function TradeService.AddCurrency(player: Player, currencyId: string, amount: number): (boolean, string?)
@@ -331,18 +469,15 @@ function TradeService.AddCurrency(player: Player, currencyId: string, amount: nu
 	if not IsValidAmount(amount) then
 		return false, "잘못된 수량입니다."
 	end
-
-	-- [취약점 해소: 내부 변수 거래 어뷰징 원천 차단]
 	if not TradeConfig.AllowedCurrencies[currencyId] then
 		return false, "거래할 수 없는 재화입니다."
 	end
 
-	local session, reason = GetEditableSession(player)
-	if not session then
-		return false, reason
+	local session, playerData, err = GetSessionAndData(player)
+	if not session or not playerData then
+		return false, err
 	end
 
-	local playerData = DataService:GetData(player)
 	local offer = session.Offers[player]
 	local alreadyOffered = offer.Currency[currencyId] or 0
 	if (playerData[currencyId] or 0) < alreadyOffered + amount then
@@ -351,58 +486,55 @@ function TradeService.AddCurrency(player: Player, currencyId: string, amount: nu
 
 	offer.Currency[currencyId] = alreadyOffered + amount
 	OnOfferChanged(session)
-	return true
+	return true, nil
 end
 
 function TradeService.RemoveCurrency(player: Player, currencyId: string): (boolean, string?)
 	if not IsValidId(currencyId) then
 		return false, "잘못된 재화 식별자입니다."
 	end
-	local session, reason = GetEditableSession(player)
+	local session, err = GetEditableSession(player)
 	if not session then
-		return false, reason
+		return false, err
 	end
 	session.Offers[player].Currency[currencyId] = nil
 	OnOfferChanged(session)
-	return true
+	return true, nil
 end
 
 function TradeService.AddTower(player: Player, towerName: string, towerKey: string): (boolean, string?)
 	if not IsValidId(towerName) or not IsValidId(towerKey) then
 		return false, "잘못된 식별자입니다."
 	end
-	local session, reason = GetEditableSession(player)
-	if not session then
-		return false, reason
+	local session, playerData, err = GetSessionAndData(player)
+	if not session or not playerData then
+		return false, err
 	end
 
-	local playerData = DataService:GetData(player)
 	local towerType = playerData.OwnedTowers[towerName]
 	if not towerType or not towerType[towerKey] then
 		return false, "보유하지 않은 타워입니다."
 	end
-	for _, loadoutData in playerData.Loadout do
-		if loadoutData.Key == towerKey then
-			return false, "장착 중인 타워는 거래할 수 없습니다."
-		end
+	if IsTowerEquipped(playerData, towerKey) then
+		return false, "장착 중인 타워는 거래할 수 없습니다."
 	end
 
 	session.Offers[player].Towers[towerKey] = towerName
 	OnOfferChanged(session)
-	return true
+	return true, nil
 end
 
 function TradeService.RemoveTower(player: Player, towerKey: string): (boolean, string?)
 	if not IsValidId(towerKey) then
 		return false, "잘못된 타워 식별자입니다."
 	end
-	local session, reason = GetEditableSession(player)
+	local session, err = GetEditableSession(player)
 	if not session then
-		return false, reason
+		return false, err
 	end
 	session.Offers[player].Towers[towerKey] = nil
 	OnOfferChanged(session)
-	return true
+	return true, nil
 end
 
 function TradeService.Confirm(player: Player, clientVersion: number): (boolean, string?)
@@ -421,7 +553,7 @@ function TradeService.Confirm(player: Player, clientVersion: number): (boolean, 
 
 	for _, member in session.Members do
 		if not session.Confirmed[member] then
-			return true
+			return true, nil
 		end
 	end
 	return TradeService._Commit(session)
@@ -436,125 +568,66 @@ function TradeService._Commit(session: TradeSession): (boolean, string?)
 	local plr1, plr2 = session.Members[1], session.Members[2]
 
 	-- 1) 최종 검증
-	local ok1, why1 = ValidateOffer(plr1, session.Offers[plr1])
-	local ok2, why2 = ValidateOffer(plr2, session.Offers[plr2])
-	if not ok1 or not ok2 then
+	local valid, err = ValidateSession(session)
+	if not valid then
 		TradeService.Cancel(session.Id)
-		return false, why1 or why2
+		return false, err
 	end
 
-	-- 2) 수신자 여유 검증
-	local rOk1, rWhy1 = CanReceiveOffer(plr2, session.Offers[plr1])
-	local rOk2, rWhy2 = CanReceiveOffer(plr1, session.Offers[plr2])
-	if not rOk1 or not rOk2 then
-		TradeService.Cancel(session.Id)
-		return false, rWhy1 or rWhy2
-	end
+	-- 2) 타워 스냅샷 및 사이드 데이터 구축
+	local snap1 = SnapshotTowers(plr1, session)
+	local snap2 = SnapshotTowers(plr2, session)
+	local sideA = BuildTradeSide(session.Id, session.Offers[plr1], snap1, session.Offers[plr2], snap2)
+	local sideB = BuildTradeSide(session.Id, session.Offers[plr2], snap2, session.Offers[plr1], snap1)
 
-	local function snapshotTowers(player: Player)
-		local data = DataService:GetData(player)
-		local snap = {}
-		for towerKey, towerName in session.Offers[player].Towers do
-			snap[towerKey] = { Name = towerName, Data = TableUtils.DeepCopy(data.OwnedTowers[towerName][towerKey]) }
-		end
-		return snap
-	end
-	local snap1, snap2 = snapshotTowers(plr1), snapshotTowers(plr2)
-
-	local function buildSide(giverSnap, recvSnap, giverOffer, recvOffer): any
-		return {
-			TradeId = session.Id,
-			At = os.time(),
-			Gives = { Currency = giverOffer.Currency, Items = giverOffer.Items, Towers = giverSnap },
-			Receives = { Currency = recvOffer.Currency, Items = recvOffer.Items, Towers = recvSnap },
-		}
-	end
-	local sideA = buildSide(snap1, snap2, session.Offers[plr1], session.Offers[plr2])
-	local sideB = buildSide(snap2, snap1, session.Offers[plr2], session.Offers[plr1])
-
-	-- 4) 에스크로 선기록
-	local escrowOk = pcall(function()
-		PendingTradeStore:SetAsync(`Pending_{plr1.UserId}`, sideA)
-		PendingTradeStore:SetAsync(`Pending_{plr2.UserId}`, sideB)
-	end)
-	if not escrowOk then
-		pcall(function()
-			PendingTradeStore:RemoveAsync(`Pending_{plr1.UserId}`)
-			PendingTradeStore:RemoveAsync(`Pending_{plr2.UserId}`)
-		end)
+	-- 3) 에스크로 선기록
+	if not WritePendingEscrow(plr1, plr2, sideA, sideB) then
+		RemovePendingEscrow(plr1, plr2)
 		TradeService.Cancel(session.Id)
 		return false, "거래 기록 저장에 실패하여 취소되었습니다."
 	end
 
-	if session.State ~= "Committing" or not plr1.Parent or not plr2.Parent then
-		pcall(function()
-			PendingTradeStore:RemoveAsync(`Pending_{plr1.UserId}`)
-			PendingTradeStore:RemoveAsync(`Pending_{plr2.UserId}`)
-		end)
+	-- 4) 이탈 감지 (에스크로 저장 Yield 동안 이탈 검사)
+	if not plr1.Parent or not plr2.Parent then
+		RemovePendingEscrow(plr1, plr2)
 		TradeService.Cancel(session.Id)
 		return false, "거래 처리 중 참가자가 이탈하여 취소되었습니다."
 	end
 
-	-- 4-1.5) [취약점 해소: TOCTOU 이중 지불 방어]
-	-- 에스크로 저장을 위해 Yield된 사이(약 0.5초) 유저가 다른 곳에 재화를 소모했는지 재검증합니다.
-	local reOk1 = ValidateOffer(plr1, session.Offers[plr1])
-	local reOk2 = ValidateOffer(plr2, session.Offers[plr2])
-	if not reOk1 or not reOk2 then
-		pcall(function()
-			PendingTradeStore:RemoveAsync(`Pending_{plr1.UserId}`)
-			PendingTradeStore:RemoveAsync(`Pending_{plr2.UserId}`)
-		end)
+	-- [TOCTOU 이중 지불 방어] 에스크로 저장 Yield 동안의 데이터 변동 재검증
+	local recheck1, recheckErr1 = ValidateOffer(plr1, session.Offers[plr1])
+	local recheck2, recheckErr2 = ValidateOffer(plr2, session.Offers[plr2])
+	if not recheck1 or not recheck2 then
+		RemovePendingEscrow(plr1, plr2)
 		TradeService.Cancel(session.Id)
 		return false, "거래 대기 중 재화가 변동되어 취소되었습니다. (중복 사용 차단)"
 	end
 
-	-- 4-2) 원자적 커밋 결정
-	local commitKey = `Committed_{session.Id}`
-	local tokenOk = pcall(function()
-		PendingTradeStore:SetAsync(commitKey, { TradeId = session.Id, At = os.time() })
-	end)
-	if not tokenOk then
-		pcall(function()
-			PendingTradeStore:RemoveAsync(`Pending_{plr1.UserId}`)
-			PendingTradeStore:RemoveAsync(`Pending_{plr2.UserId}`)
-		end)
+	-- 5) 원자적 커밋 결정 토큰 기록
+	if not WriteCommitToken(session.Id) then
+		RemovePendingEscrow(plr1, plr2)
 		TradeService.Cancel(session.Id)
 		return false, "거래 확정에 실패하여 취소되었습니다."
 	end
 
-	-- 4-3) 토큰 기록 yield 동안 누군가 이탈한 경우
+	-- 6) 커밋 토큰 기록 Yield 동안 이탈 감지
 	if not plr1.Parent or not plr2.Parent then
-		local function settlePresent(player: Player, side)
-			if player.Parent then
-				ApplyTradeSide(player, side.Gives, side.Receives)
-				DataService:UpdateData(player, "LastTradeId", session.Id)
-				local saveOk = pcall(function()
-					DataService:SaveData(player)
-				end)
-				if saveOk then
-					pcall(function()
-						PendingTradeStore:RemoveAsync(`Pending_{player.UserId}`)
-					end)
-				end
-				SafeFire(Net.TradeService.TradeCompleted, player, { SessionId = session.Id })
-			end
-		end
-		settlePresent(plr1, sideA)
-		settlePresent(plr2, sideB)
+		if plr1.Parent then SettlePlayerTrade(plr1, sideA, session.Id) end
+		if plr2.Parent then SettlePlayerTrade(plr2, sideB, session.Id) end
 
+		session.State = "Committed"
 		for _, member in session.Members do
 			PlayerToSession[member] = nil
 		end
 		ActiveSessions[session.Id] = nil
 		TradeService._QueueLog(session)
-		return true
+		return true, nil
 	end
 
-	-- 5) 스왑 실행
+	-- 7) 거래 실행 및 저장
 	ApplyTradeSide(plr1, sideA.Gives, sideA.Receives)
 	ApplyTradeSide(plr2, sideB.Gives, sideB.Receives)
 
-	-- 6) 트랜잭션 마커 + 강제 저장
 	DataService:UpdateData(plr1, "LastTradeId", session.Id)
 	DataService:UpdateData(plr2, "LastTradeId", session.Id)
 	pcall(function()
@@ -562,30 +635,23 @@ function TradeService._Commit(session: TradeSession): (boolean, string?)
 		DataService:SaveData(plr2)
 	end)
 
-	-- 7) 토큰/펜딩 해제 + 로그 큐
-	pcall(function()
-		PendingTradeStore:RemoveAsync(commitKey)
-		PendingTradeStore:RemoveAsync(`Pending_{plr1.UserId}`)
-		PendingTradeStore:RemoveAsync(`Pending_{plr2.UserId}`)
-	end)
+	-- 8) 데이터 저장 후 아티팩트 해제
+	RemoveCommitToken(session.Id)
+	RemovePendingEscrow(plr1, plr2)
 	TradeService._QueueLog(session)
 
 	session.State = "Committed"
-
 	for _, member in session.Members do
 		SafeFire(Net.TradeService.TradeCompleted, member, { SessionId = session.Id })
-	end
-	for _, member in session.Members do
 		PlayerToSession[member] = nil
 	end
 	ActiveSessions[session.Id] = nil
-	return true
+	return true, nil
 end
 
 function TradeService.Cancel(sessionId: string)
 	local session = ActiveSessions[sessionId]
 	-- [취약점 해소: Cancel 충돌 버그 방어]
-	-- 이미 Committing(저장 중) 상태로 돌입한 세션은 이탈 이벤트 등으로 취소할 수 없습니다.
 	if not session or session.State == "Committing" or session.State == "Committed" then
 		return
 	end
@@ -593,28 +659,13 @@ function TradeService.Cancel(sessionId: string)
 	session.State = "Cancelled"
 	for _, member in session.Members do
 		SafeFire(Net.TradeService.TradeCancelled, member, { SessionId = session.Id })
-	end
-	for _, member in session.Members do
 		PlayerToSession[member] = nil
 	end
 	ActiveSessions[sessionId] = nil
 end
 
 function TradeService._QueueLog(session: TradeSession)
-	local record = {
-		Id = session.Id,
-		Version = session.Version,
-		Created = session.Created,
-		At = os.time(),
-		Members = {},
-		Offers = {},
-	}
-	for _, player in session.Members do
-		local userId = tostring(player.UserId)
-		table.insert(record.Members, userId)
-		record.Offers[userId] = TableUtils.DeepCopy(session.Offers[player])
-	end
-
+	local record = SerializeSession(session)
 	if #LogQueue >= MAX_LOG_QUEUE then
 		table.remove(LogQueue, 1)
 		warn("거래 로그 큐 상한 초과 — 가장 오래된 로그 폐기.")
@@ -639,9 +690,8 @@ function TradeService._FlushLogs()
 	if not ok then
 		warn(`거래 로그 배치 저장 실패: {err}`)
 		for i = #batch, 1, -1 do
-			if #LogQueue < MAX_LOG_QUEUE then
-				table.insert(LogQueue, 1, batch[i])
-			end
+			if #LogQueue >= MAX_LOG_QUEUE then break end
+			table.insert(LogQueue, 1, batch[i])
 		end
 	end
 end
@@ -673,32 +723,37 @@ function TradeService.RecoverPendingTrade(player: Player)
 		return
 	end
 
-	if committed and playerData.LastTradeId ~= record.TradeId then
-		ApplyTradeSide(player, record.Gives, record.Receives)
-		DataService:UpdateData(player, "LastTradeId", record.TradeId)
-
-		local saveOk = pcall(function()
-			DataService:SaveData(player)
+	if not committed or playerData.LastTradeId == record.TradeId then
+		pcall(function()
+			PendingTradeStore:RemoveAsync(key)
 		end)
-		if not saveOk then
-			warn(`{player.Name} 재정산 저장 실패 — 펜딩 레코드 보존.`)
-			return
-		end
-		warn(`{player.Name}의 중단된 거래 {record.TradeId} 재정산 완료.`)
+		return
 	end
 
+	ApplyTradeSide(player, record.Gives, record.Receives)
+	DataService:UpdateData(player, "LastTradeId", record.TradeId)
+
+	local saveOk = pcall(function()
+		DataService:SaveData(player)
+	end)
+	if not saveOk then
+		warn(`{player.Name} 재정산 저장 실패 — 펜딩 레코드 보존.`)
+		return
+	end
+
+	warn(`{player.Name}의 중단된 거래 {record.TradeId} 재정산 완료.`)
 	pcall(function()
 		PendingTradeStore:RemoveAsync(key)
 	end)
 end
 
 -------------------------------------------------
-function TradeService.Init(services)
+function TradeService.Init(services: any)
 	DataService = services:GetService("DataService")
 end
 
 function TradeService.Start()
-	Players.PlayerRemoving:Connect(function(player)
+	Players.PlayerRemoving:Connect(function(player: Player)
 		local sessionId = PlayerToSession[player]
 		if sessionId then
 			TradeService.Cancel(sessionId)

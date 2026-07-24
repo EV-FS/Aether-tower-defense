@@ -43,12 +43,12 @@ local function GetInverseAttenuation(minDist, maxDist)
 end
 
 -------------------------------------------------
---// AudioService
+--// AudioController
 -------------------------------------------------
-local AudioService = {}
-AudioService.SFXVolume = 1
+local AudioController = {}
+AudioController.SFXVolume = 1
 
-function AudioService.PlayOn2D(soundId, volume: number?)
+function AudioController.PlayOn2D(soundId, volume: number?)
 	soundId = typeof(soundId) == "string" and soundId or `rbxassetid://{soundId}`
 
 	local audioPlayer: AudioPlayer = PlayerStorage:GetInstance()
@@ -58,9 +58,9 @@ function AudioService.PlayOn2D(soundId, volume: number?)
 	local fader
 	local faderWire
 
-	if volume or AudioService.SFXVolume ~= 1 then
+	if volume or AudioController.SFXVolume ~= 1 then
 		fader = FaderStorage:GetInstance() :: AudioFader
-		fader.Volume = (volume or 1) * AudioService.SFXVolume
+		fader.Volume = (volume or 1) * AudioController.SFXVolume
 		fader.Parent = SoundService
 
 		faderWire = WireStorage:GetInstance() :: Wire
@@ -91,7 +91,7 @@ function AudioService.PlayOn2D(soundId, volume: number?)
 	return audioPlayer
 end
 
-function AudioService.PlayOn3D(soundId, volume: number?, distance: number?, parent: Instance | Vector3)
+function AudioController.PlayOn3D(soundId, volume: number?, distance: number?, parent: Instance | Vector3)
 	soundId = typeof(soundId) == "string" and soundId or `rbxassetid://{soundId}`
 
 	local parentInst
@@ -123,9 +123,9 @@ function AudioService.PlayOn3D(soundId, volume: number?, distance: number?, pare
 	local fader
 	local faderWire
 
-	if volume or AudioService.SFXVolume ~= 1 then
+	if volume or AudioController.SFXVolume ~= 1 then
 		fader = FaderStorage:GetInstance()
-		fader.Volume = (volume or 1) * AudioService.SFXVolume
+		fader.Volume = (volume or 1) * AudioController.SFXVolume
 		fader.Parent = parentInst
 
 		faderWire = WireStorage:GetInstance()
@@ -161,7 +161,7 @@ function AudioService.PlayOn3D(soundId, volume: number?, distance: number?, pare
 	return audioPlayer
 end
 
-function AudioService.SetBGMState(playing: boolean?, volume: number?, newBGMId)
+function AudioController.SetBGMState(playing: boolean?, volume: number?, newBGMId)
 	local bgmSound: Sound = SoundService:WaitForChild("BGM")
 	if newBGMId then
 		newBGMId = typeof(newBGMId) == "string" and newBGMId or `rbxassetid://{newBGMId}`
@@ -181,13 +181,13 @@ function AudioService.SetBGMState(playing: boolean?, volume: number?, newBGMId)
 	end
 end
 
-function AudioService.Init()
+function AudioController.Init()
 	PlayerStorage = InstanceCache.new(Instance.new("AudioPlayer"), 30, Caches)
 	EmitterStorage = InstanceCache.new(Instance.new("AudioEmitter"), 30, Caches)
 	WireStorage = InstanceCache.new(Instance.new("Wire"), 60, Caches)
 	FaderStorage = InstanceCache.new(Instance.new("AudioFader"), 30, Caches)
 
-	AudioService.SetBGMState(true, DEFAULT_VOLUME)
+	AudioController.SetBGMState(true, DEFAULT_VOLUME)
 end
 
-return AudioService
+return AudioController
