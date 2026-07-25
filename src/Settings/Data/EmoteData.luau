@@ -15,6 +15,7 @@ export type PropConfig = {
 	AttachmentPart: string?,
 	CFrameOffset: CFrame?,
 	Motor6D: boolean?,
+	Motor6DName: string?,
 }
 
 export type EmoteConfig = {
@@ -27,6 +28,7 @@ export type EmoteConfig = {
 	SoundId: (number | string)?,
 	SoundVolume: number?,
 	SoundDistance: number?,
+	SoundLooped: boolean?,
 	Props: { PropConfig }?,
 	KeyframeEvents: { [string]: KeyframeEventData }?,
 }
@@ -41,6 +43,7 @@ export type RawEmoteConfig = {
 	SoundId: (number | string)?,
 	SoundVolume: number?,
 	SoundDistance: number?,
+	SoundLooped: boolean?,
 	Props: { PropConfig }?,
 	KeyframeEvents: { [string]: KeyframeEventData }?,
 }
@@ -49,17 +52,12 @@ local RawEmoteData: { [string]: RawEmoteConfig } = {
 	["Mesmerizer"] = {
 		Index = 1,
 		AnimationId = "rbxassetid://103556706215217",
+		SoundId = "rbxassetid://109907034200284",
+		SoundVolume = 1,
+		SoundDistance = 80,
+		SoundLooped = true,
 		WalkSpeed = 0,
 		Priority = Enum.AnimationPriority.Action4,
-		-- 소품(Prop) 장착 예시:
-		-- Props = {
-		-- 	{
-		-- 		Name = "MicProp", -- ReplicatedStorage.Assets.Props.MicProp 모델/파츠
-		-- 		AttachmentPart = "RightHand", -- 장착할 신체 부위 (기본값 "RightHand")
-		-- 		CFrameOffset = CFrame.new(0, 0, 0), -- 필요시 오프셋 CFrame
-		-- 		Motor6D = false, -- true일 경우 애니메이션 조인트를 위한 Motor6D 생성
-		-- 	},
-		-- },
 	},
 	["Shutter"] = {
 		Index = 2,
@@ -77,6 +75,49 @@ local RawEmoteData: { [string]: RawEmoteConfig } = {
 		KeyframeEvents = {
 			["CameraFlash"] = {
 				VFXRecipes = "CameraFlash",
+				SFX = "rbxassetid://70793938100698",
+				Volume = 10,
+				Distance = 80,
+			},
+		},
+	},
+	["Aura Monster"] = {
+		Index = 3,
+		AnimationId = "rbxassetid://92364767557182",
+		WalkSpeed = 0,
+		Priority = Enum.AnimationPriority.Action4,
+		Props = {
+			{
+				Name = "stair1",
+				AttachmentPart = "Right Arm",
+				CFrameOffset = CFrame.new(-1.657, -2.5, -0.024),
+				Motor6D = true,
+			},
+			{
+				Name = "stair2",
+				AttachmentPart = "Right Arm",
+				CFrameOffset = CFrame.new(-1.657, -2.5, -0.024),
+				Motor6D = true,
+			},
+			{
+				Name = "stair3",
+				AttachmentPart = "Right Arm",
+				CFrameOffset = CFrame.new(-1.657, -2.5, -0.024),
+				Motor6D = true,
+			},
+		},
+	},
+	["Yararara"] = {
+		Index = 4,
+		AnimationId = "rbxassetid://132998445704945",
+		WalkSpeed = 6,
+		Priority = Enum.AnimationPriority.Action,
+		Props = {
+			{
+				Name = "Bat",
+				AttachmentPart = "Right Arm",
+				CFrameOffset = CFrame.new(0.012, -0.715, -2.021) * CFrame.Angles(0, math.rad(-90), math.rad(90)),
+				Motor6D = true,
 			},
 		},
 	},

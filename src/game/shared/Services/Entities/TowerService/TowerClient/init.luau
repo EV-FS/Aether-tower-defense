@@ -105,7 +105,7 @@ function TowerClient.Start()
 		iAction("ABC3", iInfo({ Enum.KeyCode.Three })),
 		iAction("ABC4", iInfo({ Enum.KeyCode.Four })),
 		iAction("ABC5", iInfo({ Enum.KeyCode.Five })),
-	}):Disable()
+	}):Enable()
 
 	test.Actions.ABC1.Began:Connect(function()
 		TowerClient.StartPlacement("Mecha Demian")
@@ -120,7 +120,7 @@ function TowerClient.Start()
 		TowerClient.StartPlacement("Wizard Noob")
 	end)
 	test.Actions.ABC5.Began:Connect(function()
-		TowerClient.StartPlacement("Hacker")
+		TowerClient.StartPlacement("Ranger Super Tower")
 	end)
 
 	--/Connect

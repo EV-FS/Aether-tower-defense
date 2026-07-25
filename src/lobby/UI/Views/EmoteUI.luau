@@ -1,61 +1,104 @@
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local UserInputService = game:GetService("UserInputService")
+
+local Topbarplus = require(ReplicatedStorage.Packages.Topbarplus)
 local Vide = require(ReplicatedStorage.Packages.Vide)
 local ServiceRegistry = require(ReplicatedStorage.Shared.Modules.Core.ServiceRegistry)
+local EmoteData = require(ReplicatedStorage.Settings.Data.EmoteData)
+local InputController = require(ReplicatedStorage.Shared.Controllers.InputController)
 local EmoteWheel = require(ReplicatedStorage.UI.Components.EmoteWheel)
-local EmoteClient
+local ModalOverlay = require(ReplicatedStorage.UI.Components.ModalOverlay)
+local UIController = require(ReplicatedStorage.UI.UIController)
 
 local create = Vide.create
 local source = Vide.source
 
-local playerEmote = {
-	Emote1 = source({ EmoteName = "Mesmerizer", AnimationId = "103556706215217" }),
-	Emote2 = source({ EmoteName = "Shutter", AnimationId = "132177421118009" }),
-	Emote3 = source(),
-	Emote4 = source(),
-	OnSelected = nil,
+local iScope = InputController.NewScope
+local iAction = InputController.NewAction
+local iInfo = InputController.NewInfo
+
+local VIEW_ID = "EmoteWheel"
+local EmoteClient: any = nil
+local EmoteInput: any = nil
+
+local function getEmoteSlotData(index: number)
+	local config = EmoteData.ByIndex[index]
+	if not config then
+		return nil
+	end
+
+	return {
+		Id = config.Name,
+		EmoteName = config.Name,
+		DisplayName = config.DisplayName or config.Name,
+		AnimationId = config.AnimationId,
+	}
+end
+
+local emoteSlots = {
+	Emote1 = source(getEmoteSlotData(1)),
+	Emote2 = source(getEmoteSlotData(2)),
+	Emote3 = source(getEmoteSlotData(3)),
+	Emote4 = source(getEmoteSlotData(4)),
 }
 
 local EmoteUI = {}
 
-function EmoteUI.OnSelected(emoteName)
-	EmoteClient = EmoteClient or ServiceRegistry:GetService("EmoteClient")
+function EmoteUI.OnSelected(emoteName: string)
+	if EmoteClient then
+		EmoteClient.PlayEmote(emoteName)
+	end
 
-	EmoteClient.PlayEmote(emoteName)
+	UIController:Close(VIEW_ID)
 end
 
 function EmoteUI.RenderUI()
 	return create("Frame")({
-		Name = "EmoteFrame",
+		Name = "EmoteSystem",
 		BackgroundTransparency = 1,
-		Position = UDim2.fromScale(0, 0),
 		Size = UDim2.fromScale(1, 1),
 
-		create("TextLabel")({
-			Name = "Title",
-			AnchorPoint = Vector2.new(0.5, 0),
-			BackgroundTransparency = 1,
-			FontFace = Font.fromEnum(Enum.Font.GothamBold),
-			Position = UDim2.fromScale(0.5, 0.12),
-			Size = UDim2.fromScale(0.4, 0.045),
-			Text = "Emote Wheel",
-			TextColor3 = Color3.new(1, 1, 1),
-			TextScaled = true,
-
-			create("UIStroke")({
-				Name = "UIStroke",
-				StrokeSizingMode = Enum.StrokeSizingMode.ScaledSize,
-				Thickness = 0.08,
+		ModalOverlay({
+			Name = "EmoteOverlay",
+			Title = "Emote Wheel",
+			IsOpen = UIController:IsVisible(VIEW_ID),
+			OnClose = function()
+				UIController:Close(VIEW_ID)
+			end,
+			Content = EmoteWheel({
+				Emote1 = emoteSlots.Emote1,
+				Emote2 = emoteSlots.Emote2,
+				Emote3 = emoteSlots.Emote3,
+				Emote4 = emoteSlots.Emote4,
+				OnSelected = EmoteUI.OnSelected,
 			}),
 		}),
-
-		EmoteWheel(playerEmote),
 	})
 end
 
-function EmoteUI.Init() end
+function EmoteUI.Init()
+	EmoteClient = ServiceRegistry:GetService("EmoteClient")
+end
 
 function EmoteUI.Start()
-	playerEmote.OnSelected = EmoteUI.OnSelected
+	EmoteInput = iScope("EmoteInput", {
+		iAction("Toggle", iInfo({ Enum.KeyCode.G })),
+	}):Enable()
+
+	EmoteInput.Actions.Toggle.Began:Connect(function()
+		UIController:Toggle(VIEW_ID)
+	end)
+
+	if UserInputService.TouchEnabled then
+		local icon = Topbarplus.new()
+		icon:setLabel("Emote")
+		icon:oneClick(true)
+		icon:align("Left")
+
+		icon:bindEvent("deselected", function()
+			UIController:Toggle(VIEW_ID)
+		end)
+	end
 end
 
 return EmoteUI

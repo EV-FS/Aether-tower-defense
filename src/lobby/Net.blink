@@ -56,6 +56,26 @@ scope EmoteService {
     }
 }
 
+scope EmojiService {
+    function RequestShowEmoji {
+        Yield: Promise,
+        Data: struct {
+            EmojiId: string,
+        },
+        Return: boolean,
+    }
+
+    event EmojiShown {
+        from: Server,
+        type: Reliable,
+        call: ManySync,
+        data: struct {
+            Player: unknown,
+            EmojiId: string,
+        }
+    }
+}
+
 scope RoomService {
     event RoomRefreshed {
         from: Server,

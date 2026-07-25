@@ -217,6 +217,12 @@ local RawTowerData: {
 			TowerImage = "rbxassetid://127595189045553",
 			MaxTowers = 2,
 		},
+		["Ranger Super Tower"] = {
+			Index = 31,
+			Rarity = "Absolute",
+			TowerImage = "rbxassetid://127595189045553",
+			MaxTowers = 1,
+		},
 	}
 
 for towerName, towerData in RawTowerData do

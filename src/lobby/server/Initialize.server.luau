@@ -19,6 +19,7 @@ ServiceRegistry:RegisterServices({
 	ServerServices.GlobalExistService,
 	ServerServices.CraftService,
 	ServerServices.EmoteService,
+	ServerServices.EmojiService,
 
 	SharedServices.NotificationService,
 })

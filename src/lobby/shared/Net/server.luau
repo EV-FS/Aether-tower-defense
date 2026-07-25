@@ -164,20 +164,21 @@ local SerdesEvent = "?"
 local SerdesThread: thread?
 Queue.Reliable[2] = table.create(256)
 Queue.Reliable[3] = table.create(256)
-Queue.Reliable[8] = table.create(256)
-Queue.Reliable[9] = table.create(256)
+Queue.Reliable[6] = table.create(256)
 Queue.Reliable[10] = table.create(256)
 Queue.Reliable[11] = table.create(256)
 Queue.Reliable[12] = table.create(256)
+Queue.Reliable[13] = table.create(256)
 Queue.Reliable[14] = table.create(256)
-Queue.Reliable[15] = table.create(256)
+Queue.Reliable[16] = table.create(256)
 Queue.Reliable[17] = table.create(256)
-Queue.Reliable[18] = table.create(256)
 Queue.Reliable[19] = table.create(256)
 Queue.Reliable[20] = table.create(256)
 Queue.Reliable[21] = table.create(256)
-Queue.Reliable[25] = table.create(256)
-Queue.Reliable[26] = table.create(256)
+Queue.Reliable[22] = table.create(256)
+Queue.Reliable[23] = table.create(256)
+Queue.Reliable[27] = table.create(256)
+Queue.Reliable[28] = table.create(256)
 function SerdesFunctions.GroupReward_WriteEVENT_SendPromptJoin(Value: nil): ()
 	-- Allocate BLOCK: 1 bytes
 	local BLOCK_START = Allocate(1)
@@ -244,10 +245,39 @@ function SerdesFunctions.EmoteService_WriteEVENT_EmoteStopped(Value: { Player: a
 	table.insert(SendInstances, if Value.Player == nil then Null else Value.Player)
 end
 
+function SerdesFunctions.EmojiService_ReadFUNCTION_DATA_RequestShowEmoji(): ({ EmojiId: string })
+	-- Read BLOCK: 2 bytes
+	local BLOCK_START = Read(2)
+	local Value = {} :: any
+	local Length = buffer.readu16(RecieveBuffer, BLOCK_START + 0)
+	Value.EmojiId = buffer.readstring(RecieveBuffer, Read(Length), Length)
+	return Value
+end
+
+function SerdesFunctions.EmojiService_WriteFUNCTION_RETURN_RequestShowEmoji(Value: boolean, InvocationIdentifier: number): ()
+	-- Allocate BLOCK: 4 bytes
+	local BLOCK_START = Allocate(4)
+	buffer.writeu8(SendBuffer, BLOCK_START + 0, 6)
+	buffer.writeu8(SendBuffer, BLOCK_START + 1, InvocationIdentifier)
+	buffer.writeu8(SendBuffer, BLOCK_START + 2, 1)
+	buffer.writeu8(SendBuffer, BLOCK_START + 3, Value and 1 or 0)
+end
+
+function SerdesFunctions.EmojiService_WriteEVENT_EmojiShown(Value: { Player: any, EmojiId: string }): ()
+	-- Allocate BLOCK: 3 bytes
+	local BLOCK_START = Allocate(3)
+	buffer.writeu8(SendBuffer, BLOCK_START + 0, 7)
+	table.insert(SendInstances, if Value.Player == nil then Null else Value.Player)
+	local Length = #Value.EmojiId
+	buffer.writeu16(SendBuffer, BLOCK_START + 1, Length)
+	Allocate(Length)
+	buffer.writestring(SendBuffer, SendOffset, Value.EmojiId, Length)
+end
+
 function SerdesFunctions.RoomService_WriteEVENT_RoomRefreshed(Value: {[number]: any}): ()
 	-- Allocate BLOCK: 3 bytes
 	local BLOCK_START = Allocate(3)
-	buffer.writeu8(SendBuffer, BLOCK_START + 0, 6)
+	buffer.writeu8(SendBuffer, BLOCK_START + 0, 8)
 	local Elements_1 = 0
 	for Key_1, Element_1 in Value do
 		Elements_1 += 1
@@ -261,7 +291,7 @@ end
 function SerdesFunctions.RoomService_WriteEVENT_RoomStarted(Value: nil): ()
 	-- Allocate BLOCK: 1 bytes
 	local BLOCK_START = Allocate(1)
-	buffer.writeu8(SendBuffer, BLOCK_START + 0, 7)
+	buffer.writeu8(SendBuffer, BLOCK_START + 0, 9)
 end
 
 function SerdesFunctions.RoomService_ReadFUNCTION_DATA_GetRooms(): (nil)
@@ -271,7 +301,7 @@ end
 function SerdesFunctions.RoomService_WriteFUNCTION_RETURN_GetRooms(Value: {[number]: any}, InvocationIdentifier: number): ()
 	-- Allocate BLOCK: 5 bytes
 	local BLOCK_START = Allocate(5)
-	buffer.writeu8(SendBuffer, BLOCK_START + 0, 8)
+	buffer.writeu8(SendBuffer, BLOCK_START + 0, 10)
 	buffer.writeu8(SendBuffer, BLOCK_START + 1, InvocationIdentifier)
 	buffer.writeu8(SendBuffer, BLOCK_START + 2, 1)
 	local Elements_1 = 0
@@ -294,7 +324,7 @@ end
 function SerdesFunctions.RoomService_WriteFUNCTION_RETURN_RequestJoin(Value: boolean, InvocationIdentifier: number): ()
 	-- Allocate BLOCK: 4 bytes
 	local BLOCK_START = Allocate(4)
-	buffer.writeu8(SendBuffer, BLOCK_START + 0, 9)
+	buffer.writeu8(SendBuffer, BLOCK_START + 0, 11)
 	buffer.writeu8(SendBuffer, BLOCK_START + 1, InvocationIdentifier)
 	buffer.writeu8(SendBuffer, BLOCK_START + 2, 1)
 	buffer.writeu8(SendBuffer, BLOCK_START + 3, Value and 1 or 0)
@@ -310,7 +340,7 @@ end
 function SerdesFunctions.RoomService_WriteFUNCTION_RETURN_RequestLeave(Value: boolean, InvocationIdentifier: number): ()
 	-- Allocate BLOCK: 4 bytes
 	local BLOCK_START = Allocate(4)
-	buffer.writeu8(SendBuffer, BLOCK_START + 0, 10)
+	buffer.writeu8(SendBuffer, BLOCK_START + 0, 12)
 	buffer.writeu8(SendBuffer, BLOCK_START + 1, InvocationIdentifier)
 	buffer.writeu8(SendBuffer, BLOCK_START + 2, 1)
 	buffer.writeu8(SendBuffer, BLOCK_START + 3, Value and 1 or 0)
@@ -326,7 +356,7 @@ end
 function SerdesFunctions.RoomService_WriteFUNCTION_RETURN_RequestStart(Value: boolean, InvocationIdentifier: number): ()
 	-- Allocate BLOCK: 4 bytes
 	local BLOCK_START = Allocate(4)
-	buffer.writeu8(SendBuffer, BLOCK_START + 0, 11)
+	buffer.writeu8(SendBuffer, BLOCK_START + 0, 13)
 	buffer.writeu8(SendBuffer, BLOCK_START + 1, InvocationIdentifier)
 	buffer.writeu8(SendBuffer, BLOCK_START + 2, 1)
 	buffer.writeu8(SendBuffer, BLOCK_START + 3, Value and 1 or 0)
@@ -348,7 +378,7 @@ end
 function SerdesFunctions.RoomService_WriteFUNCTION_RETURN_RequestCreate(Value: { Success: boolean, RoomId: number }, InvocationIdentifier: number): ()
 	-- Allocate BLOCK: 6 bytes
 	local BLOCK_START = Allocate(6)
-	buffer.writeu8(SendBuffer, BLOCK_START + 0, 12)
+	buffer.writeu8(SendBuffer, BLOCK_START + 0, 14)
 	buffer.writeu8(SendBuffer, BLOCK_START + 1, InvocationIdentifier)
 	buffer.writeu8(SendBuffer, BLOCK_START + 2, 1)
 	buffer.writeu8(SendBuffer, BLOCK_START + 3, Value.Success and 1 or 0)
@@ -358,7 +388,7 @@ end
 function SerdesFunctions.SummonService_WriteEVENT_BannerUpdated(Value: any): ()
 	-- Allocate BLOCK: 1 bytes
 	local BLOCK_START = Allocate(1)
-	buffer.writeu8(SendBuffer, BLOCK_START + 0, 13)
+	buffer.writeu8(SendBuffer, BLOCK_START + 0, 15)
 	table.insert(SendInstances, if Value == nil then Null else Value)
 end
 
@@ -372,7 +402,7 @@ end
 function SerdesFunctions.SummonService_WriteFUNCTION_RETURN_DoSummon(Value: { Success: boolean, PulledUnits: any }, InvocationIdentifier: number): ()
 	-- Allocate BLOCK: 4 bytes
 	local BLOCK_START = Allocate(4)
-	buffer.writeu8(SendBuffer, BLOCK_START + 0, 14)
+	buffer.writeu8(SendBuffer, BLOCK_START + 0, 16)
 	buffer.writeu8(SendBuffer, BLOCK_START + 1, InvocationIdentifier)
 	buffer.writeu8(SendBuffer, BLOCK_START + 2, 1)
 	buffer.writeu8(SendBuffer, BLOCK_START + 3, Value.Success and 1 or 0)
@@ -386,7 +416,7 @@ end
 function SerdesFunctions.SummonService_WriteFUNCTION_RETURN_GetBanner(Value: any, InvocationIdentifier: number): ()
 	-- Allocate BLOCK: 3 bytes
 	local BLOCK_START = Allocate(3)
-	buffer.writeu8(SendBuffer, BLOCK_START + 0, 15)
+	buffer.writeu8(SendBuffer, BLOCK_START + 0, 17)
 	buffer.writeu8(SendBuffer, BLOCK_START + 1, InvocationIdentifier)
 	buffer.writeu8(SendBuffer, BLOCK_START + 2, 1)
 	table.insert(SendInstances, if Value == nil then Null else Value)
@@ -395,7 +425,7 @@ end
 function SerdesFunctions.StoreService_WriteEVENT_BannerUpdated(Value: any): ()
 	-- Allocate BLOCK: 1 bytes
 	local BLOCK_START = Allocate(1)
-	buffer.writeu8(SendBuffer, BLOCK_START + 0, 16)
+	buffer.writeu8(SendBuffer, BLOCK_START + 0, 18)
 	table.insert(SendInstances, if Value == nil then Null else Value)
 end
 
@@ -428,7 +458,7 @@ end
 function SerdesFunctions.LoadoutService_WriteFUNCTION_RETURN_SetLoadout(Value: any, InvocationIdentifier: number): ()
 	-- Allocate BLOCK: 3 bytes
 	local BLOCK_START = Allocate(3)
-	buffer.writeu8(SendBuffer, BLOCK_START + 0, 17)
+	buffer.writeu8(SendBuffer, BLOCK_START + 0, 19)
 	buffer.writeu8(SendBuffer, BLOCK_START + 1, InvocationIdentifier)
 	buffer.writeu8(SendBuffer, BLOCK_START + 2, 1)
 	table.insert(SendInstances, if Value == nil then Null else Value)
@@ -450,7 +480,7 @@ end
 function SerdesFunctions.SettingsService_WriteFUNCTION_RETURN_GetSettings(Value: any, InvocationIdentifier: number): ()
 	-- Allocate BLOCK: 3 bytes
 	local BLOCK_START = Allocate(3)
-	buffer.writeu8(SendBuffer, BLOCK_START + 0, 18)
+	buffer.writeu8(SendBuffer, BLOCK_START + 0, 20)
 	buffer.writeu8(SendBuffer, BLOCK_START + 1, InvocationIdentifier)
 	buffer.writeu8(SendBuffer, BLOCK_START + 2, 1)
 	table.insert(SendInstances, if Value == nil then Null else Value)
@@ -470,7 +500,7 @@ end
 function SerdesFunctions.SettingsService_WriteFUNCTION_RETURN_SaveSetting(Value: boolean, InvocationIdentifier: number): ()
 	-- Allocate BLOCK: 4 bytes
 	local BLOCK_START = Allocate(4)
-	buffer.writeu8(SendBuffer, BLOCK_START + 0, 19)
+	buffer.writeu8(SendBuffer, BLOCK_START + 0, 21)
 	buffer.writeu8(SendBuffer, BLOCK_START + 1, InvocationIdentifier)
 	buffer.writeu8(SendBuffer, BLOCK_START + 2, 1)
 	buffer.writeu8(SendBuffer, BLOCK_START + 3, Value and 1 or 0)
@@ -487,7 +517,7 @@ end
 function SerdesFunctions.DataService_WriteFUNCTION_RETURN_GetDataValue(Value: any, InvocationIdentifier: number): ()
 	-- Allocate BLOCK: 3 bytes
 	local BLOCK_START = Allocate(3)
-	buffer.writeu8(SendBuffer, BLOCK_START + 0, 20)
+	buffer.writeu8(SendBuffer, BLOCK_START + 0, 22)
 	buffer.writeu8(SendBuffer, BLOCK_START + 1, InvocationIdentifier)
 	buffer.writeu8(SendBuffer, BLOCK_START + 2, 1)
 	table.insert(SendInstances, if Value == nil then Null else Value)
@@ -513,7 +543,7 @@ end
 function SerdesFunctions.DataService_WriteFUNCTION_RETURN_UpdateSetting(Value: boolean, InvocationIdentifier: number): ()
 	-- Allocate BLOCK: 4 bytes
 	local BLOCK_START = Allocate(4)
-	buffer.writeu8(SendBuffer, BLOCK_START + 0, 21)
+	buffer.writeu8(SendBuffer, BLOCK_START + 0, 23)
 	buffer.writeu8(SendBuffer, BLOCK_START + 1, InvocationIdentifier)
 	buffer.writeu8(SendBuffer, BLOCK_START + 2, 1)
 	buffer.writeu8(SendBuffer, BLOCK_START + 3, Value and 1 or 0)
@@ -522,7 +552,7 @@ end
 function SerdesFunctions.DataService_WriteEVENT_CurrencyChanged(Value: { CurrencyName: string, CurrencyValue: number }): ()
 	-- Allocate BLOCK: 7 bytes
 	local BLOCK_START = Allocate(7)
-	buffer.writeu8(SendBuffer, BLOCK_START + 0, 22)
+	buffer.writeu8(SendBuffer, BLOCK_START + 0, 24)
 	local Length = #Value.CurrencyName
 	buffer.writeu16(SendBuffer, BLOCK_START + 1, Length)
 	Allocate(Length)
@@ -533,7 +563,7 @@ end
 function SerdesFunctions.DataService_WriteEVENT_OwnedTowersAdded(Value: { towerIndex: number, towerKeyId: number, towerData: any }): ()
 	-- Allocate BLOCK: 6 bytes
 	local BLOCK_START = Allocate(6)
-	buffer.writeu8(SendBuffer, BLOCK_START + 0, 23)
+	buffer.writeu8(SendBuffer, BLOCK_START + 0, 25)
 	buffer.writeu8(SendBuffer, BLOCK_START + 1, Value.towerIndex)
 	buffer.writeu32(SendBuffer, BLOCK_START + 2, Value.towerKeyId)
 	table.insert(SendInstances, if Value.towerData == nil then Null else Value.towerData)
@@ -542,7 +572,7 @@ end
 function SerdesFunctions.DataService_WriteEVENT_OwnedTowersRemoved(Value: { towerIndex: number, towerKeyId: number }): ()
 	-- Allocate BLOCK: 6 bytes
 	local BLOCK_START = Allocate(6)
-	buffer.writeu8(SendBuffer, BLOCK_START + 0, 24)
+	buffer.writeu8(SendBuffer, BLOCK_START + 0, 26)
 	buffer.writeu8(SendBuffer, BLOCK_START + 1, Value.towerIndex)
 	buffer.writeu32(SendBuffer, BLOCK_START + 2, Value.towerKeyId)
 end
@@ -584,7 +614,7 @@ end
 function SerdesFunctions.CraftService_WriteFUNCTION_RETURN_Craft(Value: boolean, InvocationIdentifier: number): ()
 	-- Allocate BLOCK: 4 bytes
 	local BLOCK_START = Allocate(4)
-	buffer.writeu8(SendBuffer, BLOCK_START + 0, 25)
+	buffer.writeu8(SendBuffer, BLOCK_START + 0, 27)
 	buffer.writeu8(SendBuffer, BLOCK_START + 1, InvocationIdentifier)
 	buffer.writeu8(SendBuffer, BLOCK_START + 2, 1)
 	buffer.writeu8(SendBuffer, BLOCK_START + 3, Value and 1 or 0)
@@ -604,7 +634,7 @@ end
 function SerdesFunctions.GlobalExistService_WriteFUNCTION_RETURN_GetCount(Value: number, InvocationIdentifier: number): ()
 	-- Allocate BLOCK: 7 bytes
 	local BLOCK_START = Allocate(7)
-	buffer.writeu8(SendBuffer, BLOCK_START + 0, 26)
+	buffer.writeu8(SendBuffer, BLOCK_START + 0, 28)
 	buffer.writeu8(SendBuffer, BLOCK_START + 1, InvocationIdentifier)
 	buffer.writeu8(SendBuffer, BLOCK_START + 2, 1)
 	buffer.writeu32(SendBuffer, BLOCK_START + 3, Value)
@@ -613,7 +643,7 @@ end
 function SerdesFunctions.GlobalExistService_WriteEVENT_CountUpdated(Value: { category: string, itemName: string, newCount: number }): ()
 	-- Allocate BLOCK: 9 bytes
 	local BLOCK_START = Allocate(9)
-	buffer.writeu8(SendBuffer, BLOCK_START + 0, 27)
+	buffer.writeu8(SendBuffer, BLOCK_START + 0, 29)
 	local Length = #Value.category
 	buffer.writeu16(SendBuffer, BLOCK_START + 1, Length)
 	Allocate(Length)
@@ -658,6 +688,17 @@ if not RunService:IsRunning() then
 			FireExcept = NOOP
 		},
 		EmoteStopped = {
+			Fire = NOOP,
+			FireAll = NOOP,
+			FireList = NOOP,
+			FireExcept = NOOP
+		},
+	},
+	EmojiService = {
+		RequestShowEmoji = {
+			On = NOOP
+		},
+		EmojiShown = {
 			Fire = NOOP,
 			FireAll = NOOP,
 			FireList = NOOP,
@@ -858,42 +899,29 @@ Reliable.OnServerEvent:Connect(function(Player: Player, Buffer: buffer, Instance
 				end
 				table.insert(Queue.Reliable[3], {Player, Value, InvocationIdentifier} :: {any})
 			end
-		elseif Index == 8 then
+		elseif Index == 6 then
 			-- Read BLOCK: 1 bytes
 			local BLOCK_START = Read(1)
 			local InvocationIdentifier = buffer.readu8(RecieveBuffer, BLOCK_START + 0)
-			local Value: nil = SerdesFunctions.RoomService_ReadFUNCTION_DATA_GetRooms()
-			if Events.Reliable[8] ~= nil then
-				task.spawn(Events.Reliable[8], Player, Value, InvocationIdentifier)
+			local Value: { EmojiId: string } = SerdesFunctions.EmojiService_ReadFUNCTION_DATA_RequestShowEmoji()
+			if Events.Reliable[6] ~= nil then
+				task.spawn(Events.Reliable[6], Player, Value, InvocationIdentifier)
 			else
-				if #Queue.Reliable[8] > 256 then
-					warn("[Blink]: Event queue of \"GetRooms\" exceeded 256, did you forget to implement a listener?")
+				if #Queue.Reliable[6] > 256 then
+					warn("[Blink]: Event queue of \"RequestShowEmoji\" exceeded 256, did you forget to implement a listener?")
 				end
-				table.insert(Queue.Reliable[8], {Player, Value, InvocationIdentifier} :: {any})
-			end
-		elseif Index == 9 then
-			-- Read BLOCK: 1 bytes
-			local BLOCK_START = Read(1)
-			local InvocationIdentifier = buffer.readu8(RecieveBuffer, BLOCK_START + 0)
-			local Value: number = SerdesFunctions.RoomService_ReadFUNCTION_DATA_RequestJoin()
-			if Events.Reliable[9] ~= nil then
-				task.spawn(Events.Reliable[9], Player, Value, InvocationIdentifier)
-			else
-				if #Queue.Reliable[9] > 256 then
-					warn("[Blink]: Event queue of \"RequestJoin\" exceeded 256, did you forget to implement a listener?")
-				end
-				table.insert(Queue.Reliable[9], {Player, Value, InvocationIdentifier} :: {any})
+				table.insert(Queue.Reliable[6], {Player, Value, InvocationIdentifier} :: {any})
 			end
 		elseif Index == 10 then
 			-- Read BLOCK: 1 bytes
 			local BLOCK_START = Read(1)
 			local InvocationIdentifier = buffer.readu8(RecieveBuffer, BLOCK_START + 0)
-			local Value: number = SerdesFunctions.RoomService_ReadFUNCTION_DATA_RequestLeave()
+			local Value: nil = SerdesFunctions.RoomService_ReadFUNCTION_DATA_GetRooms()
 			if Events.Reliable[10] ~= nil then
 				task.spawn(Events.Reliable[10], Player, Value, InvocationIdentifier)
 			else
 				if #Queue.Reliable[10] > 256 then
-					warn("[Blink]: Event queue of \"RequestLeave\" exceeded 256, did you forget to implement a listener?")
+					warn("[Blink]: Event queue of \"GetRooms\" exceeded 256, did you forget to implement a listener?")
 				end
 				table.insert(Queue.Reliable[10], {Player, Value, InvocationIdentifier} :: {any})
 			end
@@ -901,12 +929,12 @@ Reliable.OnServerEvent:Connect(function(Player: Player, Buffer: buffer, Instance
 			-- Read BLOCK: 1 bytes
 			local BLOCK_START = Read(1)
 			local InvocationIdentifier = buffer.readu8(RecieveBuffer, BLOCK_START + 0)
-			local Value: number = SerdesFunctions.RoomService_ReadFUNCTION_DATA_RequestStart()
+			local Value: number = SerdesFunctions.RoomService_ReadFUNCTION_DATA_RequestJoin()
 			if Events.Reliable[11] ~= nil then
 				task.spawn(Events.Reliable[11], Player, Value, InvocationIdentifier)
 			else
 				if #Queue.Reliable[11] > 256 then
-					warn("[Blink]: Event queue of \"RequestStart\" exceeded 256, did you forget to implement a listener?")
+					warn("[Blink]: Event queue of \"RequestJoin\" exceeded 256, did you forget to implement a listener?")
 				end
 				table.insert(Queue.Reliable[11], {Player, Value, InvocationIdentifier} :: {any})
 			end
@@ -914,77 +942,77 @@ Reliable.OnServerEvent:Connect(function(Player: Player, Buffer: buffer, Instance
 			-- Read BLOCK: 1 bytes
 			local BLOCK_START = Read(1)
 			local InvocationIdentifier = buffer.readu8(RecieveBuffer, BLOCK_START + 0)
-			local Value: { MaxPlayers: number, OnlyFriends: boolean, Map: string, Difficulty: string } = SerdesFunctions.RoomService_ReadFUNCTION_DATA_RequestCreate()
+			local Value: number = SerdesFunctions.RoomService_ReadFUNCTION_DATA_RequestLeave()
 			if Events.Reliable[12] ~= nil then
 				task.spawn(Events.Reliable[12], Player, Value, InvocationIdentifier)
 			else
 				if #Queue.Reliable[12] > 256 then
-					warn("[Blink]: Event queue of \"RequestCreate\" exceeded 256, did you forget to implement a listener?")
+					warn("[Blink]: Event queue of \"RequestLeave\" exceeded 256, did you forget to implement a listener?")
 				end
 				table.insert(Queue.Reliable[12], {Player, Value, InvocationIdentifier} :: {any})
+			end
+		elseif Index == 13 then
+			-- Read BLOCK: 1 bytes
+			local BLOCK_START = Read(1)
+			local InvocationIdentifier = buffer.readu8(RecieveBuffer, BLOCK_START + 0)
+			local Value: number = SerdesFunctions.RoomService_ReadFUNCTION_DATA_RequestStart()
+			if Events.Reliable[13] ~= nil then
+				task.spawn(Events.Reliable[13], Player, Value, InvocationIdentifier)
+			else
+				if #Queue.Reliable[13] > 256 then
+					warn("[Blink]: Event queue of \"RequestStart\" exceeded 256, did you forget to implement a listener?")
+				end
+				table.insert(Queue.Reliable[13], {Player, Value, InvocationIdentifier} :: {any})
 			end
 		elseif Index == 14 then
 			-- Read BLOCK: 1 bytes
 			local BLOCK_START = Read(1)
 			local InvocationIdentifier = buffer.readu8(RecieveBuffer, BLOCK_START + 0)
-			local Value: number = SerdesFunctions.SummonService_ReadFUNCTION_DATA_DoSummon()
+			local Value: { MaxPlayers: number, OnlyFriends: boolean, Map: string, Difficulty: string } = SerdesFunctions.RoomService_ReadFUNCTION_DATA_RequestCreate()
 			if Events.Reliable[14] ~= nil then
 				task.spawn(Events.Reliable[14], Player, Value, InvocationIdentifier)
 			else
 				if #Queue.Reliable[14] > 256 then
-					warn("[Blink]: Event queue of \"DoSummon\" exceeded 256, did you forget to implement a listener?")
+					warn("[Blink]: Event queue of \"RequestCreate\" exceeded 256, did you forget to implement a listener?")
 				end
 				table.insert(Queue.Reliable[14], {Player, Value, InvocationIdentifier} :: {any})
 			end
-		elseif Index == 15 then
+		elseif Index == 16 then
 			-- Read BLOCK: 1 bytes
 			local BLOCK_START = Read(1)
 			local InvocationIdentifier = buffer.readu8(RecieveBuffer, BLOCK_START + 0)
-			local Value: nil = SerdesFunctions.SummonService_ReadFUNCTION_DATA_GetBanner()
-			if Events.Reliable[15] ~= nil then
-				task.spawn(Events.Reliable[15], Player, Value, InvocationIdentifier)
+			local Value: number = SerdesFunctions.SummonService_ReadFUNCTION_DATA_DoSummon()
+			if Events.Reliable[16] ~= nil then
+				task.spawn(Events.Reliable[16], Player, Value, InvocationIdentifier)
 			else
-				if #Queue.Reliable[15] > 256 then
-					warn("[Blink]: Event queue of \"GetBanner\" exceeded 256, did you forget to implement a listener?")
+				if #Queue.Reliable[16] > 256 then
+					warn("[Blink]: Event queue of \"DoSummon\" exceeded 256, did you forget to implement a listener?")
 				end
-				table.insert(Queue.Reliable[15], {Player, Value, InvocationIdentifier} :: {any})
+				table.insert(Queue.Reliable[16], {Player, Value, InvocationIdentifier} :: {any})
 			end
 		elseif Index == 17 then
 			-- Read BLOCK: 1 bytes
 			local BLOCK_START = Read(1)
 			local InvocationIdentifier = buffer.readu8(RecieveBuffer, BLOCK_START + 0)
-			local Value: { requestType: ("Equip" | "Unequip" | "UnequipAll"), targetTower: { towerName: string, towerKey: number }? } = SerdesFunctions.LoadoutService_ReadFUNCTION_DATA_SetLoadout()
+			local Value: nil = SerdesFunctions.SummonService_ReadFUNCTION_DATA_GetBanner()
 			if Events.Reliable[17] ~= nil then
 				task.spawn(Events.Reliable[17], Player, Value, InvocationIdentifier)
 			else
 				if #Queue.Reliable[17] > 256 then
-					warn("[Blink]: Event queue of \"SetLoadout\" exceeded 256, did you forget to implement a listener?")
+					warn("[Blink]: Event queue of \"GetBanner\" exceeded 256, did you forget to implement a listener?")
 				end
 				table.insert(Queue.Reliable[17], {Player, Value, InvocationIdentifier} :: {any})
-			end
-		elseif Index == 18 then
-			-- Read BLOCK: 1 bytes
-			local BLOCK_START = Read(1)
-			local InvocationIdentifier = buffer.readu8(RecieveBuffer, BLOCK_START + 0)
-			local Value: string? = SerdesFunctions.SettingsService_ReadFUNCTION_DATA_GetSettings()
-			if Events.Reliable[18] ~= nil then
-				task.spawn(Events.Reliable[18], Player, Value, InvocationIdentifier)
-			else
-				if #Queue.Reliable[18] > 256 then
-					warn("[Blink]: Event queue of \"GetSettings\" exceeded 256, did you forget to implement a listener?")
-				end
-				table.insert(Queue.Reliable[18], {Player, Value, InvocationIdentifier} :: {any})
 			end
 		elseif Index == 19 then
 			-- Read BLOCK: 1 bytes
 			local BLOCK_START = Read(1)
 			local InvocationIdentifier = buffer.readu8(RecieveBuffer, BLOCK_START + 0)
-			local Value: { SettingName: string, Value: any } = SerdesFunctions.SettingsService_ReadFUNCTION_DATA_SaveSetting()
+			local Value: { requestType: ("Equip" | "Unequip" | "UnequipAll"), targetTower: { towerName: string, towerKey: number }? } = SerdesFunctions.LoadoutService_ReadFUNCTION_DATA_SetLoadout()
 			if Events.Reliable[19] ~= nil then
 				task.spawn(Events.Reliable[19], Player, Value, InvocationIdentifier)
 			else
 				if #Queue.Reliable[19] > 256 then
-					warn("[Blink]: Event queue of \"SaveSetting\" exceeded 256, did you forget to implement a listener?")
+					warn("[Blink]: Event queue of \"SetLoadout\" exceeded 256, did you forget to implement a listener?")
 				end
 				table.insert(Queue.Reliable[19], {Player, Value, InvocationIdentifier} :: {any})
 			end
@@ -992,12 +1020,12 @@ Reliable.OnServerEvent:Connect(function(Player: Player, Buffer: buffer, Instance
 			-- Read BLOCK: 1 bytes
 			local BLOCK_START = Read(1)
 			local InvocationIdentifier = buffer.readu8(RecieveBuffer, BLOCK_START + 0)
-			local Value: string = SerdesFunctions.DataService_ReadFUNCTION_DATA_GetDataValue()
+			local Value: string? = SerdesFunctions.SettingsService_ReadFUNCTION_DATA_GetSettings()
 			if Events.Reliable[20] ~= nil then
 				task.spawn(Events.Reliable[20], Player, Value, InvocationIdentifier)
 			else
 				if #Queue.Reliable[20] > 256 then
-					warn("[Blink]: Event queue of \"GetDataValue\" exceeded 256, did you forget to implement a listener?")
+					warn("[Blink]: Event queue of \"GetSettings\" exceeded 256, did you forget to implement a listener?")
 				end
 				table.insert(Queue.Reliable[20], {Player, Value, InvocationIdentifier} :: {any})
 			end
@@ -1005,40 +1033,66 @@ Reliable.OnServerEvent:Connect(function(Player: Player, Buffer: buffer, Instance
 			-- Read BLOCK: 1 bytes
 			local BLOCK_START = Read(1)
 			local InvocationIdentifier = buffer.readu8(RecieveBuffer, BLOCK_START + 0)
-			local Value: { SettingName: string, SubKey: string?, Value: any } = SerdesFunctions.DataService_ReadFUNCTION_DATA_UpdateSetting()
+			local Value: { SettingName: string, Value: any } = SerdesFunctions.SettingsService_ReadFUNCTION_DATA_SaveSetting()
 			if Events.Reliable[21] ~= nil then
 				task.spawn(Events.Reliable[21], Player, Value, InvocationIdentifier)
 			else
 				if #Queue.Reliable[21] > 256 then
-					warn("[Blink]: Event queue of \"UpdateSetting\" exceeded 256, did you forget to implement a listener?")
+					warn("[Blink]: Event queue of \"SaveSetting\" exceeded 256, did you forget to implement a listener?")
 				end
 				table.insert(Queue.Reliable[21], {Player, Value, InvocationIdentifier} :: {any})
 			end
-		elseif Index == 25 then
+		elseif Index == 22 then
+			-- Read BLOCK: 1 bytes
+			local BLOCK_START = Read(1)
+			local InvocationIdentifier = buffer.readu8(RecieveBuffer, BLOCK_START + 0)
+			local Value: string = SerdesFunctions.DataService_ReadFUNCTION_DATA_GetDataValue()
+			if Events.Reliable[22] ~= nil then
+				task.spawn(Events.Reliable[22], Player, Value, InvocationIdentifier)
+			else
+				if #Queue.Reliable[22] > 256 then
+					warn("[Blink]: Event queue of \"GetDataValue\" exceeded 256, did you forget to implement a listener?")
+				end
+				table.insert(Queue.Reliable[22], {Player, Value, InvocationIdentifier} :: {any})
+			end
+		elseif Index == 23 then
+			-- Read BLOCK: 1 bytes
+			local BLOCK_START = Read(1)
+			local InvocationIdentifier = buffer.readu8(RecieveBuffer, BLOCK_START + 0)
+			local Value: { SettingName: string, SubKey: string?, Value: any } = SerdesFunctions.DataService_ReadFUNCTION_DATA_UpdateSetting()
+			if Events.Reliable[23] ~= nil then
+				task.spawn(Events.Reliable[23], Player, Value, InvocationIdentifier)
+			else
+				if #Queue.Reliable[23] > 256 then
+					warn("[Blink]: Event queue of \"UpdateSetting\" exceeded 256, did you forget to implement a listener?")
+				end
+				table.insert(Queue.Reliable[23], {Player, Value, InvocationIdentifier} :: {any})
+			end
+		elseif Index == 27 then
 			-- Read BLOCK: 1 bytes
 			local BLOCK_START = Read(1)
 			local InvocationIdentifier = buffer.readu8(RecieveBuffer, BLOCK_START + 0)
 			local Value: { craftKey: string, consumedTowers: {[string]: { string }} } = SerdesFunctions.CraftService_ReadFUNCTION_DATA_Craft()
-			if Events.Reliable[25] ~= nil then
-				task.spawn(Events.Reliable[25], Player, Value, InvocationIdentifier)
+			if Events.Reliable[27] ~= nil then
+				task.spawn(Events.Reliable[27], Player, Value, InvocationIdentifier)
 			else
-				if #Queue.Reliable[25] > 256 then
+				if #Queue.Reliable[27] > 256 then
 					warn("[Blink]: Event queue of \"Craft\" exceeded 256, did you forget to implement a listener?")
 				end
-				table.insert(Queue.Reliable[25], {Player, Value, InvocationIdentifier} :: {any})
+				table.insert(Queue.Reliable[27], {Player, Value, InvocationIdentifier} :: {any})
 			end
-		elseif Index == 26 then
+		elseif Index == 28 then
 			-- Read BLOCK: 1 bytes
 			local BLOCK_START = Read(1)
 			local InvocationIdentifier = buffer.readu8(RecieveBuffer, BLOCK_START + 0)
 			local Value: { category: string, itemName: string } = SerdesFunctions.GlobalExistService_ReadFUNCTION_DATA_GetCount()
-			if Events.Reliable[26] ~= nil then
-				task.spawn(Events.Reliable[26], Player, Value, InvocationIdentifier)
+			if Events.Reliable[28] ~= nil then
+				task.spawn(Events.Reliable[28], Player, Value, InvocationIdentifier)
 			else
-				if #Queue.Reliable[26] > 256 then
+				if #Queue.Reliable[28] > 256 then
 					warn("[Blink]: Event queue of \"GetCount\" exceeded 256, did you forget to implement a listener?")
 				end
-				table.insert(Queue.Reliable[26], {Player, Value, InvocationIdentifier} :: {any})
+				table.insert(Queue.Reliable[28], {Player, Value, InvocationIdentifier} :: {any})
 			end
 		end
 	end
@@ -1311,6 +1365,82 @@ local Returns = table.freeze({
 			end,
 		},
 	},
+	EmojiService = {
+		RequestShowEmoji = {
+		On = function(Listener: (Player, { EmojiId: string }) -> (boolean)): ()
+			Events.Reliable[6] = function(Player: Player, Value: { EmojiId: string }, InvocationIdentifier: number): ()
+				local ReturnValue: boolean;
+				local Success, Error = pcall(function ()
+					ReturnValue = Listener(Player, Value)
+				end)
+				Load(PlayersMap[Player])
+				if Success ~= true then
+					local Position = Allocate(3)
+					buffer.writeu8(SendBuffer, Position, 6)
+					buffer.writeu8(SendBuffer, Position + 1, InvocationIdentifier)
+					buffer.writeu8(SendBuffer, Position + 2, 0)
+					warn(`"RequestShowEmoji" encountered an error, {Error}`)
+				else
+					SerdesFunctions.EmojiService_WriteFUNCTION_RETURN_RequestShowEmoji(ReturnValue, InvocationIdentifier)
+				end
+				PlayersMap[Player] = Save()
+			end
+			task.spawn(function (): ()
+				local EventQueue = Queue.Reliable[6] or {}
+				Queue.Reliable[6] = nil
+				for Index, Arguments in EventQueue do
+					Events.Reliable[6](table.unpack(Arguments))
+				end
+			end)
+		end
+		},
+		EmojiShown = {
+			Fire = function(Player: Player, Value: { Player: any, EmojiId: string }): ()
+				Load(PlayersMap[Player])
+				SerdesFunctions.EmojiService_WriteEVENT_EmojiShown(Value)
+				PlayersMap[Player] = Save()
+			end,
+			FireAll = function(Value: { Player: any, EmojiId: string }): ()
+				Load()
+				SerdesFunctions.EmojiService_WriteEVENT_EmojiShown(Value)
+				local Buffer, Size, Instances = SendBuffer, SendCursor, SendInstances
+				for _, Player in Players:GetPlayers() do
+					Load(PlayersMap[Player])
+					local Position = Allocate(Size)
+					buffer.copy(SendBuffer, Position, Buffer, 0, Size)
+					table.move(Instances, 1, #Instances, #SendInstances + 1, SendInstances)
+					PlayersMap[Player] = Save()
+				end
+			end,
+			FireList = function(List: {Player}, Value: { Player: any, EmojiId: string }): ()
+				Load()
+				SerdesFunctions.EmojiService_WriteEVENT_EmojiShown(Value)
+				local Buffer, Size, Instances = SendBuffer, SendCursor, SendInstances
+				for _, Player in List do
+					Load(PlayersMap[Player])
+					local Position = Allocate(Size)
+					buffer.copy(SendBuffer, Position, Buffer, 0, Size)
+					table.move(Instances, 1, #Instances, #SendInstances + 1, SendInstances)
+					PlayersMap[Player] = Save()
+				end
+			end,
+			FireExcept = function(Except: Player, Value: { Player: any, EmojiId: string }): ()
+				Load()
+				SerdesFunctions.EmojiService_WriteEVENT_EmojiShown(Value)
+				local Buffer, Size, Instances = SendBuffer, SendCursor, SendInstances
+				for _, Player in Players:GetPlayers() do
+					if Player == Except then
+						continue
+					end
+					Load(PlayersMap[Player])
+					local Position = Allocate(Size)
+					buffer.copy(SendBuffer, Position, Buffer, 0, Size)
+					table.move(Instances, 1, #Instances, #SendInstances + 1, SendInstances)
+					PlayersMap[Player] = Save()
+				end
+			end,
+		},
+	},
 	RoomService = {
 		RoomRefreshed = {
 			Fire = function(Player: Player, Value: {[number]: any}): ()
@@ -1406,64 +1536,8 @@ local Returns = table.freeze({
 		},
 		GetRooms = {
 		On = function(Listener: (Player, nil) -> ({[number]: any})): ()
-			Events.Reliable[8] = function(Player: Player, Value: nil, InvocationIdentifier: number): ()
+			Events.Reliable[10] = function(Player: Player, Value: nil, InvocationIdentifier: number): ()
 				local ReturnValue: {[number]: any};
-				local Success, Error = pcall(function ()
-					ReturnValue = Listener(Player, Value)
-				end)
-				Load(PlayersMap[Player])
-				if Success ~= true then
-					local Position = Allocate(3)
-					buffer.writeu8(SendBuffer, Position, 8)
-					buffer.writeu8(SendBuffer, Position + 1, InvocationIdentifier)
-					buffer.writeu8(SendBuffer, Position + 2, 0)
-					warn(`"GetRooms" encountered an error, {Error}`)
-				else
-					SerdesFunctions.RoomService_WriteFUNCTION_RETURN_GetRooms(ReturnValue, InvocationIdentifier)
-				end
-				PlayersMap[Player] = Save()
-			end
-			task.spawn(function (): ()
-				local EventQueue = Queue.Reliable[8] or {}
-				Queue.Reliable[8] = nil
-				for Index, Arguments in EventQueue do
-					Events.Reliable[8](table.unpack(Arguments))
-				end
-			end)
-		end
-		},
-		RequestJoin = {
-		On = function(Listener: (Player, number) -> (boolean)): ()
-			Events.Reliable[9] = function(Player: Player, Value: number, InvocationIdentifier: number): ()
-				local ReturnValue: boolean;
-				local Success, Error = pcall(function ()
-					ReturnValue = Listener(Player, Value)
-				end)
-				Load(PlayersMap[Player])
-				if Success ~= true then
-					local Position = Allocate(3)
-					buffer.writeu8(SendBuffer, Position, 9)
-					buffer.writeu8(SendBuffer, Position + 1, InvocationIdentifier)
-					buffer.writeu8(SendBuffer, Position + 2, 0)
-					warn(`"RequestJoin" encountered an error, {Error}`)
-				else
-					SerdesFunctions.RoomService_WriteFUNCTION_RETURN_RequestJoin(ReturnValue, InvocationIdentifier)
-				end
-				PlayersMap[Player] = Save()
-			end
-			task.spawn(function (): ()
-				local EventQueue = Queue.Reliable[9] or {}
-				Queue.Reliable[9] = nil
-				for Index, Arguments in EventQueue do
-					Events.Reliable[9](table.unpack(Arguments))
-				end
-			end)
-		end
-		},
-		RequestLeave = {
-		On = function(Listener: (Player, number) -> (boolean)): ()
-			Events.Reliable[10] = function(Player: Player, Value: number, InvocationIdentifier: number): ()
-				local ReturnValue: boolean;
 				local Success, Error = pcall(function ()
 					ReturnValue = Listener(Player, Value)
 				end)
@@ -1473,9 +1547,9 @@ local Returns = table.freeze({
 					buffer.writeu8(SendBuffer, Position, 10)
 					buffer.writeu8(SendBuffer, Position + 1, InvocationIdentifier)
 					buffer.writeu8(SendBuffer, Position + 2, 0)
-					warn(`"RequestLeave" encountered an error, {Error}`)
+					warn(`"GetRooms" encountered an error, {Error}`)
 				else
-					SerdesFunctions.RoomService_WriteFUNCTION_RETURN_RequestLeave(ReturnValue, InvocationIdentifier)
+					SerdesFunctions.RoomService_WriteFUNCTION_RETURN_GetRooms(ReturnValue, InvocationIdentifier)
 				end
 				PlayersMap[Player] = Save()
 			end
@@ -1488,7 +1562,7 @@ local Returns = table.freeze({
 			end)
 		end
 		},
-		RequestStart = {
+		RequestJoin = {
 		On = function(Listener: (Player, number) -> (boolean)): ()
 			Events.Reliable[11] = function(Player: Player, Value: number, InvocationIdentifier: number): ()
 				local ReturnValue: boolean;
@@ -1501,9 +1575,9 @@ local Returns = table.freeze({
 					buffer.writeu8(SendBuffer, Position, 11)
 					buffer.writeu8(SendBuffer, Position + 1, InvocationIdentifier)
 					buffer.writeu8(SendBuffer, Position + 2, 0)
-					warn(`"RequestStart" encountered an error, {Error}`)
+					warn(`"RequestJoin" encountered an error, {Error}`)
 				else
-					SerdesFunctions.RoomService_WriteFUNCTION_RETURN_RequestStart(ReturnValue, InvocationIdentifier)
+					SerdesFunctions.RoomService_WriteFUNCTION_RETURN_RequestJoin(ReturnValue, InvocationIdentifier)
 				end
 				PlayersMap[Player] = Save()
 			end
@@ -1516,10 +1590,10 @@ local Returns = table.freeze({
 			end)
 		end
 		},
-		RequestCreate = {
-		On = function(Listener: (Player, { MaxPlayers: number, OnlyFriends: boolean, Map: string, Difficulty: string }) -> ({ Success: boolean, RoomId: number })): ()
-			Events.Reliable[12] = function(Player: Player, Value: { MaxPlayers: number, OnlyFriends: boolean, Map: string, Difficulty: string }, InvocationIdentifier: number): ()
-				local ReturnValue: { Success: boolean, RoomId: number };
+		RequestLeave = {
+		On = function(Listener: (Player, number) -> (boolean)): ()
+			Events.Reliable[12] = function(Player: Player, Value: number, InvocationIdentifier: number): ()
+				local ReturnValue: boolean;
 				local Success, Error = pcall(function ()
 					ReturnValue = Listener(Player, Value)
 				end)
@@ -1529,9 +1603,9 @@ local Returns = table.freeze({
 					buffer.writeu8(SendBuffer, Position, 12)
 					buffer.writeu8(SendBuffer, Position + 1, InvocationIdentifier)
 					buffer.writeu8(SendBuffer, Position + 2, 0)
-					warn(`"RequestCreate" encountered an error, {Error}`)
+					warn(`"RequestLeave" encountered an error, {Error}`)
 				else
-					SerdesFunctions.RoomService_WriteFUNCTION_RETURN_RequestCreate(ReturnValue, InvocationIdentifier)
+					SerdesFunctions.RoomService_WriteFUNCTION_RETURN_RequestLeave(ReturnValue, InvocationIdentifier)
 				end
 				PlayersMap[Player] = Save()
 			end
@@ -1540,6 +1614,62 @@ local Returns = table.freeze({
 				Queue.Reliable[12] = nil
 				for Index, Arguments in EventQueue do
 					Events.Reliable[12](table.unpack(Arguments))
+				end
+			end)
+		end
+		},
+		RequestStart = {
+		On = function(Listener: (Player, number) -> (boolean)): ()
+			Events.Reliable[13] = function(Player: Player, Value: number, InvocationIdentifier: number): ()
+				local ReturnValue: boolean;
+				local Success, Error = pcall(function ()
+					ReturnValue = Listener(Player, Value)
+				end)
+				Load(PlayersMap[Player])
+				if Success ~= true then
+					local Position = Allocate(3)
+					buffer.writeu8(SendBuffer, Position, 13)
+					buffer.writeu8(SendBuffer, Position + 1, InvocationIdentifier)
+					buffer.writeu8(SendBuffer, Position + 2, 0)
+					warn(`"RequestStart" encountered an error, {Error}`)
+				else
+					SerdesFunctions.RoomService_WriteFUNCTION_RETURN_RequestStart(ReturnValue, InvocationIdentifier)
+				end
+				PlayersMap[Player] = Save()
+			end
+			task.spawn(function (): ()
+				local EventQueue = Queue.Reliable[13] or {}
+				Queue.Reliable[13] = nil
+				for Index, Arguments in EventQueue do
+					Events.Reliable[13](table.unpack(Arguments))
+				end
+			end)
+		end
+		},
+		RequestCreate = {
+		On = function(Listener: (Player, { MaxPlayers: number, OnlyFriends: boolean, Map: string, Difficulty: string }) -> ({ Success: boolean, RoomId: number })): ()
+			Events.Reliable[14] = function(Player: Player, Value: { MaxPlayers: number, OnlyFriends: boolean, Map: string, Difficulty: string }, InvocationIdentifier: number): ()
+				local ReturnValue: { Success: boolean, RoomId: number };
+				local Success, Error = pcall(function ()
+					ReturnValue = Listener(Player, Value)
+				end)
+				Load(PlayersMap[Player])
+				if Success ~= true then
+					local Position = Allocate(3)
+					buffer.writeu8(SendBuffer, Position, 14)
+					buffer.writeu8(SendBuffer, Position + 1, InvocationIdentifier)
+					buffer.writeu8(SendBuffer, Position + 2, 0)
+					warn(`"RequestCreate" encountered an error, {Error}`)
+				else
+					SerdesFunctions.RoomService_WriteFUNCTION_RETURN_RequestCreate(ReturnValue, InvocationIdentifier)
+				end
+				PlayersMap[Player] = Save()
+			end
+			task.spawn(function (): ()
+				local EventQueue = Queue.Reliable[14] or {}
+				Queue.Reliable[14] = nil
+				for Index, Arguments in EventQueue do
+					Events.Reliable[14](table.unpack(Arguments))
 				end
 			end)
 		end
@@ -1594,7 +1724,7 @@ local Returns = table.freeze({
 		},
 		DoSummon = {
 		On = function(Listener: (Player, number) -> ({ Success: boolean, PulledUnits: any })): ()
-			Events.Reliable[14] = function(Player: Player, Value: number, InvocationIdentifier: number): ()
+			Events.Reliable[16] = function(Player: Player, Value: number, InvocationIdentifier: number): ()
 				local ReturnValue: { Success: boolean, PulledUnits: any };
 				local Success, Error = pcall(function ()
 					ReturnValue = Listener(Player, Value)
@@ -1602,7 +1732,7 @@ local Returns = table.freeze({
 				Load(PlayersMap[Player])
 				if Success ~= true then
 					local Position = Allocate(3)
-					buffer.writeu8(SendBuffer, Position, 14)
+					buffer.writeu8(SendBuffer, Position, 16)
 					buffer.writeu8(SendBuffer, Position + 1, InvocationIdentifier)
 					buffer.writeu8(SendBuffer, Position + 2, 0)
 					warn(`"DoSummon" encountered an error, {Error}`)
@@ -1612,17 +1742,17 @@ local Returns = table.freeze({
 				PlayersMap[Player] = Save()
 			end
 			task.spawn(function (): ()
-				local EventQueue = Queue.Reliable[14] or {}
-				Queue.Reliable[14] = nil
+				local EventQueue = Queue.Reliable[16] or {}
+				Queue.Reliable[16] = nil
 				for Index, Arguments in EventQueue do
-					Events.Reliable[14](table.unpack(Arguments))
+					Events.Reliable[16](table.unpack(Arguments))
 				end
 			end)
 		end
 		},
 		GetBanner = {
 		On = function(Listener: (Player, nil) -> (any)): ()
-			Events.Reliable[15] = function(Player: Player, Value: nil, InvocationIdentifier: number): ()
+			Events.Reliable[17] = function(Player: Player, Value: nil, InvocationIdentifier: number): ()
 				local ReturnValue: any;
 				local Success, Error = pcall(function ()
 					ReturnValue = Listener(Player, Value)
@@ -1630,7 +1760,7 @@ local Returns = table.freeze({
 				Load(PlayersMap[Player])
 				if Success ~= true then
 					local Position = Allocate(3)
-					buffer.writeu8(SendBuffer, Position, 15)
+					buffer.writeu8(SendBuffer, Position, 17)
 					buffer.writeu8(SendBuffer, Position + 1, InvocationIdentifier)
 					buffer.writeu8(SendBuffer, Position + 2, 0)
 					warn(`"GetBanner" encountered an error, {Error}`)
@@ -1640,10 +1770,10 @@ local Returns = table.freeze({
 				PlayersMap[Player] = Save()
 			end
 			task.spawn(function (): ()
-				local EventQueue = Queue.Reliable[15] or {}
-				Queue.Reliable[15] = nil
+				local EventQueue = Queue.Reliable[17] or {}
+				Queue.Reliable[17] = nil
 				for Index, Arguments in EventQueue do
-					Events.Reliable[15](table.unpack(Arguments))
+					Events.Reliable[17](table.unpack(Arguments))
 				end
 			end)
 		end
@@ -1700,66 +1830,8 @@ local Returns = table.freeze({
 	LoadoutService = {
 		SetLoadout = {
 		On = function(Listener: (Player, { requestType: ("Equip" | "Unequip" | "UnequipAll"), targetTower: { towerName: string, towerKey: number }? }) -> (any)): ()
-			Events.Reliable[17] = function(Player: Player, Value: { requestType: ("Equip" | "Unequip" | "UnequipAll"), targetTower: { towerName: string, towerKey: number }? }, InvocationIdentifier: number): ()
+			Events.Reliable[19] = function(Player: Player, Value: { requestType: ("Equip" | "Unequip" | "UnequipAll"), targetTower: { towerName: string, towerKey: number }? }, InvocationIdentifier: number): ()
 				local ReturnValue: any;
-				local Success, Error = pcall(function ()
-					ReturnValue = Listener(Player, Value)
-				end)
-				Load(PlayersMap[Player])
-				if Success ~= true then
-					local Position = Allocate(3)
-					buffer.writeu8(SendBuffer, Position, 17)
-					buffer.writeu8(SendBuffer, Position + 1, InvocationIdentifier)
-					buffer.writeu8(SendBuffer, Position + 2, 0)
-					warn(`"SetLoadout" encountered an error, {Error}`)
-				else
-					SerdesFunctions.LoadoutService_WriteFUNCTION_RETURN_SetLoadout(ReturnValue, InvocationIdentifier)
-				end
-				PlayersMap[Player] = Save()
-			end
-			task.spawn(function (): ()
-				local EventQueue = Queue.Reliable[17] or {}
-				Queue.Reliable[17] = nil
-				for Index, Arguments in EventQueue do
-					Events.Reliable[17](table.unpack(Arguments))
-				end
-			end)
-		end
-		},
-	},
-	SettingsService = {
-		GetSettings = {
-		On = function(Listener: (Player, string?) -> (any)): ()
-			Events.Reliable[18] = function(Player: Player, Value: string?, InvocationIdentifier: number): ()
-				local ReturnValue: any;
-				local Success, Error = pcall(function ()
-					ReturnValue = Listener(Player, Value)
-				end)
-				Load(PlayersMap[Player])
-				if Success ~= true then
-					local Position = Allocate(3)
-					buffer.writeu8(SendBuffer, Position, 18)
-					buffer.writeu8(SendBuffer, Position + 1, InvocationIdentifier)
-					buffer.writeu8(SendBuffer, Position + 2, 0)
-					warn(`"GetSettings" encountered an error, {Error}`)
-				else
-					SerdesFunctions.SettingsService_WriteFUNCTION_RETURN_GetSettings(ReturnValue, InvocationIdentifier)
-				end
-				PlayersMap[Player] = Save()
-			end
-			task.spawn(function (): ()
-				local EventQueue = Queue.Reliable[18] or {}
-				Queue.Reliable[18] = nil
-				for Index, Arguments in EventQueue do
-					Events.Reliable[18](table.unpack(Arguments))
-				end
-			end)
-		end
-		},
-		SaveSetting = {
-		On = function(Listener: (Player, { SettingName: string, Value: any }) -> (boolean)): ()
-			Events.Reliable[19] = function(Player: Player, Value: { SettingName: string, Value: any }, InvocationIdentifier: number): ()
-				local ReturnValue: boolean;
 				local Success, Error = pcall(function ()
 					ReturnValue = Listener(Player, Value)
 				end)
@@ -1769,9 +1841,9 @@ local Returns = table.freeze({
 					buffer.writeu8(SendBuffer, Position, 19)
 					buffer.writeu8(SendBuffer, Position + 1, InvocationIdentifier)
 					buffer.writeu8(SendBuffer, Position + 2, 0)
-					warn(`"SaveSetting" encountered an error, {Error}`)
+					warn(`"SetLoadout" encountered an error, {Error}`)
 				else
-					SerdesFunctions.SettingsService_WriteFUNCTION_RETURN_SaveSetting(ReturnValue, InvocationIdentifier)
+					SerdesFunctions.LoadoutService_WriteFUNCTION_RETURN_SetLoadout(ReturnValue, InvocationIdentifier)
 				end
 				PlayersMap[Player] = Save()
 			end
@@ -1785,10 +1857,10 @@ local Returns = table.freeze({
 		end
 		},
 	},
-	DataService = {
-		GetDataValue = {
-		On = function(Listener: (Player, string) -> (any)): ()
-			Events.Reliable[20] = function(Player: Player, Value: string, InvocationIdentifier: number): ()
+	SettingsService = {
+		GetSettings = {
+		On = function(Listener: (Player, string?) -> (any)): ()
+			Events.Reliable[20] = function(Player: Player, Value: string?, InvocationIdentifier: number): ()
 				local ReturnValue: any;
 				local Success, Error = pcall(function ()
 					ReturnValue = Listener(Player, Value)
@@ -1799,9 +1871,9 @@ local Returns = table.freeze({
 					buffer.writeu8(SendBuffer, Position, 20)
 					buffer.writeu8(SendBuffer, Position + 1, InvocationIdentifier)
 					buffer.writeu8(SendBuffer, Position + 2, 0)
-					warn(`"GetDataValue" encountered an error, {Error}`)
+					warn(`"GetSettings" encountered an error, {Error}`)
 				else
-					SerdesFunctions.DataService_WriteFUNCTION_RETURN_GetDataValue(ReturnValue, InvocationIdentifier)
+					SerdesFunctions.SettingsService_WriteFUNCTION_RETURN_GetSettings(ReturnValue, InvocationIdentifier)
 				end
 				PlayersMap[Player] = Save()
 			end
@@ -1814,9 +1886,9 @@ local Returns = table.freeze({
 			end)
 		end
 		},
-		UpdateSetting = {
-		On = function(Listener: (Player, { SettingName: string, SubKey: string?, Value: any }) -> (boolean)): ()
-			Events.Reliable[21] = function(Player: Player, Value: { SettingName: string, SubKey: string?, Value: any }, InvocationIdentifier: number): ()
+		SaveSetting = {
+		On = function(Listener: (Player, { SettingName: string, Value: any }) -> (boolean)): ()
+			Events.Reliable[21] = function(Player: Player, Value: { SettingName: string, Value: any }, InvocationIdentifier: number): ()
 				local ReturnValue: boolean;
 				local Success, Error = pcall(function ()
 					ReturnValue = Listener(Player, Value)
@@ -1827,9 +1899,9 @@ local Returns = table.freeze({
 					buffer.writeu8(SendBuffer, Position, 21)
 					buffer.writeu8(SendBuffer, Position + 1, InvocationIdentifier)
 					buffer.writeu8(SendBuffer, Position + 2, 0)
-					warn(`"UpdateSetting" encountered an error, {Error}`)
+					warn(`"SaveSetting" encountered an error, {Error}`)
 				else
-					SerdesFunctions.DataService_WriteFUNCTION_RETURN_UpdateSetting(ReturnValue, InvocationIdentifier)
+					SerdesFunctions.SettingsService_WriteFUNCTION_RETURN_SaveSetting(ReturnValue, InvocationIdentifier)
 				end
 				PlayersMap[Player] = Save()
 			end
@@ -1838,6 +1910,64 @@ local Returns = table.freeze({
 				Queue.Reliable[21] = nil
 				for Index, Arguments in EventQueue do
 					Events.Reliable[21](table.unpack(Arguments))
+				end
+			end)
+		end
+		},
+	},
+	DataService = {
+		GetDataValue = {
+		On = function(Listener: (Player, string) -> (any)): ()
+			Events.Reliable[22] = function(Player: Player, Value: string, InvocationIdentifier: number): ()
+				local ReturnValue: any;
+				local Success, Error = pcall(function ()
+					ReturnValue = Listener(Player, Value)
+				end)
+				Load(PlayersMap[Player])
+				if Success ~= true then
+					local Position = Allocate(3)
+					buffer.writeu8(SendBuffer, Position, 22)
+					buffer.writeu8(SendBuffer, Position + 1, InvocationIdentifier)
+					buffer.writeu8(SendBuffer, Position + 2, 0)
+					warn(`"GetDataValue" encountered an error, {Error}`)
+				else
+					SerdesFunctions.DataService_WriteFUNCTION_RETURN_GetDataValue(ReturnValue, InvocationIdentifier)
+				end
+				PlayersMap[Player] = Save()
+			end
+			task.spawn(function (): ()
+				local EventQueue = Queue.Reliable[22] or {}
+				Queue.Reliable[22] = nil
+				for Index, Arguments in EventQueue do
+					Events.Reliable[22](table.unpack(Arguments))
+				end
+			end)
+		end
+		},
+		UpdateSetting = {
+		On = function(Listener: (Player, { SettingName: string, SubKey: string?, Value: any }) -> (boolean)): ()
+			Events.Reliable[23] = function(Player: Player, Value: { SettingName: string, SubKey: string?, Value: any }, InvocationIdentifier: number): ()
+				local ReturnValue: boolean;
+				local Success, Error = pcall(function ()
+					ReturnValue = Listener(Player, Value)
+				end)
+				Load(PlayersMap[Player])
+				if Success ~= true then
+					local Position = Allocate(3)
+					buffer.writeu8(SendBuffer, Position, 23)
+					buffer.writeu8(SendBuffer, Position + 1, InvocationIdentifier)
+					buffer.writeu8(SendBuffer, Position + 2, 0)
+					warn(`"UpdateSetting" encountered an error, {Error}`)
+				else
+					SerdesFunctions.DataService_WriteFUNCTION_RETURN_UpdateSetting(ReturnValue, InvocationIdentifier)
+				end
+				PlayersMap[Player] = Save()
+			end
+			task.spawn(function (): ()
+				local EventQueue = Queue.Reliable[23] or {}
+				Queue.Reliable[23] = nil
+				for Index, Arguments in EventQueue do
+					Events.Reliable[23](table.unpack(Arguments))
 				end
 			end)
 		end
@@ -1984,7 +2114,7 @@ local Returns = table.freeze({
 	CraftService = {
 		Craft = {
 		On = function(Listener: (Player, { craftKey: string, consumedTowers: {[string]: { string }} }) -> (boolean)): ()
-			Events.Reliable[25] = function(Player: Player, Value: { craftKey: string, consumedTowers: {[string]: { string }} }, InvocationIdentifier: number): ()
+			Events.Reliable[27] = function(Player: Player, Value: { craftKey: string, consumedTowers: {[string]: { string }} }, InvocationIdentifier: number): ()
 				local ReturnValue: boolean;
 				local Success, Error = pcall(function ()
 					ReturnValue = Listener(Player, Value)
@@ -1992,7 +2122,7 @@ local Returns = table.freeze({
 				Load(PlayersMap[Player])
 				if Success ~= true then
 					local Position = Allocate(3)
-					buffer.writeu8(SendBuffer, Position, 25)
+					buffer.writeu8(SendBuffer, Position, 27)
 					buffer.writeu8(SendBuffer, Position + 1, InvocationIdentifier)
 					buffer.writeu8(SendBuffer, Position + 2, 0)
 					warn(`"Craft" encountered an error, {Error}`)
@@ -2002,10 +2132,10 @@ local Returns = table.freeze({
 				PlayersMap[Player] = Save()
 			end
 			task.spawn(function (): ()
-				local EventQueue = Queue.Reliable[25] or {}
-				Queue.Reliable[25] = nil
+				local EventQueue = Queue.Reliable[27] or {}
+				Queue.Reliable[27] = nil
 				for Index, Arguments in EventQueue do
-					Events.Reliable[25](table.unpack(Arguments))
+					Events.Reliable[27](table.unpack(Arguments))
 				end
 			end)
 		end
@@ -2014,7 +2144,7 @@ local Returns = table.freeze({
 	GlobalExistService = {
 		GetCount = {
 		On = function(Listener: (Player, { category: string, itemName: string }) -> (number)): ()
-			Events.Reliable[26] = function(Player: Player, Value: { category: string, itemName: string }, InvocationIdentifier: number): ()
+			Events.Reliable[28] = function(Player: Player, Value: { category: string, itemName: string }, InvocationIdentifier: number): ()
 				local ReturnValue: number;
 				local Success, Error = pcall(function ()
 					ReturnValue = Listener(Player, Value)
@@ -2022,7 +2152,7 @@ local Returns = table.freeze({
 				Load(PlayersMap[Player])
 				if Success ~= true then
 					local Position = Allocate(3)
-					buffer.writeu8(SendBuffer, Position, 26)
+					buffer.writeu8(SendBuffer, Position, 28)
 					buffer.writeu8(SendBuffer, Position + 1, InvocationIdentifier)
 					buffer.writeu8(SendBuffer, Position + 2, 0)
 					warn(`"GetCount" encountered an error, {Error}`)
@@ -2032,10 +2162,10 @@ local Returns = table.freeze({
 				PlayersMap[Player] = Save()
 			end
 			task.spawn(function (): ()
-				local EventQueue = Queue.Reliable[26] or {}
-				Queue.Reliable[26] = nil
+				local EventQueue = Queue.Reliable[28] or {}
+				Queue.Reliable[28] = nil
 				for Index, Arguments in EventQueue do
-					Events.Reliable[26](table.unpack(Arguments))
+					Events.Reliable[28](table.unpack(Arguments))
 				end
 			end)
 		end

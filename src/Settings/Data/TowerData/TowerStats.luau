@@ -926,4 +926,14 @@ return {
 			AttackType = "Line",
 		},
 	},
+	["Ranger Super Tower"] = {
+		[0] = {
+			Damage = 6974697469746974,
+			Cooldown = 1.5,
+			Range = 250,
+			Cost = 0,
+			SplashRange = 50,
+			AttackType = "Splash",
+		},
+	},
 }

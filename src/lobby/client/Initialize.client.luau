@@ -19,7 +19,9 @@ ServiceRegistry:RegisterServices({
 	Controllers.SettingsClient,
 	Controllers.InventoryClient,
 	Controllers.EmoteClient,
+	Controllers.EmojiClient,
 	Controllers.SprintClient,
+	Controllers.InputController,
 })
 
 ServiceRegistry:Start():andThen(function()

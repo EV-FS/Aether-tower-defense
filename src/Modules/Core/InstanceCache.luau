@@ -26,6 +26,9 @@ function InstanceCache:GetInstance(): Instance
 	end
 
 	local inst = table.remove(self.Available)
+	if not inst or inst.Parent == nil then
+		inst = self.Template:Clone()
+	end
 	self.InUse[inst] = true
 
 	return inst

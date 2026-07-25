@@ -85,4 +85,11 @@ return TableUtils.DeepFreeze({
 			},
 		},
 	},
+	["Ranger Super Tower"] = {
+		AttackStart = {
+			[0] = {
+				newStep("Towers/Ranger Super Tower/A1", { Type = "3D", At = "Source" }),
+			},
+		},
+	},
 })

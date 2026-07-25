@@ -26,20 +26,41 @@ local FaderStorage
 -------------------------------------------------
 --// Local Functions
 -------------------------------------------------
-local function GetInverseAttenuation(minDist, maxDist)
-	local attenuation = {}
+local function GetInverseAttenuation(minDist: number, maxDist: number): { [number]: number }
+	local attenuation: { [number]: number } = {}
+	local rollOffMin = math.max(minDist, 10)
 	attenuation[0] = 1
-	attenuation[minDist] = 1
+	attenuation[rollOffMin] = 1
 
 	local steps = 5
 	for i = 1, steps do
-		local distance = minDist + (maxDist - minDist) * (i / steps)
-		local volume = minDist / distance
+		local distance = rollOffMin + (maxDist - rollOffMin) * (i / steps)
+		local volume = rollOffMin / distance
 		attenuation[distance] = math.clamp(volume, 0, 1)
 	end
 
 	attenuation[maxDist] = 0
 	return attenuation
+end
+
+local function setupAudioListener()
+	local camera = workspace.CurrentCamera
+	if not camera then
+		return
+	end
+
+	local listener = camera:FindFirstChildOfClass("AudioListener") or Instance.new("AudioListener")
+	listener.Parent = camera
+
+	local listenerWire = SoundService:FindFirstChild("AudioListenerWire") :: Wire?
+	if not listenerWire then
+		listenerWire = Instance.new("Wire")
+		listenerWire.Name = "AudioListenerWire"
+		listenerWire.Parent = SoundService
+	end
+
+	listenerWire.SourceInstance = listener
+	listenerWire.TargetInstance = DeviceOutput
 end
 
 -------------------------------------------------
@@ -48,15 +69,19 @@ end
 local AudioController = {}
 AudioController.SFXVolume = 1
 
-function AudioController.PlayOn2D(soundId, volume: number?)
+function AudioController.PlayOn2D(soundId: any, volume: number?, looped: boolean?)
 	soundId = typeof(soundId) == "string" and soundId or `rbxassetid://{soundId}`
 
 	local audioPlayer: AudioPlayer = PlayerStorage:GetInstance()
 	audioPlayer.Asset = soundId
-	audioPlayer.Parent = SoundService
+	audioPlayer.TimePosition = 0
+	audioPlayer.Looping = looped == true
+	pcall(function()
+		audioPlayer.Parent = SoundService
+	end)
 
-	local fader
-	local faderWire
+	local fader: AudioFader?
+	local faderWire: Wire?
 
 	if volume or AudioController.SFXVolume ~= 1 then
 		fader = FaderStorage:GetInstance() :: AudioFader
@@ -76,7 +101,23 @@ function AudioController.PlayOn2D(soundId, volume: number?)
 
 	audioPlayer:Play()
 
-	audioPlayer.Ended:Once(function()
+	local isCleaned = false
+	local endedConn: RBXScriptConnection?
+
+	local function cleanup()
+		if isCleaned then
+			return
+		end
+		isCleaned = true
+
+		if endedConn then
+			endedConn:Disconnect()
+			endedConn = nil
+		end
+
+		audioPlayer.Looping = false
+		audioPlayer:Stop()
+		audioPlayer.TimePosition = 0
 		PlayerStorage:ReturnInstance(audioPlayer)
 		WireStorage:ReturnInstance(wire)
 
@@ -86,52 +127,71 @@ function AudioController.PlayOn2D(soundId, volume: number?)
 		if faderWire then
 			WireStorage:ReturnInstance(faderWire)
 		end
-	end)
+	end
 
-	return audioPlayer
+	endedConn = audioPlayer.Ended:Once(cleanup)
+
+	return {
+		Player = audioPlayer,
+		Stop = cleanup,
+	}
 end
 
-function AudioController.PlayOn3D(soundId, volume: number?, distance: number?, parent: Instance | Vector3)
+function AudioController.PlayOn3D(
+	soundId: any,
+	volume: number?,
+	distance: number?,
+	parent: Instance | Vector3,
+	looped: boolean?
+)
 	soundId = typeof(soundId) == "string" and soundId or `rbxassetid://{soundId}`
 
-	local parentInst
+	local parentInst: Instance
 	local isVector3 = typeof(parent) == "Vector3"
 
 	if isVector3 then
-		parentInst = Instance.new("Part")
-		parentInst.Size = Vector3.zero
-		parentInst.Transparency = 1
-		parentInst.CanCollide = false
-		parentInst.CanQuery = false
-		parentInst.CanTouch = false
-		parentInst.Anchored = true
-		parentInst.Position = parent
-
-		parentInst.Parent = workspace.Terrain
+		local part = Instance.new("Part")
+		part.Size = Vector3.zero
+		part.Transparency = 1
+		part.CanCollide = false
+		part.CanQuery = false
+		part.CanTouch = false
+		part.Anchored = true
+		part.Position = parent
+		part.Parent = workspace.Terrain
+		parentInst = part
 	else
 		parentInst = parent
 	end
 
 	local audioPlayer: AudioPlayer = PlayerStorage:GetInstance()
 	audioPlayer.Asset = soundId
-	audioPlayer.Parent = SoundService
+	audioPlayer.TimePosition = 0
+	audioPlayer.Looping = looped == true
+	pcall(function()
+		audioPlayer.Parent = SoundService
+	end)
 
 	local emitter: AudioEmitter = EmitterStorage:GetInstance()
 	emitter:SetDistanceAttenuation(GetInverseAttenuation(0, distance or DEFAULT_DISTANCE))
 	emitter.Parent = parentInst
 
-	local fader
-	local faderWire
+	local fader: AudioFader?
+	local faderWire: Wire?
 
 	if volume or AudioController.SFXVolume ~= 1 then
 		fader = FaderStorage:GetInstance()
-		fader.Volume = (volume or 1) * AudioController.SFXVolume
-		fader.Parent = parentInst
+		if fader then
+			fader.Volume = (volume or 1) * AudioController.SFXVolume
+			fader.Parent = parentInst
+		end
 
 		faderWire = WireStorage:GetInstance()
-		faderWire.SourceInstance = fader
-		faderWire.TargetInstance = emitter
-		faderWire.Parent = parentInst
+		if faderWire and fader then
+			faderWire.SourceInstance = fader
+			faderWire.TargetInstance = emitter
+			faderWire.Parent = parentInst
+		end
 	end
 
 	local wire: Wire = WireStorage:GetInstance()
@@ -141,11 +201,27 @@ function AudioController.PlayOn3D(soundId, volume: number?, distance: number?, p
 
 	audioPlayer:Play()
 
-	audioPlayer.Ended:Once(function()
+	local isCleaned = false
+	local endedConn: RBXScriptConnection?
+
+	local function cleanup()
+		if isCleaned then
+			return
+		end
+		isCleaned = true
+
+		if endedConn then
+			endedConn:Disconnect()
+			endedConn = nil
+		end
+
 		if isVector3 and parentInst then
 			parentInst:Destroy()
 		end
 
+		audioPlayer.Looping = false
+		audioPlayer:Stop()
+		audioPlayer.TimePosition = 0
 		PlayerStorage:ReturnInstance(audioPlayer)
 		EmitterStorage:ReturnInstance(emitter)
 		WireStorage:ReturnInstance(wire)
@@ -156,9 +232,14 @@ function AudioController.PlayOn3D(soundId, volume: number?, distance: number?, p
 		if faderWire then
 			WireStorage:ReturnInstance(faderWire)
 		end
-	end)
+	end
 
-	return audioPlayer
+	endedConn = audioPlayer.Ended:Once(cleanup)
+
+	return {
+		Player = audioPlayer,
+		Stop = cleanup,
+	}
 end
 
 function AudioController.SetBGMState(playing: boolean?, volume: number?, newBGMId)
@@ -186,6 +267,9 @@ function AudioController.Init()
 	EmitterStorage = InstanceCache.new(Instance.new("AudioEmitter"), 30, Caches)
 	WireStorage = InstanceCache.new(Instance.new("Wire"), 60, Caches)
 	FaderStorage = InstanceCache.new(Instance.new("AudioFader"), 30, Caches)
+
+	setupAudioListener()
+	workspace:GetPropertyChangedSignal("CurrentCamera"):Connect(setupAudioListener)
 
 	AudioController.SetBGMState(true, DEFAULT_VOLUME)
 end
