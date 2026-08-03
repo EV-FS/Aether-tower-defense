@@ -55,7 +55,7 @@ local systems = {
 loop:scheduleSystems(systems)
 
 loop:begin({
-	default = RunService.PreRender,
+	default = RunService.Heartbeat,
 })
 
 Leaf.Loader(world)
