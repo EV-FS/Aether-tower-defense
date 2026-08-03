@@ -368,7 +368,7 @@ function EnemyClient._OnUpdateSpeed(data: { enemyId: number, WalkSpeed: number, 
 
 	if CalWalkSpeed == 0 then
 		task.spawn(function()
-			RunService.RenderStepped:Wait()
+			RunService.PreRender:Wait()
 			task.defer(applyStunVisuals, updatedEnemy)
 		end)
 	else

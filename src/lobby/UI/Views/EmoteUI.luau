@@ -5,21 +5,17 @@ local Topbarplus = require(ReplicatedStorage.Packages.Topbarplus)
 local Vide = require(ReplicatedStorage.Packages.Vide)
 local ServiceRegistry = require(ReplicatedStorage.Shared.Modules.Core.ServiceRegistry)
 local EmoteData = require(ReplicatedStorage.Settings.Data.EmoteData)
-local InputController = require(ReplicatedStorage.Shared.Controllers.InputController)
 local EmoteWheel = require(ReplicatedStorage.UI.Components.EmoteWheel)
 local ModalOverlay = require(ReplicatedStorage.UI.Components.ModalOverlay)
-local UIController = require(ReplicatedStorage.UI.UIController)
+local EmoteClient
+local InputController
+local UIController
 
 local create = Vide.create
 local source = Vide.source
 
-local iScope = InputController.NewScope
-local iAction = InputController.NewAction
-local iInfo = InputController.NewInfo
-
 local VIEW_ID = "EmoteWheel"
-local EmoteClient: any = nil
-local EmoteInput: any = nil
+local EmoteInput
 
 local function getEmoteSlotData(index: number)
 	local config = EmoteData.ByIndex[index]
@@ -54,7 +50,7 @@ end
 
 function EmoteUI.RenderUI()
 	return create("Frame")({
-		Name = "EmoteSystem",
+		Name = "EmoteUI",
 		BackgroundTransparency = 1,
 		Size = UDim2.fromScale(1, 1),
 
@@ -78,9 +74,15 @@ end
 
 function EmoteUI.Init()
 	EmoteClient = ServiceRegistry:GetService("EmoteClient")
+	InputController = ServiceRegistry:GetService("InputController")
+	UIController = ServiceRegistry:GetService("UIController")
 end
 
 function EmoteUI.Start()
+	local iScope = InputController.Scope
+	local iAction = InputController.Action
+	local iInfo = InputController.Info
+
 	EmoteInput = iScope("EmoteInput", {
 		iAction("Toggle", iInfo({ Enum.KeyCode.G })),
 	}):Enable()

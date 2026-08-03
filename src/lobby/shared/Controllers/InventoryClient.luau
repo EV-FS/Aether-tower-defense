@@ -5,6 +5,8 @@ local TowerData = require(ReplicatedStorage.Settings.Data.TowerData)
 local Signal = require(ReplicatedStorage.Packages.Signal)
 local Vide = require(ReplicatedStorage.Packages.Vide)
 
+type towerKey = string | number
+
 local InventoryClient = {}
 InventoryClient.OwnedTowers = {}
 InventoryClient.LoadedPromise = nil
@@ -43,6 +45,10 @@ function InventoryClient.FetchTowers()
 
 	return InventoryClient.LoadedPromise
 end
+
+function InventoryClient.EquipTower(towerName: string, towerKey: towerKey) end
+
+function InventoryClient.SellTower(towerName: string, towerKey: towerKey) end
 
 function InventoryClient.Init() end
 

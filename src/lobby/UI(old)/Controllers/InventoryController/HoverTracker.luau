@@ -16,7 +16,7 @@ function HoverTracker.Start(entry)
 		hoverConn:Disconnect()
 	end
 
-	hoverConn = RunService.RenderStepped:Connect(function()
+	hoverConn = RunService.PreRender:Connect(function()
 		if not HoverTracker.viewUIRef then
 			return
 		end

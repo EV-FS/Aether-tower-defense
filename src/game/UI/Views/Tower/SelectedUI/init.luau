@@ -103,9 +103,9 @@ function SelectedUI.Start()
 	playerCash(EconomyService.GetCash(Players.LocalPlayer))
 
 	-- Keyboard Hotkeys (InputService Scopes)
-	local iScope = InputService.NewScope
-	local iAction = InputService.NewAction
-	local iInfo = InputService.NewInfo
+	local iScope = InputService.Scope
+	local iAction = InputService.Action
+	local iInfo = InputService.Info
 
 	SelectedTowerScope = iScope("SelectedTowerInput", {
 		iAction("Upgrade", iInfo({ Enum.KeyCode.E })),

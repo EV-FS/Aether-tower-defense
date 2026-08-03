@@ -124,7 +124,7 @@ function Guide.Start()
 	TimeService = TimeService or ServiceRegistry:GetService("TimeService")
 
 	local distanceTravelled = 0
-	renderConnection = RunService.RenderStepped:Connect(function(dt)
+	renderConnection = RunService.PreRender:Connect(function(dt)
 		distanceTravelled += dt * SPEED * TimeService:GetGameSpeed()
 
 		for k, arrow in ipairs(activeArrows) do

@@ -85,9 +85,9 @@ function TowerClient.Start()
 	TowerRenderer.Start()
 
 	--/Input
-	local iScope = InputService.NewScope
-	local iAction = InputService.NewAction
-	local iInfo = InputService.NewInfo
+	local iScope = InputService.Scope
+	local iAction = InputService.Action
+	local iInfo = InputService.Info
 
 	PlacementScope = iScope("PlacementInput", {
 		iAction("Spawn", iInfo({ Enum.UserInputType.MouseButton1, "DoubleTap" })),

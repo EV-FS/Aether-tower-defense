@@ -71,6 +71,37 @@ scope DataService {
         Data: string,
         Return: unknown,
     }
+
+    event CurrencyChanged {
+        from: Server,
+        type: Reliable,
+        call: ManySync,
+        data: struct {
+            CurrencyName: string,
+            CurrencyValue: u32,
+        }
+    }
+
+    event OwnedTowersAdded {
+        from: Server,
+        type: Reliable,
+        call: ManySync,
+        data: struct {
+            towerIndex: u8,
+            towerKeyId: u32,
+            towerData: unknown,
+        }
+    }
+
+    event OwnedTowersRemoved {
+        from: Server,
+        type: Reliable,
+        call: ManySync,
+        data: struct {
+            towerIndex: u8,
+            towerKeyId: u32,
+        }
+    }
 }
 
 scope TowerService {

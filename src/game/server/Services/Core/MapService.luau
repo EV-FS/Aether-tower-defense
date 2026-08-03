@@ -1,6 +1,6 @@
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local GetPath = require(ReplicatedStorage.Shared.Modules.Core.GetPath)
-local AudioService = require(ReplicatedStorage.Shared.Services.System.AudioService)
+local AudioService
 local WaveService
 
 local MapService = {}
@@ -54,6 +54,7 @@ function MapService:LoadMapAsync(mapName: string, difficulty: string?)
 end
 
 function MapService.Init(services)
+	AudioService = services:GetService("AudioService")
 	WaveService = services:GetService("WaveService")
 end
 

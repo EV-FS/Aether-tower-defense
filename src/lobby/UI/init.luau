@@ -6,7 +6,6 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Vide = require(ReplicatedStorage.Packages.Vide)
 local App = require(script.App)
 local UIOffsetScaler = require(script.Utils.UIOffsetScaler)
-local ViewRegistry = require(script.Views)
 
 local mount = Vide.mount
 
@@ -14,6 +13,22 @@ local UI = {}
 local isInitialized = false
 local unmount: (() -> ())? = nil
 local mountedViews = nil
+
+local function GetViews()
+	local views = {}
+
+	for _, module in script.Views:GetDescendants() do
+		if module:IsA("ModuleScript") and module.Name:match("UI$") then
+			table.insert(views, module)
+		end
+	end
+
+	table.sort(views, function(a, b)
+		return a:GetFullName() < b:GetFullName()
+	end)
+
+	return views
+end
 
 function UI.Init()
 	if isInitialized then
@@ -23,9 +38,14 @@ function UI.Init()
 	isInitialized = true
 	UIOffsetScaler.Init()
 
-	local views = ViewRegistry.GetAll()
+	local viewModules = GetViews()
+	local views = table.create(#viewModules)
+	for index, module in ipairs(viewModules) do
+		views[index] = require(module)
+	end
+
 	mountedViews = views
-	for _, view in ipairs(views) do
+	for _, view in views do
 		if view.Init then
 			view.Init()
 		end
@@ -35,14 +55,16 @@ function UI.Init()
 	unmount = mount(function()
 		local uiElements = {}
 		for _, view in ipairs(views) do
-			table.insert(uiElements, view.RenderUI())
+			if view.RenderUI then
+				table.insert(uiElements, view.RenderUI())
+			end
 		end
 		return App(uiElements)
 	end, playerGui)
 
-	for _, view in ipairs(views) do
+	for _, view in views do
 		if view.Start then
-			task.spawn(view.Start)
+			task.spawn(view.Start, views)
 		end
 	end
 end

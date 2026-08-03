@@ -4,7 +4,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local EmojiData = require(ReplicatedStorage.Settings.Data.EmojiData)
 local Net = require(ReplicatedStorage.Shared.Net.server)
 
-local EMOJI_COOLDOWN = 1
+local EMOJI_COOLDOWN = 0.5
 
 local lastEmojiTime: { [Player]: number } = {}
 

@@ -1,6 +1,7 @@
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Net = require(ReplicatedStorage.Shared.Net)
-local DataService = require(script.Parent.DataService)
+local DataService
+
 local MAX_LOADOUT_SIZE = 5
 
 -------------------------------------------------
@@ -114,7 +115,9 @@ function LoadoutService:UnequipTower(player: Player, towerName: string, towerKey
 	return false
 end
 
-function LoadoutService.Init() end
+function LoadoutService.Init(services)
+	DataService = services:GetService("DataService")
+end
 
 function LoadoutService.Start()
 	Net.LoadoutService.SetLoadout.On(function(player: Player, data)

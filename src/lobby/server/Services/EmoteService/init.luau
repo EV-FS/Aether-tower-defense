@@ -1,12 +1,11 @@
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
-local DataService = require(script.Parent.DataService)
 local EmoteData = require(ReplicatedStorage.Settings.Data.EmoteData)
 local EmotePropUtils = require(ReplicatedStorage.Shared.Modules.Utils.EmotePropUtils)
 local Net = require(ReplicatedStorage.Shared.Net.server)
+local DataService
 
-local DEFAULT_WALKSPEED = 16
 local EMOTE_COOLDOWN = 0.2
 
 -------------------------------------------------
@@ -193,7 +192,9 @@ function EmoteService.StopEmote(player: Player): boolean
 	return false
 end
 
-function EmoteService.Init() end
+function EmoteService.Init(services)
+	DataService = services:GetService("DataService")
+end
 
 function EmoteService.Start()
 	local function onPlayerAdded(player: Player)

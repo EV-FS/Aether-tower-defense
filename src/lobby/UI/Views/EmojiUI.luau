@@ -5,18 +5,14 @@ local Topbarplus = require(ReplicatedStorage.Packages.Topbarplus)
 local Vide = require(ReplicatedStorage.Packages.Vide)
 local ServiceRegistry = require(ReplicatedStorage.Shared.Modules.Core.ServiceRegistry)
 local EmojiData = require(ReplicatedStorage.Settings.Data.EmojiData)
-local InputController = require(ReplicatedStorage.Shared.Controllers.InputController)
 local EmojiWheel = require(ReplicatedStorage.UI.Components.EmojiWheel)
 local ModalOverlay = require(ReplicatedStorage.UI.Components.ModalOverlay)
-local UIController = require(ReplicatedStorage.UI.UIController)
-local EmojiClient = nil
+local EmojiClient
+local InputController
+local UIController
 
 local create = Vide.create
 local source = Vide.source
-
-local iScope = InputController.NewScope
-local iAction = InputController.NewAction
-local iInfo = InputController.NewInfo
 
 local VIEW_ID = "EmojiWheel"
 
@@ -60,7 +56,7 @@ end
 
 function EmojiUI.RenderUI()
 	return create("Frame")({
-		Name = "EmojiSystem",
+		Name = "EmojiUI",
 		BackgroundTransparency = 1,
 		Size = UDim2.fromScale(1, 1),
 
@@ -84,9 +80,15 @@ end
 
 function EmojiUI.Init()
 	EmojiClient = ServiceRegistry:GetService("EmojiClient")
+	InputController = ServiceRegistry:GetService("InputController")
+	UIController = ServiceRegistry:GetService("UIController")
 end
 
 function EmojiUI.Start()
+	local iScope = InputController.Scope
+	local iAction = InputController.Action
+	local iInfo = InputController.Info
+
 	EmojiInput = iScope("EmojiInput", {
 		iAction("Toggle", iInfo({ Enum.KeyCode.B })),
 	}):Enable()

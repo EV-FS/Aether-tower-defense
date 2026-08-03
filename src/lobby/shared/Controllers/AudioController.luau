@@ -53,10 +53,27 @@ local function setupAudioListener()
 	listener.Parent = camera
 
 	local listenerWire = SoundService:FindFirstChild("AudioListenerWire") :: Wire?
+	if listenerWire and listenerWire.SourceInstance == listener and listenerWire.TargetInstance == DeviceOutput then
+		return
+	end
+
+	for _, wire in listener:GetConnectedWires("Output") do
+		if wire.TargetInstance == DeviceOutput then
+			return
+		end
+	end
+
 	if not listenerWire then
+		if #DeviceOutput:GetConnectedWires("Input") > 0 then
+			return
+		end
+
 		listenerWire = Instance.new("Wire")
 		listenerWire.Name = "AudioListenerWire"
 		listenerWire.Parent = SoundService
+	else
+		-- 기존 카메라 Listener에서 분리한 뒤 새 Listener로 옮긴다.
+		listenerWire.TargetInstance = nil
 	end
 
 	listenerWire.SourceInstance = listener
@@ -73,6 +90,7 @@ function AudioController.PlayOn2D(soundId: any, volume: number?, looped: boolean
 	soundId = typeof(soundId) == "string" and soundId or `rbxassetid://{soundId}`
 
 	local audioPlayer: AudioPlayer = PlayerStorage:GetInstance()
+	audioPlayer.PlaybackSpeed = 1
 	audioPlayer.Asset = soundId
 	audioPlayer.TimePosition = 0
 	audioPlayer.Looping = looped == true
@@ -118,6 +136,7 @@ function AudioController.PlayOn2D(soundId: any, volume: number?, looped: boolean
 		audioPlayer.Looping = false
 		audioPlayer:Stop()
 		audioPlayer.TimePosition = 0
+		audioPlayer.PlaybackSpeed = 1
 		PlayerStorage:ReturnInstance(audioPlayer)
 		WireStorage:ReturnInstance(wire)
 
@@ -165,6 +184,7 @@ function AudioController.PlayOn3D(
 	end
 
 	local audioPlayer: AudioPlayer = PlayerStorage:GetInstance()
+	audioPlayer.PlaybackSpeed = 1
 	audioPlayer.Asset = soundId
 	audioPlayer.TimePosition = 0
 	audioPlayer.Looping = looped == true
@@ -222,6 +242,7 @@ function AudioController.PlayOn3D(
 		audioPlayer.Looping = false
 		audioPlayer:Stop()
 		audioPlayer.TimePosition = 0
+		audioPlayer.PlaybackSpeed = 1
 		PlayerStorage:ReturnInstance(audioPlayer)
 		EmitterStorage:ReturnInstance(emitter)
 		WireStorage:ReturnInstance(wire)
