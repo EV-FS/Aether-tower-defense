@@ -8,8 +8,9 @@ local ClientSignals = require(StarterPlayer.StarterPlayerScripts.Client.ClientSi
 local Vide = require(ReplicatedStorage.Packages.Vide)
 local GameSettings = require(ReplicatedStorage.Settings.Game.GameSettings)
 local MapData = require(ReplicatedStorage.Settings.Data.MapData)
+local ServiceRegistry = require(ReplicatedStorage.Shared.Modules.Core.ServiceRegistry)
 local NumberUtils = require(ReplicatedStorage.Shared.Modules.Utils.NumberUtils)
-local TimeService = require(ReplicatedStorage.Shared.Services.System.TimeService)
+local TimeService
 
 local source = Vide.source
 
@@ -91,6 +92,8 @@ function WaveUI.HydrateUI()
 end
 
 function WaveUI.Init()
+	TimeService = ServiceRegistry:GetService("TimeService")
+
 	Vide.mount(function()
 		WaveUI.HydrateUI()
 	end)

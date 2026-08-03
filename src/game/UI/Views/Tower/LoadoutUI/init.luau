@@ -117,9 +117,9 @@ function TowerLoadout.Start()
 		OwnedTowers(playerOwnedTowers)
 	end
 
-	local iScope = InputService.NewScope
-	local iAction = InputService.NewAction
-	local iInfo = InputService.NewInfo
+	local iScope = InputService.Scope
+	local iAction = InputService.Action
+	local iInfo = InputService.Info
 
 	local PlacementScope = iScope("LoadoutInput", {
 		iAction("Placement_1", iInfo({ Enum.KeyCode.One })),

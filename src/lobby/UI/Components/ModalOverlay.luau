@@ -3,6 +3,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Vide = require(ReplicatedStorage.Packages.Vide)
 
 local create = Vide.create
+local spring = Vide.spring
 
 export type Props = {
 	Name: string,
@@ -24,7 +25,9 @@ return function(props: Props)
 			Name = "Backdrop",
 			AutoButtonColor = false,
 			BackgroundColor3 = Color3.fromRGB(7, 12, 22),
-			BackgroundTransparency = 0.35,
+			BackgroundTransparency = spring(function()
+				return if props.IsOpen() then 0.35 else 1
+			end, 0.2, 0.9),
 			Size = UDim2.fromScale(1, 1),
 			Text = "",
 			ZIndex = 20,
@@ -37,7 +40,9 @@ return function(props: Props)
 			AnchorPoint = Vector2.new(0.5, 0),
 			BackgroundTransparency = 1,
 			FontFace = Font.fromEnum(Enum.Font.GothamBold),
-			Position = UDim2.fromScale(0.5, 0.12),
+			Position = spring(function()
+				return if props.IsOpen() then UDim2.fromScale(0.5, 0.12) else UDim2.fromScale(0.5, 0.15)
+			end, 0.4, 0.6),
 			Size = UDim2.fromScale(0.4, 0.05),
 			Text = props.Title,
 			TextColor3 = Color3.new(1, 1, 1),
@@ -50,30 +55,23 @@ return function(props: Props)
 			}),
 		}),
 
-		create("TextButton")({
-			Name = "Close",
+		create("Frame")({
+			Name = "Content",
+			BackgroundTransparency = 1,
 			AnchorPoint = Vector2.new(0.5, 0.5),
-			AutoButtonColor = false,
-			BackgroundColor3 = Color3.fromRGB(42, 58, 83),
 			Position = UDim2.fromScale(0.5, 0.5),
-			Size = UDim2.fromOffset(62, 62),
-			Text = "X",
-			TextColor3 = Color3.new(1, 1, 1),
-			TextScaled = true,
-			ZIndex = 35,
 
-			Activated = props.OnClose,
+			Rotation = spring(function()
+				return if props.IsOpen() then 0 else -90
+			end, 0.6, 0.75),
 
-			create("UICorner")({
-				CornerRadius = UDim.new(1, 0),
-			}),
+			Size = spring(function()
+				return if props.IsOpen() then UDim2.fromScale(1, 1) else UDim2.fromScale(0, 0)
+			end, 0.6, 0.75),
 
-			create("UIStroke")({
-				Color = Color3.fromRGB(88, 186, 255),
-				Thickness = 2,
-			}),
+			ZIndex = 30,
+
+			props.Content,
 		}),
-
-		props.Content,
 	})
 end

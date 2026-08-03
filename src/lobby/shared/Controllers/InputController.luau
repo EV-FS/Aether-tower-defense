@@ -12,62 +12,73 @@ local Touch = Input.Touch.new()
 
 export type Scope = {
 	Name: string,
+	Priority: number,
+	Sink: boolean,
+	Enabled: boolean,
+
 	Actions: { [string]: Action },
 	Enable: (self: Scope) -> nil,
 	Disable: (self: Scope) -> nil,
 }
 export type Action = {
 	Name: string,
-	Scope: string?,
+	Scope: Scope,
 	ActionInfo: ActionInfo,
 	Began: typeof(Signal.new()),
 	Ended: typeof(Signal.new()),
 }
+
 export type ActionInfo = {
 	KeyCodes: { Enum.KeyCode },
 	GuiButtons: { GuiButton },
 }
 
+type Options = {
+	Priority: number?,
+	Sink: boolean?,
+}
 type Keycodes = Enum.KeyCode | Enum.UserInputState | "Touch" | "DoubleTap"
 
 local KeyMap = {}
-local ActivatedScopes = {}
 
 local lastTapTime = 0
 local DOUBLE_TAP_THRESHOLD = 0.25
 
 -------------------------------------------------
---// InputService
+--// InputController
 -------------------------------------------------
-local InputService = {}
+local InputController = {}
 
-function InputService.NewScope(scopeName: string, actions: { [string]: Action }): Scope
+function InputController.Scope(scopeName: string, actions: { [string]: Action }, options: Options?): Scope
 	local self = {}
 	self.Name = scopeName
+	self.Priority = (options and options.Priority) or 0
+	self.Sink = (options and options.Sink) or false
+	self.Enabled = false
 
 	self.Actions = {}
 	for _, action in actions do
 		self.Actions[action.Name] = action
-		action.Scope = self.Name
+		action.Scope = self
 	end
 
 	self.Enable = function()
-		ActivatedScopes[self.Name] = true
+		self.Enabled = true
 
 		return self
 	end
 	self.Disable = function()
-		ActivatedScopes[self.Name] = false
+		self.Enabled = false
 
 		return self
 	end
 
-	ActivatedScopes[self.Name] = false
+	self.Enabled = false
 
 	return self
 end
 
-function InputService.NewAction(actionName: string, actionInfo: ActionInfo): Action
+function InputController.Action(actionName: string, actionInfo: ActionInfo): Action
 	local self = {}
 	self.Name = actionName
 	self.ActionInfo = actionInfo
@@ -78,7 +89,7 @@ function InputService.NewAction(actionName: string, actionInfo: ActionInfo): Act
 	self.Ended = Signal.new()
 
 	if actionInfo.KeyCodes then
-		for _, keyCode in ipairs(actionInfo.KeyCodes) do
+		for _, keyCode in actionInfo.KeyCodes do
 			if not KeyMap[keyCode] then
 				KeyMap[keyCode] = {}
 			end
@@ -86,20 +97,20 @@ function InputService.NewAction(actionName: string, actionInfo: ActionInfo): Act
 		end
 	end
 	if actionInfo.GuiButtons then
-		for _, button in ipairs(actionInfo.GuiButtons) do
-			button.MouseButton1Down:Connect(Fn.Bind(InputService._HandleButton, self, "Began"))
-			button.MouseButton1Up:Connect(Fn.Bind(InputService._HandleButton, self, "Ended"))
+		for _, button in actionInfo.GuiButtons do
+			button.MouseButton1Down:Connect(Fn.Bind(InputController._HandleButton, self, "Began"))
+			button.MouseButton1Up:Connect(Fn.Bind(InputController._HandleButton, self, "Ended"))
 		end
 	end
 
 	return self
 end
 
-function InputService.NewInfo(keyCodes: Keycodes?, guiButtons: { GuiButton }?): ActionInfo
+function InputController.Info(keyCodes: Keycodes?, guiButtons: { GuiButton }?): ActionInfo
 	return { KeyCodes = keyCodes, GuiButtons = guiButtons }
 end
 
-function InputService._HandleInput(inputState: string, keyCode: Keycodes, processed: boolean?)
+function InputController._HandleInput(inputState: string, keyCode: Keycodes, processed: boolean?)
 	if processed then
 		return
 	end
@@ -109,39 +120,59 @@ function InputService._HandleInput(inputState: string, keyCode: Keycodes, proces
 		return
 	end
 
-	for _, action in ipairs(keyActions) do
-		if action.Scope and ActivatedScopes[action.Scope] == true then
-			action[inputState]:Fire()
+	local candidates = {}
+
+	for _, action in keyActions do
+		if action.Scope and action.Scope.Enabled then
+			table.insert(candidates, action)
+			--action[inputState]:Fire()
 		end
 	end
-end
 
-function InputService._HandleButton(action: Action, inputState: string)
-	if action.Scope and ActivatedScopes[action.Scope] == true then
+	table.sort(candidates, function(a, b): boolean
+		return a.Scope.Priority > b.Scope.Priority
+	end)
+
+	local currentPriority = 0
+	local sinkEnabled = false
+	for _, action in ipairs(candidates) do
+		if currentPriority > action.Scope.Priority and sinkEnabled then
+			break
+		elseif currentPriority < action.Scope.Priority then
+			currentPriority = action.Scope.Priority
+			sinkEnabled = action.Scope.Sink
+		end
+
 		action[inputState]:Fire()
 	end
 end
 
-function InputService.Init() end
+function InputController._HandleButton(action: Action, inputState: string)
+	if action.Scope and action.Scope.Enabled then
+		action[inputState]:Fire()
+	end
+end
 
-function InputService.Start()
-	Keyboard.KeyDown:Connect(Fn.Bind(InputService._HandleInput, "Began"))
-	Keyboard.KeyUp:Connect(Fn.Bind(InputService._HandleInput, "Ended"))
+function InputController.Init() end
 
-	Mouse.LeftDown:Connect(Fn.Bind(InputService._HandleInput, "Began", Enum.UserInputType.MouseButton1))
-	Mouse.LeftUp:Connect(Fn.Bind(InputService._HandleInput, "Ended", Enum.UserInputType.MouseButton1))
+function InputController.Start()
+	Keyboard.KeyDown:Connect(Fn.Bind(InputController._HandleInput, "Began"))
+	Keyboard.KeyUp:Connect(Fn.Bind(InputController._HandleInput, "Ended"))
+
+	Mouse.LeftDown:Connect(Fn.Bind(InputController._HandleInput, "Began", Enum.UserInputType.MouseButton1))
+	Mouse.LeftUp:Connect(Fn.Bind(InputController._HandleInput, "Ended", Enum.UserInputType.MouseButton1))
 
 	Touch.TouchStarted:Connect(function(_, processed: boolean?)
-		InputService._HandleInput("Began", "Touch", processed)
+		InputController._HandleInput("Began", "Touch", processed)
 
 		local currentTime = os.clock()
 		if (currentTime - lastTapTime) <= DOUBLE_TAP_THRESHOLD then
-			InputService._HandleInput("Began", "DoubleTap", processed)
+			InputController._HandleInput("Began", "DoubleTap", processed)
 		end
 		lastTapTime = currentTime
 	end)
 
-	Touch.TouchEnded:Connect(Fn.Bind(InputService._HandleInput, "Ended", "Touch"))
+	Touch.TouchEnded:Connect(Fn.Bind(InputController._HandleInput, "Ended", "Touch"))
 end
 
-return InputService
+return InputController

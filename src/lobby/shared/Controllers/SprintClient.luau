@@ -7,7 +7,7 @@ local SetMobileStyle = require(ReplicatedStorage.Shared.Modules.UI.SetMobileStyl
 local camera = workspace.CurrentCamera
 local player = Players.LocalPlayer
 local normalSpeed = 16
-local sprintSpeed = 64
+local sprintSpeed = 48
 
 local currentHumanoid: Humanoid? = nil
 local isSprinting = false
@@ -82,7 +82,7 @@ function SprintClient.Start()
 	end
 	player.CharacterAdded:Connect(onCharacterAdded)
 
-	ContextActionService:BindAction("Sprint", handleSprint, true, Enum.KeyCode.LeftShift)
+	ContextActionService:BindAction("Sprint", handleSprint, true, Enum.KeyCode.LeftControl)
 	ContextActionService:SetImage("Sprint", "rbxassetid://95175163838191")
 
 	if UserInputService.TouchEnabled then

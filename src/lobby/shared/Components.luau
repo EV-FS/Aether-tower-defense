@@ -19,6 +19,14 @@ return {
 		LeafModel = nil,
 	}),
 
+	Rotator = Matter.component("Rotator", {
+		TargetPart = nil,
+		DegreePerSecond = 0,
+		X = nil,
+		Y = nil,
+		Z = nil,
+	}),
+
 	TPArea = Matter.component("TPArea", {
 		Model = nil,
 		Cam = nil,

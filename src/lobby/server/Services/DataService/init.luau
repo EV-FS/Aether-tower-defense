@@ -654,8 +654,6 @@ function DataService._PlayerAdded(player: Player)
 	profile:Reconcile()
 
 	DataService:_MigrateData(profile, player)
-	DataService._SetLevel(player, profile.Data)
-	UpdateLeaderstats(player, profile.Data)
 
 	profile.OnSessionEnd:Connect(function()
 		Profiles[player] = nil
@@ -670,6 +668,8 @@ function DataService._PlayerAdded(player: Player)
 	end
 
 	Profiles[player] = profile
+	DataService._SetLevel(player, profile.Data)
+	UpdateLeaderstats(player, profile.Data)
 	print(`플레이어 {player.DisplayName}의 데이터 로딩 성공.`, profile)
 
 	local playerData = profile.Data

@@ -59,7 +59,7 @@ function StoreService.Start()
 	end
 
 	Players.PlayerAdded:Connect(function(player: Player)
-		StoreService.SyncGamePasses(player)
+		task.spawn(StoreService.SyncGamePasses, player)
 	end)
 
 	MarketplaceService.PromptGamePassPurchaseFinished:Connect(StoreService.OnPurchaseGamePass)
