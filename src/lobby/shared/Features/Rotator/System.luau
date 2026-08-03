@@ -35,7 +35,8 @@ return function(world)
 		local cameraPosition = CAMERA and CAMERA.CFrame.Position
 
 		if cameraPosition then
-			local offset = part.Position - cameraPosition
+			local targetPosition = if part:IsA("Model") then part:GetPivot().Position else part.Position
+			local offset = targetPosition - cameraPosition
 			local distance = offset.Magnitude
 
 			if distance > MAX_DISTANCE then
@@ -43,15 +44,25 @@ return function(world)
 			end
 		end
 
-		local cframe = part.CFrame
-			* CFrame.Angles(
-				if rotator.X then math.rad(degree * dt) else 0,
-				if rotator.Y then math.rad(degree * dt) else 0,
-				if rotator.Z then math.rad(degree * dt) else 0
+		if part:IsA("Model") then
+			part:PivotTo(part:GetPivot()
+				* CFrame.Angles(
+					if rotator.X then math.rad(degree * dt) else 0,
+					if rotator.Y then math.rad(degree * dt) else 0,
+					if rotator.Z then math.rad(degree * dt) else 0
+				)
 			)
+		else
+			local cframe = part.CFrame
+				* CFrame.Angles(
+					if rotator.X then math.rad(degree * dt) else 0,
+					if rotator.Y then math.rad(degree * dt) else 0,
+					if rotator.Z then math.rad(degree * dt) else 0
+				)
 
-		table.insert(partsToMove, part)
-		table.insert(cframeToMove, cframe)
+			table.insert(partsToMove, part)
+			table.insert(cframeToMove, cframe)
+		end
 	end
 
 	if #partsToMove > 0 then
