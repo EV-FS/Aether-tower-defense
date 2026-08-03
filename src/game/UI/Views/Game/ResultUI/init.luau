@@ -2,6 +2,7 @@
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local StarterPlayer = game:GetService("StarterPlayer")
+local TweenService = game:GetService("TweenService")
 
 --/Modules
 local ClientSignals = require(StarterPlayer.StarterPlayerScripts.Client.ClientSignals)
@@ -27,6 +28,11 @@ local playerNumber = scope:Value(0)
 local PlayerGui = Players.LocalPlayer:WaitForChild("PlayerGui")
 local ClearFrame = PlayerGui:WaitForChild("Interface"):WaitForChild("GameClear")
 
+local TWEEN_INFO = TweenInfo.new(0.5, Enum.EasingStyle.Back, Enum.EasingDirection.Out)
+local uiScale = ClearFrame:FindFirstChildOfClass("UIScale") or Instance.new("UIScale")
+uiScale.Parent = ClearFrame
+uiScale.Scale = 0
+
 -------------------------------------------------
 --// Local Functions
 -------------------------------------------------
@@ -39,12 +45,6 @@ local function clearTowerRewards()
 end
 
 local function HydrateUI()
-	scope:Hydrate(ClearFrame)({
-		Visible = scope:Computed(function(use)
-			return use(clearVisible)
-		end),
-	})
-
 	scope:Hydrate(ClearFrame.Reward.RewardList.Coins)({
 		Visible = scope:Computed(function(use)
 			return if use(coins) > 0 then true else false
@@ -105,13 +105,15 @@ local ResultUI = {}
 function ResultUI.Init()
 	HydrateUI()
 	playerNumber:set(#Players:GetPlayers())
+	ClearFrame.Visible = false
+	uiScale.Scale = 0
 end
 
 function ResultUI.Start()
 	ClientSignals.GameOver:Connect(
 		function(isWinVal: boolean, coinsVal: number, expVal: number, gemsVal: number, towers: any)
 			clearTowerRewards()
-			clearVisible:set(true)
+			
 			isWin:set(isWinVal)
 			coins:set(coinsVal)
 			exp:set(expVal)
@@ -141,11 +143,17 @@ function ResultUI.Start()
 
 				template.Parent = ClearFrame.TowerExpGain
 			end
+			
+			ClearFrame.Visible = true
+			TweenService:Create(uiScale, TWEEN_INFO, {Scale = 1}):Play()
+			clearVisible:set(true)
 		end
 	)
 
 	ClientSignals.Restarted:Connect(function()
 		clearTowerRewards()
+		ClearFrame.Visible = false
+		uiScale.Scale = 0
 		clearVisible:set(false)
 		restartVoted:set(0)
 	end)
