@@ -20,6 +20,7 @@ ServiceRegistry:RegisterServices({
 	ServerServices.CraftService,
 	ServerServices.EmoteService,
 	ServerServices.EmojiService,
+	ServerServices.TimerService,
 
 	SharedServices.NotificationService,
 })

@@ -283,3 +283,15 @@ scope GlobalExistService {
         }
     }
 }
+
+scope RaidService {
+    event RaidBossSpawned {
+        from: Server,
+        type: Reliable,
+        call: SingleSync,
+        data: struct {
+            BossName: string,
+        }
+    }
+}
+
