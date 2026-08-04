@@ -5,7 +5,7 @@ local ObjectCache = require(ReplicatedStorage.Packages.ObjectCache)
 local VFX_FOLDER = ReplicatedStorage:WaitForChild("Assets"):WaitForChild("VFX")
 local CACHE_FOLDER = workspace:WaitForChild("Caches")
 
-local DEFAULT_POOL_SIZE = 10
+local DEFAULT_POOL_SIZE = 50
 
 type PoolData = {
 	Storage: any,
