@@ -4,6 +4,8 @@
     "$className": "DataModel",
 
     "ReplicatedStorage": {
+      "$path": "src/lobby/ReplicatedStorage",
+      "$ignoreUnknownInstances": true,
       "Packages": {
         "$path": "Packages"
       },
@@ -15,18 +17,13 @@
       },
       "Settings": {
         "$path": "src/Settings"
-      },
-      "UI": {
-        "$path": "src/lobby/UI"
       }
     },
 
     "ServerScriptService": {
+      "$path": "src/lobby/ServerScriptService",
       "ServerPackages": {
         "$path": "ServerPackages"
-      },
-      "Server": {
-        "$path": "src/lobby/server"
       }
     },
 
