@@ -32,9 +32,10 @@
 
     "StarterPlayer": {
       "StarterPlayerScripts": {
-        "Client": {
-          "$path": "src/lobby/client"
-        }
+        "$path": "src/lobby/StarterPlayer/StarterPlayerScripts"
+      },
+      "StarterCharacterScripts": {
+        "$path": "src/lobby/StarterPlayer/StarterCharacterScripts"
       }
     },
 
