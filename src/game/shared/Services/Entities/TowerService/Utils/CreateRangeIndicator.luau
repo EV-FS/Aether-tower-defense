@@ -13,7 +13,7 @@ local IndicatorPartTemplate =
 local SplashTemplate = ReplicatedStorage:WaitForChild("Assets"):WaitForChild("Visuals"):WaitForChild("Splash")
 
 local CONSTANTS = {
-	STORAGE_SIZE = 100,
+	STORAGE_SIZE = 200,
 	GROUND_OFFSET = 0.05,
 
 	LINE_WIDTH = 0.2,

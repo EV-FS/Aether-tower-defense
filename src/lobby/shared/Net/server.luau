@@ -385,11 +385,15 @@ function SerdesFunctions.RoomService_WriteFUNCTION_RETURN_RequestCreate(Value: {
 	buffer.writeu16(SendBuffer, BLOCK_START + 4, Value.RoomId)
 end
 
-function SerdesFunctions.SummonService_WriteEVENT_BannerUpdated(Value: any): ()
-	-- Allocate BLOCK: 1 bytes
-	local BLOCK_START = Allocate(1)
+function SerdesFunctions.SummonService_WriteEVENT_BannerUpdated(Value: { BannerId: string, IsActive: boolean }): ()
+	-- Allocate BLOCK: 4 bytes
+	local BLOCK_START = Allocate(4)
 	buffer.writeu8(SendBuffer, BLOCK_START + 0, 15)
-	table.insert(SendInstances, if Value == nil then Null else Value)
+	local Length = #Value.BannerId
+	buffer.writeu16(SendBuffer, BLOCK_START + 1, Length)
+	Allocate(Length)
+	buffer.writestring(SendBuffer, SendOffset, Value.BannerId, Length)
+	buffer.writeu8(SendBuffer, BLOCK_START + 3, Value.IsActive and 1 or 0)
 end
 
 function SerdesFunctions.SummonService_ReadFUNCTION_DATA_DoSummon(): (number)
@@ -399,27 +403,55 @@ function SerdesFunctions.SummonService_ReadFUNCTION_DATA_DoSummon(): (number)
 	return Value
 end
 
-function SerdesFunctions.SummonService_WriteFUNCTION_RETURN_DoSummon(Value: { Success: boolean, PulledUnits: any }, InvocationIdentifier: number): ()
-	-- Allocate BLOCK: 4 bytes
-	local BLOCK_START = Allocate(4)
+function SerdesFunctions.SummonService_WriteFUNCTION_RETURN_DoSummon(Value: { Success: boolean, PulledUnits: { { UnitName: string, Rarity: string } } }, InvocationIdentifier: number): ()
+	-- Allocate BLOCK: 6 bytes
+	local BLOCK_START = Allocate(6)
 	buffer.writeu8(SendBuffer, BLOCK_START + 0, 16)
 	buffer.writeu8(SendBuffer, BLOCK_START + 1, InvocationIdentifier)
 	buffer.writeu8(SendBuffer, BLOCK_START + 2, 1)
 	buffer.writeu8(SendBuffer, BLOCK_START + 3, Value.Success and 1 or 0)
-	table.insert(SendInstances, if Value.PulledUnits == nil then Null else Value.PulledUnits)
+	-- START ARRAY
+	buffer.writeu16(SendBuffer, BLOCK_START + 4, #Value.PulledUnits)
+		-- Allocate BLOCK: 4 bytes
+	local ARRAY_START_1 = Allocate(4 * #Value.PulledUnits)
+	for Index = 1, #Value.PulledUnits do
+		local Item_1 = Value.PulledUnits[Index]
+		local Length = #Item_1.UnitName
+		-- Allocate 2
+		local OPERATION_OFFSET_0 = ARRAY_START_1
+		ARRAY_START_1 += 2
+		buffer.writeu16(SendBuffer, OPERATION_OFFSET_0, Length)
+		Allocate(Length)
+		buffer.writestring(SendBuffer, SendOffset, Item_1.UnitName, Length)
+		local Length = #Item_1.Rarity
+		-- Allocate 2
+		local OPERATION_OFFSET_1 = ARRAY_START_1
+		ARRAY_START_1 += 2
+		buffer.writeu16(SendBuffer, OPERATION_OFFSET_1, Length)
+		Allocate(Length)
+		buffer.writestring(SendBuffer, SendOffset, Item_1.Rarity, Length)
+	end
+	-- END ARRAY
 end
 
 function SerdesFunctions.SummonService_ReadFUNCTION_DATA_GetBanner(): (nil)
 	return nil
 end
 
-function SerdesFunctions.SummonService_WriteFUNCTION_RETURN_GetBanner(Value: any, InvocationIdentifier: number): ()
-	-- Allocate BLOCK: 3 bytes
-	local BLOCK_START = Allocate(3)
+function SerdesFunctions.SummonService_WriteFUNCTION_RETURN_GetBanner(Value: { BannerId: string, RateUpUnit: string }, InvocationIdentifier: number): ()
+	-- Allocate BLOCK: 7 bytes
+	local BLOCK_START = Allocate(7)
 	buffer.writeu8(SendBuffer, BLOCK_START + 0, 17)
 	buffer.writeu8(SendBuffer, BLOCK_START + 1, InvocationIdentifier)
 	buffer.writeu8(SendBuffer, BLOCK_START + 2, 1)
-	table.insert(SendInstances, if Value == nil then Null else Value)
+	local Length = #Value.BannerId
+	buffer.writeu16(SendBuffer, BLOCK_START + 3, Length)
+	Allocate(Length)
+	buffer.writestring(SendBuffer, SendOffset, Value.BannerId, Length)
+	local Length = #Value.RateUpUnit
+	buffer.writeu16(SendBuffer, BLOCK_START + 5, Length)
+	Allocate(Length)
+	buffer.writestring(SendBuffer, SendOffset, Value.RateUpUnit, Length)
 end
 
 function SerdesFunctions.StoreService_WriteEVENT_BannerUpdated(Value: any): ()
@@ -655,6 +687,16 @@ function SerdesFunctions.GlobalExistService_WriteEVENT_CountUpdated(Value: { cat
 	buffer.writeu32(SendBuffer, BLOCK_START + 5, Value.newCount)
 end
 
+function SerdesFunctions.RaidService_WriteEVENT_RaidBossSpawned(Value: { BossName: string }): ()
+	-- Allocate BLOCK: 3 bytes
+	local BLOCK_START = Allocate(3)
+	buffer.writeu8(SendBuffer, BLOCK_START + 0, 30)
+	local Length = #Value.BossName
+	buffer.writeu16(SendBuffer, BLOCK_START + 1, Length)
+	Allocate(Length)
+	buffer.writestring(SendBuffer, SendOffset, Value.BossName, Length)
+end
+
 if not RunService:IsRunning() then
 	local NOOP = function() end
 	local Returns = table.freeze({
@@ -805,6 +847,14 @@ if not RunService:IsRunning() then
 			On = NOOP
 		},
 		CountUpdated = {
+			Fire = NOOP,
+			FireAll = NOOP,
+			FireList = NOOP,
+			FireExcept = NOOP
+		},
+	},
+	RaidService = {
+		RaidBossSpawned = {
 			Fire = NOOP,
 			FireAll = NOOP,
 			FireList = NOOP,
@@ -1677,12 +1727,12 @@ local Returns = table.freeze({
 	},
 	SummonService = {
 		BannerUpdated = {
-			Fire = function(Player: Player, Value: any): ()
+			Fire = function(Player: Player, Value: { BannerId: string, IsActive: boolean }): ()
 				Load(PlayersMap[Player])
 				SerdesFunctions.SummonService_WriteEVENT_BannerUpdated(Value)
 				PlayersMap[Player] = Save()
 			end,
-			FireAll = function(Value: any): ()
+			FireAll = function(Value: { BannerId: string, IsActive: boolean }): ()
 				Load()
 				SerdesFunctions.SummonService_WriteEVENT_BannerUpdated(Value)
 				local Buffer, Size, Instances = SendBuffer, SendCursor, SendInstances
@@ -1694,7 +1744,7 @@ local Returns = table.freeze({
 					PlayersMap[Player] = Save()
 				end
 			end,
-			FireList = function(List: {Player}, Value: any): ()
+			FireList = function(List: {Player}, Value: { BannerId: string, IsActive: boolean }): ()
 				Load()
 				SerdesFunctions.SummonService_WriteEVENT_BannerUpdated(Value)
 				local Buffer, Size, Instances = SendBuffer, SendCursor, SendInstances
@@ -1706,7 +1756,7 @@ local Returns = table.freeze({
 					PlayersMap[Player] = Save()
 				end
 			end,
-			FireExcept = function(Except: Player, Value: any): ()
+			FireExcept = function(Except: Player, Value: { BannerId: string, IsActive: boolean }): ()
 				Load()
 				SerdesFunctions.SummonService_WriteEVENT_BannerUpdated(Value)
 				local Buffer, Size, Instances = SendBuffer, SendCursor, SendInstances
@@ -1723,9 +1773,9 @@ local Returns = table.freeze({
 			end,
 		},
 		DoSummon = {
-		On = function(Listener: (Player, number) -> ({ Success: boolean, PulledUnits: any })): ()
+		On = function(Listener: (Player, number) -> ({ Success: boolean, PulledUnits: { { UnitName: string, Rarity: string } } })): ()
 			Events.Reliable[16] = function(Player: Player, Value: number, InvocationIdentifier: number): ()
-				local ReturnValue: { Success: boolean, PulledUnits: any };
+				local ReturnValue: { Success: boolean, PulledUnits: { { UnitName: string, Rarity: string } } };
 				local Success, Error = pcall(function ()
 					ReturnValue = Listener(Player, Value)
 				end)
@@ -1751,9 +1801,9 @@ local Returns = table.freeze({
 		end
 		},
 		GetBanner = {
-		On = function(Listener: (Player, nil) -> (any)): ()
+		On = function(Listener: (Player, nil) -> ({ BannerId: string, RateUpUnit: string })): ()
 			Events.Reliable[17] = function(Player: Player, Value: nil, InvocationIdentifier: number): ()
-				local ReturnValue: any;
+				local ReturnValue: { BannerId: string, RateUpUnit: string };
 				local Success, Error = pcall(function ()
 					ReturnValue = Listener(Player, Value)
 				end)
@@ -2203,6 +2253,54 @@ local Returns = table.freeze({
 			FireExcept = function(Except: Player, Value: { category: string, itemName: string, newCount: number }): ()
 				Load()
 				SerdesFunctions.GlobalExistService_WriteEVENT_CountUpdated(Value)
+				local Buffer, Size, Instances = SendBuffer, SendCursor, SendInstances
+				for _, Player in Players:GetPlayers() do
+					if Player == Except then
+						continue
+					end
+					Load(PlayersMap[Player])
+					local Position = Allocate(Size)
+					buffer.copy(SendBuffer, Position, Buffer, 0, Size)
+					table.move(Instances, 1, #Instances, #SendInstances + 1, SendInstances)
+					PlayersMap[Player] = Save()
+				end
+			end,
+		},
+	},
+	RaidService = {
+		RaidBossSpawned = {
+			Fire = function(Player: Player, Value: { BossName: string }): ()
+				Load(PlayersMap[Player])
+				SerdesFunctions.RaidService_WriteEVENT_RaidBossSpawned(Value)
+				PlayersMap[Player] = Save()
+			end,
+			FireAll = function(Value: { BossName: string }): ()
+				Load()
+				SerdesFunctions.RaidService_WriteEVENT_RaidBossSpawned(Value)
+				local Buffer, Size, Instances = SendBuffer, SendCursor, SendInstances
+				for _, Player in Players:GetPlayers() do
+					Load(PlayersMap[Player])
+					local Position = Allocate(Size)
+					buffer.copy(SendBuffer, Position, Buffer, 0, Size)
+					table.move(Instances, 1, #Instances, #SendInstances + 1, SendInstances)
+					PlayersMap[Player] = Save()
+				end
+			end,
+			FireList = function(List: {Player}, Value: { BossName: string }): ()
+				Load()
+				SerdesFunctions.RaidService_WriteEVENT_RaidBossSpawned(Value)
+				local Buffer, Size, Instances = SendBuffer, SendCursor, SendInstances
+				for _, Player in List do
+					Load(PlayersMap[Player])
+					local Position = Allocate(Size)
+					buffer.copy(SendBuffer, Position, Buffer, 0, Size)
+					table.move(Instances, 1, #Instances, #SendInstances + 1, SendInstances)
+					PlayersMap[Player] = Save()
+				end
+			end,
+			FireExcept = function(Except: Player, Value: { BossName: string }): ()
+				Load()
+				SerdesFunctions.RaidService_WriteEVENT_RaidBossSpawned(Value)
 				local Buffer, Size, Instances = SendBuffer, SendCursor, SendInstances
 				for _, Player in Players:GetPlayers() do
 					if Player == Except then

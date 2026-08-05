@@ -20,6 +20,7 @@ ServiceRegistry:RegisterServices({
 	ServerServices.System.DataService,
 	ServerServices.System.SettingsService,
 	ServerServices.System.GlobalExistService,
+	SharedServices.System.AudioService,
 
 	--/Entities
 	ServerServices.Entities.EnemyService,

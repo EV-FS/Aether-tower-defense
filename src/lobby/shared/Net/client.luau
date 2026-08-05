@@ -197,6 +197,7 @@ Queue.Reliable[26] = table.create(256)
 Queue.Reliable[27] = table.create(256)
 Queue.Reliable[28] = table.create(256)
 Queue.Reliable[29] = table.create(256)
+Queue.Reliable[30] = table.create(256)
 function SerdesFunctions.GroupReward_ReadEVENT_SendPromptJoin(): (nil)
 	return nil
 end
@@ -434,9 +435,13 @@ function SerdesFunctions.RoomService_ReadFUNCTION_RETURN_RequestCreate(): ({ Suc
 	return Value
 end
 
-function SerdesFunctions.SummonService_ReadEVENT_BannerUpdated(): (any)
-	RecieveInstanceCursor += 1
-	local Value = RecieveInstances[RecieveInstanceCursor]
+function SerdesFunctions.SummonService_ReadEVENT_BannerUpdated(): ({ BannerId: string, IsActive: boolean })
+	-- Read BLOCK: 3 bytes
+	local BLOCK_START = Read(3)
+	local Value = {} :: any
+	local Length = buffer.readu16(RecieveBuffer, BLOCK_START + 0)
+	Value.BannerId = buffer.readstring(RecieveBuffer, Read(Length), Length)
+	Value.IsActive = (buffer.readu8(RecieveBuffer, BLOCK_START + 2) == 1)
 	return Value
 end
 
@@ -448,17 +453,37 @@ function SerdesFunctions.SummonService_WriteFUNCTION_DATA_DoSummon(Value: number
 	buffer.writeu8(SendBuffer, BLOCK_START + 2, Value)
 end
 
-function SerdesFunctions.SummonService_ReadFUNCTION_RETURN_DoSummon(): ({ Success: boolean, PulledUnits: any })
-	-- Read BLOCK: 2 bytes
-	local BLOCK_START = Read(2)
+function SerdesFunctions.SummonService_ReadFUNCTION_RETURN_DoSummon(): ({ Success: boolean, PulledUnits: { { UnitName: string, Rarity: string } } })
+	-- Read BLOCK: 4 bytes
+	local BLOCK_START = Read(4)
 	local Success = buffer.readu8(RecieveBuffer, BLOCK_START + 0)
 	if Success ~= 1 then
 		error("Server encountered an error.")
 	end
 	local Value = {} :: any
 	Value.Success = (buffer.readu8(RecieveBuffer, BLOCK_START + 1) == 1)
-	RecieveInstanceCursor += 1
-	Value.PulledUnits = RecieveInstances[RecieveInstanceCursor]
+	-- START ARRAY
+	local Length = buffer.readu16(RecieveBuffer, BLOCK_START + 2)
+	if Length < 0 then error(`Expected "Length" to be larger than 0, got {Length} instead.`) end
+	if Length > 65535 then error(`Expected "Length" to be smaller than 65535, got {Length} instead.`) end
+	Value.PulledUnits = table.create(Length)
+		-- Read BLOCK: 4 bytes
+	local ARRAY_START_1 = Read(4 * Length)
+	for Index = 1, Length do
+		local Item_1 = {} :: any
+		-- Read 2
+		local OPERATION_OFFSET_0 = ARRAY_START_1
+		ARRAY_START_1 += 2
+		Length = buffer.readu16(RecieveBuffer, OPERATION_OFFSET_0)
+		Item_1.UnitName = buffer.readstring(RecieveBuffer, Read(Length), Length)
+		-- Read 2
+		local OPERATION_OFFSET_1 = ARRAY_START_1
+		ARRAY_START_1 += 2
+		Length = buffer.readu16(RecieveBuffer, OPERATION_OFFSET_1)
+		Item_1.Rarity = buffer.readstring(RecieveBuffer, Read(Length), Length)
+		table.insert(Value.PulledUnits, Item_1)
+	end
+	-- END ARRAY
 	return Value
 end
 
@@ -469,15 +494,18 @@ function SerdesFunctions.SummonService_WriteFUNCTION_DATA_GetBanner(Value: nil, 
 	buffer.writeu8(SendBuffer, BLOCK_START + 1, InvocationIdentifier)
 end
 
-function SerdesFunctions.SummonService_ReadFUNCTION_RETURN_GetBanner(): (any)
-	-- Read BLOCK: 1 bytes
-	local BLOCK_START = Read(1)
+function SerdesFunctions.SummonService_ReadFUNCTION_RETURN_GetBanner(): ({ BannerId: string, RateUpUnit: string })
+	-- Read BLOCK: 5 bytes
+	local BLOCK_START = Read(5)
 	local Success = buffer.readu8(RecieveBuffer, BLOCK_START + 0)
 	if Success ~= 1 then
 		error("Server encountered an error.")
 	end
-	RecieveInstanceCursor += 1
-	local Value = RecieveInstances[RecieveInstanceCursor]
+	local Value = {} :: any
+	local Length = buffer.readu16(RecieveBuffer, BLOCK_START + 1)
+	Value.BannerId = buffer.readstring(RecieveBuffer, Read(Length), Length)
+	Length = buffer.readu16(RecieveBuffer, BLOCK_START + 3)
+	Value.RateUpUnit = buffer.readstring(RecieveBuffer, Read(Length), Length)
 	return Value
 end
 
@@ -747,6 +775,15 @@ function SerdesFunctions.GlobalExistService_ReadEVENT_CountUpdated(): ({ categor
 	return Value
 end
 
+function SerdesFunctions.RaidService_ReadEVENT_RaidBossSpawned(): ({ BossName: string })
+	-- Read BLOCK: 2 bytes
+	local BLOCK_START = Read(2)
+	local Value = {} :: any
+	local Length = buffer.readu16(RecieveBuffer, BLOCK_START + 0)
+	Value.BossName = buffer.readstring(RecieveBuffer, Read(Length), Length)
+	return Value
+end
+
 if not RunService:IsRunning() then
 	local NOOP = function() end
 	local Returns = table.freeze({
@@ -861,6 +898,11 @@ if not RunService:IsRunning() then
 			Invoke = NOOP
 		},
 		CountUpdated = {
+			On = NOOP
+		},
+	},
+	RaidService = {
+		RaidBossSpawned = {
 			On = NOOP
 		},
 	},
@@ -1078,7 +1120,7 @@ Reliable.OnClientEvent:Connect(function(Buffer: buffer, Instances: {Instance})
 				Calls[InvocationIdentifier] = nil
 			end
 		elseif Index == 15 then
-			local Value: any = SerdesFunctions.SummonService_ReadEVENT_BannerUpdated()
+			local Value: { BannerId: string, IsActive: boolean } = SerdesFunctions.SummonService_ReadEVENT_BannerUpdated()
 			if Events.Reliable[15] ~= nil then
 				SerdesEvent = "BannerUpdated"
 				Events.Reliable[15](Value)
@@ -1247,6 +1289,17 @@ Reliable.OnClientEvent:Connect(function(Buffer: buffer, Instances: {Instance})
 					warn("[Blink]: Event queue of \"CountUpdated\" exceeded 256, did you forget to implement a listener?")
 				end
 				table.insert(Queue.Reliable[29], {Value} :: {any})
+			end
+		elseif Index == 30 then
+			local Value: { BossName: string } = SerdesFunctions.RaidService_ReadEVENT_RaidBossSpawned()
+			if Events.Reliable[30] ~= nil then
+				SerdesEvent = "RaidBossSpawned"
+				Events.Reliable[30](Value)
+			else
+				if #Queue.Reliable[30] > 256 then
+					warn("[Blink]: Event queue of \"RaidBossSpawned\" exceeded 256, did you forget to implement a listener?")
+				end
+				table.insert(Queue.Reliable[30], {Value} :: {any})
 			end
 		end
 	end
@@ -1562,7 +1615,7 @@ local Returns = table.freeze({
 	},
 	SummonService = {
 		BannerUpdated = {
-			On = function(Listener: (Value: any) -> ()): () -> ()
+			On = function(Listener: (Value: { BannerId: string, IsActive: boolean }) -> ()): () -> ()
 				Events.Reliable[15] = Listener
 				for Index, Arguments in Queue.Reliable[15] do
 					Listener(table.unpack(Arguments))
@@ -1588,7 +1641,7 @@ local Returns = table.freeze({
 					OnCancel(function ()
 						Calls[InvocationIdentifier] = nil
 					end)
-					local Success, ReturnValue: { Success: boolean, PulledUnits: any } = coroutine.yield()
+					local Success, ReturnValue: { Success: boolean, PulledUnits: { { UnitName: string, Rarity: string } } } = coroutine.yield()
 					if Success ~= true then
 						Reject("There was an exception while processing \"DoSummon\".")
 						return 
@@ -1610,7 +1663,7 @@ local Returns = table.freeze({
 					OnCancel(function ()
 						Calls[InvocationIdentifier] = nil
 					end)
-					local Success, ReturnValue: any = coroutine.yield()
+					local Success, ReturnValue: { BannerId: string, RateUpUnit: string } = coroutine.yield()
 					if Success ~= true then
 						Reject("There was an exception while processing \"GetBanner\".")
 						return 
@@ -1854,6 +1907,22 @@ local Returns = table.freeze({
 				return function (): ()
 					if Events.Reliable[29] == Listener then
 						Events.Reliable[29] = nil
+					end
+				end
+			end
+		},
+	},
+	RaidService = {
+		RaidBossSpawned = {
+			On = function(Listener: (Value: { BossName: string }) -> ()): () -> ()
+				Events.Reliable[30] = Listener
+				for Index, Arguments in Queue.Reliable[30] do
+					Listener(table.unpack(Arguments))
+				end
+				Queue.Reliable[30] = {}
+				return function (): ()
+					if Events.Reliable[30] == Listener then
+						Events.Reliable[30] = nil
 					end
 				end
 			end

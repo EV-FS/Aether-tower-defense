@@ -137,7 +137,10 @@ scope SummonService {
         from: Server,
         type: Reliable,
         call: SingleSync,
-        data: unknown
+        data: struct {
+            BannerId: string,
+            IsActive: boolean,
+        }
     }
 
     function DoSummon {
@@ -145,13 +148,19 @@ scope SummonService {
         Data: u8,
         Return: struct {
             Success: boolean,
-            PulledUnits: unknown
+            PulledUnits: struct {
+                UnitName: string,
+                Rarity: string,
+            }[],
         },
     }
 
     function GetBanner {
         Yield: Promise,
-        Return: unknown,
+        Return: struct {
+            BannerId: string,
+            RateUpUnit: string,
+        },
     }
 }
 
@@ -274,3 +283,15 @@ scope GlobalExistService {
         }
     }
 }
+
+scope RaidService {
+    event RaidBossSpawned {
+        from: Server,
+        type: Reliable,
+        call: SingleSync,
+        data: struct {
+            BossName: string,
+        }
+    }
+}
+

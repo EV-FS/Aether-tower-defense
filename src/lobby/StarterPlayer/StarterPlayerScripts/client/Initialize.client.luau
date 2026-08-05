@@ -40,6 +40,7 @@ end)
 local Leaf = require(ReplicatedStorage.Shared.Features.Leaf)
 local NPC = require(ReplicatedStorage.Shared.Features.NPC)
 local Rotator = require(ReplicatedStorage.Shared.Features.Rotator)
+local Mover = require(ReplicatedStorage.Shared.Features.Mover)
 
 local world = Matter.World.new()
 local loop = Matter.Loop.new(world)
@@ -48,14 +49,16 @@ local systems = {
 	Leaf.System,
 	NPC.System,
 	Rotator.System,
+	Mover.System,
 }
 
 loop:scheduleSystems(systems)
 
 loop:begin({
-	default = RunService.PreRender,
+	default = RunService.Heartbeat,
 })
 
 Leaf.Loader(world)
 NPC.Loader(world)
 Rotator.Loader(world)
+Mover.Loader(world)

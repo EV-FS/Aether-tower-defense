@@ -25,6 +25,16 @@ local UnitService
 --// GameService
 -------------------------------------------------
 local GameService = {}
+GameService.Dependencies = {
+	"BaseService",
+	"MapService",
+	"WaveService",
+	"EconomyService",
+	"DataService",
+	"TowerService",
+	"EnemyService",
+	"UnitService",
+}
 GameService.Connections = {}
 GameService.RestartList = {}
 GameService.ReadyList = {}

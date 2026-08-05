@@ -4,6 +4,8 @@
     "$className": "DataModel",
 
     "ReplicatedStorage": {
+      "$path": "src/lobby/ReplicatedStorage",
+      "$ignoreUnknownInstances": true,
       "Packages": {
         "$path": "Packages"
       },
@@ -15,26 +17,22 @@
       },
       "Settings": {
         "$path": "src/Settings"
-      },
-      "UI": {
-        "$path": "src/lobby/UI"
       }
     },
 
     "ServerScriptService": {
+      "$path": "src/lobby/ServerScriptService",
       "ServerPackages": {
         "$path": "ServerPackages"
-      },
-      "Server": {
-        "$path": "src/lobby/server"
       }
     },
 
     "StarterPlayer": {
       "StarterPlayerScripts": {
-        "Client": {
-          "$path": "src/lobby/client"
-        }
+        "$path": "src/lobby/StarterPlayer/StarterPlayerScripts"
+      },
+      "StarterCharacterScripts": {
+        "$path": "src/lobby/StarterPlayer/StarterCharacterScripts"
       }
     },
 
