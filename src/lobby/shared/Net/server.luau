@@ -179,6 +179,7 @@ Queue.Reliable[22] = table.create(256)
 Queue.Reliable[23] = table.create(256)
 Queue.Reliable[27] = table.create(256)
 Queue.Reliable[28] = table.create(256)
+Queue.Reliable[32] = table.create(256)
 function SerdesFunctions.GroupReward_WriteEVENT_SendPromptJoin(Value: nil): ()
 	-- Allocate BLOCK: 1 bytes
 	local BLOCK_START = Allocate(1)
@@ -227,22 +228,22 @@ function SerdesFunctions.EmoteService_WriteFUNCTION_RETURN_RequestStopEmote(Valu
 	buffer.writeu8(SendBuffer, BLOCK_START + 3, Value and 1 or 0)
 end
 
-function SerdesFunctions.EmoteService_WriteEVENT_EmoteStarted(Value: { Player: any, EmoteId: string }): ()
+function SerdesFunctions.EmoteService_WriteEVENT_EmoteStarted(Value: { Player: Instance, EmoteId: string }): ()
 	-- Allocate BLOCK: 3 bytes
 	local BLOCK_START = Allocate(3)
 	buffer.writeu8(SendBuffer, BLOCK_START + 0, 4)
-	table.insert(SendInstances, if Value.Player == nil then Null else Value.Player)
+	table.insert(SendInstances, Value.Player or Null)
 	local Length = #Value.EmoteId
 	buffer.writeu16(SendBuffer, BLOCK_START + 1, Length)
 	Allocate(Length)
 	buffer.writestring(SendBuffer, SendOffset, Value.EmoteId, Length)
 end
 
-function SerdesFunctions.EmoteService_WriteEVENT_EmoteStopped(Value: { Player: any }): ()
+function SerdesFunctions.EmoteService_WriteEVENT_EmoteStopped(Value: { Player: Instance }): ()
 	-- Allocate BLOCK: 1 bytes
 	local BLOCK_START = Allocate(1)
 	buffer.writeu8(SendBuffer, BLOCK_START + 0, 5)
-	table.insert(SendInstances, if Value.Player == nil then Null else Value.Player)
+	table.insert(SendInstances, Value.Player or Null)
 end
 
 function SerdesFunctions.EmojiService_ReadFUNCTION_DATA_RequestShowEmoji(): ({ EmojiId: string })
@@ -263,18 +264,18 @@ function SerdesFunctions.EmojiService_WriteFUNCTION_RETURN_RequestShowEmoji(Valu
 	buffer.writeu8(SendBuffer, BLOCK_START + 3, Value and 1 or 0)
 end
 
-function SerdesFunctions.EmojiService_WriteEVENT_EmojiShown(Value: { Player: any, EmojiId: string }): ()
+function SerdesFunctions.EmojiService_WriteEVENT_EmojiShown(Value: { Player: Instance, EmojiId: string }): ()
 	-- Allocate BLOCK: 3 bytes
 	local BLOCK_START = Allocate(3)
 	buffer.writeu8(SendBuffer, BLOCK_START + 0, 7)
-	table.insert(SendInstances, if Value.Player == nil then Null else Value.Player)
+	table.insert(SendInstances, Value.Player or Null)
 	local Length = #Value.EmojiId
 	buffer.writeu16(SendBuffer, BLOCK_START + 1, Length)
 	Allocate(Length)
 	buffer.writestring(SendBuffer, SendOffset, Value.EmojiId, Length)
 end
 
-function SerdesFunctions.RoomService_WriteEVENT_RoomRefreshed(Value: {[number]: any}): ()
+function SerdesFunctions.RoomService_WriteEVENT_RoomRefreshed(Value: {[number]: string}): ()
 	-- Allocate BLOCK: 3 bytes
 	local BLOCK_START = Allocate(3)
 	buffer.writeu8(SendBuffer, BLOCK_START + 0, 8)
@@ -283,7 +284,11 @@ function SerdesFunctions.RoomService_WriteEVENT_RoomRefreshed(Value: {[number]: 
 		Elements_1 += 1
 		local OFFSET_0 = Allocate(2)
 		buffer.writeu16(SendBuffer, OFFSET_0, Key_1)
-		table.insert(SendInstances, if Element_1 == nil then Null else Element_1)
+		local Length = #Element_1
+		local OFFSET_1 = Allocate(2)
+		buffer.writeu16(SendBuffer, OFFSET_1, Length)
+		Allocate(Length)
+		buffer.writestring(SendBuffer, SendOffset, Element_1, Length)
 	end
 	buffer.writeu16(SendBuffer, BLOCK_START + 1, Elements_1)
 end
@@ -697,6 +702,50 @@ function SerdesFunctions.RaidService_WriteEVENT_RaidBossSpawned(Value: { BossNam
 	buffer.writestring(SendBuffer, SendOffset, Value.BossName, Length)
 end
 
+function SerdesFunctions.DialogueService_WriteEVENT_StartDialogue(Value: string): ()
+	-- Allocate BLOCK: 3 bytes
+	if typeof(Value) ~= "string" then
+		warn(`[Blink Debug]: StartDialogue Value is {typeof(Value)}: {tostring(Value)}`)
+		Value = tostring(Value)
+	end
+	local BLOCK_START = Allocate(3)
+	buffer.writeu8(SendBuffer, BLOCK_START + 0, 31)
+	local Length = #Value
+	buffer.writeu16(SendBuffer, BLOCK_START + 1, Length)
+	Allocate(Length)
+	buffer.writestring(SendBuffer, SendOffset, Value, Length)
+end
+
+function SerdesFunctions.DialogueService_ReadEVENT_ChooseDialogue(): ({ NpcId: string, ChoiceIndex: number })
+	-- Read BLOCK: 3 bytes
+	local BLOCK_START = Read(3)
+	local Value = {} :: any
+	local Length = buffer.readu16(RecieveBuffer, BLOCK_START + 0)
+	Value.NpcId = buffer.readstring(RecieveBuffer, Read(Length), Length)
+	Value.ChoiceIndex = buffer.readu8(RecieveBuffer, BLOCK_START + 2)
+	return Value
+end
+
+function SerdesFunctions.DialogueService_WriteEVENT_UpdateDialogueUI(Value: { NpcId: string, DialogueId: string }): ()
+	-- Allocate BLOCK: 5 bytes
+	local BLOCK_START = Allocate(5)
+	buffer.writeu8(SendBuffer, BLOCK_START + 0, 33)
+	local Length = #Value.NpcId
+	buffer.writeu16(SendBuffer, BLOCK_START + 1, Length)
+	Allocate(Length)
+	buffer.writestring(SendBuffer, SendOffset, Value.NpcId, Length)
+	local Length = #Value.DialogueId
+	buffer.writeu16(SendBuffer, BLOCK_START + 3, Length)
+	Allocate(Length)
+	buffer.writestring(SendBuffer, SendOffset, Value.DialogueId, Length)
+end
+
+function SerdesFunctions.DialogueService_WriteEVENT_CloseDialogue(Value: nil): ()
+	-- Allocate BLOCK: 1 bytes
+	local BLOCK_START = Allocate(1)
+	buffer.writeu8(SendBuffer, BLOCK_START + 0, 34)
+end
+
 if not RunService:IsRunning() then
 	local NOOP = function() end
 	local Returns = table.freeze({
@@ -855,6 +904,29 @@ if not RunService:IsRunning() then
 	},
 	RaidService = {
 		RaidBossSpawned = {
+			Fire = NOOP,
+			FireAll = NOOP,
+			FireList = NOOP,
+			FireExcept = NOOP
+		},
+	},
+	DialogueService = {
+		StartDialogue = {
+			Fire = NOOP,
+			FireAll = NOOP,
+			FireList = NOOP,
+			FireExcept = NOOP
+		},
+		ChooseDialogue = {
+			On = NOOP
+		},
+		UpdateDialogueUI = {
+			Fire = NOOP,
+			FireAll = NOOP,
+			FireList = NOOP,
+			FireExcept = NOOP
+		},
+		CloseDialogue = {
 			Fire = NOOP,
 			FireAll = NOOP,
 			FireList = NOOP,
@@ -1144,6 +1216,17 @@ Reliable.OnServerEvent:Connect(function(Player: Player, Buffer: buffer, Instance
 				end
 				table.insert(Queue.Reliable[28], {Player, Value, InvocationIdentifier} :: {any})
 			end
+		elseif Index == 32 then
+			local Value: { NpcId: string, ChoiceIndex: number } = SerdesFunctions.DialogueService_ReadEVENT_ChooseDialogue()
+			if Events.Reliable[32] ~= nil then
+				SerdesEvent = "ChooseDialogue"
+				Events.Reliable[32](Player, Value)
+			else
+				if #Queue.Reliable[32] > 256 then
+					warn("[Blink]: Event queue of \"ChooseDialogue\" exceeded 256, did you forget to implement a listener?")
+				end
+				table.insert(Queue.Reliable[32], {Player, Value} :: {any})
+			end
 		end
 	end
 end)
@@ -1323,12 +1406,12 @@ local Returns = table.freeze({
 		end
 		},
 		EmoteStarted = {
-			Fire = function(Player: Player, Value: { Player: any, EmoteId: string }): ()
+			Fire = function(Player: Player, Value: { Player: Instance, EmoteId: string }): ()
 				Load(PlayersMap[Player])
 				SerdesFunctions.EmoteService_WriteEVENT_EmoteStarted(Value)
 				PlayersMap[Player] = Save()
 			end,
-			FireAll = function(Value: { Player: any, EmoteId: string }): ()
+			FireAll = function(Value: { Player: Instance, EmoteId: string }): ()
 				Load()
 				SerdesFunctions.EmoteService_WriteEVENT_EmoteStarted(Value)
 				local Buffer, Size, Instances = SendBuffer, SendCursor, SendInstances
@@ -1340,7 +1423,7 @@ local Returns = table.freeze({
 					PlayersMap[Player] = Save()
 				end
 			end,
-			FireList = function(List: {Player}, Value: { Player: any, EmoteId: string }): ()
+			FireList = function(List: {Player}, Value: { Player: Instance, EmoteId: string }): ()
 				Load()
 				SerdesFunctions.EmoteService_WriteEVENT_EmoteStarted(Value)
 				local Buffer, Size, Instances = SendBuffer, SendCursor, SendInstances
@@ -1352,7 +1435,7 @@ local Returns = table.freeze({
 					PlayersMap[Player] = Save()
 				end
 			end,
-			FireExcept = function(Except: Player, Value: { Player: any, EmoteId: string }): ()
+			FireExcept = function(Except: Player, Value: { Player: Instance, EmoteId: string }): ()
 				Load()
 				SerdesFunctions.EmoteService_WriteEVENT_EmoteStarted(Value)
 				local Buffer, Size, Instances = SendBuffer, SendCursor, SendInstances
@@ -1369,12 +1452,12 @@ local Returns = table.freeze({
 			end,
 		},
 		EmoteStopped = {
-			Fire = function(Player: Player, Value: { Player: any }): ()
+			Fire = function(Player: Player, Value: { Player: Instance }): ()
 				Load(PlayersMap[Player])
 				SerdesFunctions.EmoteService_WriteEVENT_EmoteStopped(Value)
 				PlayersMap[Player] = Save()
 			end,
-			FireAll = function(Value: { Player: any }): ()
+			FireAll = function(Value: { Player: Instance }): ()
 				Load()
 				SerdesFunctions.EmoteService_WriteEVENT_EmoteStopped(Value)
 				local Buffer, Size, Instances = SendBuffer, SendCursor, SendInstances
@@ -1386,7 +1469,7 @@ local Returns = table.freeze({
 					PlayersMap[Player] = Save()
 				end
 			end,
-			FireList = function(List: {Player}, Value: { Player: any }): ()
+			FireList = function(List: {Player}, Value: { Player: Instance }): ()
 				Load()
 				SerdesFunctions.EmoteService_WriteEVENT_EmoteStopped(Value)
 				local Buffer, Size, Instances = SendBuffer, SendCursor, SendInstances
@@ -1398,7 +1481,7 @@ local Returns = table.freeze({
 					PlayersMap[Player] = Save()
 				end
 			end,
-			FireExcept = function(Except: Player, Value: { Player: any }): ()
+			FireExcept = function(Except: Player, Value: { Player: Instance }): ()
 				Load()
 				SerdesFunctions.EmoteService_WriteEVENT_EmoteStopped(Value)
 				local Buffer, Size, Instances = SendBuffer, SendCursor, SendInstances
@@ -1445,12 +1528,12 @@ local Returns = table.freeze({
 		end
 		},
 		EmojiShown = {
-			Fire = function(Player: Player, Value: { Player: any, EmojiId: string }): ()
+			Fire = function(Player: Player, Value: { Player: Instance, EmojiId: string }): ()
 				Load(PlayersMap[Player])
 				SerdesFunctions.EmojiService_WriteEVENT_EmojiShown(Value)
 				PlayersMap[Player] = Save()
 			end,
-			FireAll = function(Value: { Player: any, EmojiId: string }): ()
+			FireAll = function(Value: { Player: Instance, EmojiId: string }): ()
 				Load()
 				SerdesFunctions.EmojiService_WriteEVENT_EmojiShown(Value)
 				local Buffer, Size, Instances = SendBuffer, SendCursor, SendInstances
@@ -1462,7 +1545,7 @@ local Returns = table.freeze({
 					PlayersMap[Player] = Save()
 				end
 			end,
-			FireList = function(List: {Player}, Value: { Player: any, EmojiId: string }): ()
+			FireList = function(List: {Player}, Value: { Player: Instance, EmojiId: string }): ()
 				Load()
 				SerdesFunctions.EmojiService_WriteEVENT_EmojiShown(Value)
 				local Buffer, Size, Instances = SendBuffer, SendCursor, SendInstances
@@ -1474,7 +1557,7 @@ local Returns = table.freeze({
 					PlayersMap[Player] = Save()
 				end
 			end,
-			FireExcept = function(Except: Player, Value: { Player: any, EmojiId: string }): ()
+			FireExcept = function(Except: Player, Value: { Player: Instance, EmojiId: string }): ()
 				Load()
 				SerdesFunctions.EmojiService_WriteEVENT_EmojiShown(Value)
 				local Buffer, Size, Instances = SendBuffer, SendCursor, SendInstances
@@ -1493,12 +1576,12 @@ local Returns = table.freeze({
 	},
 	RoomService = {
 		RoomRefreshed = {
-			Fire = function(Player: Player, Value: {[number]: any}): ()
+			Fire = function(Player: Player, Value: {[number]: string}): ()
 				Load(PlayersMap[Player])
 				SerdesFunctions.RoomService_WriteEVENT_RoomRefreshed(Value)
 				PlayersMap[Player] = Save()
 			end,
-			FireAll = function(Value: {[number]: any}): ()
+			FireAll = function(Value: {[number]: string}): ()
 				Load()
 				SerdesFunctions.RoomService_WriteEVENT_RoomRefreshed(Value)
 				local Buffer, Size, Instances = SendBuffer, SendCursor, SendInstances
@@ -1510,7 +1593,7 @@ local Returns = table.freeze({
 					PlayersMap[Player] = Save()
 				end
 			end,
-			FireList = function(List: {Player}, Value: {[number]: any}): ()
+			FireList = function(List: {Player}, Value: {[number]: string}): ()
 				Load()
 				SerdesFunctions.RoomService_WriteEVENT_RoomRefreshed(Value)
 				local Buffer, Size, Instances = SendBuffer, SendCursor, SendInstances
@@ -1522,7 +1605,7 @@ local Returns = table.freeze({
 					PlayersMap[Player] = Save()
 				end
 			end,
-			FireExcept = function(Except: Player, Value: {[number]: any}): ()
+			FireExcept = function(Except: Player, Value: {[number]: string}): ()
 				Load()
 				SerdesFunctions.RoomService_WriteEVENT_RoomRefreshed(Value)
 				local Buffer, Size, Instances = SendBuffer, SendCursor, SendInstances
@@ -2301,6 +2384,160 @@ local Returns = table.freeze({
 			FireExcept = function(Except: Player, Value: { BossName: string }): ()
 				Load()
 				SerdesFunctions.RaidService_WriteEVENT_RaidBossSpawned(Value)
+				local Buffer, Size, Instances = SendBuffer, SendCursor, SendInstances
+				for _, Player in Players:GetPlayers() do
+					if Player == Except then
+						continue
+					end
+					Load(PlayersMap[Player])
+					local Position = Allocate(Size)
+					buffer.copy(SendBuffer, Position, Buffer, 0, Size)
+					table.move(Instances, 1, #Instances, #SendInstances + 1, SendInstances)
+					PlayersMap[Player] = Save()
+				end
+			end,
+		},
+	},
+	DialogueService = {
+		StartDialogue = {
+			Fire = function(Player: Player, Value: string): ()
+				Load(PlayersMap[Player])
+				SerdesFunctions.DialogueService_WriteEVENT_StartDialogue(Value)
+				PlayersMap[Player] = Save()
+			end,
+			FireAll = function(Value: string): ()
+				Load()
+				SerdesFunctions.DialogueService_WriteEVENT_StartDialogue(Value)
+				local Buffer, Size, Instances = SendBuffer, SendCursor, SendInstances
+				for _, Player in Players:GetPlayers() do
+					Load(PlayersMap[Player])
+					local Position = Allocate(Size)
+					buffer.copy(SendBuffer, Position, Buffer, 0, Size)
+					table.move(Instances, 1, #Instances, #SendInstances + 1, SendInstances)
+					PlayersMap[Player] = Save()
+				end
+			end,
+			FireList = function(List: {Player}, Value: string): ()
+				Load()
+				SerdesFunctions.DialogueService_WriteEVENT_StartDialogue(Value)
+				local Buffer, Size, Instances = SendBuffer, SendCursor, SendInstances
+				for _, Player in List do
+					Load(PlayersMap[Player])
+					local Position = Allocate(Size)
+					buffer.copy(SendBuffer, Position, Buffer, 0, Size)
+					table.move(Instances, 1, #Instances, #SendInstances + 1, SendInstances)
+					PlayersMap[Player] = Save()
+				end
+			end,
+			FireExcept = function(Except: Player, Value: string): ()
+				Load()
+				SerdesFunctions.DialogueService_WriteEVENT_StartDialogue(Value)
+				local Buffer, Size, Instances = SendBuffer, SendCursor, SendInstances
+				for _, Player in Players:GetPlayers() do
+					if Player == Except then
+						continue
+					end
+					Load(PlayersMap[Player])
+					local Position = Allocate(Size)
+					buffer.copy(SendBuffer, Position, Buffer, 0, Size)
+					table.move(Instances, 1, #Instances, #SendInstances + 1, SendInstances)
+					PlayersMap[Player] = Save()
+				end
+			end,
+		},
+		ChooseDialogue = {
+			On = function(Listener: (Player: Player, Value: { NpcId: string, ChoiceIndex: number }) -> ()): () -> ()
+				Events.Reliable[32] = Listener
+				for Index, Arguments in Queue.Reliable[32] do
+					Listener(table.unpack(Arguments))
+				end
+				Queue.Reliable[32] = {}
+				return function (): ()
+					if Events.Reliable[32] == Listener then
+						Events.Reliable[32] = nil
+					end
+				end
+			end
+		},
+		UpdateDialogueUI = {
+			Fire = function(Player: Player, Value: { NpcId: string, DialogueId: string }): ()
+				Load(PlayersMap[Player])
+				SerdesFunctions.DialogueService_WriteEVENT_UpdateDialogueUI(Value)
+				PlayersMap[Player] = Save()
+			end,
+			FireAll = function(Value: { NpcId: string, DialogueId: string }): ()
+				Load()
+				SerdesFunctions.DialogueService_WriteEVENT_UpdateDialogueUI(Value)
+				local Buffer, Size, Instances = SendBuffer, SendCursor, SendInstances
+				for _, Player in Players:GetPlayers() do
+					Load(PlayersMap[Player])
+					local Position = Allocate(Size)
+					buffer.copy(SendBuffer, Position, Buffer, 0, Size)
+					table.move(Instances, 1, #Instances, #SendInstances + 1, SendInstances)
+					PlayersMap[Player] = Save()
+				end
+			end,
+			FireList = function(List: {Player}, Value: { NpcId: string, DialogueId: string }): ()
+				Load()
+				SerdesFunctions.DialogueService_WriteEVENT_UpdateDialogueUI(Value)
+				local Buffer, Size, Instances = SendBuffer, SendCursor, SendInstances
+				for _, Player in List do
+					Load(PlayersMap[Player])
+					local Position = Allocate(Size)
+					buffer.copy(SendBuffer, Position, Buffer, 0, Size)
+					table.move(Instances, 1, #Instances, #SendInstances + 1, SendInstances)
+					PlayersMap[Player] = Save()
+				end
+			end,
+			FireExcept = function(Except: Player, Value: { NpcId: string, DialogueId: string }): ()
+				Load()
+				SerdesFunctions.DialogueService_WriteEVENT_UpdateDialogueUI(Value)
+				local Buffer, Size, Instances = SendBuffer, SendCursor, SendInstances
+				for _, Player in Players:GetPlayers() do
+					if Player == Except then
+						continue
+					end
+					Load(PlayersMap[Player])
+					local Position = Allocate(Size)
+					buffer.copy(SendBuffer, Position, Buffer, 0, Size)
+					table.move(Instances, 1, #Instances, #SendInstances + 1, SendInstances)
+					PlayersMap[Player] = Save()
+				end
+			end,
+		},
+		CloseDialogue = {
+			Fire = function(Player: Player, Value: nil): ()
+				Load(PlayersMap[Player])
+				SerdesFunctions.DialogueService_WriteEVENT_CloseDialogue(Value)
+				PlayersMap[Player] = Save()
+			end,
+			FireAll = function(Value: nil): ()
+				Load()
+				SerdesFunctions.DialogueService_WriteEVENT_CloseDialogue(Value)
+				local Buffer, Size, Instances = SendBuffer, SendCursor, SendInstances
+				for _, Player in Players:GetPlayers() do
+					Load(PlayersMap[Player])
+					local Position = Allocate(Size)
+					buffer.copy(SendBuffer, Position, Buffer, 0, Size)
+					table.move(Instances, 1, #Instances, #SendInstances + 1, SendInstances)
+					PlayersMap[Player] = Save()
+				end
+			end,
+			FireList = function(List: {Player}, Value: nil): ()
+				Load()
+				SerdesFunctions.DialogueService_WriteEVENT_CloseDialogue(Value)
+				local Buffer, Size, Instances = SendBuffer, SendCursor, SendInstances
+				for _, Player in List do
+					Load(PlayersMap[Player])
+					local Position = Allocate(Size)
+					buffer.copy(SendBuffer, Position, Buffer, 0, Size)
+					table.move(Instances, 1, #Instances, #SendInstances + 1, SendInstances)
+					PlayersMap[Player] = Save()
+				end
+			end,
+			FireExcept = function(Except: Player, Value: nil): ()
+				Load()
+				SerdesFunctions.DialogueService_WriteEVENT_CloseDialogue(Value)
 				local Buffer, Size, Instances = SendBuffer, SendCursor, SendInstances
 				for _, Player in Players:GetPlayers() do
 					if Player == Except then

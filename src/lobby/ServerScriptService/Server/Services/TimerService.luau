@@ -1,11 +1,13 @@
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
+local MemoryStoreService = game:GetService("MemoryStoreService")
 local EnemyData = require(ReplicatedStorage.Settings.Data.EnemyData)
 local RaidSettings = require(ReplicatedStorage.Settings.Game.RaidSettings)
 local Net = require(ReplicatedStorage.Shared.Net)
 
 local KST_OFFSET = 9 * 3600
+local BOSS_MEMORY_MAP = MemoryStoreService:GetHashMap("RaidBossMap")
 
 local TimerService = {}
 
@@ -43,6 +45,19 @@ function TimerService.ForceTimer(seconds)
 end
 
 function TimerService.SelectRaidBoss()
+	local success, currentBoss = pcall(function()
+		return BOSS_MEMORY_MAP:GetAsync("ActiveBoss")
+	end)
+
+	if success and currentBoss then
+		print("기존 레이드 보스 불러옴: " .. currentBoss)
+		TimerService.TransitionPortalColor(currentBoss, 3)
+		Net.RaidService.RaidBossSpawned.FireAll({
+			BossName = currentBoss
+		})
+		return
+	end
+
 	local totalWeight = 0
 	for _, weight in pairs(RaidSettings.BossWeights) do
 		totalWeight += weight
@@ -61,8 +76,14 @@ function TimerService.SelectRaidBoss()
 	end
 
 	if selectedBoss then
-		print("새로운 레이드 보스: " .. selectedBoss)
+		print("새로운 레이드 보스 선택됨: " .. selectedBoss)
         
+		pcall(function()
+			-- Store for the remainder of the hour (max 3600 seconds)
+			local secondsLeftInHour = 3600 - ((os.time() + KST_OFFSET) % 3600)
+			BOSS_MEMORY_MAP:SetAsync("ActiveBoss", selectedBoss, secondsLeftInHour)
+		end)
+
         TimerService.TransitionPortalColor(selectedBoss, 3)
 
 		Net.RaidService.RaidBossSpawned.FireAll({
@@ -131,19 +152,6 @@ function TimerService.Start()
 	local function UpdateNextHour()
 		local now = os.time()
 		
-		if debugOverrideTime then
-			if now >= debugOverrideTime then
-				debugOverrideTime = nil
-				TimerService.SelectRaidBoss()
-				
-				local secondsPassedInHour = (now + KST_OFFSET) % 3600
-				local nextHour = now + (3600 - secondsPassedInHour)
-				lastTargetTime = nextHour
-				ReplicatedStorage:SetAttribute("NextHourTimestamp", nextHour)
-			end
-			return
-		end
-
 		local secondsPassedInHour = (now + KST_OFFSET) % 3600
 		local nextHour = now + (3600 - secondsPassedInHour)
 		
@@ -156,26 +164,6 @@ function TimerService.Start()
 	end
 
 	UpdateNextHour()
-
-	if RunService:IsStudio() then
-		_G.ForceTimer = function(seconds)
-			TimerService.ForceTimer(seconds)
-		end
-
-		local function onPlayerAdded(player)
-			player.Chatted:Connect(function(message)
-				if message:sub(1, 6) == "/timer" then
-					local seconds = tonumber(message:sub(8)) or 10
-					TimerService.ForceTimer(seconds)
-				end
-			end)
-		end
-
-		for _, player in Players:GetPlayers() do
-			onPlayerAdded(player)
-		end
-		Players.PlayerAdded:Connect(onPlayerAdded)
-	end
 
 	task.spawn(function()
 		while true do

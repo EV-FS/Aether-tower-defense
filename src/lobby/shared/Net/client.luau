@@ -198,6 +198,9 @@ Queue.Reliable[27] = table.create(256)
 Queue.Reliable[28] = table.create(256)
 Queue.Reliable[29] = table.create(256)
 Queue.Reliable[30] = table.create(256)
+Queue.Reliable[31] = table.create(256)
+Queue.Reliable[33] = table.create(256)
+Queue.Reliable[34] = table.create(256)
 function SerdesFunctions.GroupReward_ReadEVENT_SendPromptJoin(): (nil)
 	return nil
 end
@@ -252,21 +255,23 @@ function SerdesFunctions.EmoteService_ReadFUNCTION_RETURN_RequestStopEmote(): (b
 	return Value
 end
 
-function SerdesFunctions.EmoteService_ReadEVENT_EmoteStarted(): ({ Player: any, EmoteId: string })
+function SerdesFunctions.EmoteService_ReadEVENT_EmoteStarted(): ({ Player: Instance, EmoteId: string })
 	-- Read BLOCK: 2 bytes
 	local BLOCK_START = Read(2)
 	local Value = {} :: any
 	RecieveInstanceCursor += 1
 	Value.Player = RecieveInstances[RecieveInstanceCursor]
+	if typeof(Value.Player) ~= "Instance" then error(`Expected an Instance, got {typeof(Value.Player)} instead.`) end
 	local Length = buffer.readu16(RecieveBuffer, BLOCK_START + 0)
 	Value.EmoteId = buffer.readstring(RecieveBuffer, Read(Length), Length)
 	return Value
 end
 
-function SerdesFunctions.EmoteService_ReadEVENT_EmoteStopped(): ({ Player: any })
+function SerdesFunctions.EmoteService_ReadEVENT_EmoteStopped(): ({ Player: Instance })
 	local Value = {} :: any
 	RecieveInstanceCursor += 1
 	Value.Player = RecieveInstances[RecieveInstanceCursor]
+	if typeof(Value.Player) ~= "Instance" then error(`Expected an Instance, got {typeof(Value.Player)} instead.`) end
 	return Value
 end
 
@@ -292,18 +297,19 @@ function SerdesFunctions.EmojiService_ReadFUNCTION_RETURN_RequestShowEmoji(): (b
 	return Value
 end
 
-function SerdesFunctions.EmojiService_ReadEVENT_EmojiShown(): ({ Player: any, EmojiId: string })
+function SerdesFunctions.EmojiService_ReadEVENT_EmojiShown(): ({ Player: Instance, EmojiId: string })
 	-- Read BLOCK: 2 bytes
 	local BLOCK_START = Read(2)
 	local Value = {} :: any
 	RecieveInstanceCursor += 1
 	Value.Player = RecieveInstances[RecieveInstanceCursor]
+	if typeof(Value.Player) ~= "Instance" then error(`Expected an Instance, got {typeof(Value.Player)} instead.`) end
 	local Length = buffer.readu16(RecieveBuffer, BLOCK_START + 0)
 	Value.EmojiId = buffer.readstring(RecieveBuffer, Read(Length), Length)
 	return Value
 end
 
-function SerdesFunctions.RoomService_ReadEVENT_RoomRefreshed(): ({[number]: any})
+function SerdesFunctions.RoomService_ReadEVENT_RoomRefreshed(): ({[number]: string})
 	-- Read BLOCK: 2 bytes
 	local BLOCK_START = Read(2)
 	local Value = {}
@@ -311,8 +317,9 @@ function SerdesFunctions.RoomService_ReadEVENT_RoomRefreshed(): ({[number]: any}
 	for _ = 1, Elements_1 do
 		local OFFSET_0 = Read(2)
 		local Key_1 = buffer.readu16(RecieveBuffer, OFFSET_0)
-		RecieveInstanceCursor += 1
-		local Element_1 = RecieveInstances[RecieveInstanceCursor]
+		local OFFSET_1 = Read(2)
+		local Length = buffer.readu16(RecieveBuffer, OFFSET_1)
+		local Element_1 = buffer.readstring(RecieveBuffer, Read(Length), Length)
 		Value[Key_1] = Element_1
 	end
 	return Value
@@ -784,6 +791,40 @@ function SerdesFunctions.RaidService_ReadEVENT_RaidBossSpawned(): ({ BossName: s
 	return Value
 end
 
+function SerdesFunctions.DialogueService_ReadEVENT_StartDialogue(): (string)
+	-- Read BLOCK: 2 bytes
+	local BLOCK_START = Read(2)
+	local Length = buffer.readu16(RecieveBuffer, BLOCK_START + 0)
+	local Value = buffer.readstring(RecieveBuffer, Read(Length), Length)
+	return Value
+end
+
+function SerdesFunctions.DialogueService_WriteEVENT_ChooseDialogue(Value: { NpcId: string, ChoiceIndex: number }): ()
+	-- Allocate BLOCK: 4 bytes
+	local BLOCK_START = Allocate(4)
+	buffer.writeu8(SendBuffer, BLOCK_START + 0, 32)
+	local Length = #Value.NpcId
+	buffer.writeu16(SendBuffer, BLOCK_START + 1, Length)
+	Allocate(Length)
+	buffer.writestring(SendBuffer, SendOffset, Value.NpcId, Length)
+	buffer.writeu8(SendBuffer, BLOCK_START + 3, Value.ChoiceIndex)
+end
+
+function SerdesFunctions.DialogueService_ReadEVENT_UpdateDialogueUI(): ({ NpcId: string, DialogueId: string })
+	-- Read BLOCK: 4 bytes
+	local BLOCK_START = Read(4)
+	local Value = {} :: any
+	local Length = buffer.readu16(RecieveBuffer, BLOCK_START + 0)
+	Value.NpcId = buffer.readstring(RecieveBuffer, Read(Length), Length)
+	Length = buffer.readu16(RecieveBuffer, BLOCK_START + 2)
+	Value.DialogueId = buffer.readstring(RecieveBuffer, Read(Length), Length)
+	return Value
+end
+
+function SerdesFunctions.DialogueService_ReadEVENT_CloseDialogue(): (nil)
+	return nil
+end
+
 if not RunService:IsRunning() then
 	local NOOP = function() end
 	local Returns = table.freeze({
@@ -906,6 +947,20 @@ if not RunService:IsRunning() then
 			On = NOOP
 		},
 	},
+	DialogueService = {
+		StartDialogue = {
+			On = NOOP
+		},
+		ChooseDialogue = {
+			Fire = NOOP
+		},
+		UpdateDialogueUI = {
+			On = NOOP
+		},
+		CloseDialogue = {
+			On = NOOP
+		},
+	},
 	})
 	return Returns :: BLINK_EVENTS_SYMBOL
 end
@@ -993,7 +1048,7 @@ Reliable.OnClientEvent:Connect(function(Buffer: buffer, Instances: {Instance})
 				Calls[InvocationIdentifier] = nil
 			end
 		elseif Index == 4 then
-			local Value: { Player: any, EmoteId: string } = SerdesFunctions.EmoteService_ReadEVENT_EmoteStarted()
+			local Value: { Player: Instance, EmoteId: string } = SerdesFunctions.EmoteService_ReadEVENT_EmoteStarted()
 			if #Events.Reliable[4] > 0 then
 				for _, Listener in Events.Reliable[4] do
 					SerdesEvent = "EmoteStarted"
@@ -1006,7 +1061,7 @@ Reliable.OnClientEvent:Connect(function(Buffer: buffer, Instances: {Instance})
 				table.insert(Queue.Reliable[4], {Value} :: {any})
 			end
 		elseif Index == 5 then
-			local Value: { Player: any } = SerdesFunctions.EmoteService_ReadEVENT_EmoteStopped()
+			local Value: { Player: Instance } = SerdesFunctions.EmoteService_ReadEVENT_EmoteStopped()
 			if #Events.Reliable[5] > 0 then
 				for _, Listener in Events.Reliable[5] do
 					SerdesEvent = "EmoteStopped"
@@ -1030,7 +1085,7 @@ Reliable.OnClientEvent:Connect(function(Buffer: buffer, Instances: {Instance})
 				Calls[InvocationIdentifier] = nil
 			end
 		elseif Index == 7 then
-			local Value: { Player: any, EmojiId: string } = SerdesFunctions.EmojiService_ReadEVENT_EmojiShown()
+			local Value: { Player: Instance, EmojiId: string } = SerdesFunctions.EmojiService_ReadEVENT_EmojiShown()
 			if #Events.Reliable[7] > 0 then
 				for _, Listener in Events.Reliable[7] do
 					SerdesEvent = "EmojiShown"
@@ -1043,7 +1098,7 @@ Reliable.OnClientEvent:Connect(function(Buffer: buffer, Instances: {Instance})
 				table.insert(Queue.Reliable[7], {Value} :: {any})
 			end
 		elseif Index == 8 then
-			local Value: {[number]: any} = SerdesFunctions.RoomService_ReadEVENT_RoomRefreshed()
+			local Value: {[number]: string} = SerdesFunctions.RoomService_ReadEVENT_RoomRefreshed()
 			if Events.Reliable[8] ~= nil then
 				SerdesEvent = "RoomRefreshed"
 				Events.Reliable[8](Value)
@@ -1301,6 +1356,39 @@ Reliable.OnClientEvent:Connect(function(Buffer: buffer, Instances: {Instance})
 				end
 				table.insert(Queue.Reliable[30], {Value} :: {any})
 			end
+		elseif Index == 31 then
+			local Value: string = SerdesFunctions.DialogueService_ReadEVENT_StartDialogue()
+			if Events.Reliable[31] ~= nil then
+				SerdesEvent = "StartDialogue"
+				Events.Reliable[31](Value)
+			else
+				if #Queue.Reliable[31] > 256 then
+					warn("[Blink]: Event queue of \"StartDialogue\" exceeded 256, did you forget to implement a listener?")
+				end
+				table.insert(Queue.Reliable[31], {Value} :: {any})
+			end
+		elseif Index == 33 then
+			local Value: { NpcId: string, DialogueId: string } = SerdesFunctions.DialogueService_ReadEVENT_UpdateDialogueUI()
+			if Events.Reliable[33] ~= nil then
+				SerdesEvent = "UpdateDialogueUI"
+				Events.Reliable[33](Value)
+			else
+				if #Queue.Reliable[33] > 256 then
+					warn("[Blink]: Event queue of \"UpdateDialogueUI\" exceeded 256, did you forget to implement a listener?")
+				end
+				table.insert(Queue.Reliable[33], {Value} :: {any})
+			end
+		elseif Index == 34 then
+			local Value: nil = SerdesFunctions.DialogueService_ReadEVENT_CloseDialogue()
+			if Events.Reliable[34] ~= nil then
+				SerdesEvent = "CloseDialogue"
+				Events.Reliable[34](Value)
+			else
+				if #Queue.Reliable[34] > 256 then
+					warn("[Blink]: Event queue of \"CloseDialogue\" exceeded 256, did you forget to implement a listener?")
+				end
+				table.insert(Queue.Reliable[34], {Value} :: {any})
+			end
 		end
 	end
 end)
@@ -1404,7 +1492,7 @@ local Returns = table.freeze({
 			end
 		},
 		EmoteStarted = {
-			On = function(Listener: (Value: { Player: any, EmoteId: string }) -> ()): () -> ()
+			On = function(Listener: (Value: { Player: Instance, EmoteId: string }) -> ()): () -> ()
 				table.insert(Events.Reliable[4], Listener)
 				for Index, Arguments in Queue.Reliable[4] do
 					Listener(table.unpack(Arguments))
@@ -1419,7 +1507,7 @@ local Returns = table.freeze({
 			end
 		},
 		EmoteStopped = {
-			On = function(Listener: (Value: { Player: any }) -> ()): () -> ()
+			On = function(Listener: (Value: { Player: Instance }) -> ()): () -> ()
 				table.insert(Events.Reliable[5], Listener)
 				for Index, Arguments in Queue.Reliable[5] do
 					Listener(table.unpack(Arguments))
@@ -1458,7 +1546,7 @@ local Returns = table.freeze({
 			end
 		},
 		EmojiShown = {
-			On = function(Listener: (Value: { Player: any, EmojiId: string }) -> ()): () -> ()
+			On = function(Listener: (Value: { Player: Instance, EmojiId: string }) -> ()): () -> ()
 				table.insert(Events.Reliable[7], Listener)
 				for Index, Arguments in Queue.Reliable[7] do
 					Listener(table.unpack(Arguments))
@@ -1475,7 +1563,7 @@ local Returns = table.freeze({
 	},
 	RoomService = {
 		RoomRefreshed = {
-			On = function(Listener: (Value: {[number]: any}) -> ()): () -> ()
+			On = function(Listener: (Value: {[number]: string}) -> ()): () -> ()
 				Events.Reliable[8] = Listener
 				for Index, Arguments in Queue.Reliable[8] do
 					Listener(table.unpack(Arguments))
@@ -1923,6 +2011,55 @@ local Returns = table.freeze({
 				return function (): ()
 					if Events.Reliable[30] == Listener then
 						Events.Reliable[30] = nil
+					end
+				end
+			end
+		},
+	},
+	DialogueService = {
+		StartDialogue = {
+			On = function(Listener: (Value: string) -> ()): () -> ()
+				Events.Reliable[31] = Listener
+				for Index, Arguments in Queue.Reliable[31] do
+					Listener(table.unpack(Arguments))
+				end
+				Queue.Reliable[31] = {}
+				return function (): ()
+					if Events.Reliable[31] == Listener then
+						Events.Reliable[31] = nil
+					end
+				end
+			end
+		},
+		ChooseDialogue = {
+			Fire = function(Value: { NpcId: string, ChoiceIndex: number }): ()
+				SerdesFunctions.DialogueService_WriteEVENT_ChooseDialogue(Value)
+			end
+		},
+		UpdateDialogueUI = {
+			On = function(Listener: (Value: { NpcId: string, DialogueId: string }) -> ()): () -> ()
+				Events.Reliable[33] = Listener
+				for Index, Arguments in Queue.Reliable[33] do
+					Listener(table.unpack(Arguments))
+				end
+				Queue.Reliable[33] = {}
+				return function (): ()
+					if Events.Reliable[33] == Listener then
+						Events.Reliable[33] = nil
+					end
+				end
+			end
+		},
+		CloseDialogue = {
+			On = function(Listener: (Value: nil) -> ()): () -> ()
+				Events.Reliable[34] = Listener
+				for Index, Arguments in Queue.Reliable[34] do
+					Listener(table.unpack(Arguments))
+				end
+				Queue.Reliable[34] = {}
+				return function (): ()
+					if Events.Reliable[34] == Listener then
+						Events.Reliable[34] = nil
 					end
 				end
 			end

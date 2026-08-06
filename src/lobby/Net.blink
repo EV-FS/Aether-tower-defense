@@ -41,7 +41,7 @@ scope EmoteService {
         type: Reliable,
         call: ManySync,
         data: struct {
-            Player: unknown,
+            Player: Instance,
             EmoteId: string,
         }
     }
@@ -51,7 +51,7 @@ scope EmoteService {
         type: Reliable,
         call: ManySync,
         data: struct {
-            Player: unknown,
+            Player: Instance,
         }
     }
 }
@@ -70,7 +70,7 @@ scope EmojiService {
         type: Reliable,
         call: ManySync,
         data: struct {
-            Player: unknown,
+            Player: Instance,
             EmojiId: string,
         }
     }
@@ -82,7 +82,7 @@ scope RoomService {
         type: Reliable,
         call: SingleSync,
         data: map {
-            [u16]: unknown
+            [u16]: string
         },
     }
 
@@ -292,6 +292,38 @@ scope RaidService {
         data: struct {
             BossName: string,
         }
+    }
+}
+
+scope DialogueService {
+    event StartDialogue {
+        from: Server,
+        type: Reliable,
+        call: SingleSync,
+        data: string -- NpcId
+    }
+    event ChooseDialogue {
+        from: Client,
+        type: Reliable,
+        call: SingleSync,
+        data: struct {
+            NpcId: string,
+            ChoiceIndex: u8
+        }
+    }
+    event UpdateDialogueUI {
+        from: Server,
+        type: Reliable,
+        call: SingleSync,
+        data: struct {
+            NpcId: string,
+            DialogueId: string
+        }
+    }
+    event CloseDialogue {
+        from: Server,
+        type: Reliable,
+        call: SingleSync
     }
 }
 

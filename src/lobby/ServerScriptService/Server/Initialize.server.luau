@@ -21,6 +21,7 @@ ServiceRegistry:RegisterServices({
 	ServerServices.EmoteService,
 	ServerServices.EmojiService,
 	ServerServices.TimerService,
+	ServerServices.DialogueService,
 
 	SharedServices.NotificationService,
 })
