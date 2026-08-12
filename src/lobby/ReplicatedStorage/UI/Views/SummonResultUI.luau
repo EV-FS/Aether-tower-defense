@@ -72,11 +72,15 @@ local resultsQueue = source({} :: { PulledUnit })
 local currentIndex = source(0)
 local revealPhase = source(false)
 local isTransitioning = source(false)
+local isClosing = source(false)
 local showFlash = source(false)
 local slideSign = source(1)
 
 local EXIT_DELAY = 0.34
 local ENTER_DELAY = 0.42
+local CLOSE_DELAY = 0.4
+
+local closeToken = 0
 
 local SummonResultUI = {}
 
@@ -105,6 +109,10 @@ end
 
 local function canInteract(): boolean
 	return isRevealed() and not isTransitioning()
+end
+
+local function isHintVisible(): boolean
+	return isRevealed() and not isTransitioning() and not isClosing()
 end
 
 local function pulseFlash()
@@ -158,16 +166,44 @@ local function playTransition(onSwitch: () -> ())
 	end)
 end
 
+local function playClose(onFinished: () -> ())
+	if isTransitioning() or isClosing() then
+		return
+	end
+
+	closeToken += 1
+	local token = closeToken
+
+	isTransitioning(true)
+	isClosing(true)
+	revealPhase(false)
+	showFlash(false)
+
+	task.delay(CLOSE_DELAY, function()
+		if token ~= closeToken or not UIController:IsOpen(VIEW_ID) then
+			isClosing(false)
+			isTransitioning(false)
+			return
+		end
+
+		isClosing(false)
+		isTransitioning(false)
+		onFinished()
+	end)
+end
+
 function SummonResultUI.ShowResults(units: { PulledUnit })
 	if #units == 0 then
 		return
 	end
 
+	closeToken += 1
 	resultsQueue(units)
 	currentIndex(1)
 	slideSign(1)
 	showFlash(false)
 	isTransitioning(false)
+	isClosing(false)
 	revealPhase(false)
 	UIController:Open(VIEW_ID)
 	playInitialReveal()
@@ -188,15 +224,19 @@ function SummonResultUI.Advance()
 		return
 	end
 
-	SummonResultUI.Close()
+	playClose(function()
+		SummonResultUI.Close()
+	end)
 end
 
 function SummonResultUI.Close()
+	closeToken += 1
 	UIController:Close(VIEW_ID)
 	resultsQueue({})
 	currentIndex(0)
 	revealPhase(false)
 	isTransitioning(false)
+	isClosing(false)
 	showFlash(false)
 end
 
@@ -216,8 +256,12 @@ function SummonResultUI.RenderUI()
 			end,
 			BackgroundColor3 = Color3.fromRGB(5, 5, 10),
 			BackgroundTransparency = spring(function()
-				return if isRevealed() then 0.35 else 1
-			end, 0.35, 0.85),
+				if isRevealed() then
+					return 0.35
+				end
+
+				return 1
+			end, if isClosing() then 0.28 else 0.35, 0.85),
 			Size = UDim2.fromScale(1, 1),
 			Text = "",
 			ZIndex = 50,
@@ -235,10 +279,28 @@ function SummonResultUI.RenderUI()
 					return 0
 				end
 
+				if isClosing() then
+					return -6
+				end
+
 				return slideSign() * 8
-			end, 0.38, 0.68),
+			end, if isClosing() then 0.32 else 0.38, 0.68),
 			Size = UDim2.fromScale(1, 1),
 			ZIndex = 51,
+
+			create("UIScale")({
+				Scale = spring(function()
+					if isRevealed() then
+						return 1
+					end
+
+					if isClosing() then
+						return 0.88
+					end
+
+					return 0.94
+				end, if isClosing() then 0.3 else 0.38, 0.68),
+			}),
 
 			create("Frame")({
 				Name = "RevealFlash",
@@ -312,15 +374,23 @@ function SummonResultUI.RenderUI()
 						return UDim2.fromScale(0.5, 0.38)
 					end
 
+					if isClosing() then
+						return UDim2.fromScale(0.5, 0.58)
+					end
+
 					return UDim2.fromScale(0.5 + slideSign() * 0.14, 0.54)
-				end, 0.38, 0.66),
+				end, if isClosing() then 0.32 else 0.38, 0.66),
 				Size = spring(function()
 					if isRevealed() then
 						return UDim2.fromScale(0.42, 0.48)
 					end
 
+					if isClosing() then
+						return UDim2.fromScale(0.08, 0.09)
+					end
+
 					return UDim2.fromScale(0.12, 0.14)
-				end, 0.38, 0.64),
+				end, if isClosing() then 0.3 else 0.38, 0.64),
 				ZIndex = 53,
 
 				TowerViewport({
@@ -341,8 +411,12 @@ function SummonResultUI.RenderUI()
 							return 0
 						end
 
+						if isClosing() then
+							return 35
+						end
+
 						return slideSign() * 95
-					end, 0.45, 0.58),
+					end, if isClosing() then 0.38 else 0.45, 0.58),
 				}),
 			}),
 
@@ -464,8 +538,12 @@ function SummonResultUI.RenderUI()
 					Enum.FontStyle.Normal
 				),
 				Position = spring(function()
-					return if isRevealed() then UDim2.fromScale(0.5, 0.94) else UDim2.fromScale(0.5, 0.98)
-				end, 0.55, 0.75),
+					if isHintVisible() then
+						return UDim2.fromScale(0.5, 0.94)
+					end
+
+					return UDim2.fromScale(0.5, 1.06)
+				end, 0.42, 1),
 				Size = UDim2.fromScale(0.45, 0.04),
 				Text = function()
 					local total = #resultsQueue()
@@ -479,12 +557,8 @@ function SummonResultUI.RenderUI()
 				TextColor3 = Color3.fromRGB(150, 145, 120),
 				TextScaled = true,
 				TextTransparency = spring(function()
-					if isTransitioning() then
-						return 0.65
-					end
-
-					return if isRevealed() then 0.25 else 1
-				end, 0.55, 0.85),
+					return if isHintVisible() then 0.25 else 1
+				end, 0.4, 1),
 				ZIndex = 54,
 			}),
 		}),
