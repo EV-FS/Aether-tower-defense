@@ -184,6 +184,17 @@ scope TowerService {
             targetMode: string,
         }
     }
+
+    event PassiveTriggered {
+        from: Server,
+        type: Reliable,
+        call: SingleSync,
+        data: struct {
+            towerId: u16,
+            passiveType: string,
+            arg: unknown?,
+        }
+    }
 }
 
 scope UnitService {

@@ -7,6 +7,7 @@ local RunService = game:GetService("RunService")
 local ServiceRegistry = require(ReplicatedStorage.Shared.Modules.Core.ServiceRegistry)
 local CharacterUtils = require(ReplicatedStorage.Shared.Modules.Utils.CharacterUtils)
 local CreateRangeIndicator = require(ReplicatedStorage.Shared.Services.Entities.TowerService.Utils.CreateRangeIndicator)
+local VFXService = require(ReplicatedStorage.Shared.Services.System.VFXService)
 local TimeService
 local AnimationService
 local VisualService
@@ -268,6 +269,19 @@ function TowerRenderer.LookAt(towerModel: Model, targetPosition: Vector3)
 	local lookTarget = Vector3.new(targetPosition.X, towerPivot.Position.Y, targetPosition.Z)
 
 	towerModel:PivotTo(CFrame.lookAt(towerPivot.Position, lookTarget))
+end
+
+function TowerRenderer.OnPassiveTriggered(towerId: number, passiveType: string, arg: { [string]: any }?)
+	local targetTower = TowerRenderer.RenderStates[towerId]
+	if not targetTower then
+		return
+	end
+
+	local towerModel = targetTower.Model
+	local eventName = `Passive{passiveType}`
+	local targetModel = if arg and arg.EnemyId then workspace.Enemies:FindFirstChild(`Enemy_{arg.EnemyId}`) else nil
+
+	VisualService.Play(targetTower.Name, eventName, targetTower.Level, towerModel, targetModel)
 end
 
 function TowerRenderer.OnAttack(towerId: number, enemyModel: Model, stats, attackVariant: string?)

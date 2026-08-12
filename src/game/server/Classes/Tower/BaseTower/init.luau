@@ -151,6 +151,9 @@ function BaseTower:_ApplyNewStats()
 	self:_SyncComponent("Farm", "FarmComponent", needsFarm)
 	self:_SyncComponent("Buff", "BuffComponent", needsBuff)
 
+	local passives = self.Stats.Passives or {}
+	self:_SyncComponent("Passives", "PassiveComponent", TableUtils.Length(passives) > 0, passives)
+
 	local summons = self.Stats.Summons or (self.Stats.SummonUnit and { self.Stats }) or {}
 
 	local previousCount = self._activeSummonCount or 0

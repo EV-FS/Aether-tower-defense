@@ -105,7 +105,7 @@ function TowerClient.Start()
 		iAction("ABC3", iInfo({ Enum.KeyCode.Three })),
 		iAction("ABC4", iInfo({ Enum.KeyCode.Four })),
 		iAction("ABC5", iInfo({ Enum.KeyCode.Five })),
-	}):Enable()
+	}):Disable()
 
 	test.Actions.ABC1.Began:Connect(function()
 		TowerClient.StartPlacement("Mecha Demian")
@@ -148,6 +148,7 @@ function TowerClient.Start()
 	Net.TowerService.TowerDestroyed.On(TowerClient.RemoveTower)
 	Net.TowerService.TowerSpawned.On(TowerClient._TowerSpawned)
 	Net.TowerService.TowerTargetModeUpdated.On(TowerClient._TowerTargetModeUpdated)
+	Net.TowerService.PassiveTriggered.On(TowerClient._PassiveTriggered)
 end
 
 function TowerClient._SetPlacementInput()
@@ -431,6 +432,15 @@ function TowerClient._TowerTargetModeUpdated(data: { towerId: number, targetMode
 	if selectedTowerId == data.towerId then
 		ClientSignals.TowerUpdated:Fire(data.towerId, towerData)
 	end
+end
+
+function TowerClient._PassiveTriggered(data: { towerId: number, passiveType: string, arg: { [string]: any }? })
+	local towerData = TowerClient.ActiveTowers[data.towerId]
+	if not towerData then
+		return
+	end
+
+	TowerRenderer.OnPassiveTriggered(data.towerId, data.passiveType, data.arg)
 end
 
 function TowerClient._OnAttackEnemy(data: { enemyId: number, towerId: number, attackSlot: number? })
