@@ -86,6 +86,7 @@ function SummonService.Start()
 	end)
 
 	Net.SummonService.GetBanner.On(function()
+		print(Banner.GetClientFormat())
 		return Banner.GetClientFormat()
 	end)
 

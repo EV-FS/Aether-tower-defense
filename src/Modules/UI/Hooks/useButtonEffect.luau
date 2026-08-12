@@ -7,8 +7,8 @@ local action = Vide.action
 local create = Vide.create
 
 local function useButtonEffect(pressedScale: number?, hoverScale: number?)
-	local pScale = pressedScale or 0.88
-	local hScale = hoverScale or 1.08
+	local pScale = pressedScale or 0.95
+	local hScale = hoverScale or 1.05
 
 	return action(function(button: GuiButton)
 		local isPressed = source(false)

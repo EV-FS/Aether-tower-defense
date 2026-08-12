@@ -10,18 +10,15 @@ local Components = require(ReplicatedStorage.Shared.Components)
 local MAX_DISTANCE = 150
 local MAX_DISTANCE_SQ = MAX_DISTANCE * MAX_DISTANCE
 
--- 실제 CFrame 적용 빈도
 local UPDATE_RATE = 1 / 45
 
--- 새로운 흔들림 목표를 계산하는 빈도
 local COMPUTE_RATE = 1 / 30
 
 local WIND_DIRECTION = Vector3.new(0.7, 0, 0.4).Unit
 local WIND_SPEED = 20
 local WIND_POWER = 0.5
 
--- 목표 CFrame을 따라가는 속도
-local FOLLOW_SPEED = 8
+local FOLLOW_SPEED = 16
 
 local DEFAULT_SWAY_MULTIPLIER = 1
 
@@ -77,7 +74,6 @@ end
 local function computeTarget(state: LeafState)
 	local part = state.Part
 
-	-- 런타임 중 PivotOffset이 바뀔 가능성이 있다면 계속 읽어도 됨.
 	state.PivotOffset = part.PivotOffset
 	state.SwayMultiplier = part:GetAttribute("SwayMultiplier") or DEFAULT_SWAY_MULTIPLIER
 
@@ -89,16 +85,13 @@ local function computeTarget(state: LeafState)
 	local frequency = elapsedTime * (WIND_SPEED * 0.08)
 	local amplitude = WIND_POWER * 0.1 * multiplier
 
-	-- 서로 다른 noise 좌표를 사용해서 축별 움직임이 겹치지 않게 함.
 	local rotationX = math.noise(frequency, seed, 0) * amplitude
 	local rotationY = math.noise(frequency, 0, seed) * amplitude * 0.35
 	local rotationZ = math.noise(frequency, seed, seed) * amplitude
 
-	-- 바람 방향으로 약간 밀리는 움직임
 	local windNoise = 0.5 + math.noise(frequency * 0.7, seed, -seed)
 	local windOffset = WIND_DIRECTION * windNoise * amplitude
 
-	-- PivotOffset을 기준으로 회전한 뒤 다시 파트 CFrame으로 변환
 	local worldPivot = origin * pivotOffset
 
 	state.Target = (worldPivot * CFrame.Angles(rotationX, rotationY, rotationZ) + windOffset) * pivotOffset:Inverse()
@@ -141,7 +134,6 @@ return function(world)
 	local camera = Workspace.CurrentCamera
 	local cameraPosition = camera and camera.CFrame.Position
 
-	-- 프레임률이 내려가도 과도하게 보간되지 않도록 제한
 	local followAlpha = math.min(1, updateDt * FOLLOW_SPEED)
 
 	for id, leaf in world:query(Components.Leaf) do
