@@ -442,13 +442,32 @@ function SerdesFunctions.RoomService_ReadFUNCTION_RETURN_RequestCreate(): ({ Suc
 	return Value
 end
 
-function SerdesFunctions.SummonService_ReadEVENT_BannerUpdated(): ({ BannerId: string, IsActive: boolean })
-	-- Read BLOCK: 3 bytes
-	local BLOCK_START = Read(3)
+function SerdesFunctions.SummonService_ReadEVENT_BannerUpdated(): ({ NextRerollTime: number, Units: { { Rarity: string, Name: string, RateText: string } } })
+	-- Read BLOCK: 6 bytes
+	local BLOCK_START = Read(6)
 	local Value = {} :: any
-	local Length = buffer.readu16(RecieveBuffer, BLOCK_START + 0)
-	Value.BannerId = buffer.readstring(RecieveBuffer, Read(Length), Length)
-	Value.IsActive = (buffer.readu8(RecieveBuffer, BLOCK_START + 2) == 1)
+	Value.NextRerollTime = buffer.readu32(RecieveBuffer, BLOCK_START + 0)
+	local Length = buffer.readu16(RecieveBuffer, BLOCK_START + 4)
+	if Length < 0 then error(`Expected "Length" to be larger than 0, got {Length} instead.`) end
+	if Length > 65535 then error(`Expected "Length" to be smaller than 65535, got {Length} instead.`) end
+	Value.Units = table.create(Length)
+	local ARRAY_START_1 = Read(6 * Length)
+	for Index = 1, Length do
+		local Item_1 = {} :: any
+		local OPERATION_OFFSET_0 = ARRAY_START_1
+		ARRAY_START_1 += 2
+		Length = buffer.readu16(RecieveBuffer, OPERATION_OFFSET_0)
+		Item_1.Rarity = buffer.readstring(RecieveBuffer, Read(Length), Length)
+		local OPERATION_OFFSET_1 = ARRAY_START_1
+		ARRAY_START_1 += 2
+		Length = buffer.readu16(RecieveBuffer, OPERATION_OFFSET_1)
+		Item_1.Name = buffer.readstring(RecieveBuffer, Read(Length), Length)
+		local OPERATION_OFFSET_2 = ARRAY_START_1
+		ARRAY_START_1 += 2
+		Length = buffer.readu16(RecieveBuffer, OPERATION_OFFSET_2)
+		Item_1.RateText = buffer.readstring(RecieveBuffer, Read(Length), Length)
+		table.insert(Value.Units, Item_1)
+	end
 	return Value
 end
 
@@ -501,18 +520,36 @@ function SerdesFunctions.SummonService_WriteFUNCTION_DATA_GetBanner(Value: nil, 
 	buffer.writeu8(SendBuffer, BLOCK_START + 1, InvocationIdentifier)
 end
 
-function SerdesFunctions.SummonService_ReadFUNCTION_RETURN_GetBanner(): ({ BannerId: string, RateUpUnit: string })
-	-- Read BLOCK: 5 bytes
-	local BLOCK_START = Read(5)
+function SerdesFunctions.SummonService_ReadFUNCTION_RETURN_GetBanner(): ({ NextRerollTime: number, Units: { { Rarity: string, Name: string, RateText: string } } })
+	-- Read BLOCK: 7 bytes
+	local BLOCK_START = Read(7)
 	local Success = buffer.readu8(RecieveBuffer, BLOCK_START + 0)
 	if Success ~= 1 then
 		error("Server encountered an error.")
 	end
 	local Value = {} :: any
-	local Length = buffer.readu16(RecieveBuffer, BLOCK_START + 1)
-	Value.BannerId = buffer.readstring(RecieveBuffer, Read(Length), Length)
-	Length = buffer.readu16(RecieveBuffer, BLOCK_START + 3)
-	Value.RateUpUnit = buffer.readstring(RecieveBuffer, Read(Length), Length)
+	Value.NextRerollTime = buffer.readu32(RecieveBuffer, BLOCK_START + 1)
+	local Length = buffer.readu16(RecieveBuffer, BLOCK_START + 5)
+	if Length < 0 then error(`Expected "Length" to be larger than 0, got {Length} instead.`) end
+	if Length > 65535 then error(`Expected "Length" to be smaller than 65535, got {Length} instead.`) end
+	Value.Units = table.create(Length)
+	local ARRAY_START_1 = Read(6 * Length)
+	for Index = 1, Length do
+		local Item_1 = {} :: any
+		local OPERATION_OFFSET_0 = ARRAY_START_1
+		ARRAY_START_1 += 2
+		Length = buffer.readu16(RecieveBuffer, OPERATION_OFFSET_0)
+		Item_1.Rarity = buffer.readstring(RecieveBuffer, Read(Length), Length)
+		local OPERATION_OFFSET_1 = ARRAY_START_1
+		ARRAY_START_1 += 2
+		Length = buffer.readu16(RecieveBuffer, OPERATION_OFFSET_1)
+		Item_1.Name = buffer.readstring(RecieveBuffer, Read(Length), Length)
+		local OPERATION_OFFSET_2 = ARRAY_START_1
+		ARRAY_START_1 += 2
+		Length = buffer.readu16(RecieveBuffer, OPERATION_OFFSET_2)
+		Item_1.RateText = buffer.readstring(RecieveBuffer, Read(Length), Length)
+		table.insert(Value.Units, Item_1)
+	end
 	return Value
 end
 
@@ -1175,7 +1212,7 @@ Reliable.OnClientEvent:Connect(function(Buffer: buffer, Instances: {Instance})
 				Calls[InvocationIdentifier] = nil
 			end
 		elseif Index == 15 then
-			local Value: { BannerId: string, IsActive: boolean } = SerdesFunctions.SummonService_ReadEVENT_BannerUpdated()
+			local Value: { NextRerollTime: number, Units: { { Rarity: string, Name: string, RateText: string } } } = SerdesFunctions.SummonService_ReadEVENT_BannerUpdated()
 			if Events.Reliable[15] ~= nil then
 				SerdesEvent = "BannerUpdated"
 				Events.Reliable[15](Value)
@@ -1703,7 +1740,7 @@ local Returns = table.freeze({
 	},
 	SummonService = {
 		BannerUpdated = {
-			On = function(Listener: (Value: { BannerId: string, IsActive: boolean }) -> ()): () -> ()
+			On = function(Listener: (Value: { NextRerollTime: number, Units: { { Rarity: string, Name: string, RateText: string } } }) -> ()): () -> ()
 				Events.Reliable[15] = Listener
 				for Index, Arguments in Queue.Reliable[15] do
 					Listener(table.unpack(Arguments))
@@ -1751,7 +1788,7 @@ local Returns = table.freeze({
 					OnCancel(function ()
 						Calls[InvocationIdentifier] = nil
 					end)
-					local Success, ReturnValue: { BannerId: string, RateUpUnit: string } = coroutine.yield()
+					local Success, ReturnValue: { NextRerollTime: number, Units: { { Rarity: string, Name: string, RateText: string } } } = coroutine.yield()
 					if Success ~= true then
 						Reject("There was an exception while processing \"GetBanner\".")
 						return 

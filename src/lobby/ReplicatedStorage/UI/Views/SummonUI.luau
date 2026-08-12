@@ -8,6 +8,7 @@ local useColorSequenceCycle = require(ReplicatedStorage.Shared.Modules.UI.Hooks.
 local TouchZone = require(ReplicatedStorage.Shared.Modules.Utils.TouchZone)
 local Net = require(ReplicatedStorage.Shared.Net)
 local TowerViewport = require(ReplicatedStorage.UI.Components.TowerViewport)
+local SummonResultUI = require(script.Parent.SummonResultUI)
 local UIController
 
 local create = Vide.create
@@ -16,7 +17,8 @@ local spring = Vide.spring
 
 local isHovered = source(false)
 local currentPity = source(0)
-local currentUnitsPool = source({
+
+local DEFAULT_UNITS_POOL = {
 	Common = { Name = "", RateText = "" },
 	Uncommon = { Name = "", RateText = "" },
 	Rare = { Name = "", RateText = "" },
@@ -24,7 +26,20 @@ local currentUnitsPool = source({
 	Legendary = { Name = "", RateText = "" },
 	Mythic = { Name = "", RateText = "" },
 	Absolute = { Name = "", RateText = "" },
-})
+}
+
+local currentUnitsPool = source(DEFAULT_UNITS_POOL)
+
+local function copyDefaultUnitsPool()
+	local pool = {}
+	for rarity, info in DEFAULT_UNITS_POOL do
+		pool[rarity] = {
+			Name = info.Name,
+			RateText = info.RateText,
+		}
+	end
+	return pool
+end
 
 local SummonUI = {}
 
@@ -34,11 +49,52 @@ function SummonUI.UpdateBanner(bannerData)
 		return
 	end
 
-	currentUnitsPool(bannerData.Units)
+	local unitsByRarity = copyDefaultUnitsPool()
+	local units = bannerData.Units
+
+	if units[1] then
+		for _, unit in ipairs(units) do
+			if unit.Rarity and unitsByRarity[unit.Rarity] then
+				unitsByRarity[unit.Rarity] = {
+					Name = unit.Name or "",
+					RateText = unit.RateText or "",
+				}
+			end
+		end
+	else
+		for rarity, info in units do
+			if unitsByRarity[rarity] and type(info) == "table" then
+				unitsByRarity[rarity] = {
+					Name = info.Name or "",
+					RateText = info.RateText or "",
+				}
+			end
+		end
+	end
+
+	currentUnitsPool(unitsByRarity)
 end
 
 function SummonUI.Summon(number: number)
-	Net.SummonService.DoSummon.Invoke(number)
+	task.spawn(function()
+		local ok, success, result = pcall(function()
+			return Net.SummonService.DoSummon.Invoke(number):await()
+		end)
+
+		if not ok then
+			warn(`Summon request failed: {success}`)
+			return
+		end
+
+		if not success or not result or not result.Success then
+			return
+		end
+
+		local pulledUnits = result.PulledUnits
+		if type(pulledUnits) == "table" and #pulledUnits > 0 then
+			SummonResultUI.ShowResults(pulledUnits)
+		end
+	end)
 end
 
 function SummonUI.RenderUI()
@@ -1191,10 +1247,17 @@ end
 function SummonUI.Start()
 	Net.SummonService.BannerUpdated.On(SummonUI.UpdateBanner)
 
-	local success, bannerData = Net.SummonService.GetBanner.Invoke():await()
-	if success then
-		SummonUI.UpdateBanner(bannerData)
-	end
+	task.spawn(function()
+		local ok, success, bannerData = pcall(function()
+			return Net.SummonService.GetBanner.Invoke():await()
+		end)
+
+		if ok and success and bannerData then
+			SummonUI.UpdateBanner(bannerData)
+		elseif not ok then
+			warn(`GetBanner failed: {success}`)
+		end
+	end)
 
 	local summonTouch = workspace:WaitForChild("TouchZone"):WaitForChild("SummonTouch")
 	local zone = TouchZone.new(summonTouch)

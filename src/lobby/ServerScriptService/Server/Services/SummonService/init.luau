@@ -16,12 +16,12 @@ local function rollSingleUnit(bannerData)
 	for _, unitData in ipairs(bannerData.Units) do
 		currentWeight += unitData.Weight
 		if randomNum <= currentWeight then
-			return unitData.Unit
+			return unitData.Unit, unitData.Rarity
 		end
 	end
 
 	warn("roll 실패.")
-	return nil
+	return nil, nil
 end
 
 function SummonService.Summon(player: Player, amount: number)
@@ -52,9 +52,12 @@ function SummonService.Summon(player: Player, amount: number)
 		local results = {}
 
 		for _ = 1, amount do
-			local unitName = rollSingleUnit(currentBanner)
+			local unitName, rarity = rollSingleUnit(currentBanner)
 			if unitName then
-				table.insert(results, unitName)
+				table.insert(results, {
+					UnitName = unitName,
+					Rarity = rarity,
+				})
 				DataService:AddTower(player, unitName)
 			end
 		end
@@ -86,7 +89,6 @@ function SummonService.Start()
 	end)
 
 	Net.SummonService.GetBanner.On(function()
-		print(Banner.GetClientFormat())
 		return Banner.GetClientFormat()
 	end)
 

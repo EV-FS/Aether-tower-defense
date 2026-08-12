@@ -249,11 +249,11 @@ function GlobalExistService.Start()
 		end
 	end)
 
-	DataService:GetChangedSignal("OwnedTowersAdded"):Connect(function(targetTower)
-		GlobalExistService:AddExistCount("Towers", targetTower.towerName)
+	DataService:GetChangedSignal("OwnedTowersAdded"):Connect(function(_player, data)
+		GlobalExistService:AddExistCount("Towers", data.towerName)
 	end)
-	DataService:GetChangedSignal("OwnedTowersRemoved"):Connect(function(targetTower)
-		GlobalExistService:AddExistCount("Towers", targetTower.towerName, -1)
+	DataService:GetChangedSignal("OwnedTowersRemoved"):Connect(function(_player, data)
+		GlobalExistService:AddExistCount("Towers", data.towerName, -1)
 	end)
 
 	game:BindToClose(function()

@@ -138,9 +138,13 @@ scope SummonService {
         type: Reliable,
         call: SingleSync,
         data: struct {
-            BannerId: string,
-            IsActive: boolean,
-        }
+            NextRerollTime: u32,
+            Units: struct {
+                Rarity: string,
+                Name: string,
+                RateText: string,
+            }[],
+        },
     }
 
     function DoSummon {
@@ -158,8 +162,12 @@ scope SummonService {
     function GetBanner {
         Yield: Promise,
         Return: struct {
-            BannerId: string,
-            RateUpUnit: string,
+            NextRerollTime: u32,
+            Units: struct {
+                Rarity: string,
+                Name: string,
+                RateText: string,
+            }[],
         },
     }
 }

@@ -79,10 +79,11 @@ function Banner.GetClientFormat()
 	}
 
 	for _, data in ipairs(activeBanner.Units) do
-		clientData.Units[data.Rarity] = {
+		table.insert(clientData.Units, {
+			Rarity = data.Rarity,
 			Name = data.Unit,
 			RateText = tostring(data.Weight) .. "%",
-		}
+		})
 	end
 
 	return clientData

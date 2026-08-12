@@ -390,15 +390,34 @@ function SerdesFunctions.RoomService_WriteFUNCTION_RETURN_RequestCreate(Value: {
 	buffer.writeu16(SendBuffer, BLOCK_START + 4, Value.RoomId)
 end
 
-function SerdesFunctions.SummonService_WriteEVENT_BannerUpdated(Value: { BannerId: string, IsActive: boolean }): ()
-	-- Allocate BLOCK: 4 bytes
-	local BLOCK_START = Allocate(4)
+function SerdesFunctions.SummonService_WriteEVENT_BannerUpdated(Value: { NextRerollTime: number, Units: { { Rarity: string, Name: string, RateText: string } } }): ()
+	-- Allocate BLOCK: 7 bytes
+	local BLOCK_START = Allocate(7)
 	buffer.writeu8(SendBuffer, BLOCK_START + 0, 15)
-	local Length = #Value.BannerId
-	buffer.writeu16(SendBuffer, BLOCK_START + 1, Length)
-	Allocate(Length)
-	buffer.writestring(SendBuffer, SendOffset, Value.BannerId, Length)
-	buffer.writeu8(SendBuffer, BLOCK_START + 3, Value.IsActive and 1 or 0)
+	buffer.writeu32(SendBuffer, BLOCK_START + 1, Value.NextRerollTime)
+	buffer.writeu16(SendBuffer, BLOCK_START + 5, #Value.Units)
+	local ARRAY_START_1 = Allocate(6 * #Value.Units)
+	for Index = 1, #Value.Units do
+		local Item_1 = Value.Units[Index]
+		local Length = #Item_1.Rarity
+		local OPERATION_OFFSET_0 = ARRAY_START_1
+		ARRAY_START_1 += 2
+		buffer.writeu16(SendBuffer, OPERATION_OFFSET_0, Length)
+		Allocate(Length)
+		buffer.writestring(SendBuffer, SendOffset, Item_1.Rarity, Length)
+		local Length = #Item_1.Name
+		local OPERATION_OFFSET_1 = ARRAY_START_1
+		ARRAY_START_1 += 2
+		buffer.writeu16(SendBuffer, OPERATION_OFFSET_1, Length)
+		Allocate(Length)
+		buffer.writestring(SendBuffer, SendOffset, Item_1.Name, Length)
+		local Length = #Item_1.RateText
+		local OPERATION_OFFSET_2 = ARRAY_START_1
+		ARRAY_START_1 += 2
+		buffer.writeu16(SendBuffer, OPERATION_OFFSET_2, Length)
+		Allocate(Length)
+		buffer.writestring(SendBuffer, SendOffset, Item_1.RateText, Length)
+	end
 end
 
 function SerdesFunctions.SummonService_ReadFUNCTION_DATA_DoSummon(): (number)
@@ -443,20 +462,36 @@ function SerdesFunctions.SummonService_ReadFUNCTION_DATA_GetBanner(): (nil)
 	return nil
 end
 
-function SerdesFunctions.SummonService_WriteFUNCTION_RETURN_GetBanner(Value: { BannerId: string, RateUpUnit: string }, InvocationIdentifier: number): ()
-	-- Allocate BLOCK: 7 bytes
-	local BLOCK_START = Allocate(7)
+function SerdesFunctions.SummonService_WriteFUNCTION_RETURN_GetBanner(Value: { NextRerollTime: number, Units: { { Rarity: string, Name: string, RateText: string } } }, InvocationIdentifier: number): ()
+	-- Allocate BLOCK: 8 bytes
+	local BLOCK_START = Allocate(8)
 	buffer.writeu8(SendBuffer, BLOCK_START + 0, 17)
 	buffer.writeu8(SendBuffer, BLOCK_START + 1, InvocationIdentifier)
 	buffer.writeu8(SendBuffer, BLOCK_START + 2, 1)
-	local Length = #Value.BannerId
-	buffer.writeu16(SendBuffer, BLOCK_START + 3, Length)
-	Allocate(Length)
-	buffer.writestring(SendBuffer, SendOffset, Value.BannerId, Length)
-	local Length = #Value.RateUpUnit
-	buffer.writeu16(SendBuffer, BLOCK_START + 5, Length)
-	Allocate(Length)
-	buffer.writestring(SendBuffer, SendOffset, Value.RateUpUnit, Length)
+	buffer.writeu32(SendBuffer, BLOCK_START + 3, Value.NextRerollTime)
+	buffer.writeu16(SendBuffer, BLOCK_START + 7, #Value.Units)
+	local ARRAY_START_1 = Allocate(6 * #Value.Units)
+	for Index = 1, #Value.Units do
+		local Item_1 = Value.Units[Index]
+		local Length = #Item_1.Rarity
+		local OPERATION_OFFSET_0 = ARRAY_START_1
+		ARRAY_START_1 += 2
+		buffer.writeu16(SendBuffer, OPERATION_OFFSET_0, Length)
+		Allocate(Length)
+		buffer.writestring(SendBuffer, SendOffset, Item_1.Rarity, Length)
+		local Length = #Item_1.Name
+		local OPERATION_OFFSET_1 = ARRAY_START_1
+		ARRAY_START_1 += 2
+		buffer.writeu16(SendBuffer, OPERATION_OFFSET_1, Length)
+		Allocate(Length)
+		buffer.writestring(SendBuffer, SendOffset, Item_1.Name, Length)
+		local Length = #Item_1.RateText
+		local OPERATION_OFFSET_2 = ARRAY_START_1
+		ARRAY_START_1 += 2
+		buffer.writeu16(SendBuffer, OPERATION_OFFSET_2, Length)
+		Allocate(Length)
+		buffer.writestring(SendBuffer, SendOffset, Item_1.RateText, Length)
+	end
 end
 
 function SerdesFunctions.StoreService_WriteEVENT_BannerUpdated(Value: any): ()
@@ -1810,12 +1845,12 @@ local Returns = table.freeze({
 	},
 	SummonService = {
 		BannerUpdated = {
-			Fire = function(Player: Player, Value: { BannerId: string, IsActive: boolean }): ()
+			Fire = function(Player: Player, Value: { NextRerollTime: number, Units: { { Rarity: string, Name: string, RateText: string } } }): ()
 				Load(PlayersMap[Player])
 				SerdesFunctions.SummonService_WriteEVENT_BannerUpdated(Value)
 				PlayersMap[Player] = Save()
 			end,
-			FireAll = function(Value: { BannerId: string, IsActive: boolean }): ()
+			FireAll = function(Value: { NextRerollTime: number, Units: { { Rarity: string, Name: string, RateText: string } } }): ()
 				Load()
 				SerdesFunctions.SummonService_WriteEVENT_BannerUpdated(Value)
 				local Buffer, Size, Instances = SendBuffer, SendCursor, SendInstances
@@ -1827,7 +1862,7 @@ local Returns = table.freeze({
 					PlayersMap[Player] = Save()
 				end
 			end,
-			FireList = function(List: {Player}, Value: { BannerId: string, IsActive: boolean }): ()
+			FireList = function(List: {Player}, Value: { NextRerollTime: number, Units: { { Rarity: string, Name: string, RateText: string } } }): ()
 				Load()
 				SerdesFunctions.SummonService_WriteEVENT_BannerUpdated(Value)
 				local Buffer, Size, Instances = SendBuffer, SendCursor, SendInstances
@@ -1839,7 +1874,7 @@ local Returns = table.freeze({
 					PlayersMap[Player] = Save()
 				end
 			end,
-			FireExcept = function(Except: Player, Value: { BannerId: string, IsActive: boolean }): ()
+			FireExcept = function(Except: Player, Value: { NextRerollTime: number, Units: { { Rarity: string, Name: string, RateText: string } } }): ()
 				Load()
 				SerdesFunctions.SummonService_WriteEVENT_BannerUpdated(Value)
 				local Buffer, Size, Instances = SendBuffer, SendCursor, SendInstances
@@ -1884,9 +1919,9 @@ local Returns = table.freeze({
 		end
 		},
 		GetBanner = {
-		On = function(Listener: (Player, nil) -> ({ BannerId: string, RateUpUnit: string })): ()
+		On = function(Listener: (Player, nil) -> ({ NextRerollTime: number, Units: { { Rarity: string, Name: string, RateText: string } } })): ()
 			Events.Reliable[17] = function(Player: Player, Value: nil, InvocationIdentifier: number): ()
-				local ReturnValue: { BannerId: string, RateUpUnit: string };
+				local ReturnValue: { NextRerollTime: number, Units: { { Rarity: string, Name: string, RateText: string } } };
 				local Success, Error = pcall(function ()
 					ReturnValue = Listener(Player, Value)
 				end)
