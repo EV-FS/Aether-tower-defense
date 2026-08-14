@@ -9,7 +9,9 @@ type towerKey = string | number
 
 local InventoryClient = {}
 InventoryClient.OwnedTowers = {}
+InventoryClient.Loadout = Vide.source({})
 InventoryClient.LoadedPromise = nil
+InventoryClient.LoadoutLoadedPromise = nil
 InventoryClient.TowersChanged = Vide.source(0)
 
 InventoryClient.TowersLoaded = Signal.new()
@@ -46,7 +48,54 @@ function InventoryClient.FetchTowers()
 	return InventoryClient.LoadedPromise
 end
 
-function InventoryClient.EquipTower(towerName: string, towerKey: towerKey) end
+function InventoryClient.FetchLoadout()
+	if InventoryClient.LoadoutLoadedPromise then
+		return InventoryClient.LoadoutLoadedPromise
+	end
+
+	InventoryClient.LoadoutLoadedPromise = Net.DataService.GetDataValue
+		.Invoke("Loadout")
+		:andThen(function(loadout)
+			InventoryClient.Loadout(loadout or {})
+			return InventoryClient.Loadout()
+		end)
+		:catch(function(err)
+			warn(`로드아웃 불러오기 실패: {err}`)
+			InventoryClient.Loadout({})
+		end)
+
+	return InventoryClient.LoadoutLoadedPromise
+end
+
+local function getTowerKeyId(towerKey: towerKey): number?
+	local keyText = tostring(towerKey)
+	local keyId = tonumber(string.match(keyText, "(%d+)$"))
+	return keyId
+end
+
+function InventoryClient.EquipTower(towerName: string, towerKey: towerKey)
+	local towerKeyId = getTowerKeyId(towerKey)
+	if not towerKeyId then
+		return false
+	end
+
+	local ok, success = pcall(function()
+		return Net.LoadoutService.SetLoadout.Invoke({
+			requestType = "Equip",
+			targetTower = {
+				towerName = towerName,
+				towerKey = towerKeyId,
+			},
+		}):expect()
+	end)
+
+	if ok and success then
+		InventoryClient.LoadoutLoadedPromise = nil
+		InventoryClient.FetchLoadout()
+	end
+
+	return ok and success == true
+end
 
 function InventoryClient.SellTower(towerName: string, towerKey: towerKey) end
 
@@ -54,6 +103,7 @@ function InventoryClient.Init() end
 
 function InventoryClient.Start()
 	InventoryClient.FetchTowers()
+	InventoryClient.FetchLoadout()
 
 	Net.DataService.OwnedTowersAdded.On(function(data: { towerData: any, towerIndex: number, towerKeyId: number })
 		local towerName = TowerData.ByIndex[data.towerIndex] and TowerData.ByIndex[data.towerIndex].Name

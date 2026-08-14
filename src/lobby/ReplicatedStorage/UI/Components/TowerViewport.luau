@@ -40,6 +40,7 @@ export type Props = {
 	CameraDirection: Reactive<Vector3>?,
 	FieldOfView: Reactive<number>?,
 	FitPadding: Reactive<number>?,
+	FocusYOffset: Reactive<number>?,
 	ModelRotation: Reactive<number>?,
 	AnimationName: Reactive<string?>?,
 	AnimationLevel: Reactive<number?>?,
@@ -110,14 +111,15 @@ local function updateCamera(
 	modelCFrame: CFrame,
 	fieldOfView: number,
 	cameraDirection: Vector3,
-	fitPadding: number
+	fitPadding: number,
+	focusYOffset: number
 )
 	local direction = if cameraDirection.Magnitude > 0 then cameraDirection.Unit else DEFAULT_CAMERA_DIRECTION
 	local clampedFieldOfView = math.clamp(fieldOfView, 1, 120)
 	local distance = modelState.BoundsRadius
 		/ math.sin(math.rad(clampedFieldOfView) * 0.5)
-		* math.max(fitPadding, 1)
-	local focus = modelCFrame:PointToWorldSpace(modelState.FocusOffset)
+		* math.max(fitPadding, 0.5)
+	local focus = modelCFrame:PointToWorldSpace(modelState.FocusOffset + Vector3.new(0, focusYOffset, 0))
 
 	camera.FieldOfView = clampedFieldOfView
 	camera.CFrame = CFrame.lookAt(focus + direction * distance, focus)
@@ -296,7 +298,8 @@ return function(props: Props)
 			modelCFrame,
 			read(props.FieldOfView) or DEFAULT_FIELD_OF_VIEW,
 			read(props.CameraDirection) or DEFAULT_CAMERA_DIRECTION,
-			read(props.FitPadding) or DEFAULT_FIT_PADDING
+			read(props.FitPadding) or DEFAULT_FIT_PADDING,
+			read(props.FocusYOffset) or 0
 		)
 	end)
 

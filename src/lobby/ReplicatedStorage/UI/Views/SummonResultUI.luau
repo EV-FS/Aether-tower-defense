@@ -324,7 +324,7 @@ function SummonResultUI.RenderUI()
 				Name = "Glow",
 				AnchorPoint = Vector2.new(0.5, 0.5),
 				BackgroundTransparency = 1,
-				Image = "rbxassetid://87157288731947",
+				Image = "rbxassetid://74355115881963",
 				ImageColor3 = function()
 					local unit = getCurrentUnit()
 					return if unit then RARITY_GLOW[unit.Rarity] or RARITY_GLOW.Common else RARITY_GLOW.Common
