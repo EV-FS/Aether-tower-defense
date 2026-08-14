@@ -186,15 +186,19 @@ function SerdesFunctions.GroupReward_WriteEVENT_SendPromptJoin(Value: nil): ()
 	buffer.writeu8(SendBuffer, BLOCK_START + 0, 0)
 end
 
-function SerdesFunctions.NotificationService_WriteEVENT_Popup(Value: { Message: string, DurationMs: number }): ()
-	-- Allocate BLOCK: 5 bytes
-	local BLOCK_START = Allocate(5)
+function SerdesFunctions.NotificationService_WriteEVENT_Popup(Value: { Message: string, LogType: string, DurationMs: number }): ()
+	-- Allocate BLOCK: 7 bytes
+	local BLOCK_START = Allocate(7)
 	buffer.writeu8(SendBuffer, BLOCK_START + 0, 1)
 	local Length = #Value.Message
 	buffer.writeu16(SendBuffer, BLOCK_START + 1, Length)
 	Allocate(Length)
 	buffer.writestring(SendBuffer, SendOffset, Value.Message, Length)
-	buffer.writeu16(SendBuffer, BLOCK_START + 3, Value.DurationMs)
+	local Length = #Value.LogType
+	buffer.writeu16(SendBuffer, BLOCK_START + 3, Length)
+	Allocate(Length)
+	buffer.writestring(SendBuffer, SendOffset, Value.LogType, Length)
+	buffer.writeu16(SendBuffer, BLOCK_START + 5, Value.DurationMs)
 end
 
 function SerdesFunctions.EmoteService_ReadFUNCTION_DATA_RequestPlayEmote(): ({ EmoteId: string })
@@ -395,29 +399,35 @@ function SerdesFunctions.SummonService_WriteEVENT_BannerUpdated(Value: { NextRer
 	local BLOCK_START = Allocate(7)
 	buffer.writeu8(SendBuffer, BLOCK_START + 0, 15)
 	buffer.writeu32(SendBuffer, BLOCK_START + 1, Value.NextRerollTime)
+	-- START ARRAY
 	buffer.writeu16(SendBuffer, BLOCK_START + 5, #Value.Units)
+		-- Allocate BLOCK: 6 bytes
 	local ARRAY_START_1 = Allocate(6 * #Value.Units)
 	for Index = 1, #Value.Units do
 		local Item_1 = Value.Units[Index]
 		local Length = #Item_1.Rarity
+		-- Allocate 2
 		local OPERATION_OFFSET_0 = ARRAY_START_1
 		ARRAY_START_1 += 2
 		buffer.writeu16(SendBuffer, OPERATION_OFFSET_0, Length)
 		Allocate(Length)
 		buffer.writestring(SendBuffer, SendOffset, Item_1.Rarity, Length)
 		local Length = #Item_1.Name
+		-- Allocate 2
 		local OPERATION_OFFSET_1 = ARRAY_START_1
 		ARRAY_START_1 += 2
 		buffer.writeu16(SendBuffer, OPERATION_OFFSET_1, Length)
 		Allocate(Length)
 		buffer.writestring(SendBuffer, SendOffset, Item_1.Name, Length)
 		local Length = #Item_1.RateText
+		-- Allocate 2
 		local OPERATION_OFFSET_2 = ARRAY_START_1
 		ARRAY_START_1 += 2
 		buffer.writeu16(SendBuffer, OPERATION_OFFSET_2, Length)
 		Allocate(Length)
 		buffer.writestring(SendBuffer, SendOffset, Item_1.RateText, Length)
 	end
+	-- END ARRAY
 end
 
 function SerdesFunctions.SummonService_ReadFUNCTION_DATA_DoSummon(): (number)
@@ -463,35 +473,41 @@ function SerdesFunctions.SummonService_ReadFUNCTION_DATA_GetBanner(): (nil)
 end
 
 function SerdesFunctions.SummonService_WriteFUNCTION_RETURN_GetBanner(Value: { NextRerollTime: number, Units: { { Rarity: string, Name: string, RateText: string } } }, InvocationIdentifier: number): ()
-	-- Allocate BLOCK: 8 bytes
-	local BLOCK_START = Allocate(8)
+	-- Allocate BLOCK: 9 bytes
+	local BLOCK_START = Allocate(9)
 	buffer.writeu8(SendBuffer, BLOCK_START + 0, 17)
 	buffer.writeu8(SendBuffer, BLOCK_START + 1, InvocationIdentifier)
 	buffer.writeu8(SendBuffer, BLOCK_START + 2, 1)
 	buffer.writeu32(SendBuffer, BLOCK_START + 3, Value.NextRerollTime)
+	-- START ARRAY
 	buffer.writeu16(SendBuffer, BLOCK_START + 7, #Value.Units)
+		-- Allocate BLOCK: 6 bytes
 	local ARRAY_START_1 = Allocate(6 * #Value.Units)
 	for Index = 1, #Value.Units do
 		local Item_1 = Value.Units[Index]
 		local Length = #Item_1.Rarity
+		-- Allocate 2
 		local OPERATION_OFFSET_0 = ARRAY_START_1
 		ARRAY_START_1 += 2
 		buffer.writeu16(SendBuffer, OPERATION_OFFSET_0, Length)
 		Allocate(Length)
 		buffer.writestring(SendBuffer, SendOffset, Item_1.Rarity, Length)
 		local Length = #Item_1.Name
+		-- Allocate 2
 		local OPERATION_OFFSET_1 = ARRAY_START_1
 		ARRAY_START_1 += 2
 		buffer.writeu16(SendBuffer, OPERATION_OFFSET_1, Length)
 		Allocate(Length)
 		buffer.writestring(SendBuffer, SendOffset, Item_1.Name, Length)
 		local Length = #Item_1.RateText
+		-- Allocate 2
 		local OPERATION_OFFSET_2 = ARRAY_START_1
 		ARRAY_START_1 += 2
 		buffer.writeu16(SendBuffer, OPERATION_OFFSET_2, Length)
 		Allocate(Length)
 		buffer.writestring(SendBuffer, SendOffset, Item_1.RateText, Length)
 	end
+	-- END ARRAY
 end
 
 function SerdesFunctions.StoreService_WriteEVENT_BannerUpdated(Value: any): ()
@@ -739,10 +755,6 @@ end
 
 function SerdesFunctions.DialogueService_WriteEVENT_StartDialogue(Value: string): ()
 	-- Allocate BLOCK: 3 bytes
-	if typeof(Value) ~= "string" then
-		warn(`[Blink Debug]: StartDialogue Value is {typeof(Value)}: {tostring(Value)}`)
-		Value = tostring(Value)
-	end
 	local BLOCK_START = Allocate(3)
 	buffer.writeu8(SendBuffer, BLOCK_START + 0, 31)
 	local Length = #Value
@@ -1337,12 +1349,12 @@ local Returns = table.freeze({
 	},
 	NotificationService = {
 		Popup = {
-			Fire = function(Player: Player, Value: { Message: string, DurationMs: number }): ()
+			Fire = function(Player: Player, Value: { Message: string, LogType: string, DurationMs: number }): ()
 				Load(PlayersMap[Player])
 				SerdesFunctions.NotificationService_WriteEVENT_Popup(Value)
 				PlayersMap[Player] = Save()
 			end,
-			FireAll = function(Value: { Message: string, DurationMs: number }): ()
+			FireAll = function(Value: { Message: string, LogType: string, DurationMs: number }): ()
 				Load()
 				SerdesFunctions.NotificationService_WriteEVENT_Popup(Value)
 				local Buffer, Size, Instances = SendBuffer, SendCursor, SendInstances
@@ -1354,7 +1366,7 @@ local Returns = table.freeze({
 					PlayersMap[Player] = Save()
 				end
 			end,
-			FireList = function(List: {Player}, Value: { Message: string, DurationMs: number }): ()
+			FireList = function(List: {Player}, Value: { Message: string, LogType: string, DurationMs: number }): ()
 				Load()
 				SerdesFunctions.NotificationService_WriteEVENT_Popup(Value)
 				local Buffer, Size, Instances = SendBuffer, SendCursor, SendInstances
@@ -1366,7 +1378,7 @@ local Returns = table.freeze({
 					PlayersMap[Player] = Save()
 				end
 			end,
-			FireExcept = function(Except: Player, Value: { Message: string, DurationMs: number }): ()
+			FireExcept = function(Except: Player, Value: { Message: string, LogType: string, DurationMs: number }): ()
 				Load()
 				SerdesFunctions.NotificationService_WriteEVENT_Popup(Value)
 				local Buffer, Size, Instances = SendBuffer, SendCursor, SendInstances

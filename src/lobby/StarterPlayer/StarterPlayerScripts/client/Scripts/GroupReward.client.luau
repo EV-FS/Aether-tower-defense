@@ -23,7 +23,11 @@ Net.GroupReward.SendPromptJoin.On(function()
 		if success then
 			if result == Enum.GroupMembershipStatus.Joined then
 				NotificationService = NotificationService or ServiceRegistry:GetService("NotificationService")
-				NotificationService:Popup(Players.LocalPlayer, "Thanks for joining! Auto skip is now available.")
+				NotificationService:Pull(
+					Players.LocalPlayer,
+					"Thanks for joining! Auto skip is now available.",
+					"Normal"
+				)
 			end
 		else
 			warn("프롬프트 실패:", result)

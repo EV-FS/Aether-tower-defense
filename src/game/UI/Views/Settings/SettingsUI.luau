@@ -136,9 +136,10 @@ function SettingsUI.Hydrate()
 
 										if success then
 											if result == Enum.GroupMembershipStatus.Joined then
-												NotificationService:Popup(
+												NotificationService:Pull(
 													Players.LocalPlayer,
-													"Thanks for joining! Auto skip is now available."
+													"Thanks for joining! Auto skip is now available.",
+													"Normal"
 												)
 											end
 

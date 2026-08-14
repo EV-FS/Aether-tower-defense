@@ -480,15 +480,19 @@ function SerdesFunctions.BaseService_WriteEVENT_BaseHealthChanged(Value: number)
 	buffer.writeu16(SendBuffer, BLOCK_START + 1, Value)
 end
 
-function SerdesFunctions.NotificationService_WriteEVENT_Popup(Value: { Message: string, DurationMs: number }): ()
-	-- Allocate BLOCK: 5 bytes
-	local BLOCK_START = Allocate(5)
+function SerdesFunctions.NotificationService_WriteEVENT_Popup(Value: { Message: string, LogType: string, DurationMs: number }): ()
+	-- Allocate BLOCK: 7 bytes
+	local BLOCK_START = Allocate(7)
 	buffer.writeu8(SendBuffer, BLOCK_START + 0, 25)
 	local Length = #Value.Message
 	buffer.writeu16(SendBuffer, BLOCK_START + 1, Length)
 	Allocate(Length)
 	buffer.writestring(SendBuffer, SendOffset, Value.Message, Length)
-	buffer.writeu16(SendBuffer, BLOCK_START + 3, Value.DurationMs)
+	local Length = #Value.LogType
+	buffer.writeu16(SendBuffer, BLOCK_START + 3, Length)
+	Allocate(Length)
+	buffer.writestring(SendBuffer, SendOffset, Value.LogType, Length)
+	buffer.writeu16(SendBuffer, BLOCK_START + 5, Value.DurationMs)
 end
 
 function SerdesFunctions.LootService_WriteEVENT_ReplicateDrop(Value: { itemName: string, amount: number }): ()
@@ -2301,12 +2305,12 @@ local Returns = table.freeze({
 	},
 	NotificationService = {
 		Popup = {
-			Fire = function(Player: Player, Value: { Message: string, DurationMs: number }): ()
+			Fire = function(Player: Player, Value: { Message: string, LogType: string, DurationMs: number }): ()
 				Load(PlayersMap[Player])
 				SerdesFunctions.NotificationService_WriteEVENT_Popup(Value)
 				PlayersMap[Player] = Save()
 			end,
-			FireAll = function(Value: { Message: string, DurationMs: number }): ()
+			FireAll = function(Value: { Message: string, LogType: string, DurationMs: number }): ()
 				Load()
 				SerdesFunctions.NotificationService_WriteEVENT_Popup(Value)
 				local Buffer, Size, Instances = SendBuffer, SendCursor, SendInstances
@@ -2318,7 +2322,7 @@ local Returns = table.freeze({
 					PlayersMap[Player] = Save()
 				end
 			end,
-			FireList = function(List: {Player}, Value: { Message: string, DurationMs: number }): ()
+			FireList = function(List: {Player}, Value: { Message: string, LogType: string, DurationMs: number }): ()
 				Load()
 				SerdesFunctions.NotificationService_WriteEVENT_Popup(Value)
 				local Buffer, Size, Instances = SendBuffer, SendCursor, SendInstances
@@ -2330,7 +2334,7 @@ local Returns = table.freeze({
 					PlayersMap[Player] = Save()
 				end
 			end,
-			FireExcept = function(Except: Player, Value: { Message: string, DurationMs: number }): ()
+			FireExcept = function(Except: Player, Value: { Message: string, LogType: string, DurationMs: number }): ()
 				Load()
 				SerdesFunctions.NotificationService_WriteEVENT_Popup(Value)
 				local Buffer, Size, Instances = SendBuffer, SendCursor, SendInstances

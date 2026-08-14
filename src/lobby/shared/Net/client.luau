@@ -205,13 +205,15 @@ function SerdesFunctions.GroupReward_ReadEVENT_SendPromptJoin(): (nil)
 	return nil
 end
 
-function SerdesFunctions.NotificationService_ReadEVENT_Popup(): ({ Message: string, DurationMs: number })
-	-- Read BLOCK: 4 bytes
-	local BLOCK_START = Read(4)
+function SerdesFunctions.NotificationService_ReadEVENT_Popup(): ({ Message: string, LogType: string, DurationMs: number })
+	-- Read BLOCK: 6 bytes
+	local BLOCK_START = Read(6)
 	local Value = {} :: any
 	local Length = buffer.readu16(RecieveBuffer, BLOCK_START + 0)
 	Value.Message = buffer.readstring(RecieveBuffer, Read(Length), Length)
-	Value.DurationMs = buffer.readu16(RecieveBuffer, BLOCK_START + 2)
+	Length = buffer.readu16(RecieveBuffer, BLOCK_START + 2)
+	Value.LogType = buffer.readstring(RecieveBuffer, Read(Length), Length)
+	Value.DurationMs = buffer.readu16(RecieveBuffer, BLOCK_START + 4)
 	return Value
 end
 
@@ -447,27 +449,33 @@ function SerdesFunctions.SummonService_ReadEVENT_BannerUpdated(): ({ NextRerollT
 	local BLOCK_START = Read(6)
 	local Value = {} :: any
 	Value.NextRerollTime = buffer.readu32(RecieveBuffer, BLOCK_START + 0)
+	-- START ARRAY
 	local Length = buffer.readu16(RecieveBuffer, BLOCK_START + 4)
 	if Length < 0 then error(`Expected "Length" to be larger than 0, got {Length} instead.`) end
 	if Length > 65535 then error(`Expected "Length" to be smaller than 65535, got {Length} instead.`) end
 	Value.Units = table.create(Length)
+		-- Read BLOCK: 6 bytes
 	local ARRAY_START_1 = Read(6 * Length)
 	for Index = 1, Length do
 		local Item_1 = {} :: any
+		-- Read 2
 		local OPERATION_OFFSET_0 = ARRAY_START_1
 		ARRAY_START_1 += 2
 		Length = buffer.readu16(RecieveBuffer, OPERATION_OFFSET_0)
 		Item_1.Rarity = buffer.readstring(RecieveBuffer, Read(Length), Length)
+		-- Read 2
 		local OPERATION_OFFSET_1 = ARRAY_START_1
 		ARRAY_START_1 += 2
 		Length = buffer.readu16(RecieveBuffer, OPERATION_OFFSET_1)
 		Item_1.Name = buffer.readstring(RecieveBuffer, Read(Length), Length)
+		-- Read 2
 		local OPERATION_OFFSET_2 = ARRAY_START_1
 		ARRAY_START_1 += 2
 		Length = buffer.readu16(RecieveBuffer, OPERATION_OFFSET_2)
 		Item_1.RateText = buffer.readstring(RecieveBuffer, Read(Length), Length)
 		table.insert(Value.Units, Item_1)
 	end
+	-- END ARRAY
 	return Value
 end
 
@@ -529,27 +537,33 @@ function SerdesFunctions.SummonService_ReadFUNCTION_RETURN_GetBanner(): ({ NextR
 	end
 	local Value = {} :: any
 	Value.NextRerollTime = buffer.readu32(RecieveBuffer, BLOCK_START + 1)
+	-- START ARRAY
 	local Length = buffer.readu16(RecieveBuffer, BLOCK_START + 5)
 	if Length < 0 then error(`Expected "Length" to be larger than 0, got {Length} instead.`) end
 	if Length > 65535 then error(`Expected "Length" to be smaller than 65535, got {Length} instead.`) end
 	Value.Units = table.create(Length)
+		-- Read BLOCK: 6 bytes
 	local ARRAY_START_1 = Read(6 * Length)
 	for Index = 1, Length do
 		local Item_1 = {} :: any
+		-- Read 2
 		local OPERATION_OFFSET_0 = ARRAY_START_1
 		ARRAY_START_1 += 2
 		Length = buffer.readu16(RecieveBuffer, OPERATION_OFFSET_0)
 		Item_1.Rarity = buffer.readstring(RecieveBuffer, Read(Length), Length)
+		-- Read 2
 		local OPERATION_OFFSET_1 = ARRAY_START_1
 		ARRAY_START_1 += 2
 		Length = buffer.readu16(RecieveBuffer, OPERATION_OFFSET_1)
 		Item_1.Name = buffer.readstring(RecieveBuffer, Read(Length), Length)
+		-- Read 2
 		local OPERATION_OFFSET_2 = ARRAY_START_1
 		ARRAY_START_1 += 2
 		Length = buffer.readu16(RecieveBuffer, OPERATION_OFFSET_2)
 		Item_1.RateText = buffer.readstring(RecieveBuffer, Read(Length), Length)
 		table.insert(Value.Units, Item_1)
 	end
+	-- END ARRAY
 	return Value
 end
 
@@ -1052,7 +1066,7 @@ Reliable.OnClientEvent:Connect(function(Buffer: buffer, Instances: {Instance})
 				table.insert(Queue.Reliable[0], {Value} :: {any})
 			end
 		elseif Index == 1 then
-			local Value: { Message: string, DurationMs: number } = SerdesFunctions.NotificationService_ReadEVENT_Popup()
+			local Value: { Message: string, LogType: string, DurationMs: number } = SerdesFunctions.NotificationService_ReadEVENT_Popup()
 			if Events.Reliable[1] ~= nil then
 				SerdesEvent = "Popup"
 				Events.Reliable[1](Value)
@@ -1469,7 +1483,7 @@ local Returns = table.freeze({
 	},
 	NotificationService = {
 		Popup = {
-			On = function(Listener: (Value: { Message: string, DurationMs: number }) -> ()): () -> ()
+			On = function(Listener: (Value: { Message: string, LogType: string, DurationMs: number }) -> ()): () -> ()
 				Events.Reliable[1] = Listener
 				for Index, Arguments in Queue.Reliable[1] do
 					Listener(table.unpack(Arguments))

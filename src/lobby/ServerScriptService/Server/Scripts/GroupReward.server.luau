@@ -22,7 +22,7 @@ zone.Touched:Connect(function(player: Player)
 	end
 
 	NotificationService = NotificationService or ServiceRegistry:GetService("NotificationService")
-	NotificationService:Popup(player, "You are already a member of this group!", 1)
+	NotificationService:Pull(player, "You are already a member of this group!", "Normal", 1)
 end)
 
 zone.TouchEnded:Connect(function(player: Player)
