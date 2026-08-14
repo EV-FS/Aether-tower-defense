@@ -23,6 +23,11 @@ local TARGET_MODES = { "First", "Last", "Strongest", "Weakest", "Closest", "Fart
 local currentTowerId = source(nil)
 local currentTowerData = source(nil)
 local playerCash = source(0)
+local isMenuMounted = source(false)
+local isMenuOpen = source(false)
+local visibilityToken = 0
+
+local EXIT_DURATION = 0.42
 
 -------------------------------------------------
 --// Local Functions
@@ -79,19 +84,40 @@ end
 local SelectedUI = {}
 
 function SelectedUI.ShowUI(towerId, towerInfo)
+	visibilityToken += 1
+	local token = visibilityToken
 	currentTowerId(towerId)
 	currentTowerData(towerInfo)
+	isMenuMounted(true)
+	-- Defer this so the panel first renders at its hidden pose, then springs in.
+	task.defer(function()
+		if token == visibilityToken then
+			isMenuOpen(true)
+		end
+	end)
 	if SelectedTowerScope then
 		SelectedTowerScope:Enable()
 	end
 end
 
 function SelectedUI.HideMenu()
-	currentTowerId(nil)
-	currentTowerData(nil)
+	visibilityToken += 1
+	local token = visibilityToken
+	isMenuOpen(false)
 	if SelectedTowerScope then
 		SelectedTowerScope:Disable()
 	end
+
+	-- Keep the hierarchy mounted until the exit motion has finished.
+	task.delay(EXIT_DURATION, function()
+		if token ~= visibilityToken or isMenuOpen() then
+			return
+		end
+
+		isMenuMounted(false)
+		currentTowerId(nil)
+		currentTowerData(nil)
+	end)
 end
 
 function SelectedUI.Init()
@@ -145,6 +171,8 @@ function SelectedUI.RenderUI()
 		towerId = currentTowerId,
 		towerData = currentTowerData,
 		playerCash = playerCash,
+		isMounted = isMenuMounted,
+		isOpen = isMenuOpen,
 		OnChangeTarget = changeTarget,
 		OnUpgrade = requestUpgrade,
 		OnSell = requestSell,
