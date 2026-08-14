@@ -1,31 +1,24 @@
 return {
-    Name = "Aether",
-    TypingSoundName = "BlackmarketNPCSpeaking",
-    DialogueTree = {
-        ["Start"] = {
-            Text = "이봐 당신 내 물건에 관심이 있는 거군,맞지?",
-            Choices = {
-                { Text = "한 번 볼게요.", Next = "Shop" },
-                { Text = "안믿습니다.", Next = "What" }
-            }
-        },
-        ["Shop"] = {
-            Text = "으흐흐.. 역시 내 감을 틀리지 않는다랄까? 어떤걸 구매 할테지?",
-            Choices = {
-                { Text = "다음에 다시 올게요.", Next = "Bye" }
-            }
-        },
-        ["What"] = {
-            Text = "다신 오지 말게나!",
-            Choices = {
-                { Text = "...", Next = "End" }
-            }
-        },
-        ["Bye"] = {
-            Text = "이봐 안살거면 그냥 가라구, 내 물건은 소중하니까.",
-            Choices = {
-                { Text = "갈게요", Next = "End" }
-            }
-        }
-    }
+	Name = "Aether",
+	TypingSoundName = "BlackmarketNPCSpeaking",
+	DialogueTree = {
+		["Start"] = {
+			Text = "처음 보는 얼굴이네. 이곳을 둘러보기 전에 도움이 필요해?",
+			Choices = {
+				{ Text = "메뉴 사용법을 알려줘.", Next = "Tutorial" },
+				{ Text = "괜찮아, 혼자 둘러볼게.", Next = "End" },
+			},
+		},
+		["Tutorial"] = {
+			Text = "좋아. 네가 필요한 기능부터 차례로 보여줄게. 준비됐으면 시작하자.",
+			Choices = {
+				{ Text = "튜토리얼 시작", Next = "StartTutorial" },
+				{ Text = "나중에 할게.", Next = "End" },
+			},
+		},
+		["StartTutorial"] = {
+			Text = "",
+			Choices = {},
+		},
+	},
 }

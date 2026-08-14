@@ -26,6 +26,7 @@ ServiceRegistry:RegisterServices({
 	Controllers.InputController,
 	Controllers.UIController,
 	Controllers.DialogueClient,
+	Controllers.TutorialClient,
 	Controllers.ChatController,
 })
 
