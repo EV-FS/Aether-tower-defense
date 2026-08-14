@@ -16,6 +16,30 @@ local GOLD_GRADIENT = ColorSequence.new({
 	ColorSequenceKeypoint.new(1, Color3.fromRGB(255, 178, 45)),
 })
 
+local function getCycledSequence(colorSequence: ColorSequence, elapsed: number, transitionTime: number): ColorSequence
+	local keypoints = colorSequence.Keypoints
+	local keypointCount = #keypoints
+	if keypointCount < 2 then
+		return colorSequence
+	end
+
+	local cycleProgress = (elapsed / transitionTime) % keypointCount
+	local colorOffset = math.floor(cycleProgress)
+	local alpha = cycleProgress - colorOffset
+	local cycledKeypoints = table.create(keypointCount)
+
+	for index, keypoint in keypoints do
+		local currentIndex = ((index + colorOffset - 1) % keypointCount) + 1
+		local nextIndex = (currentIndex % keypointCount) + 1
+		local currentColor = keypoints[currentIndex].Value
+		local nextColor = keypoints[nextIndex].Value
+
+		cycledKeypoints[index] = ColorSequenceKeypoint.new(keypoint.Time, currentColor:Lerp(nextColor, alpha))
+	end
+
+	return ColorSequence.new(cycledKeypoints)
+end
+
 local function useGradientShimmer(
 	getSequence: Reactive<ColorSequence>,
 	getActive: Reactive<boolean>,
@@ -44,30 +68,6 @@ local function useGradientShimmer(
 
 		cleanup(connection)
 	end)
-end
-
-local function getCycledSequence(colorSequence: ColorSequence, elapsed: number, transitionTime: number): ColorSequence
-	local keypoints = colorSequence.Keypoints
-	local keypointCount = #keypoints
-	if keypointCount < 2 then
-		return colorSequence
-	end
-
-	local cycleProgress = (elapsed / transitionTime) % keypointCount
-	local colorOffset = math.floor(cycleProgress)
-	local alpha = cycleProgress - colorOffset
-	local cycledKeypoints = table.create(keypointCount)
-
-	for index, keypoint in keypoints do
-		local currentIndex = ((index + colorOffset - 1) % keypointCount) + 1
-		local nextIndex = (currentIndex % keypointCount) + 1
-		local currentColor = keypoints[currentIndex].Value
-		local nextColor = keypoints[nextIndex].Value
-
-		cycledKeypoints[index] = ColorSequenceKeypoint.new(keypoint.Time, currentColor:Lerp(nextColor, alpha))
-	end
-
-	return ColorSequence.new(cycledKeypoints)
 end
 
 local function useRarityTextShimmer(
