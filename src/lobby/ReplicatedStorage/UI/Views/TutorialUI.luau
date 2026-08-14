@@ -34,7 +34,14 @@ local spotlightRect = source({
 } :: SpotlightRect)
 local spotlightPulse = source(0)
 local cardPop = source(1)
+local focusPop = source(1)
 local previousStepIndex = 0
+local animatedSpotlightRect
+local fadeProgress
+
+local function getFocusRect(): SpotlightRect
+	return if animatedSpotlightRect then animatedSpotlightRect() else spotlightRect()
+end
 
 local function getTargetButton(): GuiObject?
 	local playerGui = Players.LocalPlayer:FindFirstChildOfClass("PlayerGui")
@@ -49,7 +56,7 @@ local function syncSpotlight()
 	return action(function()
 		local elapsed = 0
 		local connection = RunService.RenderStepped:Connect(function(deltaTime)
-			if not TutorialClient:IsVisible()() then
+			if not TutorialClient:IsActive()() then
 				previousStepIndex = 0
 				return
 			end
@@ -60,8 +67,10 @@ local function syncSpotlight()
 			if previousStepIndex ~= stepIndex then
 				previousStepIndex = stepIndex
 				cardPop(0.9)
+				focusPop(0.94)
 				task.delay(0.05, function()
 					cardPop(1)
+					focusPop(1)
 				end)
 			end
 
@@ -98,7 +107,7 @@ local function dimPanel(name: string, position: () -> UDim2, size: () -> UDim2)
 		Name = name,
 		BackgroundColor3 = Color3.fromRGB(5, 8, 15),
 		BackgroundTransparency = spring(function()
-			return if TutorialClient:IsVisible()() then 0.28 else 1
+			return 0.28 + (fadeProgress and fadeProgress() or 0) * 0.72
 		end, 0.25, 0.9),
 		BorderSizePixel = 0,
 		Position = position,
@@ -108,7 +117,7 @@ local function dimPanel(name: string, position: () -> UDim2, size: () -> UDim2)
 end
 
 local function getGuideCardPlacement(): (Vector2, UDim2)
-	local rect = spotlightRect()
+	local rect = getFocusRect()
 	local viewport = workspace.CurrentCamera and workspace.CurrentCamera.ViewportSize or Vector2.new(1920, 1080)
 	local cardWidth = 330
 	local cardHeight = 198
@@ -131,9 +140,19 @@ local function getGuideCardPlacement(): (Vector2, UDim2)
 end
 
 function TutorialUI.RenderUI()
+	animatedSpotlightRect = spring(function()
+		return spotlightRect()
+	end, 0.42, 0.82)
+	fadeProgress = spring(function()
+		return if TutorialClient:IsActive()() then 0 else 1
+	end, 0.3, 0.9)
+
 	local cardScale = spring(function()
-		return if TutorialClient:IsVisible()() then cardPop() else 0.86
+		return if TutorialClient:IsActive()() then cardPop() else 0.86
 	end, 0.3, 0.72)
+	local focusScale = spring(function()
+		return if TutorialClient:IsActive()() then focusPop() else 0.9
+	end, 0.28, 0.78)
 
 	return create("Frame")({
 		Name = "TutorialUI",
@@ -145,31 +164,31 @@ function TutorialUI.RenderUI()
 		syncSpotlight(),
 
 		dimPanel("TopDim", function()
-			local rect = spotlightRect()
+			local rect = getFocusRect()
 			return UDim2.fromOffset(0, 0)
 		end, function()
-			local rect = spotlightRect()
+			local rect = getFocusRect()
 			return UDim2.new(1, 0, 0, rect.top)
 		end),
 		dimPanel("LeftDim", function()
-			local rect = spotlightRect()
+			local rect = getFocusRect()
 			return UDim2.fromOffset(0, rect.top)
 		end, function()
-			local rect = spotlightRect()
+			local rect = getFocusRect()
 			return UDim2.fromOffset(rect.left, rect.height)
 		end),
 		dimPanel("RightDim", function()
-			local rect = spotlightRect()
+			local rect = getFocusRect()
 			return UDim2.fromOffset(rect.right, rect.top)
 		end, function()
-			local rect = spotlightRect()
+			local rect = getFocusRect()
 			return UDim2.new(1, -rect.right, 0, rect.height)
 		end),
 		dimPanel("BottomDim", function()
-			local rect = spotlightRect()
+			local rect = getFocusRect()
 			return UDim2.fromOffset(0, rect.bottom)
 		end, function()
-			local rect = spotlightRect()
+			local rect = getFocusRect()
 			return UDim2.new(1, 0, 1, -rect.bottom)
 		end),
 
@@ -177,14 +196,18 @@ function TutorialUI.RenderUI()
 			Name = "SpotlightHalo",
 			BackgroundTransparency = 1,
 			Position = function()
-				local rect = spotlightRect()
+				local rect = getFocusRect()
 				return UDim2.fromOffset(rect.left - 6, rect.top - 6)
 			end,
 			Size = function()
-				local rect = spotlightRect()
+				local rect = getFocusRect()
 				return UDim2.fromOffset(rect.width + 12, rect.height + 12)
 			end,
 			ZIndex = 41,
+			create("UIScale")({
+				Name = "FocusScale",
+				Scale = focusScale,
+			}),
 
 			create("UICorner")({
 				CornerRadius = UDim.new(0, 16),
@@ -193,7 +216,7 @@ function TutorialUI.RenderUI()
 				Color = Color3.fromRGB(255, 207, 93),
 				Thickness = 2,
 				Transparency = function()
-					return 0.38 + spotlightPulse() * 0.28
+					return math.clamp(0.38 + spotlightPulse() * 0.28 + fadeProgress() * 0.62, 0, 1)
 				end,
 			}),
 		}),
@@ -202,14 +225,18 @@ function TutorialUI.RenderUI()
 			Name = "Spotlight",
 			BackgroundTransparency = 1,
 			Position = function()
-				local rect = spotlightRect()
+				local rect = getFocusRect()
 				return UDim2.fromOffset(rect.left, rect.top)
 			end,
 			Size = function()
-				local rect = spotlightRect()
+				local rect = getFocusRect()
 				return UDim2.fromOffset(rect.width, rect.height)
 			end,
 			ZIndex = 41,
+			create("UIScale")({
+				Name = "FocusScale",
+				Scale = focusScale,
+			}),
 
 			create("UICorner")({
 				CornerRadius = UDim.new(0, 12),
@@ -218,7 +245,7 @@ function TutorialUI.RenderUI()
 				Color = Color3.fromRGB(255, 239, 191),
 				Thickness = 1,
 				Transparency = function()
-					return 0.18 + spotlightPulse() * 0.22
+					return math.clamp(0.18 + spotlightPulse() * 0.22 + fadeProgress() * 0.82, 0, 1)
 				end,
 			}),
 		}),
@@ -230,12 +257,12 @@ function TutorialUI.RenderUI()
 				return anchorPoint
 			end,
 			BackgroundColor3 = Color3.fromRGB(19, 24, 37),
-			BackgroundTransparency = 0.04,
+			BackgroundTransparency = function()
+				return 0.04 + fadeProgress() * 0.96
+			end,
 			Position = spring(function()
 				local _, position = getGuideCardPlacement()
-				return if TutorialClient:IsVisible()()
-					then position
-					else UDim2.fromScale(0.2, 0.55)
+				return if TutorialClient:IsActive()() then position else UDim2.fromScale(0.5, 1.2)
 			end, 0.32, 0.82),
 			Size = UDim2.fromOffset(330, 198),
 			ZIndex = 45,
@@ -279,6 +306,9 @@ function TutorialUI.RenderUI()
 				end,
 				TextColor3 = Color3.fromRGB(255, 209, 108),
 				TextSize = 11,
+				TextTransparency = function()
+					return fadeProgress()
+				end,
 				TextXAlignment = Enum.TextXAlignment.Left,
 				ZIndex = 46,
 			}),
@@ -293,6 +323,9 @@ function TutorialUI.RenderUI()
 				end,
 				TextColor3 = Color3.fromRGB(255, 255, 255),
 				TextSize = 19,
+				TextTransparency = function()
+					return fadeProgress()
+				end,
 				TextXAlignment = Enum.TextXAlignment.Left,
 				ZIndex = 46,
 			}),
@@ -307,6 +340,9 @@ function TutorialUI.RenderUI()
 				end,
 				TextColor3 = Color3.fromRGB(211, 217, 229),
 				TextSize = 13,
+				TextTransparency = function()
+					return fadeProgress()
+				end,
 				TextWrapped = true,
 				TextXAlignment = Enum.TextXAlignment.Left,
 				TextYAlignment = Enum.TextYAlignment.Top,
@@ -316,6 +352,9 @@ function TutorialUI.RenderUI()
 				Name = "Next",
 				AutoButtonColor = false,
 				BackgroundColor3 = Color3.fromRGB(255, 198, 76),
+				BackgroundTransparency = function()
+					return fadeProgress()
+				end,
 				Position = UDim2.fromOffset(38, 151),
 				Size = UDim2.fromOffset(254, 30),
 				Text = function()
@@ -323,6 +362,9 @@ function TutorialUI.RenderUI()
 				end,
 				TextColor3 = Color3.fromRGB(36, 28, 16),
 				TextSize = 12,
+				TextTransparency = function()
+					return fadeProgress()
+				end,
 				FontFace = Font.new("rbxasset://fonts/families/GothamSSm.json", Enum.FontWeight.Bold),
 				ZIndex = 46,
 				Activated = function()

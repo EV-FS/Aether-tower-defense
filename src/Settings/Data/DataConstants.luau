@@ -23,6 +23,7 @@ return TableUtils.DeepFreeze({
 		DevProducts = {},
 		Loadout = {},
 		Settings = {},
+		TutorialCompleted = false,
 		_NextId = 1,
 		_StructureVersion = "v2",
 		_StarterTowerReceived = false,

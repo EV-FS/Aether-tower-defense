@@ -23,6 +23,28 @@ local chatId = 0
 local isSending = false
 local sendPending = false
 
+local function escapeRichText(text: string): string
+	local escaped = text:gsub("&", "&amp;"):gsub("<", "&lt;"):gsub(">", "&gt;")
+	return escaped
+end
+
+local function formatRoleTag(message: TextChatMessage): TextChatMessageProperties?
+	local textSource = message.TextSource
+	if not textSource then
+		return nil
+	end
+
+	local messagePlayer = Players:GetPlayerByUserId(textSource.UserId)
+	local roleName = messagePlayer and messagePlayer:GetAttribute("ChatRoleTag")
+	if type(roleName) ~= "string" or roleName == "" then
+		return nil
+	end
+
+	local properties = Instance.new("TextChatMessageProperties")
+	properties.PrefixText = `<font color="#FFB6D9">[{escapeRichText(roleName)}]</font> {message.PrefixText}`
+	return properties
+end
+
 local ChatController = {
 	CurrentState = "Normal",
 	AnimationIds = {
@@ -321,6 +343,8 @@ function ChatController.Init(registry)
 end
 
 function ChatController.Start()
+	TextChatService.OnIncomingMessage = formatRoleTag
+
 	UserInputService.InputBegan:Connect(function(input)
 		if not inputBar.IsFocused then
 			return

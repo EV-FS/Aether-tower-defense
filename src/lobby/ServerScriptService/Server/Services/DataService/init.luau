@@ -152,6 +152,21 @@ DataService.KeySignals = {}
 function DataService.Init() end
 
 function DataService.Start()
+	local tutorialCompletedEvent = ReplicatedStorage:FindFirstChild("TutorialCompleted")
+	if not tutorialCompletedEvent then
+		tutorialCompletedEvent = Instance.new("RemoteEvent")
+		tutorialCompletedEvent.Name = "TutorialCompleted"
+		tutorialCompletedEvent.Parent = ReplicatedStorage
+	end
+
+	(tutorialCompletedEvent :: RemoteEvent).OnServerEvent:Connect(function(player)
+		local playerData = DataService:GetData(player)
+		if playerData and playerData.TutorialCompleted ~= true then
+			DataService:UpdateData(player, "TutorialCompleted", true)
+			DataService:SaveData(player)
+		end
+	end)
+
 	for _, player in ipairs(Players:GetPlayers()) do
 		task.spawn(DataService._PlayerAdded, player)
 	end

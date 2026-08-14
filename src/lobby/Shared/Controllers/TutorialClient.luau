@@ -1,8 +1,10 @@
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local TextChatService = game:GetService("TextChatService")
 
 local Vide = require(ReplicatedStorage.Packages.Vide)
 
 local source = Vide.source
+local COMPLETED_EVENT_NAME = "TutorialCompleted"
 
 export type TutorialStep = {
 	Target: string,
@@ -44,11 +46,19 @@ local STEPS: { TutorialStep } = {
 }
 
 local isOpen = source(false)
+local isMounted = source(false)
 local stepIndex = source(1)
+local transitionToken = 0
 
 local TutorialClient = {}
 
 function TutorialClient:IsVisible(): () -> boolean
+	return function()
+		return isMounted()
+	end
+end
+
+function TutorialClient:IsActive(): () -> boolean
 	return function()
 		return isOpen()
 	end
@@ -67,25 +77,69 @@ function TutorialClient:GetStepCount(): number
 end
 
 function TutorialClient:StartTutorial()
+	transitionToken += 1
 	stepIndex(1)
+	isMounted(true)
 	isOpen(true)
 end
 
 function TutorialClient:Next()
 	if stepIndex() >= #STEPS then
-		isOpen(false)
+		self:Complete()
 		return
 	end
 
 	stepIndex(stepIndex() + 1)
 end
 
+function TutorialClient:Complete()
+	local event = ReplicatedStorage:FindFirstChild(COMPLETED_EVENT_NAME)
+	if event and event:IsA("RemoteEvent") then
+		event:FireServer()
+	end
+	self:Close()
+end
+
 function TutorialClient:Close()
+	transitionToken += 1
+	local token = transitionToken
 	isOpen(false)
+	task.delay(0.45, function()
+		if transitionToken == token then
+			isMounted(false)
+		end
+	end)
 end
 
 function TutorialClient.Init() end
 
-function TutorialClient.Start() end
+function TutorialClient.Start()
+	local command = TextChatService:FindFirstChild("TutorialCommand")
+	if not command then
+		command = Instance.new("TextChatCommand")
+		command.Name = "TutorialCommand"
+		command.PrimaryAlias = "!tutorial"
+		command.Parent = TextChatService
+	end
+
+	if command:IsA("TextChatCommand") then
+		command.Triggered:Connect(function(textSource)
+			local player = game:GetService("Players").LocalPlayer
+			if textSource.UserId == player.UserId then
+				TutorialClient:StartTutorial()
+			end
+		end)
+	end
+
+	local Net = require(ReplicatedStorage.Shared.Net.client)
+	Net.DataService.GetDataValue.Invoke("TutorialCompleted"):andThen(function(completed)
+		if completed ~= true then
+			TutorialClient:StartTutorial()
+		end
+	end):catch(function()
+		-- If legacy data has no field yet, treat the player as new.
+		TutorialClient:StartTutorial()
+	end)
+end
 
 return TutorialClient

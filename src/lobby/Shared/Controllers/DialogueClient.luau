@@ -5,7 +5,6 @@ local RunService = game:GetService("RunService")
 
 local Net = require(ReplicatedStorage.Shared.Net.client)
 local NpcDialogueData = require(ReplicatedStorage.Settings.Data.NpcDialogueData)
-local ServiceRegistry = require(ReplicatedStorage.Shared.Modules.Core.ServiceRegistry)
 local AudioController = require(script.Parent.AudioController)
 local SoundLibrary = require(ReplicatedStorage.Settings.Data.NPCS.Sounds.SoundLibrary)
 
@@ -29,7 +28,6 @@ local CurrentDialogueId
 local _suppressClose = false
 local _pendingClose = false
 local _suppressNextServerTweenFor = nil
-local _ignoreTutorialServerUpdate = false
 
 local _skipRequested = false
 
@@ -276,13 +274,6 @@ function DialogueClient.ChooseDialogue(choiceIndex)
         ChoiceIndex = choiceIndex,
     })
 
-    if CurrentNpcId == "Aether" and nextId == "StartTutorial" then
-        _ignoreTutorialServerUpdate = true
-        ServiceRegistry:GetService("TutorialClient"):StartTutorial()
-        DialogueClient.Close()
-        return
-    end
-
     if nextId then
         _suppressNextServerTweenFor = nextId
         openDialogue(CurrentNpcId, nextId, true)
@@ -358,10 +349,6 @@ function DialogueClient.Start()
             return
         end
         if not data.NpcId or not data.DialogueId then
-            return
-        end
-        if _ignoreTutorialServerUpdate and data.NpcId == "Aether" and data.DialogueId == "StartTutorial" then
-            _ignoreTutorialServerUpdate = false
             return
         end
         if _suppressNextServerTweenFor and data.DialogueId == _suppressNextServerTweenFor then

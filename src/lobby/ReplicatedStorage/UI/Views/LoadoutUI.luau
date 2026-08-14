@@ -32,6 +32,9 @@ function LoadoutUI.RenderUI()
 		BackgroundTransparency = 1,
 		Size = UDim2.fromScale(1, 1),
 		ZIndex = 2,
+		Visible = function()
+			return not UIController:IsVisible("Dialogue")()
+		end,
 
 		create("Frame")({
 			Name = "Slots",
