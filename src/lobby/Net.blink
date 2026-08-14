@@ -17,6 +17,7 @@ scope NotificationService {
         call: SingleSync,
         data: struct {
             Message: string,
+            LogType: string,
             DurationMs: u16,
         }
     }

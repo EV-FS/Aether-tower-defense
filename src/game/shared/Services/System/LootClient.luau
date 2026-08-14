@@ -23,7 +23,7 @@ end
 
 function LootClient:AnimateDrop(itemName: string, amount: number)
 	if NotificationService then
-		NotificationService:Popup(`+{itemName} x{amount}`, 3)
+		NotificationService:Pull(nil, `+{itemName} x{amount}`, "Normal", 3)
 	end
 end
 

@@ -535,13 +535,15 @@ function SerdesFunctions.BaseService_ReadEVENT_BaseHealthChanged(): (number)
 	return Value
 end
 
-function SerdesFunctions.NotificationService_ReadEVENT_Popup(): ({ Message: string, DurationMs: number })
-	-- Read BLOCK: 4 bytes
-	local BLOCK_START = Read(4)
+function SerdesFunctions.NotificationService_ReadEVENT_Popup(): ({ Message: string, LogType: string, DurationMs: number })
+	-- Read BLOCK: 6 bytes
+	local BLOCK_START = Read(6)
 	local Value = {} :: any
 	local Length = buffer.readu16(RecieveBuffer, BLOCK_START + 0)
 	Value.Message = buffer.readstring(RecieveBuffer, Read(Length), Length)
-	Value.DurationMs = buffer.readu16(RecieveBuffer, BLOCK_START + 2)
+	Length = buffer.readu16(RecieveBuffer, BLOCK_START + 2)
+	Value.LogType = buffer.readstring(RecieveBuffer, Read(Length), Length)
+	Value.DurationMs = buffer.readu16(RecieveBuffer, BLOCK_START + 4)
 	return Value
 end
 
@@ -1268,7 +1270,7 @@ Reliable.OnClientEvent:Connect(function(Buffer: buffer, Instances: {Instance})
 				table.insert(Queue.Reliable[24], {Value} :: {any})
 			end
 		elseif Index == 25 then
-			local Value: { Message: string, DurationMs: number } = SerdesFunctions.NotificationService_ReadEVENT_Popup()
+			local Value: { Message: string, LogType: string, DurationMs: number } = SerdesFunctions.NotificationService_ReadEVENT_Popup()
 			if Events.Reliable[25] ~= nil then
 				SerdesEvent = "Popup"
 				Events.Reliable[25](Value)
@@ -1895,7 +1897,7 @@ local Returns = table.freeze({
 	},
 	NotificationService = {
 		Popup = {
-			On = function(Listener: (Value: { Message: string, DurationMs: number }) -> ()): () -> ()
+			On = function(Listener: (Value: { Message: string, LogType: string, DurationMs: number }) -> ()): () -> ()
 				Events.Reliable[25] = Listener
 				for Index, Arguments in Queue.Reliable[25] do
 					Listener(table.unpack(Arguments))
