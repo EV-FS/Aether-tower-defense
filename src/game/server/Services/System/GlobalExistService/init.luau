@@ -179,11 +179,11 @@ end
 -------------------------------------------------
 local GlobalExistService = {}
 
-function GlobalExistService.Init()
-	globalCounts = FetchAllGlobalCounts()
-end
+function GlobalExistService.Init() end
 
 function GlobalExistService.Start()
+	globalCounts = FetchAllGlobalCounts()
+
 	pcall(function()
 		MessagingService:SubscribeAsync(MESSAGING_TOPIC, function(message)
 			local data = message.Data
