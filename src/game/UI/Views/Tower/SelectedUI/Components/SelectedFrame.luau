@@ -207,7 +207,7 @@ return function(props: Props)
 			Rotation = spring(function() return if props.isOpen() then 0 else -7 end, 0.34, 0.7),
 			Position = spring(function()
 				-- Keep the full panel inside the viewport while preserving its left-side layout.
-				return if props.isOpen() then UDim2.new(0.21, 0, 0.532712, 4) else UDim2.new(0.01, 0, 0.61, 4)
+				return if props.isOpen() then UDim2.new(0.24, 0, 0.532712, 4) else UDim2.new(0.01, 0, 0.61, 4)
 			end, 0.26, 0.72),
 			Size = spring(function()
 				return if props.isOpen() then UDim2.fromScale(0.463905, 0.402217) else UDim2.fromScale(0.31, 0.27)
@@ -236,7 +236,7 @@ return function(props: Props)
 					create("ImageLabel")({ Name = "Arrow", BackgroundTransparency = 1, Image = ARROW_IMAGE, Position = UDim2.fromScale(0.726, 0.4), Size = UDim2.fromScale(0.0754627, 0.26172), Visible = hasNextLevel(), create("UIAspectRatioConstraint")({ Name = "UIAspectRatioConstraint" }) }),
 					create("TextLabel")({ Name = "LevelAfter", BackgroundTransparency = 1, FontFace = FONT, Position = UDim2.fromScale(0.787857, 0.26972), Size = UDim2.fromScale(0.137595, 0.459739), Text = levelAfter, TextColor3 = Color3.fromRGB(61, 208, 29), TextScaled = true, Visible = hasNextLevel() }),
 				}),
-				create("ImageLabel")({ Name = "Stat", BackgroundTransparency = 1, Image = "rbxassetid://101111464029748", Position = UDim2.fromScale(0, 0.154185), Size = UDim2.fromScale(1, 0.379095),
+				create("ImageLabel")({ Name = "Stat", BackgroundTransparency = 1, Image = "rbxassetid://101111464029748", Position = UDim2.fromScale(0, 0.154185), Size = UDim2.fromScale(1, 0.45),
 					create("ScrollingFrame")({ Name = "ScrollingFrame", Active = true, AutomaticCanvasSize = Enum.AutomaticSize.Y, BackgroundTransparency = 1, CanvasSize = UDim2.new(), Position = UDim2.fromScale(0.0384332, 0.109657), ScrollBarImageColor3 = Color3.new(), ScrollBarThickness = 0, Size = UDim2.fromScale(0.932742, 0.890343),
 						create("UIListLayout")({ Name = "UIListLayout", HorizontalAlignment = Enum.HorizontalAlignment.Center, SortOrder = Enum.SortOrder.LayoutOrder }),
 						statRow("Damage", "DMG", "rbxassetid://81529748452567", "Damage", 1),
@@ -246,7 +246,7 @@ return function(props: Props)
 						statRow("SplashRange", "SPL", "rbxassetid://95872294365618", "SplashRange", 5),
 					}),
 				}),
-				create("ImageLabel")({ Name = "Upgrade", BackgroundTransparency = 1, Image = "rbxassetid://131324729406108", Position = UDim2.fromScale(0.0384332, 0.529115), Size = UDim2.fromScale(1, 0.287465),
+				create("ImageLabel")({ Name = "Upgrade", BackgroundTransparency = 1, Image = "rbxassetid://131324729406108", Position = UDim2.fromScale(0.0384332, 0.604185), Size = UDim2.fromScale(1, 0.21656),
 					create("TextLabel")({ Name = "Title", BackgroundTransparency = 1, FontFace = FONT, Position = UDim2.fromScale(0.038, 0.1), Size = UDim2.fromScale(0.249588, 0.184453), Text = "UPGRADE", TextColor3 = Color3.fromRGB(208, 200, 114), TextScaled = true }),
 					create("TextLabel")({ Name = "Total", BackgroundTransparency = 1, FontFace = FONT, Position = UDim2.fromScale(0.578667, 0.1), Size = UDim2.fromScale(0.351613, 0.184453), Text = derive(function() return `Total ${NumberUtils.FormatComma(totalSpent())}` end), TextColor3 = Color3.fromRGB(208, 208, 208), TextScaled = true }),
 					create("ImageButton")({ Name = "UpgradeButton", AnchorPoint = Vector2.new(0.5, 0.5), BackgroundTransparency = 1, Image = "rbxassetid://113857982985503",
