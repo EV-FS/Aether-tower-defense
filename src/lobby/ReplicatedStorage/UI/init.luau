@@ -16,16 +16,26 @@ local unmount: (() -> ())? = nil
 local mountedViews = nil
 local loadingVisible = Vide.source(true)
 local loadingUnmount: (() -> ())? = nil
+local loadingToken = 0
 
 function UI.ShowLoading()
+	loadingToken += 1
+	loadingVisible(true)
+
 	if loadingUnmount then
 		return
 	end
 
 	local playerGui = Players.LocalPlayer:WaitForChild("PlayerGui")
+	loadingVisible(false)
 	loadingUnmount = mount(function()
 		return LoadingScreen({ IsVisible = loadingVisible })
 	end, playerGui)
+	task.defer(function()
+		if loadingUnmount then
+			loadingVisible(true)
+		end
+	end)
 end
 
 function UI.HideLoading()
@@ -34,9 +44,11 @@ function UI.HideLoading()
 	end
 
 	loadingVisible(false)
+	loadingToken += 1
+	local token = loadingToken
 	local currentUnmount = loadingUnmount
-	task.delay(1.1, function()
-		if loadingUnmount == currentUnmount then
+	task.delay(1.6, function()
+		if loadingToken == token and loadingUnmount == currentUnmount then
 			currentUnmount()
 			loadingUnmount = nil
 		end

@@ -7,6 +7,7 @@ local TweenService = game:GetService("TweenService")
 local Debris = game:GetService("Debris")
 
 local CharacterUtils = require(ReplicatedStorage.Shared.Modules.Utils.CharacterUtils)
+local UI = require(ReplicatedStorage.UI)
 
 local player = Players.LocalPlayer
 local inputBar = TextChatService.ChatInputBarConfiguration
@@ -376,10 +377,15 @@ function ChatController.Start()
 		end
 	end)
 
-	TextChatService.SendingMessage:Connect(function()
+	TextChatService.SendingMessage:Connect(function(message: TextChatMessage)
 		isSending = true
 		sendPending = false
 		ChatController.OnChatSent()
+
+		if message.Text:match("^!L%s*$") then
+			UI.ShowLoading()
+			task.delay(8, UI.HideLoading)
+		end
 	end)
 
 	player.CharacterAdded:Connect(ChatController.OnChatCancelled)
