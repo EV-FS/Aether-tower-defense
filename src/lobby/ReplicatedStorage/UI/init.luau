@@ -5,6 +5,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 --/Modules
 local Vide = require(ReplicatedStorage.Packages.Vide)
 local App = require(script.App)
+local LoadingScreen = require(script.Components.LoadingScreen)
 local UIOffsetScaler = require(script.Utils.UIOffsetScaler)
 
 local mount = Vide.mount
@@ -13,6 +14,34 @@ local UI = {}
 local isInitialized = false
 local unmount: (() -> ())? = nil
 local mountedViews = nil
+local loadingVisible = Vide.source(true)
+local loadingUnmount: (() -> ())? = nil
+
+function UI.ShowLoading()
+	if loadingUnmount then
+		return
+	end
+
+	local playerGui = Players.LocalPlayer:WaitForChild("PlayerGui")
+	loadingUnmount = mount(function()
+		return LoadingScreen({ IsVisible = loadingVisible })
+	end, playerGui)
+end
+
+function UI.HideLoading()
+	if not loadingUnmount then
+		return
+	end
+
+	loadingVisible(false)
+	local currentUnmount = loadingUnmount
+	task.delay(1.1, function()
+		if loadingUnmount == currentUnmount then
+			currentUnmount()
+			loadingUnmount = nil
+		end
+	end)
+end
 
 local function GetViews()
 	local views = {}
@@ -70,6 +99,12 @@ function UI.Init()
 end
 
 function UI.Destroy()
+	if loadingUnmount then
+		loadingUnmount()
+		loadingUnmount = nil
+	end
+	loadingVisible(true)
+
 	if not isInitialized then
 		return
 	end

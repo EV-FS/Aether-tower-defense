@@ -1,6 +1,7 @@
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Vide = require(ReplicatedStorage.Packages.Vide)
+local RarityData = require(ReplicatedStorage.Settings.Data.RarityData)
 local ServiceRegistry = require(ReplicatedStorage.Shared.Modules.Core.ServiceRegistry)
 local TowerViewport = require(ReplicatedStorage.UI.Components.TowerViewport)
 
@@ -475,7 +476,7 @@ function SummonResultUI.RenderUI()
 				Size = UDim2.fromScale(0.5, 0.055),
 				Text = function()
 					local unit = getCurrentUnit()
-					return unit and unit.Rarity or ""
+					return unit and RarityData.DisplayNames[unit.Rarity] or ""
 				end,
 				TextColor3 = Color3.new(1, 1, 1),
 				TextScaled = true,

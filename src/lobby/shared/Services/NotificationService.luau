@@ -7,7 +7,7 @@ local DEFAULT_DURATION = 3
 
 --/Modules
 local Net = require(ReplicatedStorage.Shared.Net)
-local NotificationUI = require(ReplicatedStorage.UI.Views.Game.NotificationUI)
+local NotificationUI = require(ReplicatedStorage.UI.Views.NotificationUI)
 
 -------------------------------------------------
 --// NotificationService

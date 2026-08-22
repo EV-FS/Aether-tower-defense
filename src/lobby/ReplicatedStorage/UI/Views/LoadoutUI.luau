@@ -43,31 +43,28 @@ function LoadoutUI.RenderUI()
 			Position = UDim2.fromScale(0.5, 0.5),
 			Size = UDim2.fromScale(1, 1),
 
+			create("UIAspectRatioConstraint")({
+				Name = "UIAspectRatioConstraint",
+				AspectRatio = 1.42478,
+				AspectType = Enum.AspectType.ScaleWithParentSize,
+			}),
+
 			create("Frame")({
-				Name = "Loadout",
-				AnchorPoint = Vector2.new(0.5, 1),
+				Name = "Frame",
 				BackgroundTransparency = 1,
-				ClipsDescendants = false,
-				Position = UDim2.fromScale(0.5, 0.928),
-				Size = UDim2.fromScale(1, 0.140329),
+				Position = UDim2.fromScale(0.183092, 0.842618),
+				Size = UDim2.fromScale(0.631857, 0.136351),
 
 				create("UIListLayout")({
 					Name = "UIListLayout",
 					FillDirection = Enum.FillDirection.Horizontal,
 					HorizontalAlignment = Enum.HorizontalAlignment.Center,
-					Padding = UDim.new(0.01, 0),
+					Padding = UDim.new(0.008, 0),
 					SortOrder = Enum.SortOrder.LayoutOrder,
-					VerticalAlignment = Enum.VerticalAlignment.Top,
-					Wraps = true,
+					VerticalAlignment = Enum.VerticalAlignment.Center,
 				}),
 
 				unpack(slots),
-			}),
-
-			create("UIAspectRatioConstraint")({
-				Name = "UIAspectRatioConstraint",
-				AspectRatio = 1.42478,
-				AspectType = Enum.AspectType.ScaleWithParentSize,
 			}),
 		}),
 	})
@@ -83,3 +80,4 @@ function LoadoutUI.Start()
 end
 
 return LoadoutUI
+

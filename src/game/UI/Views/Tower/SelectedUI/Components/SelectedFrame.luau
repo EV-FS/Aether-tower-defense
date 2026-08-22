@@ -3,6 +3,7 @@
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Vide = require(ReplicatedStorage.Packages.Vide)
+local RarityData = require(ReplicatedStorage.Settings.Data.RarityData)
 local TowerData = require(ReplicatedStorage.Settings.Data.TowerData)
 local NumberUtils = require(ReplicatedStorage.Shared.Modules.Utils.NumberUtils)
 
@@ -89,7 +90,7 @@ return function(props: Props)
 	end)
 	local towerRarity = derive(function()
 		local config = towerConfig()
-		return config and config.Rarity or ""
+		return if config then RarityData.DisplayNames[config.Rarity] or "" else ""
 	end)
 	local towerImage = derive(function()
 		local config = towerConfig()

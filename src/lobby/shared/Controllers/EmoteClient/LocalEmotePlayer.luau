@@ -112,6 +112,7 @@ function LocalEmotePlayer.Start(self: LocalEmotePlayer, emoteId: string, emoteCo
 
 	local track = animator:LoadAnimation(animation)
 	track.Priority = emoteConfig.Priority or Enum.AnimationPriority.Action
+	track:AdjustSpeed(emoteConfig.PlaybackSpeed or 1)
 	track:Play()
 
 	self.CurrentTrack = track

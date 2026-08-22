@@ -1,6 +1,7 @@
 -- UI/Features/Tower/SelectedUI/Components/TowerHeader.luau
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Vide = require(ReplicatedStorage.Packages.Vide)
+local RarityData = require(ReplicatedStorage.Settings.Data.RarityData)
 local TowerData = require(ReplicatedStorage.Settings.Data.TowerData)
 --local TowerDescriptions = require(ReplicatedStorage.Settings.Data.TowerData.TowerDescriptions)
 local RarityColor = require(ReplicatedStorage.Settings.Visuals.RarityColor)
@@ -26,7 +27,7 @@ return function(props: Props)
 			return ""
 		end
 		local config = TowerData.ByName[data.Name]
-		return if config then config.Rarity else ""
+		return if config then RarityData.DisplayNames[config.Rarity] or "" else ""
 	end)
 
 	local rarityColor = derive(function()

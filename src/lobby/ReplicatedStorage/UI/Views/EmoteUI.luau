@@ -5,8 +5,8 @@ local Topbarplus = require(ReplicatedStorage.Packages.Topbarplus)
 local Vide = require(ReplicatedStorage.Packages.Vide)
 local ServiceRegistry = require(ReplicatedStorage.Shared.Modules.Core.ServiceRegistry)
 local EmoteData = require(ReplicatedStorage.Settings.Data.EmoteData)
-local EmoteWheel = require(ReplicatedStorage.UI.Components.EmoteWheel)
-local ModalOverlay = require(ReplicatedStorage.UI.Components.ModalOverlay)
+local EmoteRadialMenu = require(ReplicatedStorage.UI.Components.EmoteRadialMenu)
+local EmoteOverlay = require(ReplicatedStorage.UI.Components.EmoteOverlay)
 local EmoteClient
 local InputController
 local UIController
@@ -17,25 +17,11 @@ local source = Vide.source
 local VIEW_ID = "EmoteWheel"
 local EmoteInput
 
-local function getEmoteSlotData(index: number)
-	local config = EmoteData.ByIndex[index]
-	if not config then
-		return nil
-	end
-
-	return {
-		Id = config.Name,
-		EmoteName = config.Name,
-		DisplayName = config.DisplayName or config.Name,
-		AnimationId = config.AnimationId,
-	}
-end
-
 local emoteSlots = {
-	Emote1 = source(getEmoteSlotData(1)),
-	Emote2 = source(getEmoteSlotData(2)),
-	Emote3 = source(getEmoteSlotData(3)),
-	Emote4 = source(getEmoteSlotData(4)),
+	Emote1 = source(EmoteData.ByIndex[1]),
+	Emote2 = source(EmoteData.ByIndex[2]),
+	Emote3 = source(nil),
+	Emote4 = source(nil),
 }
 
 local EmoteUI = {}
@@ -54,14 +40,13 @@ function EmoteUI.RenderUI()
 		BackgroundTransparency = 1,
 		Size = UDim2.fromScale(1, 1),
 
-		ModalOverlay({
+		EmoteOverlay({
 			Name = "EmoteOverlay",
-			Title = "Emote Wheel",
 			IsOpen = UIController:IsVisible(VIEW_ID),
 			OnClose = function()
 				UIController:Close(VIEW_ID)
 			end,
-			Content = EmoteWheel({
+			Content = EmoteRadialMenu({
 				Emote1 = emoteSlots.Emote1,
 				Emote2 = emoteSlots.Emote2,
 				Emote3 = emoteSlots.Emote3,
@@ -84,7 +69,7 @@ function EmoteUI.Start()
 	local iInfo = InputController.Info
 
 	EmoteInput = iScope("EmoteInput", {
-		iAction("Toggle", iInfo({ Enum.KeyCode.G })),
+		iAction("Toggle", iInfo({ Enum.KeyCode.E })),
 	}):Enable()
 
 	EmoteInput.Actions.Toggle.Began:Connect(function()

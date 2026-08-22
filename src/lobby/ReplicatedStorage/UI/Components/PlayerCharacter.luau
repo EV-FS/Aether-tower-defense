@@ -1,6 +1,5 @@
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
-local RunService = game:GetService("RunService")
 local Vide = require(ReplicatedStorage.Packages.Vide)
 
 local create = Vide.create
@@ -18,6 +17,7 @@ export type Props = {
 	UseWorldModel: (boolean | (() -> boolean))?,
 	Children: any?,
 	AnimationId: (number | string | (() -> number | string))?,
+	PlaybackSpeed: number?,
 }
 
 local function fetchCharacterModel(userId: number, callback: (Model) -> ())
@@ -106,6 +106,7 @@ return function(props: Props)
 		resetPose(model, origin)
 
 		local rawAnimId = read(props.AnimationId)
+		local playbackSpeed = read(props.PlaybackSpeed) or 1
 		if not rawAnimId or rawAnimId == "" then
 			return
 		end
@@ -139,6 +140,7 @@ return function(props: Props)
 			track = animator:LoadAnimation(animation)
 			track.Looped = true
 			track.Priority = Enum.AnimationPriority.Action4
+			track:AdjustSpeed(playbackSpeed)
 			track:Play()
 		end)
 

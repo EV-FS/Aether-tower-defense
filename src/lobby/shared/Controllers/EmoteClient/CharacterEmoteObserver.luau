@@ -55,6 +55,7 @@ function CharacterEmoteObserver._startObserving(self: CharacterEmoteObserver)
 		if not emoteConfig then
 			return
 		end
+		track:AdjustSpeed(emoteConfig.PlaybackSpeed or 1)
 
 		if self.ActiveTracks[track] then
 			return
