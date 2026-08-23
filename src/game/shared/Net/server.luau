@@ -325,14 +325,16 @@ function SerdesFunctions.TowerService_WriteEVENT_TowerSpawned(Value: { towerId: 
 	buffer.writef32(SendBuffer, BLOCK_START + 13, Vector.Z)
 end
 
-function SerdesFunctions.TowerService_ReadFUNCTION_DATA_SpawnNewTower(): ({ towerIndex: number, spawnLocation: Vector3 })
-	-- Read BLOCK: 13 bytes
-	local BLOCK_START = Read(13)
+function SerdesFunctions.TowerService_ReadFUNCTION_DATA_SpawnNewTower(): ({ towerIndex: number, towerKey: string, spawnLocation: Vector3 })
+	-- Read BLOCK: 15 bytes
+	local BLOCK_START = Read(15)
 	local Value = {} :: any
 	Value.towerIndex = buffer.readu8(RecieveBuffer, BLOCK_START + 0)
-	local X = buffer.readf32(RecieveBuffer, BLOCK_START + 1)
-	local Y = buffer.readf32(RecieveBuffer, BLOCK_START + 5)
-	local Z = buffer.readf32(RecieveBuffer, BLOCK_START + 9)
+	local Length = buffer.readu16(RecieveBuffer, BLOCK_START + 1)
+	Value.towerKey = buffer.readstring(RecieveBuffer, Read(Length), Length)
+	local X = buffer.readf32(RecieveBuffer, BLOCK_START + 3)
+	local Y = buffer.readf32(RecieveBuffer, BLOCK_START + 7)
+	local Z = buffer.readf32(RecieveBuffer, BLOCK_START + 11)
 	Value.spawnLocation = Vector3.new(X, Y, Z)
 	return Value
 end
@@ -1051,7 +1053,7 @@ Reliable.OnServerEvent:Connect(function(Player: Player, Buffer: buffer, Instance
 			-- Read BLOCK: 1 bytes
 			local BLOCK_START = Read(1)
 			local InvocationIdentifier = buffer.readu8(RecieveBuffer, BLOCK_START + 0)
-			local Value: { towerIndex: number, spawnLocation: Vector3 } = SerdesFunctions.TowerService_ReadFUNCTION_DATA_SpawnNewTower()
+			local Value: { towerIndex: number, towerKey: string, spawnLocation: Vector3 } = SerdesFunctions.TowerService_ReadFUNCTION_DATA_SpawnNewTower()
 			if Events.Reliable[14] ~= nil then
 				task.spawn(Events.Reliable[14], Player, Value, InvocationIdentifier)
 			else
@@ -1865,8 +1867,8 @@ local Returns = table.freeze({
 			end,
 		},
 		SpawnNewTower = {
-		On = function(Listener: (Player, { towerIndex: number, spawnLocation: Vector3 }) -> (number?)): ()
-			Events.Reliable[14] = function(Player: Player, Value: { towerIndex: number, spawnLocation: Vector3 }, InvocationIdentifier: number): ()
+		On = function(Listener: (Player, { towerIndex: number, towerKey: string, spawnLocation: Vector3 }) -> (number?)): ()
+			Events.Reliable[14] = function(Player: Player, Value: { towerIndex: number, towerKey: string, spawnLocation: Vector3 }, InvocationIdentifier: number): ()
 				local ReturnValue: number?;
 				local Success, Error = pcall(function ()
 					ReturnValue = Listener(Player, Value)

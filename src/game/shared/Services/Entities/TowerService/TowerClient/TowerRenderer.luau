@@ -242,7 +242,7 @@ function TowerRenderer.AddBorder(towerId: number, borderData)
 
 	local border = ReplicatedStorage.Assets.Visuals.Border:Clone()
 	border.Name = "Border_" .. tostring(towerId)
-	border.Size = Vector3.new(0.001, borderData.r * 2, borderData.r * 2)
+	border.Size = Vector3.new(0.001, borderData.r * 2.5, borderData.r * 2.5)
 
 	local offset = CharacterUtils.GetHipHeight(targetTower.Model) - GROUND_VISUAL_OFFSET
 	border.Position = Vector3.new(borderData.x, targetTower.Model:GetPivot().Y - offset, borderData.z)

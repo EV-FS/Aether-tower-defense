@@ -117,10 +117,10 @@ function TowerClient.Start()
 		TowerClient.StartPlacement("Poor Bacon")
 	end)
 	test.Actions.ABC4.Began:Connect(function()
-		TowerClient.StartPlacement("Wizard Noob")
+		TowerClient.StartPlacement("Wizard")
 	end)
 	test.Actions.ABC5.Began:Connect(function()
-		TowerClient.StartPlacement("Ranger Super Tower")
+		TowerClient.StartPlacement("Fighter")
 	end)
 
 	--/Connect
@@ -135,8 +135,8 @@ function TowerClient.Start()
 	TowerClient._SetPlacementInput()
 	TowerClient._SetSelectionInput()
 
-	ClientSignals.SpawnRequested:Connect(function(towerName: string, _: string)
-		TowerClient.StartPlacement(towerName)
+	ClientSignals.SpawnRequested:Connect(function(towerName: string, towerKey: string)
+		TowerClient.StartPlacement(towerName, towerKey)
 	end)
 
 	ClientSignals.UpgradeRequested:Connect(TowerClient.RequestUpgrade)
@@ -192,7 +192,7 @@ function TowerClient.GetTowerCount(towerName)
 	return TowerClient.PlacedTowers[towerName] or 0
 end
 
-function TowerClient.StartPlacement(towerName)
+function TowerClient.StartPlacement(towerName: string, towerKey: string?)
 	if placementSession then
 		placementSession:Destroy()
 	end
@@ -203,7 +203,7 @@ function TowerClient.StartPlacement(towerName)
 		ClientSignals.TowerUnselected:Fire()
 	end
 
-	placementSession = TowerPlacement.new(towerName)
+	placementSession = TowerPlacement.new(towerName, towerKey)
 	placementSession:Start()
 
 	PlacementScope:Enable()
@@ -319,7 +319,12 @@ function TowerClient.RequestSpawn()
 	end
 
 	local towerName = placementSession.TowerName
+	local towerKey = placementSession.TowerKey
 	local spawnPosition = placementData.Position
+	if typeof(towerKey) ~= "string" then
+		warn(`Cannot spawn tower "{towerName}" without a tower key.`)
+		return
+	end
 
 	local validationData = {
 		["TowerName"] = towerName,
@@ -331,13 +336,14 @@ function TowerClient.RequestSpawn()
 
 	local canSpawn, errorMsg = PlaceValidator.CheckSpawn(validationData)
 	if not canSpawn then
-		NotificationService:Popup(PLAYER, errorMsg, 3)
+		NotificationService:Pull(PLAYER, errorMsg, "Error", 3)
 		return
 	end
 
 	local spawnRequestData = {
 		spawnLocation = spawnPosition,
 		towerIndex = TowerData.ByName[towerName].Index,
+		towerKey = towerKey,
 	}
 
 	local newTowerId = Net.TowerService.SpawnNewTower.Invoke(spawnRequestData):expect()

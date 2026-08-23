@@ -149,6 +149,7 @@ scope TowerService {
         Yield: Promise,
         Data: struct {
             towerIndex: u8,
+            towerKey: string,
             spawnLocation: vector,
         },
         Return: u16?

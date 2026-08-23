@@ -38,10 +38,11 @@ function TowerPlacement.Init(services, getTowerCountFunc: (towerName: string) ->
 	TowerPlacement.GetCountTower = getTowerCountFunc
 end
 
-function TowerPlacement.new(towerName)
+function TowerPlacement.new(towerName: string, towerKey: string?)
 	local self = setmetatable({}, TowerPlacement)
 
 	self.TowerName = towerName
+	self.TowerKey = towerKey
 	self.Config = TowerData.ByName[towerName]
 	self.Stats = self.Config.Stats[0]
 	self.Model = nil

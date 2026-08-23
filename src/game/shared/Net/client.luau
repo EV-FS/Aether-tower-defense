@@ -369,16 +369,20 @@ function SerdesFunctions.TowerService_ReadEVENT_TowerSpawned(): ({ towerId: numb
 	return Value
 end
 
-function SerdesFunctions.TowerService_WriteFUNCTION_DATA_SpawnNewTower(Value: { towerIndex: number, spawnLocation: Vector3 }, InvocationIdentifier: number): ()
-	-- Allocate BLOCK: 15 bytes
-	local BLOCK_START = Allocate(15)
+function SerdesFunctions.TowerService_WriteFUNCTION_DATA_SpawnNewTower(Value: { towerIndex: number, towerKey: string, spawnLocation: Vector3 }, InvocationIdentifier: number): ()
+	-- Allocate BLOCK: 17 bytes
+	local BLOCK_START = Allocate(17)
 	buffer.writeu8(SendBuffer, BLOCK_START + 0, 14)
 	buffer.writeu8(SendBuffer, BLOCK_START + 1, InvocationIdentifier)
 	buffer.writeu8(SendBuffer, BLOCK_START + 2, Value.towerIndex)
+	local Length = #Value.towerKey
+	buffer.writeu16(SendBuffer, BLOCK_START + 3, Length)
+	Allocate(Length)
+	buffer.writestring(SendBuffer, SendOffset, Value.towerKey, Length)
 	local Vector = Value.spawnLocation
-	buffer.writef32(SendBuffer, BLOCK_START + 3, Vector.X)
-	buffer.writef32(SendBuffer, BLOCK_START + 7, Vector.Y)
-	buffer.writef32(SendBuffer, BLOCK_START + 11, Vector.Z)
+	buffer.writef32(SendBuffer, BLOCK_START + 5, Vector.X)
+	buffer.writef32(SendBuffer, BLOCK_START + 9, Vector.Y)
+	buffer.writef32(SendBuffer, BLOCK_START + 13, Vector.Z)
 end
 
 function SerdesFunctions.TowerService_ReadFUNCTION_RETURN_SpawnNewTower(): (number?)
@@ -1705,7 +1709,7 @@ local Returns = table.freeze({
 			end
 		},
 		SpawnNewTower = {
-			Invoke = function(Value: { towerIndex: number, spawnLocation: Vector3 })
+			Invoke = function(Value: { towerIndex: number, towerKey: string, spawnLocation: Vector3 })
 				return Promise.new(function (Resolve, Reject, OnCancel)
 					local InvocationIdentifier = Invoke()
 					if Calls[InvocationIdentifier] ~= nil then
