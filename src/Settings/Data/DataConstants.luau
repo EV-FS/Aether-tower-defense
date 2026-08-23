@@ -5,7 +5,7 @@ return TableUtils.DeepFreeze({
 	KST_OFFSET = 9 * 3600,
 	MAX_LOADOUT_SIZE = 5,
 	MAX_TOWER_LEVEL = 30,
-	STARTER_TOWER = "Fighter Noob",
+	STARTER_TOWER = "Fighter",
 
 	PROFILE_TEMPLATE = {
 		Coins = 200,
