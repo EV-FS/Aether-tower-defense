@@ -5,6 +5,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 --/Configs
 local Signal = require(ReplicatedStorage.Packages.Signal)
 local TowerData = require(ReplicatedStorage.Settings.Data.TowerData)
+local TraitData = require(ReplicatedStorage.Settings.Data.TraitData)
 local ServiceRegistry = require(ReplicatedStorage.Shared.Modules.Core.ServiceRegistry)
 local TableUtils = require(ReplicatedStorage.Shared.Modules.Utils.TableUtils)
 local Net = require(ReplicatedStorage.Shared.Net)
@@ -13,6 +14,7 @@ local DataService
 export type Tower = {
 	Id: number,
 	Name: string,
+	TowerKey: string,
 	Owner: Player,
 	Level: number,
 	MaxLevel: number,
@@ -38,12 +40,21 @@ end
 local BaseTower = {}
 BaseTower.__index = BaseTower
 
-function BaseTower.new(player: Player, towerId: number, towerName: string, position: Vector3): Tower
+function BaseTower.new(
+	player: Player,
+	towerId: number,
+	towerName: string,
+	towerKey: string,
+	position: Vector3,
+	towerProfile
+): Tower
 	local self = setmetatable({}, BaseTower)
 
 	self.Id = towerId
 	self.Name = towerName
+	self.TowerKey = towerKey
 	self.Owner = player
+	self.TowerProfile = towerProfile
 	self.Level = 0
 	self.MaxLevel = self:_CalculateMaxLevel()
 	self.TargetMode = "First"
@@ -121,25 +132,53 @@ function BaseTower:_AddTowerExp()
 	end
 
 	DataService = DataService or ServiceRegistry:GetService("DataService")
-	local playerData = DataService:GetData(self.Owner)
-	if playerData and playerData.Loadout then
-		for _, equippedTower in pairs(playerData.Loadout) do
-			if equippedTower.Name == self.Name then
-				self._TowerKey = equippedTower.Key
-				break
-			end
-		end
-	end
-
-	if self._TowerKey then
+	if self.TowerKey then
 		self:GetEvent("Killed"):Connect(function(_)
-			DataService:AddData(self.Owner, "OwnedTowers", 10, self.Name, self._TowerKey, "Exp")
+			DataService:AdjustTower(self.Owner, self.Name, self.TowerKey, "Exp", 10)
 		end)
 	end
 end
 
-function BaseTower:_ApplyNewStats()
+function BaseTower:_RecalculateStats()
 	self.Stats = TableUtils.DeepCopy(TowerData.ByName[self.Name].Stats[self.Level])
+
+	local traitName = self.TowerProfile.Trait
+	local traitData = TraitData.ByName[traitName]
+
+	local handlers = {
+		DamageMultiflier = function(val)
+			if not self.Stats.Damage then
+				return
+			end
+
+			self.Stats.Damage *= 1 + val
+		end,
+		RangeMultiflier = function(val)
+			if not self.Stats.Damage then
+				return
+			end
+
+			self.Stats.Range *= 1 + val
+		end,
+		CooldownMultiflier = function(val)
+			if not self.Stats.Range then
+				return
+			end
+
+			self.Stats.Cooldown *= 1 - val
+		end,
+	}
+
+	for effectName, effectValue in traitData.Effects do
+		local handler = handlers[effectName]
+		if handler then
+			handler(effectValue)
+		end
+	end
+end
+
+function BaseTower:_ApplyNewStats()
+	self:_RecalculateStats()
 
 	local needsAttack = self.Stats.AttackType and self.Stats.Damage
 	local needsSecondaryAttack = self.Stats.Secondary and self.Stats.Secondary.AttackType

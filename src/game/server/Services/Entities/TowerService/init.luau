@@ -10,6 +10,7 @@ local Net = require(ReplicatedStorage.Shared.Net)
 local PlaceValidator = require(ReplicatedStorage.Shared.Services.Entities.TowerService.Utils.PlaceValidator)
 local TowerRegistry = require(script.Registry)
 
+local DataService
 local EconomyService
 
 --/Variables
@@ -51,7 +52,7 @@ function TowerService.GetTowerCount(player: Player, towerName: string)
 	return (playerData and playerData[towerName]) or 0
 end
 
-function TowerService.SpawnTower(player: Player, towerName: string, spawnLocation: Vector3)
+function TowerService.SpawnTower(player: Player, towerName: string, towerKey: string, spawnLocation: Vector3)
 	local towerModel = ReplicatedStorage.Assets.Towers:FindFirstChild(towerName)
 	if not towerModel then
 		warn(`{towerName}의 이름을 가진 모델을 찾을 수 없습니다.`)
@@ -81,9 +82,9 @@ function TowerService.SpawnTower(player: Player, towerName: string, spawnLocatio
 
 	local newTower
 	if towerClasses[towerName] then
-		newTower = towerClasses[towerName].new(player, TowerRegistry.generateId(), towerName, spawnLocation)
+		newTower = towerClasses[towerName].new(player, TowerRegistry.generateId(), towerName, towerKey, spawnLocation)
 	else
-		newTower = BaseTower.new(player, TowerRegistry.generateId(), towerName, spawnLocation)
+		newTower = BaseTower.new(player, TowerRegistry.generateId(), towerName, towerKey, spawnLocation)
 	end
 
 	newTower.SpendedCash = towerInfo.Stats[0].Cost
@@ -158,8 +159,16 @@ function TowerService:DestroyAll()
 	end
 end
 
-function TowerService._SpawnNewTower(player: Player, data: { towerIndex: number, spawnLocation: Vector3 })
-	if typeof(data) ~= "table" or typeof(data.towerIndex) ~= "number" or typeof(data.spawnLocation) ~= "Vector3" then
+function TowerService._SpawnNewTower(
+	player: Player,
+	data: { towerIndex: number, towerKey: string, spawnLocation: Vector3 }
+)
+	if
+		typeof(data) ~= "table"
+		or typeof(data.towerIndex) ~= "number"
+		or typeof(data.towerKey) ~= "string"
+		or typeof(data.spawnLocation) ~= "Vector3"
+	then
 		return
 	end
 
@@ -168,7 +177,28 @@ function TowerService._SpawnNewTower(player: Player, data: { towerIndex: number,
 		return
 	end
 
-	local towerClass = TowerService.SpawnTower(player, towerInfo.Name, data.spawnLocation)
+	local playerData = DataService:GetData(player)
+	local ownedTower = playerData
+		and playerData.OwnedTowers[towerInfo.Name]
+		and playerData.OwnedTowers[towerInfo.Name][data.towerKey]
+	if not ownedTower then
+		warn(`{player.Name} tried to spawn an unowned tower: {towerInfo.Name} ({data.towerKey})`)
+		return
+	end
+
+	local isEquipped = false
+	for _, equippedTower in pairs(playerData.Loadout or {}) do
+		if equippedTower.Name == towerInfo.Name and equippedTower.Key == data.towerKey then
+			isEquipped = true
+			break
+		end
+	end
+	if not isEquipped then
+		warn(`{player.Name} tried to spawn an unequipped tower: {towerInfo.Name} ({data.towerKey})`)
+		return
+	end
+
+	local towerClass = TowerService.SpawnTower(player, towerInfo.Name, data.towerKey, data.spawnLocation)
 	if not towerClass then
 		return
 	end
@@ -184,6 +214,7 @@ function TowerService._SpawnNewTower(player: Player, data: { towerIndex: number,
 end
 
 function TowerService.Init(services)
+	DataService = services:GetService("DataService")
 	EconomyService = services:GetService("EconomyService")
 
 	local ClassesFolder = ServerScriptService.Server.Classes.Tower

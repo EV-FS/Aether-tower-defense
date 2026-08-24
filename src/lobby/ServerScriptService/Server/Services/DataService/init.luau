@@ -33,6 +33,14 @@ export type DataService = {
 	UpdateData: (self: DataService, player: Player, mainKey: string, value: any, ...any) -> any?,
 
 	AddTower: (self: DataService, player: Player, towerName: string, towerData: towerTemplate?) -> any,
+	AdjustTower: (
+		self: DataService,
+		player: Player,
+		towerName: string,
+		towerKey: string,
+		key: string,
+		value: any
+	) -> nil,
 	RemoveTower: (self: DataService, player: Player, towerName: string, towerKey: string) -> nil,
 
 	IsOwnGamePass: (self: DataService, player: Player, gamePassId: number | string) -> (boolean, PurchaseType?),
@@ -107,6 +115,7 @@ end
 
 local function patchTowerRenames(playerData: PlayerData)
 	local nameMapping = {
+		["Wizard Noob"] = "Wizard",
 		["Glitch"] = "Hacker",
 		["Batter Noob"] = "Batter Bacon",
 		["Poor Noob"] = "Poor Bacon",
@@ -292,20 +301,6 @@ function DataService:AddData(player: Player, mainKey: string, amount: number, ..
 
 	if string.upper(mainKey) == "EXP" then
 		DataService._SetLevel(player, playerData)
-	elseif mainKey == "OwnedTowers" and string.upper(subKeys[#subKeys]) == "EXP" then
-		local towerName = subKeys[1]
-		local towerKey = subKeys[2]
-		local towerData = playerData.OwnedTowers[towerName][towerKey]
-		local hasLevelUp = DataService._SetTowerLevel(towerData)
-
-		self:FireChanged(player, "TowerExpChanged", {
-			TowerName = towerName,
-			TowerKey = towerKey,
-			Exp = towerData.Exp,
-			Level = towerData.Lv,
-			HasLevelUp = hasLevelUp,
-		})
-		return towerData.Exp
 	end
 
 	UpdateLeaderstats(player, playerData)
@@ -357,6 +352,85 @@ function DataService:AddTower(player: Player, towerName: string, towerData: towe
 		towerKeyId = towerId,
 		towerData = newTower,
 	})
+end
+
+function DataService:AdjustTower(player: Player, towerName: string, towerKey: string, key: string, value: any)
+	local playerData = self:GetData(player)
+	if not playerData then
+		return
+	end
+
+	local targetTowerType = playerData.OwnedTowers[towerName]
+	if not targetTowerType then
+		warn(`요청한 타워 타입 "{towerName}"이 존재하지 않음.`)
+		return
+	end
+
+	local targetTower = playerData.OwnedTowers[towerName][towerKey]
+	if not targetTower then
+		warn(`요청한 타워 "{towerKey}"를 가지고 있지 않음.`)
+		return
+	end
+
+	local handlers = {
+		Exp = function()
+			if not value or typeof(value) ~= "number" then
+				warn(`추가하려는 타워 경험치 값이 유효하지 않음.`)
+				return
+			end
+
+			self:AddData(player, "OwnedTowers", value, towerName, towerKey, "Exp")
+			local hasLevelUp = DataService._SetTowerLevel(targetTower)
+
+			return "TowerExpChanged",
+				{
+					TowerName = towerName,
+					TowerKey = towerKey,
+					Exp = targetTower.Exp,
+					Level = targetTower.Lv,
+					HasLevelUp = hasLevelUp,
+				}
+		end,
+		Trait = function()
+			if not value or typeof(value) ~= "string" then
+				warn(`추가하려는 타워 경험치 값이 유효하지 않음.`)
+				return
+			end
+
+			self:UpdateData(player, "OwnedTowers", value, towerName, towerKey, "Trait")
+
+			return "TowerTraitChanged", {
+				TowerName = towerName,
+				TowerKey = towerKey,
+				Trait = value,
+			}
+		end,
+		Shiny = function()
+			if typeof(value) ~= "boolean" then
+				warn(`추가하려는 타워 경험치 값이 유효하지 않음.`)
+				return
+			end
+
+			self:UpdateData(player, "OwnedTowers", value, towerName, towerKey, "Shiny")
+
+			return "TowerShinyChanged", {
+				TowerName = towerName,
+				TowerKey = towerKey,
+				IsShiny = value,
+			}
+		end,
+	}
+
+	local handler = handlers[key]
+	if not handler then
+		warn(`유효하지 않은 속성 "{key}"을 호출 함.`)
+		return
+	end
+
+	local updateKey, newValue = handler()
+	if updateKey and newValue then
+		self:FireChanged(player, updateKey, newValue)
+	end
 end
 
 function DataService:RemoveTower(player: Player, towerName: string, towerKey: string)
