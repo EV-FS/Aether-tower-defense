@@ -1,6 +1,7 @@
 --/Service
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local SoundService = game:GetService("SoundService")
+local RunService = game:GetService("RunService")
 
 --/Modules
 local InstanceCache = require(ReplicatedStorage.Shared.Modules.Core.InstanceCache)
@@ -161,7 +162,8 @@ function AudioController.PlayOn3D(
 	volume: number?,
 	distance: number?,
 	parent: Instance | Vector3,
-	looped: boolean?
+	looped: boolean?,
+	duckBGMDistance: number?
 )
 	soundId = typeof(soundId) == "string" and soundId or `rbxassetid://{soundId}`
 
@@ -221,6 +223,30 @@ function AudioController.PlayOn3D(
 
 	audioPlayer:Play()
 
+	local bgmSound: Sound? = nil
+	local originalBGMVolume: number? = nil
+	local bgmDuckConnection: RBXScriptConnection? = nil
+	if duckBGMDistance then
+		bgmSound = SoundService:FindFirstChild("BGM") :: Sound?
+		if bgmSound then
+			originalBGMVolume = bgmSound.Volume
+			local maxDistance = duckBGMDistance
+			bgmDuckConnection = RunService.Heartbeat:Connect(function()
+				local camera = workspace.CurrentCamera
+				if not camera or not parentInst.Parent then
+					return
+				end
+
+				local sourcePosition = if parentInst:IsA("BasePart")
+					then parentInst.Position
+					else camera.CFrame.Position
+				local distanceFromSource = (camera.CFrame.Position - sourcePosition).Magnitude
+				local proximity = math.clamp(1 - distanceFromSource / maxDistance, 0, 1)
+				bgmSound.Volume = originalBGMVolume * (1 - proximity * 0.65)
+			end)
+		end
+	end
+
 	local isCleaned = false
 	local endedConn: RBXScriptConnection?
 
@@ -229,6 +255,13 @@ function AudioController.PlayOn3D(
 			return
 		end
 		isCleaned = true
+		if bgmDuckConnection then
+			bgmDuckConnection:Disconnect()
+			bgmDuckConnection = nil
+		end
+		if bgmSound and originalBGMVolume then
+			bgmSound.Volume = originalBGMVolume
+		end
 
 		if endedConn then
 			endedConn:Disconnect()

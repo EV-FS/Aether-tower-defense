@@ -1,10 +1,12 @@
 local Players = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local UserInputService = game:GetService("UserInputService")
 
 local DEFAULT_JUMP_POWER = 50
 local DOBULE_JUMP_MULTIFLIER = 1.2
 
 local player = Players.LocalPlayer
+local doubleJumpVFX = ReplicatedStorage:WaitForChild("DoubleJumpVFX") :: RemoteEvent
 local humanoid = nil
 local canDoubleJump = false
 local hasDoubleJumped = false
@@ -39,6 +41,7 @@ UserInputService.JumpRequest:Connect(function()
 	end
 
 	hasDoubleJumped = true
+	doubleJumpVFX:FireServer()
 	humanoid.JumpPower = DEFAULT_JUMP_POWER * DOBULE_JUMP_MULTIFLIER
 	humanoid:ChangeState(Enum.HumanoidStateType.Jumping)
 end)

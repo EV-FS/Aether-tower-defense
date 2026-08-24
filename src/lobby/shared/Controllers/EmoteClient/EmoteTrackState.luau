@@ -89,7 +89,8 @@ function EmoteTrackState._setupSound(self: EmoteTrackState)
 		self.EmoteConfig.SoundVolume or DEFAULT_SOUND_VOLUME,
 		self.EmoteConfig.SoundDistance or DEFAULT_SOUND_DISTANCE,
 		rootPart,
-		self.EmoteConfig.SoundLooped
+		self.EmoteConfig.SoundLooped,
+		self.EmoteConfig.SoundDistance or DEFAULT_SOUND_DISTANCE
 	)
 	if soundPlayer then
 		table.insert(self.Sounds, soundPlayer)

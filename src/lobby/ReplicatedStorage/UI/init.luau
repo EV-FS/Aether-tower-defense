@@ -47,7 +47,7 @@ function UI.HideLoading()
 	loadingToken += 1
 	local token = loadingToken
 	local currentUnmount = loadingUnmount
-	task.delay(1.6, function()
+	task.delay(1.1, function()
 		if loadingToken == token and loadingUnmount == currentUnmount then
 			currentUnmount()
 			loadingUnmount = nil

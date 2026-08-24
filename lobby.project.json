@@ -26,7 +26,6 @@
         "$path": "ServerPackages"
       }
     },
-
     "StarterPlayer": {
       "StarterPlayerScripts": {
         "$path": "src/lobby/StarterPlayer/StarterPlayerScripts"
@@ -35,7 +34,6 @@
         "$path": "src/lobby/StarterPlayer/StarterCharacterScripts"
       }
     },
-
     "Workspace": {
       "$properties": {
         "FilteringEnabled": true

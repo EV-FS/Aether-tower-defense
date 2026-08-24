@@ -3,6 +3,7 @@ local TableUtils = require(ReplicatedStorage.Shared.Modules.Utils.TableUtils)
 
 local kyukurarinModule = script:FindFirstChild("Kyukurarin")
 local zaakoModule = script:FindFirstChild("Zaako")
+local usagiflapModule = script:FindFirstChild("Usagiflap")
 local Kyukurarin = if kyukurarinModule and kyukurarinModule:IsA("ModuleScript")
 	then require(kyukurarinModule)
 	else {
@@ -26,6 +27,21 @@ local Zaako = if zaakoModule and zaakoModule:IsA("ModuleScript")
 		DisplayName = "Zaako",
 		AnimationId = "rbxassetid://136212709851148",
 		SoundId = "rbxassetid://130251752855636",
+		SoundVolume = 1,
+		SoundDistance = 80,
+		SoundLooped = true,
+		PlaybackSpeed = 0.9,
+		WalkSpeed = 4,
+		Priority = Enum.AnimationPriority.Action4,
+	}
+local Usagiflap = if usagiflapModule and usagiflapModule:IsA("ModuleScript")
+	then require(usagiflapModule)
+	else {
+		Name = "Usagiflap",
+		Index = 3,
+		DisplayName = "Usagiflap",
+		AnimationId = "rbxassetid://121766824032548",
+		SoundId = "rbxassetid://73854560511013",
 		SoundVolume = 1,
 		SoundDistance = 80,
 		SoundLooped = true,
@@ -86,6 +102,7 @@ export type RawEmoteConfig = {
 local RawEmoteData: { [string]: RawEmoteConfig } = {
 	[Kyukurarin.Name] = Kyukurarin,
 	[Zaako.Name] = Zaako,
+	[Usagiflap.Name] = Usagiflap,
 }
 
 local EmoteData = {
