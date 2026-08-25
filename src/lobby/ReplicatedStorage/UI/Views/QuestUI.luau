@@ -1,4 +1,5 @@
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local SoundService = game:GetService("SoundService")
 
 local Vide = require(ReplicatedStorage.Packages.Vide)
 local ServiceRegistry = require(ReplicatedStorage.Shared.Modules.Core.ServiceRegistry)
@@ -6,6 +7,7 @@ local QuestData = require(ReplicatedStorage.Settings.Data.QuestData)
 
 local create = Vide.create
 local derive = Vide.derive
+local effect = Vide.effect
 local source = Vide.source
 local spring = Vide.spring
 
@@ -17,27 +19,85 @@ local QuestUI = {}
 
 local isTrackingExpanded = source(true)
 
+local function playQuestAcceptSound()
+	task.spawn(function()
+		local sound = Instance.new("Sound")
+		sound.SoundId = "rbxassetid://9069609268"
+		sound.Volume = 0.55
+		sound.Parent = SoundService
+		sound:Play()
+		sound.Ended:Connect(function()
+			sound:Destroy()
+		end)
+	end)
+end
+
 function QuestUI.RenderUI()
 	local targetAmount = 1500
 
 	local isAccepted = derive(function()
 		local quests = DataClient and DataClient.Quests() or {}
 		local q = quests["BlossomCollector"]
-		return q and (q.Active or q.Completed or q.Claimed) or false
+		return q and (q.Active or q.Completed) and not q.Claimed or false
 	end)
 
-	local isClaimed = derive(function()
-		local quests = DataClient and DataClient.Quests() or {}
-		local q = quests["BlossomCollector"]
-		return q and q.Claimed or false
+	local isHovered = source(false)
+	local isEntered = source(false)
+
+	-- 퀘스트 수락 시 자연스러운 슬라이드 & 팝업 연출 트리거
+	local prevAccepted = false
+	effect(function()
+		local cur = isAccepted()
+		if cur and not prevAccepted then
+			prevAccepted = true
+			isEntered(false)
+			playQuestAcceptSound()
+			task.delay(0.05, function()
+				isEntered(true)
+			end)
+		elseif not cur then
+			prevAccepted = false
+			isEntered(false)
+		end
 	end)
+
+	-- 1. 자연스럽고 부드러운 진입 애니메이션 (35px 슬라이드 + 부드러운 스케일)
+	local entranceScale = spring(function()
+		return if isEntered() then 1 else 0.85
+	end, 0.28, 0.78)
+
+	local entranceSlide = spring(function()
+		return if isEntered() then 0 else 35
+	end, 0.26, 0.80)
+
+	local entranceAlpha = spring(function()
+		return if isEntered() then 0 else 1
+	end, 0.22, 0.85)
+
+	-- 2. 호버 상호작용: 좌상단 기준(0, 0)에서 1.065배로 쫀득하게 커짐
+	local hoverScale = spring(function()
+		return if isHovered() then 1.065 else 1
+	end, 0.16, 0.72)
+
+	-- 3. 호버 시 테두리(UIStroke) 발광 연출
+	local hoverStrokeThickness = spring(function()
+		return if isHovered() then 2.2 else 1
+	end, 0.16, 0.75)
+
+	local hoverStrokeColor = spring(function()
+		return if isHovered() then Color3.fromRGB(115, 255, 145) else Color3.fromRGB(75, 88, 100)
+	end, 0.18, 0.75)
+
+	local hoverStrokeTransparency = spring(function()
+		return if isHovered() then 0.05 else 0.85
+	end, 0.18, 0.75)
 
 	local targetBlossom = derive(function()
 		local blossom = DataClient and DataClient.Blossom() or 0
 		return math.min(blossom, targetAmount)
 	end)
 
-	-- 1. 숫자는 천천히 부드럽게 카운트업 (period 0.45, damping 0.85)
+	-- 4. 숫자는 천천히 부드럽게 카운트업 (period 0.45, damping 0.85)
 	local animatedBlossom = spring(targetBlossom, 0.45, 0.85)
 
 	local targetRatio = derive(function()
@@ -45,22 +105,19 @@ function QuestUI.RenderUI()
 		return math.clamp(blossom / targetAmount, 0, 1)
 	end)
 
-	-- 2. 게이지 바는 쫀득하고 탄력있게 스프링 이동 (period 0.32, damping 0.70)
+	-- 5. 게이지 바는 쫀득하고 탄력있게 스프링 이동 (period 0.32, damping 0.70)
 	local animatedRatio = spring(targetRatio, 0.32, 0.70)
 
 	local descText = function()
-		if isClaimed() then
-			return "완료된 퀘스트입니다. (보상 수령 완료)"
-		end
 		local rawCur = targetBlossom()
 		local animCur = math.clamp(math.round(animatedBlossom()), 0, targetAmount)
 		if rawCur >= targetAmount then
 			return "벚꽃 수집 완료! 방랑 상인에게 보고하세요."
 		end
-		if not isAccepted() then
-			return string.format("방랑 상인에게 퀘스트를 수락하세요! (%s/1,500)", DataClient and DataClient.FormatNumber(animCur) or tostring(animCur))
-		end
-		return string.format("키츠네 정화를 위해 벚꽃 수집 (%s/1,500)", DataClient and DataClient.FormatNumber(animCur) or tostring(animCur))
+		return string.format(
+			"키츠네 정화를 위해 벚꽃 수집 (%s/1,500)",
+			DataClient and DataClient.FormatNumber(animCur) or tostring(animCur)
+		)
 	end
 
 	return create("Frame")({
@@ -90,7 +147,7 @@ function QuestUI.RenderUI()
 			Position = UDim2.fromScale(0.0205005, -0.000629893),
 			Size = UDim2.fromScale(0.981832, 0.363278),
 
-			-- 상단 헤더
+			-- 상단 헤더 (항상 표시)
 			create("ImageLabel")({
 				Name = "Header",
 				BackgroundTransparency = 1,
@@ -134,6 +191,7 @@ function QuestUI.RenderUI()
 				Name = "ScrollingFrame",
 				Active = true,
 				BackgroundTransparency = 1,
+				ClipsDescendants = false,
 				Position = UDim2.fromScale(0, 0.135388),
 				ScrollBarImageColor3 = Color3.new(),
 				ScrollBarThickness = 0,
@@ -148,17 +206,53 @@ function QuestUI.RenderUI()
 					SortOrder = Enum.SortOrder.LayoutOrder,
 				}),
 
-				-- 퀘스트 카드 (벚꽃 수집가)
+				-- 퀘스트 카드
 				create("ImageLabel")({
 					Name = "Quest",
+					AnchorPoint = Vector2.new(0.5, 0.5), -- 좌상단 기준 스케일링
 					BackgroundTransparency = 1,
 					Image = "rbxassetid://108648957028585",
-					Position = UDim2.fromScale(0, 0),
+					ImageTransparency = entranceAlpha,
+					Position = function()
+						return UDim2.new(0, entranceSlide(), 0, 0)
+					end,
 					Size = UDim2.fromScale(1, 0.38),
+					Visible = isAccepted,
+
+					MouseEnter = function()
+						isHovered(true)
+					end,
+					MouseLeave = function()
+						isHovered(false)
+					end,
+
+					-- 좌상단(0, 0) 기준 스케일
+					create("UIScale")({
+						Name = "CardScale",
+						Scale = function()
+							return entranceScale() * hoverScale()
+						end,
+					}),
 
 					create("UIAspectRatioConstraint")({
 						Name = "UIAspectRatioConstraint",
 						AspectRatio = 3.28375,
+					}),
+
+					-- 퀘스트 카드 테두리 (호버 시 발광)
+					create("UIStroke")({
+						Name = "CardStroke",
+						ApplyStrokeMode = Enum.ApplyStrokeMode.Border,
+						Color = hoverStrokeColor,
+						Thickness = hoverStrokeThickness,
+						Transparency = function()
+							return math.max(entranceAlpha(), hoverStrokeTransparency())
+						end,
+					}),
+
+					create("UICorner")({
+						Name = "CardCorner",
+						CornerRadius = UDim.new(0, 8),
 					}),
 
 					-- 테마 태그
@@ -171,10 +265,12 @@ function QuestUI.RenderUI()
 						Text = "EVENT",
 						TextColor3 = Color3.new(1, 1, 1),
 						TextScaled = true,
+						TextTransparency = entranceAlpha,
 						TextXAlignment = Enum.TextXAlignment.Left,
 
 						create("UIStroke")({
 							Name = "UIStroke",
+							Transparency = entranceAlpha,
 						}),
 
 						create("UIGradient")({
@@ -197,10 +293,12 @@ function QuestUI.RenderUI()
 						Text = "벚꽃 수집가",
 						TextColor3 = Color3.new(1, 1, 1),
 						TextScaled = true,
+						TextTransparency = entranceAlpha,
 						TextXAlignment = Enum.TextXAlignment.Left,
 
 						create("UIStroke")({
 							Name = "UIStroke",
+							Transparency = entranceAlpha,
 						}),
 					}),
 
@@ -214,10 +312,12 @@ function QuestUI.RenderUI()
 						Text = descText,
 						TextColor3 = Color3.new(1, 1, 1),
 						TextScaled = true,
+						TextTransparency = entranceAlpha,
 						TextXAlignment = Enum.TextXAlignment.Left,
 
 						create("UIStroke")({
 							Name = "UIStroke",
+							Transparency = entranceAlpha,
 						}),
 
 						create("UIGradient")({
@@ -253,6 +353,7 @@ function QuestUI.RenderUI()
 								Name = "SeparateLine",
 								BackgroundTransparency = 1.02,
 								Image = "rbxassetid://96127352288701",
+								ImageTransparency = entranceAlpha,
 								Position = UDim2.fromScale(0.0102451, 0),
 								Size = UDim2.fromScale(0.005, 1),
 
@@ -269,6 +370,7 @@ function QuestUI.RenderUI()
 								Name = "SeparateLine",
 								BackgroundTransparency = 1.02,
 								Image = "rbxassetid://96127352288701",
+								ImageTransparency = entranceAlpha,
 								Position = UDim2.fromScale(0.0102451, 0),
 								Size = UDim2.fromScale(0.005, 1),
 
@@ -285,6 +387,7 @@ function QuestUI.RenderUI()
 								Name = "SeparateLine",
 								BackgroundTransparency = 1.02,
 								Image = "rbxassetid://96127352288701",
+								ImageTransparency = entranceAlpha,
 								Position = UDim2.fromScale(0.0102451, 0),
 								Size = UDim2.fromScale(0.005, 1),
 
@@ -301,6 +404,7 @@ function QuestUI.RenderUI()
 								Name = "SeparateLine",
 								BackgroundTransparency = 1.02,
 								Image = "rbxassetid://96127352288701",
+								ImageTransparency = entranceAlpha,
 								Position = UDim2.fromScale(0.0102451, 0),
 								Size = UDim2.fromScale(0.005, 1),
 
@@ -317,6 +421,7 @@ function QuestUI.RenderUI()
 								Name = "SeparateLine",
 								BackgroundTransparency = 1.02,
 								Image = "rbxassetid://96127352288701",
+								ImageTransparency = entranceAlpha,
 								Position = UDim2.fromScale(0.0102451, 0),
 								Size = UDim2.fromScale(0.005, 1),
 
@@ -333,6 +438,7 @@ function QuestUI.RenderUI()
 								Name = "SeparateLine",
 								BackgroundTransparency = 1.02,
 								Image = "rbxassetid://96127352288701",
+								ImageTransparency = entranceAlpha,
 								Position = UDim2.fromScale(0.0102451, 0),
 								Size = UDim2.fromScale(0.005, 1),
 
@@ -351,6 +457,7 @@ function QuestUI.RenderUI()
 							AnchorPoint = Vector2.new(0.5, 0.5),
 							BackgroundTransparency = 1,
 							Image = "rbxassetid://123614945790793",
+							ImageTransparency = entranceAlpha,
 							Position = UDim2.fromScale(0.496465, 0.776035),
 							Size = UDim2.fromScale(0.877999, -0.126578),
 						}),
@@ -361,6 +468,7 @@ function QuestUI.RenderUI()
 							AnchorPoint = Vector2.new(0, 0.5),
 							BackgroundTransparency = 1,
 							Image = "rbxassetid://87566142417575",
+							ImageTransparency = entranceAlpha,
 							Position = UDim2.fromScale(0.061, 0.776035),
 							Size = function()
 								local r = math.clamp(animatedRatio(), 0, 1)
