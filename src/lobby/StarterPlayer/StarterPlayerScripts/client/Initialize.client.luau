@@ -23,6 +23,7 @@ ServiceRegistry:RegisterServices({
 	Controllers.AudioController,
 	Controllers.VFXController,
 	Controllers.SettingsClient,
+	Controllers.DataClient,
 	Controllers.InventoryClient,
 	Controllers.EmoteClient,
 	Controllers.EmojiClient,
@@ -33,7 +34,6 @@ ServiceRegistry:RegisterServices({
 	Controllers.UIController,
 	Controllers.DialogueClient,
 	Controllers.TutorialClient,
-	Controllers.ChatController,
 })
 
 ServiceRegistry:Start():andThen(function()

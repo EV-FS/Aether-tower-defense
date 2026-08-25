@@ -79,6 +79,11 @@ local function UpdateLeaderstats(player: Player, playerData: PlayerData)
 	gems.Name = "Gems"
 	gems.Value = playerData.Gems
 	gems.Parent = leaderstats
+
+	local blossom = leaderstats:FindFirstChild("Blossom") or Instance.new("IntValue")
+	blossom.Name = "Blossom"
+	blossom.Value = playerData.Blossom or 0
+	blossom.Parent = leaderstats
 end
 
 local function IsOldData(playerData: PlayerData): boolean
@@ -200,7 +205,7 @@ function DataService.Start()
 		return playerData[valueName]
 	end)
 
-	for _, currencyName in { "Coins", "Gems", "Exp", "Level" } do
+	for _, currencyName in { "Coins", "Gems", "Blossom", "Exp", "Level" } do
 		DataService:GetChangedSignal(currencyName):Connect(function(player, value)
 			Net.DataService.CurrencyChanged.Fire(player, { CurrencyName = currencyName, CurrencyValue = value })
 		end)

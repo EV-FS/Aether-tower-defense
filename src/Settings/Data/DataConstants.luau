@@ -10,6 +10,7 @@ return TableUtils.DeepFreeze({
 	PROFILE_TEMPLATE = {
 		Coins = 200,
 		Gems = 0,
+		Blossom = 0,
 		Wins = 0,
 		Level = 1,
 		Exp = 0,
@@ -32,6 +33,7 @@ return TableUtils.DeepFreeze({
 	PUBLIC_DATA_KEYS = {
 		Coins = true,
 		Gems = true,
+		Blossom = true,
 		Wins = true,
 		Level = true,
 		Exp = true,
