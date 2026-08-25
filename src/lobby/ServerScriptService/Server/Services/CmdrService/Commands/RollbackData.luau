@@ -1,5 +1,5 @@
 return {
-	Name = "rollbackData",
+	Name = "RollbackData",
 	Aliases = { "rollback" },
 	Description = "[경고] 플레이어의 데이터를 해당 날짜로 롤백합니다. 주의해서 사용해 주세요.",
 	Group = "Admin",

@@ -1,5 +1,5 @@
 return {
-	Name = "addCurrency",
+	Name = "AddCurrency",
 	Aliases = { "ac" },
 	Description = "플레이어에게 선택한 재화를 추가합니다.",
 	Group = "Admin",

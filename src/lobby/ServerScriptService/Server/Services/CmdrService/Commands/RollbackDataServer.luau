@@ -25,7 +25,7 @@ return function(
 	DataService:_RollbackData(player, timestamp, timezone == "UTC")
 	PostWebHook(
 		"⌛롤백 커맨드 사용",
-		"롤백 커맨드(rollbackData)가 사용되었습니다!",
+		"롤백 커맨드(RollbackData)가 사용되었습니다!",
 		context.Executor,
 		player,
 		`{timezone} {timestamp}`

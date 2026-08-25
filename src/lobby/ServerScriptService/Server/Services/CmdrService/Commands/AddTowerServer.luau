@@ -12,7 +12,7 @@ return function(context, player: Player, towerName: string, amount: number)
 
 	PostWebHook(
 		"♜타워 추가 커맨드 사용",
-		"타워 추가 커맨드(addTower)가 사용되었습니다!",
+		"타워 추가 커맨드(AddTower)가 사용되었습니다!",
 		context.Executor,
 		player,
 		{

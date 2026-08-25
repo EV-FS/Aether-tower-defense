@@ -9,7 +9,7 @@ return function(context, player: Player, currencyName: string, amount: number)
 	DataService:AddData(player, currencyName, amount)
 	PostWebHook(
 		"💵재화 커맨드 사용",
-		"재화 커맨드(addCurrency)가 사용되었습니다!",
+		"재화 커맨드(AddCurrency)가 사용되었습니다!",
 		context.Executor,
 		player,
 		{

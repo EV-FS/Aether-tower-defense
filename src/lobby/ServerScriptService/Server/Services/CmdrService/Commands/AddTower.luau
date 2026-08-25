@@ -1,5 +1,5 @@
 return {
-	Name = "addTower",
+	Name = "AddTower",
 	Aliases = { "at" },
 	Description = "플레이어에게 선택한 타워를 추가합니다.",
 	Group = "Admin",
