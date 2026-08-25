@@ -28,6 +28,7 @@ export type DataService = {
 	GetProfile: (self: DataService, player: Player) -> profile?,
 	GetData: (self: DataService, player: Player) -> PlayerData?,
 	SaveData: (self: DataService, player: Player) -> nil,
+	ClearData: (self: DataService, player: Player) -> nil,
 
 	AddData: (self: DataService, player: Player, mainKey: string, amount: number, ...any) -> number?,
 	UpdateData: (self: DataService, player: Player, mainKey: string, value: any, ...any) -> any?,
@@ -258,6 +259,16 @@ function DataService:SaveData(player: Player)
 	if profile and profile:IsActive() then
 		profile:Save()
 	end
+end
+
+function DataService:ClearData(player: Player)
+	local profile = self:GetProfile(player)
+	if not profile or not profile:IsActive() then
+		return
+	end
+
+	profile.Data = TableUtils.DeepCopy(DataConstants.PROFILE_TEMPLATE)
+	profile:Save()
 end
 
 function DataService:AddData(player: Player, mainKey: string, amount: number, ...: any): number?
