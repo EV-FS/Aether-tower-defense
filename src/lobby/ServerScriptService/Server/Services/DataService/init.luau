@@ -210,6 +210,10 @@ function DataService.Start()
 		end)
 	end
 
+	DataService:GetChangedSignal("Quests"):Connect(function(player, value)
+		Net.DataService.CurrencyChanged.Fire(player, { CurrencyName = "Quests", CurrencyValue = 0 })
+	end)
+
 	DataService:GetChangedSignal("OwnedTowersAdded"):Connect(function(player, data)
 		local towerInfo = TowerData.ByName[data.towerName]
 		if not towerInfo then

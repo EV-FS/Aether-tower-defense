@@ -24,6 +24,7 @@ return TableUtils.DeepFreeze({
 		DevProducts = {},
 		Loadout = {},
 		Settings = {},
+		Quests = {},
 		TutorialCompleted = false,
 		_NextId = 1,
 		_StructureVersion = "v2",
@@ -43,6 +44,7 @@ return TableUtils.DeepFreeze({
 		DevProducts = true,
 		Loadout = true,
 		Settings = true,
+		Quests = true,
 	},
 
 	VALID_PURCHASE_TYPES = {

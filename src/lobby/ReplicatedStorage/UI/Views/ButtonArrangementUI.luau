@@ -10,6 +10,7 @@ local spring = Vide.spring
 
 local ButtonArrangementUI = {}
 local UIController
+local DialogueClient
 
 local function createMenuButton(name: string, label: string, image: string, layoutOrder: number, activated: (() -> ())?)
 	local isHovered = source(false)
@@ -156,6 +157,15 @@ function ButtonArrangementUI.RenderUI()
 		Position = UDim2.fromScale(0.0561939, 0.499861),
 		Size = UDim2.fromScale(0.145, 1),
 		ZIndex = 2,
+		Visible = function()
+			if DialogueClient and DialogueClient.IsOpen() then
+				return false
+			end
+			if UIController and UIController:IsOpen("Dialogue") then
+				return false
+			end
+			return true
+		end,
 
 		create("UIListLayout")({
 			Name = "UIListLayout",
@@ -183,6 +193,7 @@ end
 
 function ButtonArrangementUI.Init()
 	UIController = ServiceRegistry:GetService("UIController")
+	DialogueClient = ServiceRegistry:GetService("DialogueClient")
 end
 
 return ButtonArrangementUI

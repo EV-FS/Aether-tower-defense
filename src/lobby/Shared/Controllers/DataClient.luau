@@ -12,6 +12,7 @@ DataClient.Gems = Vide.source(0)
 DataClient.Blossom = Vide.source(0)
 DataClient.Level = Vide.source(1)
 DataClient.Exp = Vide.source(0)
+DataClient.Quests = Vide.source({})
 
 function DataClient.ExpLogic(currentLevel: number): number
 	return 50 * (currentLevel + math.ceil(currentLevel / 10)) + 50
@@ -72,8 +73,19 @@ local function syncFromLeaderstats(player: Player)
 	end
 end
 
+function DataClient.FetchQuests()
+	task.spawn(function()
+		local ok, quests = pcall(function()
+			return Net.DataService.GetDataValue.Invoke("Quests"):expect()
+		end)
+		if ok and quests ~= nil then
+			DataClient.Quests(quests or {})
+		end
+	end)
+end
+
 function DataClient.FetchAll()
-	for _, key in ipairs({ "Coins", "Gems", "Blossom", "Level", "Exp" }) do
+	for _, key in ipairs({ "Coins", "Gems", "Blossom", "Level", "Exp", "Quests" }) do
 		task.spawn(function()
 			local ok, val = pcall(function()
 				return Net.DataService.GetDataValue.Invoke(key):expect()
@@ -89,6 +101,8 @@ function DataClient.FetchAll()
 					DataClient.Level(val)
 				elseif key == "Exp" then
 					DataClient.Exp(val)
+				elseif key == "Quests" then
+					DataClient.Quests(val or {})
 				end
 			end
 		end)
@@ -132,6 +146,9 @@ function DataClient.Start()
 			DataClient.Gems(data.CurrencyValue)
 		elseif data.CurrencyName == "Blossom" then
 			DataClient.Blossom(data.CurrencyValue)
+			DataClient.FetchQuests()
+		elseif data.CurrencyName == "Quests" then
+			DataClient.FetchQuests()
 		elseif data.CurrencyName == "Level" then
 			DataClient.Level(data.CurrencyValue)
 		elseif data.CurrencyName == "Exp" then

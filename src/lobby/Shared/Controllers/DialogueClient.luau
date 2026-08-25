@@ -8,8 +8,10 @@ local Net = require(ReplicatedStorage.Shared.Net.client)
 local NpcDialogueData = require(ReplicatedStorage.Settings.Data.NpcDialogueData)
 local AudioController = require(script.Parent.AudioController)
 local SoundLibrary = require(ReplicatedStorage.Settings.Data.NPCS.Sounds.SoundLibrary)
+local Vide = require(ReplicatedStorage.Packages.Vide)
 
 local DialogueClient = {}
+DialogueClient.IsOpen = Vide.source(false)
 
 local playerGui: PlayerGui?
 local dialogueGui: ScreenGui?
@@ -571,6 +573,7 @@ local function openDialogue(npcId: string, dialogueId: string, isNodeTransition:
 	-- 1. 대화창 진입 연출 (카메라 줌인 + 백드롭 + 대화창 슬라이드업)
 	if not isNodeTransition or not _isOpen then
 		_isOpen = true
+		DialogueClient.IsOpen(true)
 		stopAllTweens()
 
 		-- 카메라 줌인
@@ -703,6 +706,7 @@ function DialogueClient.Close()
 	end
 
 	_isOpen = false
+	DialogueClient.IsOpen(false)
 	_suppressClose = false
 	_pendingClose = false
 	_skipRequested = false

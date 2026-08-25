@@ -11,6 +11,7 @@ local INVENTORY_VIEW_ID = "InventoryFrame"
 
 local InventoryClient
 local DataClient
+local DialogueClient
 local UIController
 
 local LoadoutUI = {}
@@ -34,7 +35,13 @@ function LoadoutUI.RenderUI()
 		Size = UDim2.fromScale(1, 1),
 		ZIndex = 2,
 		Visible = function()
-			return not UIController:IsVisible("Dialogue")()
+			if DialogueClient and DialogueClient.IsOpen() then
+				return false
+			end
+			if UIController and UIController:IsOpen("Dialogue") then
+				return false
+			end
+			return true
 		end,
 
 		create("Frame")({
@@ -50,18 +57,18 @@ function LoadoutUI.RenderUI()
 				AspectType = Enum.AspectType.ScaleWithParentSize,
 			}),
 
-			-- 1. 덱 위: 재화 표시 (Currency: Coins, Gems, Blossom)
+			-- 1. 덱 위: 재화 표시 (원본 디자인 100% 유지 + 간격/너비 최적화)
 			create("Frame")({
 				Name = "Currency",
 				BackgroundTransparency = 1,
-				Position = UDim2.fromScale(-0.001, 0.745),
+				Position = UDim2.fromScale(-0.001, 0.755),
 				Size = UDim2.fromScale(1, 0.0758533),
 
 				create("UIListLayout")({
 					Name = "UIListLayout",
 					FillDirection = Enum.FillDirection.Horizontal,
 					HorizontalAlignment = Enum.HorizontalAlignment.Center,
-					Padding = UDim.new(0.008, 0),
+					Padding = UDim.new(0.02, 0),
 					SortOrder = Enum.SortOrder.LayoutOrder,
 					VerticalAlignment = Enum.VerticalAlignment.Center,
 				}),
@@ -73,9 +80,8 @@ function LoadoutUI.RenderUI()
 					BackgroundTransparency = 0.2,
 					BorderColor3 = Color3.new(),
 					BorderSizePixel = 0,
-					LayoutOrder = 1,
 					Position = UDim2.fromScale(0.346767, 0.216667),
-					Size = UDim2.fromScale(0.112489, 0.566667),
+					Size = UDim2.fromScale(0.165, 0.566667),
 
 					create("ImageLabel")({
 						Name = "ImageLabel",
@@ -103,8 +109,8 @@ function LoadoutUI.RenderUI()
 						Name = "TextLabel",
 						BackgroundTransparency = 1,
 						FontFace = Font.new("rbxasset://fonts/families/FredokaOne.json"),
-						Position = UDim2.fromScale(0.39097, 0.0588235),
-						Size = UDim2.fromScale(1.1811, 0.882353),
+						Position = UDim2.fromScale(0.36, 0.0588235),
+						Size = UDim2.fromScale(0.62, 0.882353),
 						Text = function()
 							return DataClient and DataClient.FormatNumber(DataClient.Coins()) or "0"
 						end,
@@ -136,17 +142,16 @@ function LoadoutUI.RenderUI()
 					BackgroundTransparency = 0.2,
 					BorderColor3 = Color3.new(),
 					BorderSizePixel = 0,
-					LayoutOrder = 2,
 					Position = UDim2.fromScale(0.434455, 0.225),
-					Size = UDim2.fromScale(0.153233, 0.566667),
+					Size = UDim2.fromScale(0.165, 0.566667),
 
 					create("ImageLabel")({
 						Name = "ImageLabel",
 						BackgroundTransparency = 1,
 						Image = "rbxassetid://104268323693949",
-						Position = UDim2.fromScale(0.14654, -0.17558),
+						Position = UDim2.fromScale(0.06, -0.17558),
 						ScaleType = Enum.ScaleType.Fit,
-						Size = UDim2.fromScale(0.328972, 1.29323),
+						Size = UDim2.fromScale(0.2911, 1.29323),
 
 						create("UIAspectRatioConstraint")({
 							Name = "UIAspectRatioConstraint",
@@ -166,8 +171,8 @@ function LoadoutUI.RenderUI()
 						Name = "TextLabel",
 						BackgroundTransparency = 1,
 						FontFace = Font.new("rbxasset://fonts/families/FredokaOne.json"),
-						Position = UDim2.fromScale(0.398844, 0.0882353),
-						Size = UDim2.fromScale(0.867052, 0.823529),
+						Position = UDim2.fromScale(0.36, 0.0882353),
+						Size = UDim2.fromScale(0.62, 0.823529),
 						Text = function()
 							return DataClient and DataClient.FormatNumber(DataClient.Gems()) or "0"
 						end,
@@ -200,17 +205,16 @@ function LoadoutUI.RenderUI()
 					BackgroundTransparency = 0.2,
 					BorderColor3 = Color3.new(),
 					BorderSizePixel = 0,
-					LayoutOrder = 3,
 					Position = UDim2.fromScale(0.434455, 0.225),
-					Size = UDim2.fromScale(0.153233, 0.566667),
+					Size = UDim2.fromScale(0.165, 0.566667),
 
 					create("ImageLabel")({
 						Name = "ImageLabel",
 						BackgroundTransparency = 1,
 						Image = "rbxassetid://129066851213188",
-						Position = UDim2.fromScale(0.140759, -0.0579331),
+						Position = UDim2.fromScale(0.06, -0.0579331),
 						ScaleType = Enum.ScaleType.Fit,
-						Size = UDim2.fromScale(0.207917, 1.29323),
+						Size = UDim2.fromScale(0.2911, 1.29323),
 
 						create("UIAspectRatioConstraint")({
 							Name = "UIAspectRatioConstraint",
@@ -230,8 +234,8 @@ function LoadoutUI.RenderUI()
 						Name = "TextLabel",
 						BackgroundTransparency = 1,
 						FontFace = Font.new("rbxasset://fonts/families/FredokaOne.json"),
-						Position = UDim2.fromScale(0.398844, 0.0882353),
-						Size = UDim2.fromScale(0.867052, 0.823529),
+						Position = UDim2.fromScale(0.36, 0.0882353),
+						Size = UDim2.fromScale(0.62, 0.823529),
 						Text = function()
 							return DataClient and DataClient.FormatNumber(DataClient.Blossom()) or "0"
 						end,
@@ -262,8 +266,8 @@ function LoadoutUI.RenderUI()
 			create("Frame")({
 				Name = "Frame",
 				BackgroundTransparency = 1,
-				Position = UDim2.fromScale(0.183092, 0.842618),
-				Size = UDim2.fromScale(0.631857, 0.136351),
+				Position = UDim2.fromScale(0.183092, 0.825),
+				Size = UDim2.fromScale(0.631857, 0.134),
 
 				create("UIListLayout")({
 					Name = "UIListLayout",
@@ -277,7 +281,7 @@ function LoadoutUI.RenderUI()
 				unpack(slots),
 			}),
 
-			-- 3. 덱 아래: 경험치 & 레벨 바 (Xpbar / Level)
+			-- 3. 덱 아래: 경험치 & 레벨 바 (원본 디자인 100% 유지)
 			create("Folder")({
 				Name = "Xpbar",
 
@@ -285,7 +289,7 @@ function LoadoutUI.RenderUI()
 					Name = "XpbarDeco",
 					AnchorPoint = Vector2.new(0.5, 0.5),
 					BackgroundTransparency = 1,
-					Position = UDim2.fromScale(0.501244, 0.975142),
+					Position = UDim2.fromScale(0.501244, 0.980),
 					Size = UDim2.fromScale(0.735, 0.03),
 					ZIndex = 10,
 
@@ -399,7 +403,7 @@ function LoadoutUI.RenderUI()
 					AnchorPoint = Vector2.new(0.5, 0.5),
 					BackgroundTransparency = 1,
 					Image = "rbxassetid://123614945790793",
-					Position = UDim2.fromScale(0.501244, 0.975142),
+					Position = UDim2.fromScale(0.501244, 0.980),
 					Size = UDim2.fromScale(0.734689, 0.0301169),
 				}),
 
@@ -408,7 +412,7 @@ function LoadoutUI.RenderUI()
 					AnchorPoint = Vector2.new(0.5, 0.5),
 					BackgroundTransparency = 1,
 					Image = "rbxassetid://87566142417575",
-					Position = UDim2.fromScale(0.501244, 0.973142),
+					Position = UDim2.fromScale(0.501244, 0.978),
 					Size = function()
 						local exp = DataClient and DataClient.Exp() or 0
 						local maxExp = DataClient and DataClient.GetMaxExp() or 100
@@ -435,7 +439,7 @@ function LoadoutUI.RenderUI()
 						Enum.FontWeight.Bold,
 						Enum.FontStyle.Normal
 					),
-					Position = UDim2.fromScale(0.501244, 0.963142),
+					Position = UDim2.fromScale(0.501244, 0.963),
 					Size = UDim2.fromScale(0.498016, 0.0337153),
 					Text = function()
 						local level = DataClient and DataClient.Level() or 1
@@ -460,6 +464,7 @@ end
 function LoadoutUI.Init()
 	InventoryClient = ServiceRegistry:GetService("InventoryClient")
 	DataClient = ServiceRegistry:GetService("DataClient")
+	DialogueClient = ServiceRegistry:GetService("DialogueClient")
 	UIController = ServiceRegistry:GetService("UIController")
 end
 
