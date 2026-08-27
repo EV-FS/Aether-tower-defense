@@ -85,7 +85,7 @@ function QuestUI.RenderUI()
 	end, 0.16, 0.75)
 
 	local hoverStrokeColor = spring(function()
-		return if isHovered() then Color3.fromRGB(115, 255, 145) else Color3.fromRGB(75, 88, 100)
+		return if isHovered() then Color3.fromRGB(231, 231, 231) else Color3.fromRGB(75, 88, 100)
 	end, 0.18, 0.75)
 
 	local hoverStrokeTransparency = spring(function()
@@ -209,7 +209,7 @@ function QuestUI.RenderUI()
 				-- 퀘스트 카드
 				create("ImageLabel")({
 					Name = "Quest",
-					AnchorPoint = Vector2.new(0.5, 0.5), -- 좌상단 기준 스케일링
+					AnchorPoint = Vector2.new(0, 0), -- 좌상단 기준 스케일링
 					BackgroundTransparency = 1,
 					Image = "rbxassetid://108648957028585",
 					ImageTransparency = entranceAlpha,
