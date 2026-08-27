@@ -176,7 +176,7 @@ function ButtonArrangementUI.RenderUI()
 		}),
 
 		createMenuButton("InventoryButton", "INVENTORY", "rbxassetid://98616994645968", 1, function()
-			UIController:Open("InventoryFrame")
+			UIController:Toggle("Inventory")
 		end),
 		createMenuButton("ShopButton", "SHOP", "rbxassetid://116881322718656", 2),
 		createMenuButton("TradeBUtton", "TRADE", "rbxassetid://131037655538280", 3),

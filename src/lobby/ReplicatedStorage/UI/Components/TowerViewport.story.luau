@@ -15,7 +15,7 @@ return function(target: Instance)
 	container.Size = UDim2.fromScale(1, 1)
 	container.Parent = target
 
-	local towerName = source("Wizard Noob")
+	local towerName = source("Wizard")
 	local rotated = source(false)
 
 	local destroyVide = mount(function()

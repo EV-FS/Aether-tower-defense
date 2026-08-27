@@ -7,7 +7,7 @@ local LoadoutSlot = require(ReplicatedStorage.UI.Components.LoadoutSlot)
 local create = Vide.create
 
 local MAX_LOADOUT_SIZE = 5
-local INVENTORY_VIEW_ID = "InventoryFrame"
+local INVENTORY_VIEW_ID = "Inventory"
 
 local InventoryClient
 local DataClient

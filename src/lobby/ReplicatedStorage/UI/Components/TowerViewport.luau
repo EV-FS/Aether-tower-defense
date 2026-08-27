@@ -47,6 +47,7 @@ export type Props = {
 	AnimationId: Reactive<AnimationId?>?,
 	AnimationLooped: Reactive<boolean>?,
 	AnimationSpeed: Reactive<number>?,
+	AnimationFadeTime: Reactive<number>?,
 }
 
 local function getTowerAsset(towerName: string): Model?
@@ -116,9 +117,7 @@ local function updateCamera(
 )
 	local direction = if cameraDirection.Magnitude > 0 then cameraDirection.Unit else DEFAULT_CAMERA_DIRECTION
 	local clampedFieldOfView = math.clamp(fieldOfView, 1, 120)
-	local distance = modelState.BoundsRadius
-		/ math.sin(math.rad(clampedFieldOfView) * 0.5)
-		* math.max(fitPadding, 0.5)
+	local distance = modelState.BoundsRadius / math.sin(math.rad(clampedFieldOfView) * 0.5) * math.max(fitPadding, 0.5)
 	local focus = modelCFrame:PointToWorldSpace(modelState.FocusOffset + Vector3.new(0, focusYOffset, 0))
 
 	camera.FieldOfView = clampedFieldOfView
@@ -191,6 +190,7 @@ end
 local function startAnimation(
 	model: Model,
 	animation: Animation,
+	fadeTime: number,
 	setActiveTrack: (AnimationTrack?) -> ()
 ): () -> ()
 	local active = true
@@ -219,7 +219,7 @@ local function startAnimation(
 		end
 
 		track = result
-		track:Play()
+		track:Play(fadeTime)
 		setActiveTrack(track)
 	end)
 
@@ -320,7 +320,7 @@ return function(props: Props)
 			return
 		end
 
-		cleanup(startAnimation(state.Instance, animation, activeTrack))
+		cleanup(startAnimation(state.Instance, animation, read(props.AnimationFadeTime), activeTrack))
 	end)
 
 	-- Loop and speed updates are cheap and do not restart the animation.

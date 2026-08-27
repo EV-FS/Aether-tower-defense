@@ -1,0 +1,184 @@
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local Vide = require(ReplicatedStorage.Packages.Vide)
+local TowerData = require(ReplicatedStorage.Settings.Data.TowerData)
+local RarityGradient = require(ReplicatedStorage.Settings.Visuals.RarityGradient)
+local useButtonEffect = require(ReplicatedStorage.Shared.Modules.UI.Hooks.useButtonEffect)
+local useColorSequenceCycle = require(ReplicatedStorage.Shared.Modules.UI.Hooks.useColorSequenceCycle)
+
+local create = Vide.create
+local spring = Vide.spring
+
+return function(props)
+	local towerInfo = TowerData.ByName[props.TowerName]
+
+	return create("ImageButton")({
+		Name = "ImageButton",
+		BackgroundTransparency = 1,
+		Image = "rbxassetid://87496848270095",
+		ImageTransparency = spring(function()
+			return if props.Visible() then 0 else 1
+		end, 0.5, 1),
+
+		LayoutOrder = props.LayoutOrder or 0,
+		Position = UDim2.fromScale(0.830332, 0.0325001),
+		Size = UDim2.fromScale(0.186, 0.125),
+		MouseButton1Click = props.OnActivated,
+
+		useButtonEffect(),
+
+		create("UICorner")({
+			CornerRadius = UDim.new(0.08),
+		}),
+
+		create("Frame")({
+			Name = "SelectedEffect",
+			AnchorPoint = Vector2.new(0.5, 0.5),
+			BackgroundTransparency = 1,
+			Size = UDim2.fromScale(0.95, 0.95),
+			Position = UDim2.fromScale(0.5, 0.5),
+
+			create("UICorner")({
+				CornerRadius = UDim.new(0.08),
+			}),
+
+			create("UIStroke")({
+				Color = Color3.new(1, 1, 1),
+				Thickness = 3,
+				Transparency = spring(function()
+					return if props.IsSelected() then 0 else 1
+				end, 0.2, 1),
+			}),
+		}),
+		create("UIShadow")({
+			BlurRadius = UDim.new(0.075),
+			Color = Color3.new(1, 1, 1),
+			Transparency = spring(function()
+				return if props.IsSelected() then 0.2 else 1
+			end, 0.2, 1),
+			ZIndex = -1,
+		}),
+
+		create("TextLabel")({
+			Name = "Name",
+			BackgroundTransparency = 1,
+			FontFace = Font.new(
+				"rbxasset://fonts/families/SourceSansPro.json",
+				Enum.FontWeight.Bold,
+				Enum.FontStyle.Normal
+			),
+			Position = UDim2.fromScale(0.107999, 0.618754),
+			Size = UDim2.fromScale(0.84887, 0.172688),
+			Text = props.TowerName,
+			TextColor3 = Color3.new(1, 1, 1),
+			TextScaled = true,
+			TextXAlignment = Enum.TextXAlignment.Left,
+			ZIndex = 10,
+
+			create("UIStroke")({
+				Name = "UIStroke",
+				Thickness = 2,
+			}),
+		}),
+
+		create("UIAspectRatioConstraint")({
+			Name = "UIAspectRatioConstraint",
+		}),
+
+		create("ImageLabel")({
+			Name = "Level",
+			BackgroundTransparency = 1,
+			Image = "rbxassetid://104083646922843",
+			Position = UDim2.fromScale(-0.0129994, -0.05),
+			Size = UDim2.fromScale(0.653434, 0.238322),
+			ZIndex = 10,
+
+			create("UIAspectRatioConstraint")({
+				Name = "UIAspectRatioConstraint",
+				AspectRatio = 3.2,
+			}),
+
+			create("TextLabel")({
+				Name = "TextLabel",
+				AnchorPoint = Vector2.new(0.5, 0.5),
+				BackgroundTransparency = 1,
+				FontFace = Font.new(
+					"rbxasset://fonts/families/SourceSansPro.json",
+					Enum.FontWeight.Bold,
+					Enum.FontStyle.Normal
+				),
+				Position = UDim2.fromScale(0.3, 0.489),
+				Size = UDim2.fromScale(0.477775, 0.75514),
+				Text = `Level {props.TowerData.Lv}`,
+				TextColor3 = Color3.new(1, 1, 1),
+				TextScaled = true,
+
+				create("UIStroke")({
+					Name = "UIStroke",
+					Thickness = 2,
+				}),
+
+				create("UIGradient")({
+					Name = "UIGradient",
+					Color = ColorSequence.new({
+						ColorSequenceKeypoint.new(0, Color3.new(1, 1, 1)),
+						ColorSequenceKeypoint.new(1, Color3.fromRGB(104, 106, 211)),
+					}),
+					Rotation = 90,
+				}),
+			}),
+		}),
+
+		create("ImageLabel")({
+			Name = "Trait",
+			BackgroundTransparency = 1,
+			Image = "rbxassetid://100463457721493",
+			Position = UDim2.fromScale(0.64, 0.03),
+			Size = UDim2.fromScale(0.359565, 0.31687),
+
+			create("UIAspectRatioConstraint")({
+				Name = "UIAspectRatioConstraint",
+			}),
+		}),
+
+		create("TextLabel")({
+			Name = "Cost",
+			BackgroundTransparency = 1,
+			FontFace = Font.new(
+				"rbxasset://fonts/families/SourceSansPro.json",
+				Enum.FontWeight.Bold,
+				Enum.FontStyle.Normal
+			),
+			Position = UDim2.fromScale(0.108, 0.782623),
+			Size = UDim2.fromScale(0.641, 0.2),
+			Text = `₩{towerInfo.Stats[0].Cost}`,
+			TextColor3 = Color3.new(1, 1, 1),
+			TextScaled = true,
+			TextXAlignment = Enum.TextXAlignment.Left,
+			ZIndex = 10,
+
+			create("UIStroke")({
+				Name = "UIStroke",
+				Thickness = 2,
+			}),
+
+			create("UIGradient")({
+				Name = "UIGradient",
+				Color = ColorSequence.new({
+					ColorSequenceKeypoint.new(0, Color3.fromRGB(255, 152, 62)),
+					ColorSequenceKeypoint.new(1, Color3.fromRGB(255, 160, 26)),
+				}),
+				Rotation = 90,
+			}),
+		}),
+
+		create("UIGradient")({
+			Name = "UIGradient",
+			Rotation = 45,
+
+			useColorSequenceCycle(
+				RarityGradient.Gradients[towerInfo.Rarity],
+				RarityGradient.ShimmerSpeed[towerInfo.Rarity]
+			),
+		}),
+	})
+end
