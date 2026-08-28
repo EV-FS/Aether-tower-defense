@@ -5,6 +5,12 @@ local Vide = require(ReplicatedStorage.Packages.Vide)
 local action = Vide.action
 local cleanup = Vide.cleanup
 
+type Reactive<T> = T | (() -> T)
+
+local function read<T>(value: Reactive<T>): T
+	return if type(value) == "function" then (value :: () -> T)() else value
+end
+
 local function getCycledSequence(colorSequence: ColorSequence, elapsed: number, transitionTime: number): ColorSequence
 	local keypoints = colorSequence.Keypoints
 	local keypointCount = #keypoints
@@ -39,19 +45,29 @@ end
 
 	transitionTime is the time in seconds for each keypoint color to reach the next color.
 ]]
-local function useColorSequenceCycle(colorSequence: ColorSequence, transitionTime: number?)
-	local duration = math.max(transitionTime or 1, 0.01)
 
+local function useColorSequenceCycle(colorSequence: Reactive<ColorSequence>, transitionTime: Reactive<number>?)
 	return action(function(instance: Instance)
-		assert(instance:IsA("UIGradient"), "useColorSequenceCycle must be used on a UIGradient")
+		assert(instance:IsA("UIGradient"))
 
 		local gradient = instance :: UIGradient
+		local activeSequence = read(colorSequence)
 		local elapsed = 0
-		gradient.Color = colorSequence
+
+		gradient.Color = activeSequence
 
 		local connection = RunService.RenderStepped:Connect(function(deltaTime)
+			local nextSequence = read(colorSequence)
+
+			if nextSequence ~= activeSequence then
+				activeSequence = nextSequence
+				elapsed = 0
+			end
+
+			local duration = math.max(if transitionTime then read(transitionTime) else 1, 0.01)
+
 			elapsed += deltaTime
-			gradient.Color = getCycledSequence(colorSequence, elapsed, duration)
+			gradient.Color = getCycledSequence(activeSequence, elapsed, duration)
 		end)
 
 		cleanup(connection)

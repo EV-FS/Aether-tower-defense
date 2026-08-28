@@ -1,9 +1,10 @@
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Vide = require(ReplicatedStorage.Packages.Vide)
 local TowerData = require(ReplicatedStorage.Settings.Data.TowerData)
+local RarityGradient = require(ReplicatedStorage.Settings.Visuals.RarityGradient)
 local ServiceRegistry = require(ReplicatedStorage.Shared.Modules.Core.ServiceRegistry)
 local useButtonEffect = require(ReplicatedStorage.Shared.Modules.UI.Hooks.useButtonEffect)
-local Fn = require(ReplicatedStorage.Shared.Modules.Utils.Fn)
+local useColorSequenceCycle = require(ReplicatedStorage.Shared.Modules.UI.Hooks.useColorSequenceCycle)
 local NumberUtils = require(ReplicatedStorage.Shared.Modules.Utils.NumberUtils)
 local TowerButton = require(ReplicatedStorage.UI.Components.TowerButton)
 local TowerViewport = require(ReplicatedStorage.UI.Components.TowerViewport)
@@ -40,16 +41,6 @@ local selectedMaxTower = source(0)
 
 local function getTowerKeyId(towerKey: string | number): number
 	return tonumber(tostring(towerKey):match("%d+$")) or 0
-end
-
-local function cloneTowerInventory(inventory)
-	local clone = {}
-
-	for towerName, towers in inventory do
-		clone[towerName] = table.clone(towers)
-	end
-
-	return clone
 end
 
 local function compareByCriterion(a, b, criterion: string): boolean?
@@ -159,11 +150,20 @@ end
 function InventoryUI.EquipActivated()
 	local towerName = selectedName()
 	local towerKey = selectedKey()
-	if type(towerName) ~= "string" or typeof(towerKey) ~= "string" then
+	if type(towerName) ~= "string" or (type(towerKey) ~= "string" and type(towerKey) ~= "number") then
 		return
 	end
 
-	InventoryClient.EquipTower(towerName, towerKey)
+	InventoryClient.ToggleTower(towerName, towerKey):catch(function(err)
+		warn(`[InventoryUI] Failed to update loadout: {err}`)
+	end)
+end
+
+function InventoryUI.SortActivated()
+	local currentIndex = table.find(SORT_CRITERIA, currentSort()) or 1
+	local nextIndex = currentIndex % #SORT_CRITERIA + 1
+
+	currentSort(SORT_CRITERIA[nextIndex])
 end
 
 function InventoryUI.RenderUI()
@@ -277,10 +277,12 @@ function InventoryUI.RenderUI()
 
 				create("ImageLabel")({
 					Name = "Bottom",
+					Active = true,
 					BackgroundTransparency = 1,
 					Image = "rbxassetid://101405228511471",
 					Position = UDim2.fromScale(-0.00261403, 0.882837),
 					Size = UDim2.fromScale(1, 0.117596),
+					ZIndex = 20,
 
 					create("ImageButton")({
 						Name = "SellButton",
@@ -293,6 +295,7 @@ function InventoryUI.RenderUI()
 								else UDim2.fromScale(0.24, 1.2)
 						end, 0.35, 0.5),
 						Size = UDim2.fromScale(0.251482, 0.782844),
+						ZIndex = 21,
 
 						useButtonEffect(),
 
@@ -319,6 +322,7 @@ function InventoryUI.RenderUI()
 								else UDim2.fromScale(0.5, 1.4)
 						end, 0.5, 0.5),
 						Size = UDim2.fromScale(0.251482, 0.782844),
+						ZIndex = 21,
 
 						useButtonEffect(),
 
@@ -336,7 +340,9 @@ function InventoryUI.RenderUI()
 
 					create("ImageButton")({
 						Name = "SortButton",
+						Active = true,
 						AnchorPoint = Vector2.new(0.5, 0.5),
+						AutoButtonColor = false,
 						BackgroundTransparency = 1,
 						Image = "rbxassetid://128977854458302",
 						Position = spring(function()
@@ -345,19 +351,16 @@ function InventoryUI.RenderUI()
 								else UDim2.fromScale(0.76, 1.6)
 						end, 0.65, 0.5),
 						Size = UDim2.fromScale(0.251482, 0.782844),
+						Selectable = true,
+						ZIndex = 21,
 
-						MouseButton1Click = function()
-							print("a")
-							local currentIndex = table.find(SORT_CRITERIA, currentSort()) or 1
-							local nextIndex = currentIndex % #SORT_CRITERIA + 1
-
-							currentSort(SORT_CRITERIA[nextIndex])
-						end,
+						Activated = InventoryUI.SortActivated,
 
 						useButtonEffect(),
 
 						create("TextLabel")({
 							Name = "Title",
+							Active = false,
 							BackgroundTransparency = 1,
 							FontFace = Font.new("rbxasset://fonts/families/FredokaOne.json"),
 							Position = UDim2.fromScale(0.234055, 0.237766),
@@ -374,6 +377,7 @@ function InventoryUI.RenderUI()
 				create("CanvasGroup")({
 					Name = "ScrollBackground",
 					BackgroundTransparency = 1,
+					ClipsDescendants = true,
 					Position = spring(function()
 						return if UIController:IsVisible("Inventory")()
 							then UDim2.fromScale(0.0339824, 0.124035)
@@ -387,6 +391,7 @@ function InventoryUI.RenderUI()
 						AutomaticCanvasSize = Enum.AutomaticSize.Y,
 						BackgroundTransparency = 1,
 						CanvasSize = UDim2.new(),
+						ClipsDescendants = true,
 						Position = UDim2.fromScale(0, 0),
 						ScrollBarImageColor3 = Color3.new(),
 						ScrollBarThickness = 0,
@@ -419,6 +424,9 @@ function InventoryUI.RenderUI()
 													and selectedKey() == towerKey
 												then true
 												else false
+										end,
+										IsEquipped = function()
+											return InventoryClient.IsEquipped(towerName(), towerKey)
 										end,
 										LayoutOrder = function()
 											return getTowerLayoutOrder(towerName(), towerKey, towerData)
@@ -552,10 +560,17 @@ function InventoryUI.RenderUI()
 
 				create("UIGradient")({
 					Name = "UIGradient",
-					Color = ColorSequence.new({
-						ColorSequenceKeypoint.new(0, Color3.fromRGB(100, 100, 100)),
-						ColorSequenceKeypoint.new(1, Color3.fromRGB(100, 3, 4)),
-					}),
+					Color = function()
+						local selectedInfo = TowerData.ByName[selectedName()]
+						local secondColor = if selectedInfo
+							then RarityGradient.Glow[selectedInfo.Rarity]
+							else Color3.new(1, 1, 1)
+
+						return ColorSequence.new({
+							ColorSequenceKeypoint.new(0, Color3.fromRGB(100, 100, 100)),
+							ColorSequenceKeypoint.new(1, secondColor),
+						})
+					end,
 					Rotation = 90,
 				}),
 
@@ -771,7 +786,10 @@ function InventoryUI.RenderUI()
 					FontFace = Font.new("rbxasset://fonts/families/FredokaOne.json"),
 					Position = UDim2.fromScale(0.49695, 0.200005),
 					Size = UDim2.fromScale(0.83363, 0.0479085),
-					Text = "EXCLUSIVE",
+					Text = function()
+						local selectedInfo = TowerData.ByName[selectedName()]
+						return if selectedInfo then selectedInfo.Rarity else ""
+					end,
 					TextColor3 = Color3.new(1, 1, 1),
 					TextScaled = true,
 					TextXAlignment = Enum.TextXAlignment.Left,
@@ -782,11 +800,15 @@ function InventoryUI.RenderUI()
 
 					create("UIGradient")({
 						Name = "UIGradient",
-						Color = ColorSequence.new({
-							ColorSequenceKeypoint.new(0, Color3.fromRGB(255, 23, 2)),
-							ColorSequenceKeypoint.new(0.501701, Color3.fromRGB(18, 9, 9)),
-							ColorSequenceKeypoint.new(1, Color3.fromRGB(255, 23, 2)),
-						}),
+						useColorSequenceCycle(function()
+							local selectedInfo = TowerData.ByName[selectedName()]
+							return if selectedInfo
+								then RarityGradient.Gradients[selectedInfo.Rarity]
+								else ColorSequence.new(Color3.new(1, 1, 1))
+						end, function()
+							local selectedInfo = TowerData.ByName[selectedName()]
+							return if selectedInfo then RarityGradient.ShimmerSpeed[selectedInfo.Rarity] else 1
+						end),
 					}),
 				}),
 
@@ -850,6 +872,8 @@ function InventoryUI.RenderUI()
 				Size = UDim2.fromScale(0.337246, 0.0842378),
 				ZIndex = 11,
 
+				MouseButton1Click = InventoryUI.EquipActivated,
+
 				useButtonEffect(0.985),
 
 				create("TextLabel")({
@@ -858,7 +882,19 @@ function InventoryUI.RenderUI()
 					FontFace = Font.new("rbxasset://fonts/families/FredokaOne.json"),
 					Position = UDim2.fromScale(0.265238, 0.237766),
 					Size = UDim2.fromScale(0.467855, 0.487941),
-					Text = "EQUIP",
+					Text = function()
+						local towerName = selectedName()
+						local towerKey = selectedKey()
+
+						if
+							type(towerName) ~= "string"
+							or (type(towerKey) ~= "string" and type(towerKey) ~= "number")
+						then
+							return "EQUIP"
+						end
+
+						return if InventoryClient.IsEquipped(towerName, towerKey) then "UNEQUIP" else "EQUIP"
+					end,
 					TextColor3 = Color3.new(1, 1, 1),
 					TextScaled = true,
 				}),
@@ -916,21 +952,10 @@ end
 function InventoryUI.Init()
 	InventoryClient = ServiceRegistry:GetService("InventoryClient")
 	UIController = ServiceRegistry:GetService("UIController")
+	towerInventory = InventoryClient.Towers
 end
 
 function InventoryUI.Start()
-	task.spawn(function()
-		towerInventory(cloneTowerInventory(InventoryClient.GetOwnedTowers()))
-	end)
-
-	InventoryClient.TowerAdded:Connect(function()
-		towerInventory(cloneTowerInventory(InventoryClient.OwnedTowers))
-	end)
-
-	InventoryClient.TowerRemoved:Connect(function()
-		towerInventory(cloneTowerInventory(InventoryClient.OwnedTowers))
-	end)
-
 	UIController:Open("Inventory")
 end
 

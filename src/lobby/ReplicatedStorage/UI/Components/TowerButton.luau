@@ -42,18 +42,22 @@ return function(props)
 			}),
 
 			create("UIStroke")({
-				Color = Color3.new(1, 1, 1),
+				Color = function()
+					return if props.IsEquipped() then Color3.new(0, 1, 0) else Color3.new(1, 1, 1)
+				end,
 				Thickness = 3,
 				Transparency = spring(function()
-					return if props.IsSelected() then 0 else 1
+					return if props.IsSelected() or props.IsEquipped() then 0 else 1
 				end, 0.2, 1),
 			}),
 		}),
 		create("UIShadow")({
 			BlurRadius = UDim.new(0.075),
-			Color = Color3.new(1, 1, 1),
+			Color = function()
+				return if props.IsEquipped() then Color3.new(0, 1, 0) else Color3.new(1, 1, 1)
+			end,
 			Transparency = spring(function()
-				return if props.IsSelected() then 0.2 else 1
+				return if props.IsSelected() or props.IsEquipped() then 0.2 else 1
 			end, 0.2, 1),
 			ZIndex = -1,
 		}),
