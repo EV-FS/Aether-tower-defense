@@ -250,6 +250,14 @@ function InventoryClient.RefreshLoadout()
 	return loadLoadout(true)
 end
 
+function InventoryClient.FetchTowers()
+	return loadTowers()
+end
+
+function InventoryClient.FetchLoadout()
+	return loadLoadout()
+end
+
 function InventoryClient.Refresh()
 	return Promise.all({ InventoryClient.RefreshTowers(), InventoryClient.RefreshLoadout() }):andThen(function(values)
 		return {

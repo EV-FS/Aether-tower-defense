@@ -10,6 +10,15 @@ local spring = Vide.spring
 
 return function(props)
 	local towerInfo = TowerData.ByName[props.TowerName]
+	local rarity = if towerInfo and towerInfo.Rarity then towerInfo.Rarity else "Common"
+	local cost = if towerInfo and towerInfo.Stats and towerInfo.Stats[0] and towerInfo.Stats[0].Cost
+		then towerInfo.Stats[0].Cost
+		elseif towerInfo and towerInfo.Stats and towerInfo.Stats[1] and towerInfo.Stats[1].Cost
+		then towerInfo.Stats[1].Cost
+		else 0
+	local level = if props.TowerData and props.TowerData.Lv then props.TowerData.Lv else 1
+	local gradient = RarityGradient.Gradients[rarity] or RarityGradient.Gradients.Common
+	local shimmerSpeed = RarityGradient.ShimmerSpeed[rarity] or 0.75
 
 	return create("ImageButton")({
 		Name = "ImageButton",
@@ -72,7 +81,7 @@ return function(props)
 			),
 			Position = UDim2.fromScale(0.107999, 0.618754),
 			Size = UDim2.fromScale(0.84887, 0.172688),
-			Text = props.TowerName,
+			Text = props.TowerName or "Unknown",
 			TextColor3 = Color3.new(1, 1, 1),
 			TextScaled = true,
 			TextXAlignment = Enum.TextXAlignment.Left,
@@ -112,7 +121,7 @@ return function(props)
 				),
 				Position = UDim2.fromScale(0.3, 0.489),
 				Size = UDim2.fromScale(0.477775, 0.75514),
-				Text = `Level {props.TowerData.Lv}`,
+				Text = `Level {level}`,
 				TextColor3 = Color3.new(1, 1, 1),
 				TextScaled = true,
 
@@ -154,7 +163,7 @@ return function(props)
 			),
 			Position = UDim2.fromScale(0.108, 0.782623),
 			Size = UDim2.fromScale(0.641, 0.2),
-			Text = `₩{towerInfo.Stats[0].Cost}`,
+			Text = `₩{cost}`,
 			TextColor3 = Color3.new(1, 1, 1),
 			TextScaled = true,
 			TextXAlignment = Enum.TextXAlignment.Left,
@@ -179,10 +188,7 @@ return function(props)
 			Name = "UIGradient",
 			Rotation = 45,
 
-			useColorSequenceCycle(
-				RarityGradient.Gradients[towerInfo.Rarity],
-				RarityGradient.ShimmerSpeed[towerInfo.Rarity]
-			),
+			useColorSequenceCycle(gradient, shimmerSpeed),
 		}),
 	})
 end

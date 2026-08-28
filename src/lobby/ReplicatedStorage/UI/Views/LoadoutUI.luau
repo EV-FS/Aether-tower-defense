@@ -469,7 +469,13 @@ function LoadoutUI.Init()
 end
 
 function LoadoutUI.Start()
-	InventoryClient.FetchLoadout()
+	if InventoryClient then
+		if InventoryClient.FetchLoadout then
+			InventoryClient.FetchLoadout()
+		elseif InventoryClient.RefreshLoadout then
+			InventoryClient.RefreshLoadout()
+		end
+	end
 end
 
 return LoadoutUI
