@@ -6,8 +6,6 @@ local DataService
 local SummonService = {}
 local RANDOM = Random.new()
 local PRICES = { [1] = 100, [10] = 900 }
--- Temporary effect-preview lineup for 10x summons.
-local TEST_TEN_PULL_RARITIES = { "Common", "Rare", "Epic", "Legendary", "Mythic", "Absolute" }
 
 local ActiveSummons = {}
 
@@ -23,16 +21,6 @@ local function rollSingleUnit(bannerData)
 	end
 
 	warn("roll 실패.")
-	return nil, nil
-end
-
-local function getBannerUnitForRarity(bannerData, rarity: string): (string?, string?)
-	for _, unitData in bannerData.Units do
-		if unitData.Rarity == rarity then
-			return unitData.Unit, unitData.Rarity
-		end
-	end
-
 	return nil, nil
 end
 
@@ -63,14 +51,8 @@ function SummonService.Summon(player: Player, amount: number)
 		local currentBanner = Banner.GetActiveBanner()
 		local results = {}
 
-		for index = 1, amount do
-			local unitName, rarity
-			if amount == 10 and TEST_TEN_PULL_RARITIES[index] then
-				unitName, rarity = getBannerUnitForRarity(currentBanner, TEST_TEN_PULL_RARITIES[index])
-			else
-				unitName, rarity = rollSingleUnit(currentBanner)
-			end
-
+		for _ = 1, amount do
+			local unitName, rarity = rollSingleUnit(currentBanner)
 			if unitName then
 				table.insert(results, {
 					UnitName = unitName,

@@ -257,9 +257,13 @@ return function(props: Props)
 	local camera = create("Camera")({ Name = "TowerCamera" })
 	local worldModel = create("WorldModel")({ Name = "TowerWorld" })
 	local modelState = source(nil :: ModelState?)
-	local activeTrack = source(nil :: AnimationTrack?)
+local activeTrack = source(nil :: AnimationTrack?)
 	local viewportFrame = source(nil :: ViewportFrame?)
 	local viewportFitter = source(nil)
+	local viewportFitterRevision = source(0)
+	local fittedCamera: CFrame?
+	local fittedCameraFitter = nil
+	local fittedCameraRevision = -1
 
 	-- Model ownership: clone once per tower and keep each viewport fully isolated.
 	effect(function()
@@ -306,6 +310,16 @@ return function(props: Props)
 		local fitter = ViewportModel.new(frame, camera)
 		fitter:SetModel(state.Instance)
 		viewportFitter(fitter)
+		-- The entry rotation settles over a few frames. Refit once it has settled,
+		-- rather than rebuilding the point cloud on every spring update.
+		task.delay(0.55, function()
+			if viewportFitter() ~= fitter or not state.Instance.Parent then
+				return
+			end
+
+			fitter:SetModel(state.Instance)
+			viewportFitterRevision(viewportFitterRevision() + 1)
+		end)
 		cleanup(function()
 			if viewportFitter() == fitter then
 				viewportFitter(nil)
@@ -325,19 +339,22 @@ return function(props: Props)
 		local fitter = viewportFitter()
 		local fitPadding = math.max(read(props.FitPadding) or DEFAULT_FIT_PADDING, 0.5)
 		if fitter then
+			local fitterRevision = viewportFitterRevision()
 			camera.FieldOfView = math.clamp(read(props.FieldOfView) or DEFAULT_FIELD_OF_VIEW, 1, 120)
-			-- The summon view rotates the model during transitions. Refresh the cached
-			-- point cloud after that transform so the fitted camera remains centered.
-			fitter:SetModel(state.Instance)
-			fitter:Calibrate()
-			local direction = read(props.CameraDirection) or DEFAULT_CAMERA_DIRECTION
-			direction = if direction.Magnitude > 0 then direction.Unit else DEFAULT_CAMERA_DIRECTION
-			-- Use the model's part-level bounds instead of its bounding sphere. This
-			-- avoids excessive empty space on tall or wide units.
-			local orientation = CFrame.lookAt(Vector3.zero, -direction)
-			local fittedCFrame = fitter:GetMinimumFitCFrame(orientation)
+			if fittedCameraFitter ~= fitter or fittedCameraRevision ~= fitterRevision then
+				fitter:Calibrate()
+				local direction = read(props.CameraDirection) or DEFAULT_CAMERA_DIRECTION
+				direction = if direction.Magnitude > 0 then direction.Unit else DEFAULT_CAMERA_DIRECTION
+				-- Use the model's part-level bounds instead of its bounding sphere. This
+				-- avoids excessive empty space on tall or wide units.
+				local orientation = CFrame.lookAt(Vector3.zero, -direction)
+				fittedCamera = fitter:GetMinimumFitCFrame(orientation)
+				fittedCameraFitter = fitter
+				fittedCameraRevision = fitterRevision
+			end
+
 			local paddingDistance = fitter:GetFitDistance() * (fitPadding - 1)
-			camera.CFrame = fittedCFrame * CFrame.new(0, 0, paddingDistance)
+			camera.CFrame = (fittedCamera :: CFrame) * CFrame.new(0, 0, paddingDistance)
 			return
 		end
 
