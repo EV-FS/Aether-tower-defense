@@ -11,7 +11,6 @@ type Reactive<T> = T | (() -> T)
 
 local SHINE_COLORS = {
 	Common = Color3.fromRGB(50, 45, 45),
-	Uncommon = Color3.fromRGB(50, 45, 45),
 	Rare = Color3.fromRGB(29, 34, 176),
 	Epic = Color3.fromRGB(68, 59, 170),
 	Legendary = Color3.fromRGB(158, 63, 153),

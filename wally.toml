@@ -14,6 +14,7 @@ Vide = "centau/vide@0.4.1"
 Matter = "matter-ecs/matter@0.8.5"
 Cmdr = "evaera/cmdr@1.12.0"
 Topbarplus = "1foreverhd/topbarplus@3.4.0"
+Shake = "sleitnick/shake@1.1.0"
 
 [server-dependencies]
 ProfileStore = "lm-loleris/profilestore@1.0.3"
