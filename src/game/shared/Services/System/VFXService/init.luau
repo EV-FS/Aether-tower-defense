@@ -5,7 +5,7 @@ local VFXCaches = require(script.VFXCaches)
 local VFXRecipes = require(ReplicatedStorage.Settings.Visuals.VFXRecipes)
 local Steps = require(ReplicatedStorage.Settings.Visuals.VFXRecipes.Steps)
 local CharacterUtils = require(ReplicatedStorage.Shared.Modules.Utils.CharacterUtils)
-local EmitParticles = require(ReplicatedStorage.Shared.Modules.Utils.EmitParticles)
+local ForgeVFX = require(ReplicatedStorage.Shared.Modules.Utils.ForgeVFX)
 local CustomHandlers = require(script.CustomHandlers)
 local TimeService
 
@@ -220,7 +220,7 @@ function VFXService._PlayEmitType(recipe: Steps.EmitStep, sourceModel: Model, ta
 		end)
 	end
 
-	EmitParticles(effect)
+	ForgeVFX.emit(effect)
 	VFXCaches.ReturnAfter(
 		recipe.Effect,
 		effect,
@@ -271,7 +271,7 @@ function VFXService._PlayProjectileType(recipe: Steps.ProjectileStep, sourceMode
 		RANDOM:NextNumber(-PROJECTILE_OFFSET, PROJECTILE_OFFSET)
 	)
 	local goalCFrame = CFrame.lookAt(endPos, endPos + direction.Unit) + goalOffset
-	EmitParticles(effect)
+	ForgeVFX.emit(effect)
 
 	local isBezier = (recipe.CurveHeight and recipe.CurveHeight ~= 0)
 		or (recipe.CurveOffset and recipe.CurveOffset ~= 0)
@@ -458,8 +458,8 @@ function VFXService._PlayBeamType(recipe: Steps.BeamStep, sourceModel: Model, ta
 		clonedBeam.Parent = sourceAttachment
 	end
 
-	EmitParticles(sourceAttachment)
-	EmitParticles(targetAttachment)
+	ForgeVFX.emit(sourceAttachment)
+	ForgeVFX.emit(targetAttachment)
 
 	local function cleanup()
 		if state.Cleaned then
@@ -529,6 +529,8 @@ function VFXService.Init(services)
 end
 
 function VFXService.Start()
+	ForgeVFX.init()
+
 	local ClientSignals = require(game:GetService("StarterPlayer").StarterPlayerScripts.Client.ClientSignals)
 	ClientSignals.GameSpeedChanged:Connect(function(newSpeed)
 		for _, sourceBeams in pairs(ActiveBeams) do
