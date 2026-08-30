@@ -252,8 +252,8 @@ function VFXService._PlayProjectileType(recipe: Steps.ProjectileStep, sourceMode
 		return
 	end
 
-	if not effect:IsA("BasePart") then
-		warn(`Effect가 BasePart 타입이 아님: {recipe.Effect}`)
+	if not effect:IsA("BasePart") and not effect:IsA("Model") then
+		warn(`Projectile effect must be a BasePart or Model: {recipe.Effect}`)
 		VFXCaches.Return(recipe.Effect, effect)
 		return
 	end
@@ -316,9 +316,9 @@ function VFXService._PlayProjectileType(recipe: Steps.ProjectileStep, sourceMode
 				local tangent = getBezierTangent(t, startPos, controlPoint, endPos + goalOffset)
 
 				if tangent.Magnitude > 0 then
-					effect.CFrame = CFrame.lookAt(currentPos, currentPos + tangent.Unit)
+					VFXCaches.SetCFrame(effect, CFrame.lookAt(currentPos, currentPos + tangent.Unit))
 				else
-					effect.CFrame = CFrame.new(currentPos)
+					VFXCaches.SetCFrame(effect, CFrame.new(currentPos))
 				end
 
 				if elapsed >= travelTime then
@@ -334,13 +334,25 @@ function VFXService._PlayProjectileType(recipe: Steps.ProjectileStep, sourceMode
 			end)
 		end)
 	else
+		local tweenValue = Instance.new("CFrameValue")
+		tweenValue.Value = spawnCFrame
+
+		local tweenConnection = tweenValue:GetPropertyChangedSignal("Value"):Connect(function()
+			if effect:GetAttribute("VFXRunId") == runId then
+				VFXCaches.SetCFrame(effect, tweenValue.Value)
+			end
+		end)
+
 		local tween = TweenService:Create(
-			effect,
+			tweenValue,
 			TweenInfo.new(travelTime / TimeService:GetGameSpeed(), Enum.EasingStyle.Quad, Enum.EasingDirection.Out),
-			{ CFrame = goalCFrame }
+			{ Value = goalCFrame }
 		)
 
 		tween.Completed:Once(function()
+			tweenConnection:Disconnect()
+			tweenValue:Destroy()
+
 			if effect:GetAttribute("VFXRunId") ~= runId then
 				return
 			end
@@ -412,8 +424,13 @@ function VFXService._PlayBeamType(recipe: Steps.BeamStep, sourceModel: Model, ta
 		return instance
 	end
 
-	local startAttach = effect:FindFirstChild("Start")
-	local endAttach = effect:FindFirstChild("End")
+	local effectContents: Instance = effect
+	if effect:IsA("Model") and effect.PrimaryPart then
+		effectContents = effect.PrimaryPart
+	end
+
+	local startAttach = effectContents:FindFirstChild("Start")
+	local endAttach = effectContents:FindFirstChild("End")
 
 	if startAttach then
 		for _, eff in startAttach:GetChildren() do
@@ -443,7 +460,7 @@ function VFXService._PlayBeamType(recipe: Steps.BeamStep, sourceModel: Model, ta
 		end
 	end
 
-	for _, beam in effect:GetChildren() do
+	for _, beam in effectContents:GetChildren() do
 		if not beam:IsA("Beam") then
 			continue
 		end
