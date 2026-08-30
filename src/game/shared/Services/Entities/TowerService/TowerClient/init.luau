@@ -99,30 +99,6 @@ function TowerClient.Start()
 		iAction("Click", iInfo({ Enum.UserInputType.MouseButton1, "Touch" })),
 	}):Enable()
 
-	local test = iScope("TestInput", {
-		iAction("ABC1", iInfo({ Enum.KeyCode.One })),
-		iAction("ABC2", iInfo({ Enum.KeyCode.Two })),
-		iAction("ABC3", iInfo({ Enum.KeyCode.Three })),
-		iAction("ABC4", iInfo({ Enum.KeyCode.Four })),
-		iAction("ABC5", iInfo({ Enum.KeyCode.Five })),
-	}):Disable()
-
-	test.Actions.ABC1.Began:Connect(function()
-		TowerClient.StartPlacement("Mecha Demian")
-	end)
-	test.Actions.ABC2.Began:Connect(function()
-		TowerClient.StartPlacement("Cyborg Dummy")
-	end)
-	test.Actions.ABC3.Began:Connect(function()
-		TowerClient.StartPlacement("Poor Bacon")
-	end)
-	test.Actions.ABC4.Began:Connect(function()
-		TowerClient.StartPlacement("Wizard")
-	end)
-	test.Actions.ABC5.Began:Connect(function()
-		TowerClient.StartPlacement("Fighter")
-	end)
-
 	--/Connect
 	RunService.PreRender:Connect(function()
 		TowerClient._UpdateHoverState()
@@ -292,6 +268,7 @@ function TowerClient.RemoveTower(towerId: number)
 		TowerClient.PlacedTowers[towerData.Name] = math.max(0, TowerClient.PlacedTowers[towerData.Name] - 1)
 	end
 
+	TowerRenderer.SellVisuals(towerId)
 	TowerRenderer.Cleanup(towerId)
 	PlaceValidator.RemoveBorder(towerId)
 
@@ -480,7 +457,7 @@ function TowerClient._TowerUpdated(data: { towerId: number, towerLevel: number }
 	towerData.Level = data.towerLevel
 	towerData.Stats = TableUtils.DeepCopy(TowerData.ByName[towerData.Name].Stats[data.towerLevel])
 
-	TowerRenderer.ApplyAppearence(data.towerLevel, data.towerId)
+	TowerRenderer.UpgradeVisuals(data.towerLevel, data.towerId)
 	if selectedTowerId == data.towerId then
 		TowerRenderer.ToggleRangeIndicator(true, data.towerId, towerData)
 	end

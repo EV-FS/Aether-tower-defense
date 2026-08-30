@@ -51,6 +51,50 @@ return TableUtils.DeepFreeze({
 	},
 
 	--/Towers
+	["TowerShared"] = {
+		Place_Common = {
+			Steps.Emit("Towers/Shared/CommonPlace", { At = "Source.@Ground" }),
+		},
+		Place_Rare = {
+			Steps.Emit("Towers/Shared/RarePlace", { At = "Source.@Ground" }),
+		},
+		Place_Epic = {
+			Steps.Emit("Towers/Shared/EpicPlace", { At = "Source.@Ground" }),
+		},
+		Place_Legendary = {
+			Steps.Emit("Towers/Shared/LegendaryPlace", { At = "Source.@Ground" }),
+		},
+		Place_Mythic = {
+			Steps.Emit("Towers/Shared/MythicPlace", { At = "Source.@Ground" }),
+		},
+		Place_Absolute = {
+			Steps.Emit("Towers/Shared/AbsolutePlace", { At = "Source.@Ground" }),
+		},
+
+		Upgrade_Common = {
+			Steps.Emit("Towers/Shared/CommonUpgrade", { At = "Source.@Ground" }),
+		},
+		Upgrade_Rare = {
+			Steps.Emit("Towers/Shared/RareUpgrade", { At = "Source.@Ground" }),
+		},
+		Upgrade_Epic = {
+			Steps.Emit("Towers/Shared/EpicUpgrade", { At = "Source.@Ground" }),
+		},
+		Upgrade_Legendary = {
+			Steps.Emit("Towers/Shared/LegendaryUpgrade", { At = "Source.@Ground" }),
+		},
+		Upgrade_Mythic = {
+			Steps.Emit("Towers/Shared/MythicUpgrade", { At = "Source.@Ground" }),
+		},
+		Upgrade_Absolute = {
+			Steps.Emit("Towers/Shared/AbsoluteUpgrade", { At = "Source.@Ground" }),
+		},
+
+		Sell = {
+			Steps.Emit("Towers/Shared/Sell", { At = "Source.@Ground" }),
+		},
+	},
+
 	["Bacon"] = {
 		AttackEnd = {
 			[0] = {
@@ -65,7 +109,7 @@ return TableUtils.DeepFreeze({
 			},
 		},
 	},
-	["Fighter Noob"] = {
+	["Fighter"] = {
 		AttackEnd = {
 			[0] = {
 				Steps.Emit("Towers/Shared/Hit2", { At = "Target" }),
@@ -242,16 +286,13 @@ return TableUtils.DeepFreeze({
 			},
 		},
 	},
-	["Wizard Noob"] = {
+	["Wizard"] = {
 		AttackStart = {
 			[0] = {
-				Steps.Emit("Towers/Wizard Noob/A1", { Lifetime = 3, Delay = 0.45, LockToSource = true, At = "Source" }),
+				Steps.Emit("Towers/Wizard/A1", { Lifetime = 3, Delay = 0.45, LockToSource = true, At = "Source" }),
 			},
 			[3] = {
-				Steps.Emit(
-					"Towers/Wizard Noob/A2",
-					{ Lifetime = 3, Delay = 0.036, LockToSource = true, At = "Source" }
-				),
+				Steps.Emit("Towers/Wizard/A2", { Lifetime = 3, Delay = 0.036, LockToSource = true, At = "Source" }),
 			},
 		},
 	},

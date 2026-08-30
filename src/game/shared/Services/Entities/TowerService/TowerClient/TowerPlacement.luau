@@ -171,7 +171,7 @@ function TowerPlacement:_CreateVisuals()
 	self.Highlight.Parent = self.Model
 
 	self.Border = ReplicatedStorage.Assets.Visuals.Border:Clone()
-	self.Border.Size = Vector3.new(0.001, self.BorderRadius * 2, self.BorderRadius * 2)
+	self.Border.Size = Vector3.new(0.001, self.BorderRadius * 2.5, self.BorderRadius * 2.5)
 	self.Border.Position = Vector3.new(0, GROUND_VISUAL_OFFSET, 0)
 	self.Border.Parent = workspace.Visuals.Borders
 
