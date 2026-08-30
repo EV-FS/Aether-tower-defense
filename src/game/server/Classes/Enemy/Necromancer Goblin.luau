@@ -48,7 +48,7 @@ function NecromancerGoblin:Summon()
 			end
 
 			EnemyService.SetupNewEnemy(self.MinionName, false, self.PathAlpha)
-			TimeService.DeltaWait(0.2)
+			TimeService.DeltaWait(0.4)
 		end
 	end)
 end

@@ -131,10 +131,10 @@ return TableUtils.DeepFreeze({
 		[20] = {
 			newEnemy("Red Goblin", 3),
 			newEnemy("Big Goblin", 5, 0.6),
-			newEnemy("Goblin Warrior", 4),
+			newEnemy("Goblin Warrior", 4, 1),
 			newEnemy("Golden Goblin", 2),
 			newEnemy("Elite Goblin", 1, nil, true),
-			newEnemy("Smith Goblin", 2),
+			newEnemy("Smith Goblin", 2, 1),
 			newEnemy("Necromancer Goblin", 2),
 		},
 		[21] = {

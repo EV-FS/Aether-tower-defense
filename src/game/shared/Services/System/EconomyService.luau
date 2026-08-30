@@ -72,7 +72,7 @@ function EconomyService.AddCashToAll(amount: number)
 end
 
 function EconomyService.AddKillCash(enemyMaxHealth: number)
-	EconomyService.AddCashToAll(math.round(1.3 * math.pow(enemyMaxHealth, 0.525)))
+	EconomyService.AddCashToAll(math.round(2.8 * (enemyMaxHealth ^ 0.8)))
 end
 
 function EconomyService.SubtractCash(player: Player, amount: number, isForce: boolean | nil)
