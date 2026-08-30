@@ -7,10 +7,6 @@ return TableUtils.DeepFreeze({
 			ColorSequenceKeypoint.new(0, Color3.fromRGB(199, 199, 199)),
 			ColorSequenceKeypoint.new(1, Color3.fromRGB(160, 160, 160)),
 		}),
-		Uncommon = ColorSequence.new({
-			ColorSequenceKeypoint.new(0, Color3.fromRGB(120, 255, 140)),
-			ColorSequenceKeypoint.new(1, Color3.fromRGB(40, 180, 70)),
-		}),
 		Rare = ColorSequence.new({
 			ColorSequenceKeypoint.new(0, Color3.fromRGB(42, 106, 255)),
 			ColorSequenceKeypoint.new(1, Color3.fromRGB(30, 34, 255)),
@@ -35,7 +31,6 @@ return TableUtils.DeepFreeze({
 
 	Glow = {
 		Common = Color3.fromRGB(180, 180, 180),
-		Uncommon = Color3.fromRGB(90, 220, 110),
 		Rare = Color3.fromRGB(70, 120, 255),
 		Epic = Color3.fromRGB(210, 80, 255),
 		Legendary = Color3.fromRGB(255, 190, 70),
@@ -45,7 +40,6 @@ return TableUtils.DeepFreeze({
 
 	ShimmerSpeed = {
 		Common = 0.75,
-		Uncommon = 0.9,
 		Rare = 1,
 		Epic = 1.15,
 		Legendary = 1.3,

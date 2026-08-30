@@ -3,7 +3,6 @@ local TableUtils = require(script.Parent.Parent.Parent.Shared.Modules.Utils.Tabl
 return TableUtils.DeepFreeze({
 	DisplayNames = {
 		Common = "Common",
-		Uncommon = "Common",
 		Rare = "Rare",
 		Epic = "Epic",
 		Legendary = "Legendary",

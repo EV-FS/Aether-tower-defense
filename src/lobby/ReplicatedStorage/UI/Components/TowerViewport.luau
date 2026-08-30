@@ -1,12 +1,14 @@
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Vide = require(ReplicatedStorage.Packages.Vide)
+local ViewportModel = require(ReplicatedStorage.Shared.Modules.Utils.ViewportModel)
 
 local cleanup = Vide.cleanup
 local create = Vide.create
 local effect = Vide.effect
 local read = Vide.read
 local source = Vide.source
+local action = Vide.action
 
 local DEFAULT_CAMERA_DIRECTION = Vector3.new(0, 0, -1)
 local DEFAULT_FIELD_OF_VIEW = 35
@@ -40,6 +42,7 @@ export type Props = {
 	CameraDirection: Reactive<Vector3>?,
 	FieldOfView: Reactive<number>?,
 	FitPadding: Reactive<number>?,
+	UseViewportModel: Reactive<boolean>?,
 	FocusYOffset: Reactive<number>?,
 	ModelRotation: Reactive<number>?,
 	AnimationName: Reactive<string?>?,
@@ -48,6 +51,7 @@ export type Props = {
 	AnimationLooped: Reactive<boolean>?,
 	AnimationSpeed: Reactive<number>?,
 	AnimationFadeTime: Reactive<number>?,
+	OnModelChanged: ((Model?) -> ())?,
 }
 
 local function getTowerAsset(towerName: string): Model?
@@ -254,6 +258,8 @@ return function(props: Props)
 	local worldModel = create("WorldModel")({ Name = "TowerWorld" })
 	local modelState = source(nil :: ModelState?)
 	local activeTrack = source(nil :: AnimationTrack?)
+	local viewportFrame = source(nil :: ViewportFrame?)
+	local viewportFitter = source(nil)
 
 	-- Model ownership: clone once per tower and keep each viewport fully isolated.
 	effect(function()
@@ -272,13 +278,39 @@ return function(props: Props)
 		local model = towerAsset:Clone()
 		local state = prepareModel(model, towerName)
 		model.Parent = worldModel
+		if props.OnModelChanged then
+			props.OnModelChanged(model)
+		end
 		cleanup(function()
+			if props.OnModelChanged then
+				props.OnModelChanged(nil)
+			end
 			if modelState() == state then
 				modelState(nil)
 			end
 			model:Destroy()
 		end)
 		modelState(state)
+	end)
+
+	-- ViewportModel caches the model bounds and derives a camera distance from the
+	-- actual ViewportFrame dimensions. It is opt-in for views that need a tight fit.
+	effect(function()
+		local state = modelState()
+		local frame = viewportFrame()
+		if not read(props.UseViewportModel) or not state or not frame then
+			viewportFitter(nil)
+			return
+		end
+
+		local fitter = ViewportModel.new(frame, camera)
+		fitter:SetModel(state.Instance)
+		viewportFitter(fitter)
+		cleanup(function()
+			if viewportFitter() == fitter then
+				viewportFitter(nil)
+			end
+		end)
 	end)
 
 	-- Spring updates only transform the existing clone and its camera.
@@ -290,6 +322,24 @@ return function(props: Props)
 
 		local modelCFrame = getModelCFrame(read(props.ModelRotation) or 0)
 		state.Instance:PivotTo(modelCFrame)
+		local fitter = viewportFitter()
+		local fitPadding = math.max(read(props.FitPadding) or DEFAULT_FIT_PADDING, 0.5)
+		if fitter then
+			camera.FieldOfView = math.clamp(read(props.FieldOfView) or DEFAULT_FIELD_OF_VIEW, 1, 120)
+			-- The summon view rotates the model during transitions. Refresh the cached
+			-- point cloud after that transform so the fitted camera remains centered.
+			fitter:SetModel(state.Instance)
+			fitter:Calibrate()
+			local direction = read(props.CameraDirection) or DEFAULT_CAMERA_DIRECTION
+			direction = if direction.Magnitude > 0 then direction.Unit else DEFAULT_CAMERA_DIRECTION
+			-- Use the model's part-level bounds instead of its bounding sphere. This
+			-- avoids excessive empty space on tall or wide units.
+			local orientation = CFrame.lookAt(Vector3.zero, -direction)
+			local fittedCFrame = fitter:GetMinimumFitCFrame(orientation)
+			local paddingDistance = fitter:GetFitDistance() * (fitPadding - 1)
+			camera.CFrame = fittedCFrame * CFrame.new(0, 0, paddingDistance)
+			return
+		end
 
 		-- Cached bounds avoid an expensive GetBoundingBox call on every spring step.
 		updateCamera(
@@ -349,6 +399,9 @@ return function(props: Props)
 		LightColor = props.LightColor or Color3.new(1, 1, 1),
 		LightDirection = props.LightDirection or Vector3.new(-1, -1, -1),
 		CurrentCamera = camera,
+		action(function(instance)
+			viewportFrame(instance)
+		end),
 
 		camera,
 		worldModel,

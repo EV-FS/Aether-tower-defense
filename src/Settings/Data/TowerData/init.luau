@@ -51,13 +51,13 @@ local RawTowerData: {
 		},
 		["Batter Bacon"] = {
 			Index = 2,
-			Rarity = "Uncommon",
+			Rarity = "Common",
 			TowerImage = "rbxassetid://101722065001660",
 			MaxTowers = 5,
 		},
 		["Fighter Noob"] = {
 			Index = 3,
-			Rarity = "Uncommon",
+			Rarity = "Common",
 			TowerImage = "rbxassetid://96421319964530",
 			MaxTowers = 6,
 		},
@@ -135,7 +135,7 @@ local RawTowerData: {
 		},
 		["Scyther Dummy"] = {
 			Index = 16,
-			Rarity = "Uncommon",
+			Rarity = "Common",
 			TowerImage = "rbxassetid://82740074755423",
 			MaxTowers = 4,
 		},
@@ -147,7 +147,7 @@ local RawTowerData: {
 		},
 		["Swordsman Dummy"] = {
 			Index = 19,
-			Rarity = "Uncommon",
+			Rarity = "Common",
 			TowerImage = "rbxassetid://126863079208433",
 			MaxTowers = 5,
 		},

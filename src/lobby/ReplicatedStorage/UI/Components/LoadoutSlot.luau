@@ -14,7 +14,6 @@ local spring = Vide.spring
 
 local RARITY_IMAGE_COLORS = {
 	Common = Color3.fromRGB(236, 230, 230),
-	Uncommon = Color3.fromRGB(236, 230, 230),
 	Rare = Color3.fromRGB(47, 145, 231),
 	Epic = Color3.fromRGB(228, 76, 255),
 	Legendary = Color3.fromRGB(218, 56, 58),

@@ -27,8 +27,7 @@ local RARITY_ORDER = {
 	Legendary = 4,
 	Epic = 5,
 	Rare = 6,
-	Uncommon = 7,
-	Common = 8,
+	Common = 7,
 }
 
 local storageCount = source(0)

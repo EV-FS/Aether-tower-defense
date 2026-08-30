@@ -16,8 +16,7 @@ function tween.fromParams(
   awaitTween: RBXScriptConnection?,
   onFinish: ((organic: boolean) -> ())?,
   startAtZero: boolean?,
-  stepAtPriority: number?,
-  useGameTime: boolean?
+  stepAtPriority: number?
 )
   local bezier = tween.bezier_cache[params]
 
@@ -40,10 +39,6 @@ function tween.fromParams(
   local cleanupStepper
 
   local function step(deltaTime)
-    if useGameTime ~= false then
-      deltaTime = utility.getGameDelta(deltaTime)
-    end
-
     -- roblox tweens apparently don't start from alpha=0
     if not startAtZero and elapsed == 0 then
       elapsed = math.clamp(elapsed + deltaTime, 0, math.max(duration, 0))
@@ -107,8 +102,7 @@ function tween.timer(
   counter: (deltaTime: number, elapsed: number) -> number,
   awaitTween: RBXScriptConnection?,
   scope: {}?,
-  stepAtPriority: number?,
-  useGameTime: boolean?
+  stepAtPriority: number?
 )
   local main = coroutine.running()
 
@@ -117,10 +111,6 @@ function tween.timer(
   local cleanupStepper
 
   local function step(deltaTime)
-    if useGameTime ~= false then
-      deltaTime = utility.getGameDelta(deltaTime)
-    end
-
     local result = counter(deltaTime, elapsed)
 
     if

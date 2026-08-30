@@ -20,7 +20,6 @@ local currentPity = source(0)
 
 local DEFAULT_UNITS_POOL = {
 	Common = { Name = "", RateText = "" },
-	Uncommon = { Name = "", RateText = "" },
 	Rare = { Name = "", RateText = "" },
 	Epic = { Name = "", RateText = "" },
 	Legendary = { Name = "", RateText = "" },

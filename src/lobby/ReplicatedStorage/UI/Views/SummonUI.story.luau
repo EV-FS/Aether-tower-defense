@@ -14,8 +14,7 @@ local isVisible = source(false)
 local isHovered = source(false)
 local currentPity = source(500)
 local currentUnitsPool = source({
-	Common = { Name = "Bacon", RateText = "45%" },
-	Uncommon = { Name = "Boxer Noob", RateText = "30%" },
+	Common = { Name = "Bacon", RateText = "75%" },
 	Rare = { Name = "Katana Noob", RateText = "17.89%" },
 	Epic = { Name = "Lancer Dummy", RateText = "6%" },
 	Legendary = { Name = "Wizard Noob", RateText = "1%" },

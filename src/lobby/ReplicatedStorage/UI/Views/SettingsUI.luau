@@ -10,11 +10,13 @@ local create = Vide.create
 local source = Vide.source
 local spring = Vide.spring
 local action = Vide.action
+local effect = Vide.effect
 
 local VIEW_ID = "Settings"
 
 local SettingsClient
 local UIController
+local settingsIcon = source(nil :: any)
 
 --// Reactive States
 local activeTab = source("Sound") -- "Gameplay", "Sound", "Graphics"
@@ -112,6 +114,20 @@ end
 local SettingsUI = {}
 
 function SettingsUI.RenderUI()
+	effect(function()
+		local icon = settingsIcon()
+		if not icon or not UIController then
+			return
+		end
+
+		local isOpen = UIController:IsOpen(VIEW_ID) or UIController:IsOpen("Setting")
+		if isOpen and not icon.isSelected then
+			icon:select()
+		elseif not isOpen and icon.isSelected then
+			icon:deselect()
+		end
+	end)
+
 	local isVisible = function()
 		if not UIController then
 			return false
@@ -1261,14 +1277,7 @@ function SettingsUI.Start()
 		end
 	end)
 
-	Vide.effect(function()
-		local isOpen = if UIController then (UIController:IsOpen(VIEW_ID) or UIController:IsOpen("Setting")) else false
-		if isOpen and not icon.isSelected then
-			icon:select()
-		elseif not isOpen and icon.isSelected then
-			icon:deselect()
-		end
-	end)
+	settingsIcon(icon)
 
 	-- Sync state from SettingsClient if available
 	task.spawn(function()

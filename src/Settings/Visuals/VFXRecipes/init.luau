@@ -123,7 +123,7 @@ return TableUtils.DeepFreeze({
 	["Lancer Dummy"] = {
 		AttackEnd = {
 			[0] = {
-				Steps.Emit("Towers/Lancer Dummy/Lance", { At = "Source" }),
+				Steps.Emit("Towers/Lancer Dummy/Lance", { At = "Source.HumanoidRootPart" }),
 			},
 		},
 	},
@@ -135,7 +135,7 @@ return TableUtils.DeepFreeze({
 		},
 		AttackEnd = {
 			[0] = {
-				Steps.Emit("Towers/Mecha Demian/Mecha Lunge", { Lifetime = 3, At = "Source" }),
+				Steps.Emit("Towers/Mecha Demian/Mecha Lunge", { Lifetime = 3, At = "Source.HumanoidRootPart" }),
 			},
 			[3] = {
 				Steps.Emit("Towers/Mecha Demian/Impact", { Lifetime = 3, At = "Target.@Ground" }),
@@ -197,14 +197,14 @@ return TableUtils.DeepFreeze({
 	["Cowboy Dummy"] = {
 		AttackEnd = {
 			[0] = {
-				Steps.Emit("Towers/Cowboy Dummy/Shot1", { Lifetime = 5, At = "Source" }),
+				Steps.Emit("Towers/Cowboy Dummy/Shot1", { Lifetime = 5, At = "Source.HumanoidRootPart" }),
 			},
 		},
 	},
 	["Hacker"] = {
 		AttackEnd = {
 			[0] = {
-				Steps.Emit("Towers/Hacker/Slash", { Lifetime = 3, At = "Source" }),
+				Steps.Emit("Towers/Hacker/Slash", { Lifetime = 3, At = "Source.HumanoidRootPart" }),
 			},
 		},
 		Summon = {
@@ -245,12 +245,12 @@ return TableUtils.DeepFreeze({
 	["Wizard Noob"] = {
 		AttackStart = {
 			[0] = {
-				Steps.Emit("Towers/Wizard Noob/A1", { Lifetime = 3, Delay = 0.45, LockToSource = true, At = "Source" }),
+				Steps.Emit("Towers/Wizard Noob/A1", { Lifetime = 3, Delay = 0.45, LockToSource = true, At = "Source.HumanoidRootPart" }),
 			},
 			[3] = {
 				Steps.Emit(
 					"Towers/Wizard Noob/A2",
-					{ Lifetime = 3, Delay = 0.036, LockToSource = true, At = "Source" }
+					{ Lifetime = 3, Delay = 0.036, LockToSource = true, At = "Source.HumanoidRootPart" }
 				),
 			},
 		},

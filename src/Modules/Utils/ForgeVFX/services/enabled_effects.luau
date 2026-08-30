@@ -83,37 +83,26 @@ function enabled_effects.init(scope: types.scope, shared_part_cache: any, effect
       if enabled then
         utility.cleanupScope(tempScope)
 
-        local elapsed = math.huge
+        local last = 0
         local cancelToken = { _promises = {}, _scopes = {} }
 
         utility.setEnabledCancelToken(obj, cancelToken)
 
         table.insert(
           tempScope,
-          RunService.RenderStepped:Connect(function(deltaTime)
+          RunService.RenderStepped:Connect(function()
             local rate = attr.get(obj, "Rate", 5)
             local speed = attr.getState(obj, "SpeedOverride", 1)
 
-            if speed <= 0 or rate <= 0 then
+            if speed == 0 then
               return
             end
 
-            local interval = 1 / rate
-            local gameDelta = utility.getGameDelta(deltaTime)
-
-            if gameDelta <= 0 then
+            if os.clock() - last <= (1 / rate) / speed then
               return
             end
 
-            if elapsed ~= math.huge then
-              elapsed += gameDelta * speed
-            end
-
-            if elapsed < interval then
-              return
-            end
-
-            elapsed = if elapsed == math.huge then 0 else elapsed % interval
+            last = os.clock()
 
             local emitScope = {}
             emitScope.depth = 0

@@ -1,8 +1,7 @@
 local Banner = {}
 
 Banner._UnitPool = {
-	Common = { "Bacon", "Dummy", "Noob" },
-	Uncommon = { "Batter Bacon", "Boxer Noob", "Scyther Dummy" },
+	Common = { "Bacon", "Dummy", "Noob", "Batter Bacon", "Boxer Noob", "Scyther Dummy" },
 	Rare = { "Gunner Dummy", "Katana Noob" },
 	Epic = { "Lancer Dummy", "Poor Bacon", "Smith Dummy" },
 	Legendary = { "Minigunner Dummy", "RPG Noob", "King Noob", "Mecha" },
@@ -11,8 +10,7 @@ Banner._UnitPool = {
 }
 
 Banner.UnitPool = {
-	Common = { "Bacon", "Dummy", "Noob" },
-	Uncommon = { "Batter Bacon", "Boxer Noob", "Scyther Dummy" },
+	Common = { "Bacon", "Dummy", "Noob", "Batter Bacon", "Boxer Noob", "Scyther Dummy" },
 	Rare = { "Gunner Dummy", "Katana Noob" },
 	Epic = { "Lancer Dummy", "Poor Bacon" },
 	Legendary = { "Minigunner Dummy", "King Noob" },
@@ -21,8 +19,7 @@ Banner.UnitPool = {
 }
 
 Banner.RarityRates = {
-	{ Rarity = "Common", Weight = 45 },
-	{ Rarity = "Uncommon", Weight = 30 },
+	{ Rarity = "Common", Weight = 75 },
 	{ Rarity = "Rare", Weight = 17.89 },
 	{ Rarity = "Epic", Weight = 6 },
 	{ Rarity = "Legendary", Weight = 1 },

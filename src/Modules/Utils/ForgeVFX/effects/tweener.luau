@@ -23,7 +23,7 @@ function tweener.emit(obj: RayValue, scope: types.scope, isAttribute: boolean)
   local durationRange = attr.getRange(obj, "Duration", NumberRange.new(1, 1), NumberRange.new(0, math.huge))
 
   if emitDelay > 0 then
-    utility.gameWait(emitDelay)
+    task.wait(emitDelay)
   end
 
   local endValue = attr.get(obj, "_END_VALUE", nil)
