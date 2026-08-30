@@ -107,7 +107,9 @@ local enabled_effects = require("@self/services/enabled_effects")
 local PluginContext = utility.PLUGIN_CONTEXT
 local ServerContext = utility.SERVER_CONTEXT
 
-type params = {}
+type params = {
+  TimeService: any?,
+}
 
 local api = {}
 
@@ -115,6 +117,10 @@ api.scope = {}
 api.setup = false
 
 function api.init(params: params?)
+  if params and params.TimeService then
+    utility.setTimeService(params.TimeService)
+  end
+
   if api.setup then
     return
   end

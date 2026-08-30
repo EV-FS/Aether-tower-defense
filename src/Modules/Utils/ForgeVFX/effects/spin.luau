@@ -29,7 +29,7 @@ function spin.emit(ref: Model, scope: types.scope)
 
   local currentSpeed = speedStart
 
-  task.wait(emitDelay)
+  utility.gameWait(emitDelay)
 
   local speedTween
 
