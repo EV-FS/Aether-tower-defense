@@ -245,13 +245,25 @@ return TableUtils.DeepFreeze({
 	["Wizard Noob"] = {
 		AttackStart = {
 			[0] = {
-				Steps.Emit("Towers/Wizard Noob/A1", { Lifetime = 3, Delay = 0.45, LockToSource = true, At = "Source.HumanoidRootPart" }),
+				Steps.Emit(
+					"Towers/Wizard Noob/A1",
+					{ Lifetime = 3, Delay = 0.45, LockToSource = true, At = "Source.HumanoidRootPart" }
+				),
 			},
 			[3] = {
 				Steps.Emit(
 					"Towers/Wizard Noob/A2",
 					{ Lifetime = 3, Delay = 0.036, LockToSource = true, At = "Source.HumanoidRootPart" }
 				),
+			},
+		},
+	},
+	["Galahad"] = {
+		AttackStart = {
+			[3] = {
+				Steps.Emit("Towers/Galahad/1", { Lifetime = 3, Delay = 0.55, LockToSource = true, At = "Source" }),
+				Steps.Emit("Towers/Galahad/2", { Lifetime = 3, Delay = 0.966, LockToSource = true, At = "Source" }),
+				Steps.Emit("Towers/Galahad/3", { Lifetime = 3, Delay = 1.733, LockToSource = true, At = "Source" }),
 			},
 		},
 	},

@@ -39,7 +39,25 @@ local function SetAccessoryVisible(accessory, visible: boolean)
 	end
 end
 
-local function GetMaxCombo(renderData, towerModel, attackVariant: string?, stats): number
+local function ResolveAttackSet(towerModel: Model, attackVariant: string?, towerLevel: number): (boolean, number?)
+	local variant = attackVariant or ""
+	local comboName = `{variant}AttackCombo1`
+	local attackName = `{variant}Attack`
+
+	for level = towerLevel, 0, -1 do
+		if AnimationService.GetExactTrack(towerModel, comboName, level) then
+			return true, level
+		end
+
+		if AnimationService.GetExactTrack(towerModel, attackName, level) then
+			return false, level
+		end
+	end
+
+	return AnimationService.GetExactTrack(towerModel, comboName) ~= nil, nil
+end
+
+local function GetMaxCombo(renderData, towerModel, attackVariant: string?, stats, comboLevel: number?): number
 	local maxComboKey = `MaxCombo_{attackVariant or "Default"}`
 	local maxCombo = renderData[maxComboKey]
 	if not maxCombo then
@@ -48,7 +66,7 @@ local function GetMaxCombo(renderData, towerModel, attackVariant: string?, stats
 			maxCombo = 0
 			while true do
 				local checkName = `{attackVariant or ""}AttackCombo{maxCombo + 1}`
-				if AnimationService.GetTrack(towerModel, checkName, renderData.Level) then
+				if AnimationService.GetExactTrack(towerModel, checkName, comboLevel) then
 					maxCombo += 1
 				else
 					break
@@ -188,6 +206,8 @@ function TowerRenderer.ApplyAppearence(towerLevel: number, towerId: number)
 	end
 
 	targetTower.Level = towerLevel
+	targetTower.ComboIndex = nil
+	targetTower.ComboPlayId = (targetTower.ComboPlayId or 0) + 1
 
 	for key in pairs(targetTower) do
 		if string.match(key, "^MaxCombo_") then
@@ -324,15 +344,17 @@ function TowerRenderer.OnAttack(towerId: number, enemyModel: Model, stats, attac
 	local targetPart = enemyModel.PrimaryPart
 	local attackDelay = stats.AttackDelay or 0
 
-	local maxCombo = GetMaxCombo(renderData, towerModel, attackVariant, stats)
-	local comboIndex = (renderData.ComboIndex or 0) % maxCombo + 1
-	renderData.ComboIndex = comboIndex
-
 	local variant = attackVariant or ""
+	local usesCombo, comboLevel = ResolveAttackSet(towerModel, attackVariant, renderData.Level)
+	local animName = `{variant}Attack`
 
-	local animName = `{attackVariant or ""}AttackCombo{comboIndex}`
-	if not AnimationService.GetTrack(towerModel, animName, renderData.Level) then
-		animName = `{attackVariant or ""}Attack`
+	if usesCombo then
+		local maxCombo = GetMaxCombo(renderData, towerModel, attackVariant, stats, comboLevel)
+		local comboIndex = (renderData.ComboIndex or 0) % maxCombo + 1
+		renderData.ComboIndex = comboIndex
+		animName = `{variant}AttackCombo{comboIndex}`
+	else
+		renderData.ComboIndex = nil
 	end
 
 	local track = AnimationService.PlayOnce(towerModel, animName, {

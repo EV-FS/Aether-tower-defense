@@ -2042,8 +2042,8 @@ return TableUtils.DeepFreeze({
 			Cost = 10000,
 			Damage = 400,
 			Cooldown = 3,
-			Range = 0,
-			Width = 0,
+			Range = 17,
+			Width = 12,
 			Passives = {
 				{
 					Type = "KillBuff",
@@ -2054,15 +2054,15 @@ return TableUtils.DeepFreeze({
 				},
 			},
 
-			AttackDelay = 0,
+			AttackDelay = 1.733,
 			AttackType = "Line",
 		},
 		[4] = {
 			Cost = 17000,
 			Damage = 600,
 			Cooldown = 2.5,
-			Range = 0,
-			Width = 0,
+			Range = 17,
+			Width = 12,
 			Passives = {
 				{
 					Type = "KillBuff",
@@ -2073,15 +2073,15 @@ return TableUtils.DeepFreeze({
 				},
 			},
 
-			AttackDelay = 0,
+			AttackDelay = 1.733,
 			AttackType = "Line",
 		},
 		[5] = {
 			Cost = 28500,
 			Damage = 1000,
 			Cooldown = 2.3,
-			Range = 0,
-			Width = 0,
+			Range = 17,
+			Width = 12,
 			Passives = {
 				{
 					Type = "KillBuff",
@@ -2092,7 +2092,7 @@ return TableUtils.DeepFreeze({
 				},
 			},
 
-			AttackDelay = 0,
+			AttackDelay = 1.733,
 			AttackType = "Line",
 		},
 	},
