@@ -4,10 +4,10 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
 
 --/ Modules
+local TowerData = require(ReplicatedStorage.Settings.Data.TowerData)
 local ServiceRegistry = require(ReplicatedStorage.Shared.Modules.Core.ServiceRegistry)
 local CharacterUtils = require(ReplicatedStorage.Shared.Modules.Utils.CharacterUtils)
 local CreateRangeIndicator = require(ReplicatedStorage.Shared.Services.Entities.TowerService.Utils.CreateRangeIndicator)
-local VFXService = require(ReplicatedStorage.Shared.Services.System.VFXService)
 local TimeService
 local AnimationService
 local VisualService
@@ -135,6 +135,12 @@ function TowerRenderer.Setup(towerId: number, towerModel: Model, towerName: stri
 		AnimationService.Play(towerModel, "Idle", 0, 0)
 	end
 
+	local towerInfo = TowerData.ByName[towerName]
+	local towerRarity = towerInfo and towerInfo.Rarity
+	if towerRarity then
+		VisualService.Play("TowerShared", `Place_{towerRarity}`, nil, towerModel)
+	end
+
 	TowerRenderer.RenderStates[towerId] = {
 		Accessories = {},
 		RangeIndicator = nil,
@@ -149,6 +155,30 @@ function TowerRenderer.Setup(towerId: number, towerModel: Model, towerName: stri
 	if VisualService then
 		VisualService.Play(towerName, "OnSpawn", 0, towerModel, towerModel)
 	end
+end
+
+function TowerRenderer.UpgradeVisuals(towerLevel: number, towerId: number)
+	local targetTower = TowerRenderer.RenderStates[towerId]
+	if not targetTower then
+		return
+	end
+
+	local towerInfo = TowerData.ByName[targetTower.Name]
+	local towerRarity = towerInfo and towerInfo.Rarity
+	if towerRarity then
+		VisualService.Play("TowerShared", `Upgrade_{towerRarity}`, nil, targetTower.Model)
+	end
+
+	TowerRenderer.ApplyAppearence(towerLevel, towerId)
+end
+
+function TowerRenderer.SellVisuals(towerId: number)
+	local targetTower = TowerRenderer.RenderStates[towerId]
+	if not targetTower then
+		return
+	end
+
+	VisualService.Play("TowerShared", `Sell`, nil, targetTower.Model)
 end
 
 function TowerRenderer.ApplyAppearence(towerLevel: number, towerId: number)

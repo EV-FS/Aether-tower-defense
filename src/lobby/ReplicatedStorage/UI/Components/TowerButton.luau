@@ -4,6 +4,7 @@ local TowerData = require(ReplicatedStorage.Settings.Data.TowerData)
 local RarityGradient = require(ReplicatedStorage.Settings.Visuals.RarityGradient)
 local useButtonEffect = require(ReplicatedStorage.Shared.Modules.UI.Hooks.useButtonEffect)
 local useColorSequenceCycle = require(ReplicatedStorage.Shared.Modules.UI.Hooks.useColorSequenceCycle)
+local retime = require(ReplicatedStorage.Shared.Modules.Utils.ForgeVFX.mod.retime)
 
 local create = Vide.create
 local spring = Vide.spring
@@ -11,9 +12,16 @@ local spring = Vide.spring
 return function(props)
 	local towerInfo = TowerData.ByName[props.TowerName]
 	local rarity = if towerInfo and towerInfo.Rarity then towerInfo.Rarity else "Common"
-	local cost = if towerInfo and towerInfo.Stats and towerInfo.Stats[0] and towerInfo.Stats[0].Cost
+	local cost = if towerInfo
+			and towerInfo.Stats
+			and towerInfo.Stats[0]
+			and towerInfo.Stats[0].Cost
 		then towerInfo.Stats[0].Cost
-		elseif towerInfo and towerInfo.Stats and towerInfo.Stats[1] and towerInfo.Stats[1].Cost
+		elseif
+			towerInfo
+			and towerInfo.Stats
+			and towerInfo.Stats[1]
+			and towerInfo.Stats[1].Cost
 		then towerInfo.Stats[1].Cost
 		else 0
 	local level = if props.TowerData and props.TowerData.Lv then props.TowerData.Lv else 1
@@ -29,9 +37,17 @@ return function(props)
 		end, 0.5, 1),
 
 		LayoutOrder = props.LayoutOrder or 0,
-		Position = UDim2.fromScale(0.830332, 0.0325001),
 		Size = UDim2.fromScale(0.186, 0.125),
 		MouseButton1Click = props.OnActivated,
+		ZIndex = function()
+			if props.IsSelected() then
+				return 10
+			elseif props.IsEquipped() then
+				return 5
+			end
+
+			return 1
+		end,
 
 		useButtonEffect(),
 
@@ -93,9 +109,9 @@ return function(props)
 			}),
 		}),
 
-		create("UIAspectRatioConstraint")({
+		--[[create("UIAspectRatioConstraint")({
 			Name = "UIAspectRatioConstraint",
-		}),
+		}),--]]
 
 		create("ImageLabel")({
 			Name = "Level",

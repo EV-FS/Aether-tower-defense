@@ -17,9 +17,9 @@ local currentUnitsPool = source({
 	Common = { Name = "Bacon", RateText = "75%" },
 	Rare = { Name = "Katana Noob", RateText = "17.89%" },
 	Epic = { Name = "Lancer Dummy", RateText = "6%" },
-	Legendary = { Name = "Wizard Noob", RateText = "1%" },
-	Mythic = { Name = "Wizard Noob", RateText = "0.1%" },
-	Absolute = { Name = "Wizard Noob", RateText = "0.01%" },
+	Legendary = { Name = "Wizard", RateText = "1%" },
+	Mythic = { Name = "Wizard", RateText = "0.1%" },
+	Absolute = { Name = "Wizard", RateText = "0.01%" },
 })
 
 return function(target: Instance)

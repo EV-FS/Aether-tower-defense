@@ -96,7 +96,7 @@ function GameService:PrepareMap()
 
 	if RunService:IsStudio() then
 		self.SelectedMap = "Chapter 1"
-		self.SelectedDifficulty = "Eternal"
+		self.SelectedDifficulty = "Normal"
 	end
 
 	local success = self:WaitForTeleportData():await()

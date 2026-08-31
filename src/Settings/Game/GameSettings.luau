@@ -9,7 +9,7 @@ return TableUtils.DeepFreeze({
 	SkipBonus = 100, --웨이브 스킵 시에 웨이브 보상
 
 	--BaseService
-	BaseHealth = 500, --기지 체력
+	BaseHealth = 150, --기지 체력
 
 	--WaveService
 	SkipTime = 20, --웨이브 스킵 가능 시간

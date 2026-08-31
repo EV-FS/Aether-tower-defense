@@ -122,12 +122,8 @@ local function getHealthMultiplier(): number
 	local playerCount = GameClient and GameClient.StartPlayerCount or 1
 
 	local diffMultiplier = 1
-	if difficulty == "Normal" then
-		diffMultiplier = 1.5
-	elseif difficulty == "Hard" then
+	if difficulty == "Hard" then
 		diffMultiplier = 2
-	elseif difficulty == "Extreme" then
-		diffMultiplier = 2.5
 	elseif difficulty == "Eternal" then
 		diffMultiplier = 3
 	end
@@ -254,9 +250,14 @@ function EnemyClient.Destroy(enemyId: number, forcing: boolean?)
 			local animLength = (track and track.Length > 0) and track.Length or 1.5
 			local delayTime = animLength + DEATH_EXTRA_DELAY
 
-			task.delay(math.max(0.01, animLength - 0.05), track.AdjustSpeed, track, 0)
-			task.delay(delayTime, EnemyClient.DisappearModel, targetEnemy.Model)
-			Debris:AddItem(targetEnemy.Model, delayTime)
+			TimeService.DeltaDelay(math.max(0.01, animLength - 0.05)):andThen(function()
+				track:AdjustSpeed(0)
+			end)
+			TimeService.DeltaDelay(delayTime):andThen(function()
+				EnemyClient.DisappearModel(targetEnemy.Model)
+			end)
+
+			Debris:AddItem(targetEnemy.Model, delayTime + 5)
 		else
 			task.defer(EnemyClient.DisappearModel, targetEnemy.Model)
 			Debris:AddItem(targetEnemy.Model, 5)

@@ -57,12 +57,8 @@ local function GetHealthMultiplier(): number
 	local playerCount = GameService and GameService.StartPlayerCount or 1
 
 	local diffMultiplier = 1
-	if difficulty == "Normal" then
-		diffMultiplier = 1.5
-	elseif difficulty == "Hard" then
+	if difficulty == "Hard" then
 		diffMultiplier = 2
-	elseif difficulty == "Extreme" then
-		diffMultiplier = 2.5
 	elseif difficulty == "Eternal" then
 		diffMultiplier = 3
 	end
@@ -109,6 +105,10 @@ function BaseEnemy.new(id, name, isBoss): Enemy
 end
 
 function BaseEnemy:ApplyDebuff(name: string, duration: number, power: number?, source: any?)
+	if self.IsDead or self.IsDestroyed or not self.ActiveDebuffs then
+		return
+	end
+
 	local debuffData = Debuffs[name]
 	if not debuffData then
 		return
@@ -122,6 +122,14 @@ function BaseEnemy:ApplyDebuff(name: string, duration: number, power: number?, s
 	local currentTime = self._DebuffTime
 	local currentEndTime = currentTime + duration
 	local existing = self.ActiveDebuffs[name]
+
+	if name == "Stun" then
+		if self._StunImmune and currentTime < self._StunImmune then
+			return
+		else
+			self._StunImmune = currentTime + duration * 1.5
+		end
+	end
 
 	if existing then
 		local existingPower = existing.Power or 0
