@@ -204,7 +204,7 @@ return function(props)
 			Name = "UIGradient",
 			Rotation = 45,
 
-			useColorSequenceCycle(gradient, shimmerSpeed),
+			useColorSequenceCycle(gradient, shimmerSpeed, props.Visible),
 		}),
 	})
 end
