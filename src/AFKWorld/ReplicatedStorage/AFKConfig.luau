@@ -1,8 +1,4 @@
-return {
-	ProfileStoreName = "TowerDefenseData_v1",
-	RewardInterval = 60,
-	CoinsPerInterval = 3000,
-	GemsPerInterval = 2500,
-	DefaultReturnPlaceId = 0,
-	BGMVolume = 1,
-}
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+
+-- Compatibility alias for any place instances that still reference AFKConfig.
+return require(ReplicatedStorage.Settings.Game.AFKSettings)

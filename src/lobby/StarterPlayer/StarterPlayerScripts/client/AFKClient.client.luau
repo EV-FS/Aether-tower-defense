@@ -1,24 +1,22 @@
 local Players = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
-local TeleportService = game:GetService("TeleportService")
 
-local AFK_PLACE_ID = 85894813807831
 local player = Players.LocalPlayer
-local teleporting = false
+local requestEvent = ReplicatedStorage:WaitForChild("RequestAFKTeleport")
+local requested = false
 
 player.Idled:Connect(function()
-	if RunService:IsStudio() or teleporting then
+	if RunService:IsStudio() or requested then
 		return
 	end
 
-	teleporting = true
-	local success, err = pcall(function()
-		local teleportOptions = Instance.new("TeleportOptions")
-		teleportOptions:SetTeleportData({ ReturnPlaceId = game.PlaceId })
-		TeleportService:TeleportAsync(AFK_PLACE_ID, { player }, teleportOptions)
+	requested = true
+	(requestEvent :: RemoteEvent):FireServer()
+
+	-- Allow another request if every server-side retry failed. Successful
+	-- teleports destroy this LocalScript before the cooldown expires.
+	task.delay(15, function()
+		requested = false
 	end)
-	if not success then
-		warn(`[AFK] Failed to teleport to AFKWorld: {err}`)
-		teleporting = false
-	end
 end)

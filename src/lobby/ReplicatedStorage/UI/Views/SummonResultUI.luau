@@ -1,11 +1,10 @@
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
-local RunService = game:GetService("RunService")
 local Lighting = game:GetService("Lighting")
+local TweenService = game:GetService("TweenService")
 
 local Vide = require(ReplicatedStorage.Packages.Vide)
 local RarityData = require(ReplicatedStorage.Settings.Data.RarityData)
 local ServiceRegistry = require(ReplicatedStorage.Shared.Modules.Core.ServiceRegistry)
-local ForgeVFX = require(ReplicatedStorage.Shared.Modules.Utils.ForgeVFX)
 local TowerViewport = require(ReplicatedStorage.UI.Components.TowerViewport)
 
 local create = Vide.create
@@ -56,15 +55,13 @@ local revealPhase = source(false)
 local isTransitioning = source(false)
 local isClosing = source(false)
 local slideSign = source(1)
-local viewportModel = source(nil :: Model?)
 
 local EXIT_DELAY = 0.34
 local ENTER_DELAY = 0.42
 local CLOSE_DELAY = 0.4
-local SUMMON_EFFECT_LIFETIME = 2.5
-local SUMMON_EFFECT_DISTANCE = 12
-local SUMMON_EFFECT_SCALE = 0.7
 local BACKDROP_BLUR_SIZE = 8
+local BLUR_FADE_IN_TIME = 0.32
+local BLUR_FADE_OUT_TIME = 0.38
 
 local closeToken = 0
 
@@ -78,352 +75,6 @@ local function getCurrentUnit(): PulledUnit?
 	end
 
 	return queue[index]
-end
-
-local function findRootPart(model: Model): BasePart?
-	local humanoidRootPart = model:FindFirstChild("HumanoidRootPart", true)
-	if humanoidRootPart and humanoidRootPart:IsA("BasePart") then
-		return humanoidRootPart
-	end
-
-	if model.PrimaryPart then
-		return model.PrimaryPart
-	end
-
-	return model:FindFirstChildWhichIsA("BasePart", true)
-end
-
-local function getSummonTemplate(rarity: string, ...: string): Instance?
-	local current: Instance? = ReplicatedStorage:FindFirstChild("Effect")
-	current = current and current:FindFirstChild("Summon")
-	for _, name in { ... } do
-		current = current and current:FindFirstChild(name)
-	end
-
-	if current and (current:IsA("BasePart") or current:IsA("Model")) then
-		return current
-	end
-
-	return nil
-end
-
-local function getSummonEffectTemplate(rarity: string): Instance?
-	if rarity == "Absolute" then
-		return getSummonTemplate(rarity, "Absolute", "Absolute")
-	end
-
-	local template = getSummonTemplate(rarity, rarity)
-	if not template then
-		warn(`[SummonResultUI] Summon effect "{rarity}" was not found in ReplicatedStorage.Effect.Summon.`)
-	end
-
-	return template
-end
-
-local function getStaticSummonTemplate(rarity: string): Instance?
-	return getSummonTemplate(rarity, "Static", rarity)
-end
-
-local function setEffectCFrame(effect: Instance, cframe: CFrame)
-	if effect:IsA("BasePart") then
-		effect.Anchored = true
-		effect.CanCollide = false
-		effect.CanQuery = false
-		effect.CanTouch = false
-		effect.CastShadow = false
-		effect.Massless = true
-		effect.CFrame = cframe
-	elseif effect:IsA("Model") then
-		effect:PivotTo(cframe)
-		for _, descendant in effect:GetDescendants() do
-			if descendant:IsA("BasePart") then
-				descendant.CanCollide = false
-				descendant.CanQuery = false
-				descendant.CanTouch = false
-				descendant.CastShadow = false
-				descendant.Massless = true
-			end
-		end
-	end
-end
-
-local function getViewportScreenPoint(viewport: ViewportFrame, worldPoint: Vector3): Vector2
-	local vpCamera = viewport.CurrentCamera
-	local size = viewport.AbsoluteSize
-	if not vpCamera or size.X <= 0 or size.Y <= 0 then
-		return viewport.AbsolutePosition + size * 0.5
-	end
-
-	local localPoint = vpCamera.CFrame:PointToObjectSpace(worldPoint)
-	local depth = -localPoint.Z
-	if depth <= 0.01 then
-		return viewport.AbsolutePosition + size * 0.5
-	end
-
-	local aspect = size.X / size.Y
-	local tanHalfFov = math.tan(math.rad(vpCamera.FieldOfView) * 0.5)
-	local ndcX = localPoint.X / (depth * tanHalfFov * aspect)
-	local ndcY = localPoint.Y / (depth * tanHalfFov)
-
-	return viewport.AbsolutePosition + Vector2.new((ndcX + 1) * 0.5 * size.X, (1 - ndcY) * 0.5 * size.Y)
-end
-
-local function getWorldOverlayCFrame(model: Model, rootPart: BasePart, targetPoint: Vector3?): CFrame?
-	local worldCamera = workspace.CurrentCamera
-	if not worldCamera then
-		return nil
-	end
-
-	local viewport = model:FindFirstAncestorWhichIsA("ViewportFrame")
-	if not viewport then
-		return worldCamera.CFrame * CFrame.new(0, 0.6, -SUMMON_EFFECT_DISTANCE)
-	end
-
-	local screenPoint = getViewportScreenPoint(viewport, targetPoint or rootPart.Position + Vector3.new(0, -0.5, 0))
-	local ray = worldCamera:ViewportPointToRay(screenPoint.X, screenPoint.Y)
-	local position = ray.Origin + ray.Direction.Unit * SUMMON_EFFECT_DISTANCE
-	return CFrame.lookAlong(position, worldCamera.CFrame.LookVector, worldCamera.CFrame.UpVector)
-end
-
-local function getModelFootPoint(model: Model, rootPart: BasePart): Vector3
-	local boundsCFrame, boundsSize = model:GetBoundingBox()
-	return Vector3.new(rootPart.Position.X, boundsCFrame.Position.Y - boundsSize.Y * 0.5, rootPart.Position.Z)
-end
-
-local function emitFallbackParticles(root: Instance)
-	local emitters = root:GetDescendants()
-	table.insert(emitters, 1, root)
-
-	for _, descendant in emitters do
-		if not descendant:IsA("ParticleEmitter") then
-			continue
-		end
-
-		local count = descendant:GetAttribute("EmitCount")
-		local duration = descendant:GetAttribute("EmitDuration") or 0
-		if (typeof(count) ~= "number" or count <= 0) and duration <= 0 then
-			descendant:Emit(20)
-		end
-	end
-end
-
-local function scaleNumberSequence(sequence: NumberSequence, scale: number): NumberSequence
-	local keypoints = table.create(#sequence.Keypoints)
-	for index, keypoint in sequence.Keypoints do
-		keypoints[index] = NumberSequenceKeypoint.new(keypoint.Time, keypoint.Value * scale, keypoint.Envelope * scale)
-	end
-
-	return NumberSequence.new(keypoints)
-end
-
--- Dynamic summon effects are rendered over the result viewport. Scale only these
--- particles down so they stay inside the screen; static rarity effects are untouched.
-local function scaleSummonEffect(effectInstance: Instance, scale: number)
-	local isModel = effectInstance:IsA("Model")
-	if isModel then
-		effectInstance:ScaleTo(scale)
-	elseif effectInstance:IsA("BasePart") then
-		effectInstance.Size *= scale
-	end
-
-	for _, descendant in effectInstance:GetDescendants() do
-		if not isModel and descendant:IsA("Attachment") then
-			descendant.Position *= scale
-		elseif descendant:IsA("ParticleEmitter") then
-			descendant.Size = scaleNumberSequence(descendant.Size, scale)
-			descendant.Speed = NumberRange.new(descendant.Speed.Min * scale, descendant.Speed.Max * scale)
-			descendant.Acceleration *= scale
-		elseif descendant:IsA("Beam") then
-			descendant.Width0 *= scale
-			descendant.Width1 *= scale
-			descendant.CurveSize0 *= scale
-			descendant.CurveSize1 *= scale
-		elseif descendant:IsA("Trail") then
-			descendant.WidthScale = scaleNumberSequence(descendant.WidthScale, scale)
-		end
-	end
-end
-
-local function playSummonEffect(
-	model: Model,
-	rarity: string,
-	templateName: string?,
-	targetPointGetter: ((Model, BasePart) -> Vector3)?
-): () -> ()
-	local template = if templateName then getSummonTemplate(rarity, "Absolute", templateName) else getSummonEffectTemplate(rarity)
-	if not template then
-		return function() end
-	end
-
-	local rootPart = findRootPart(model)
-	if not rootPart then
-		warn(`[SummonResultUI] HumanoidRootPart was not found on "{model.Name}".`)
-		return function() end
-	end
-
-	local effectInstance = template:Clone()
-	if not effectInstance:IsA("BasePart") and not effectInstance:IsA("Model") then
-		effectInstance:Destroy()
-		return function() end
-	end
-	scaleSummonEffect(effectInstance, SUMMON_EFFECT_SCALE)
-
-	local targetPoint = if targetPointGetter then targetPointGetter(model, rootPart) else nil
-	local overlayCFrame = getWorldOverlayCFrame(model, rootPart, targetPoint)
-	if not overlayCFrame then
-		effectInstance:Destroy()
-		return function() end
-	end
-
-	effectInstance.Parent = workspace
-	setEffectCFrame(effectInstance, overlayCFrame)
-
-	local emitEnv = ForgeVFX.emit(effectInstance)
-	emitFallbackParticles(effectInstance)
-
-	local follow = RunService.PreRender:Connect(function()
-		if not effectInstance.Parent or not rootPart.Parent then
-			return
-		end
-
-		local nextTargetPoint = if targetPointGetter then targetPointGetter(model, rootPart) else nil
-		local nextCFrame = getWorldOverlayCFrame(model, rootPart, nextTargetPoint)
-		if nextCFrame then
-			setEffectCFrame(effectInstance, nextCFrame)
-		end
-	end)
-
-	local destroyed = false
-
-	local function destroy()
-		if destroyed then
-			return
-		end
-
-		destroyed = true
-		follow:Disconnect()
-		if emitEnv.Clear then
-			emitEnv.Clear()
-		end
-		effectInstance:Destroy()
-	end
-
-	task.delay(SUMMON_EFFECT_LIFETIME, destroy)
-
-	return destroy
-end
-
-local function enableLoopingVisuals(root: Instance)
-	local function enable(object: Instance)
-		if object:IsA("ParticleEmitter") or object:IsA("Beam") or object:IsA("Trail") then
-			object.Enabled = true
-		end
-	end
-
-	enable(root)
-	for _, descendant in root:GetDescendants() do
-		enable(descendant)
-	end
-end
-
-local function getEffectPart(effectInstance: Instance): BasePart?
-	if effectInstance:IsA("BasePart") then
-		return effectInstance
-	end
-
-	if effectInstance:IsA("Model") then
-		return effectInstance.PrimaryPart or effectInstance:FindFirstChildWhichIsA("BasePart", true)
-	end
-
-	return nil
-end
-
-local function attachToRootPart(effectInstance: Instance, rootPart: BasePart)
-	local effectPart = getEffectPart(effectInstance)
-	if not effectPart then
-		effectInstance.Parent = rootPart
-		return
-	end
-
-	effectPart.Anchored = false
-	effectPart.CanCollide = false
-	effectPart.CanQuery = false
-	effectPart.CanTouch = false
-	effectPart.CastShadow = false
-	effectPart.Massless = true
-
-	effectInstance.Parent = rootPart
-	if effectInstance:IsA("BasePart") then
-		effectInstance.CFrame = rootPart.CFrame
-	elseif effectInstance:IsA("Model") then
-		effectInstance:PivotTo(rootPart.CFrame)
-	end
-
-	local weld = Instance.new("WeldConstraint")
-	weld.Part0 = rootPart
-	weld.Part1 = effectPart
-	weld.Parent = effectPart
-end
-
-local function playStaticSummonEffect(model: Model, rarity: string): () -> ()
-	local template = getStaticSummonTemplate(rarity)
-	if not template then
-		return function() end
-	end
-
-	local rootPart = findRootPart(model)
-	if not rootPart then
-		warn(`[SummonResultUI] HumanoidRootPart was not found on "{model.Name}".`)
-		return function() end
-	end
-
-	local attached = template:Clone()
-	if not attached:IsA("BasePart") and not attached:IsA("Model") then
-		attached:Destroy()
-		return function() end
-	end
-
-	attachToRootPart(attached, rootPart)
-	enableLoopingVisuals(attached)
-
-	local overlay = template:Clone()
-	if not overlay:IsA("BasePart") and not overlay:IsA("Model") then
-		overlay:Destroy()
-		return function()
-			attached:Destroy()
-		end
-	end
-
-	local overlayCFrame = getWorldOverlayCFrame(model, rootPart)
-	overlay.Parent = workspace
-	if overlayCFrame then
-		setEffectCFrame(overlay, overlayCFrame)
-	end
-	enableLoopingVisuals(overlay)
-
-	local follow = RunService.PreRender:Connect(function()
-		if not overlay.Parent or not rootPart.Parent then
-			return
-		end
-
-		local nextCFrame = getWorldOverlayCFrame(model, rootPart)
-		if nextCFrame then
-			setEffectCFrame(overlay, nextCFrame)
-		end
-	end)
-
-	local destroyed = false
-
-	return function()
-		if destroyed then
-			return
-		end
-
-		destroyed = true
-		follow:Disconnect()
-		attached:Destroy()
-		overlay:Destroy()
-	end
 end
 
 local function isRevealed(): boolean
@@ -495,8 +146,6 @@ local function playClose(onFinished: () -> ())
 			return
 		end
 
-		isClosing(false)
-		isTransitioning(false)
 		onFinished()
 	end)
 end
@@ -558,29 +207,33 @@ function SummonResultUI.RenderUI()
 	end)
 
 	effect(function()
-		-- Keep the background blurred while swapping results; only clear it once
-		-- the summon flow has fully closed.
-		local shouldBlur = UIController:IsOpen(VIEW_ID)
-		backdropBlur.Enabled = shouldBlur
-		backdropBlur.Size = if shouldBlur then BACKDROP_BLUR_SIZE else 0
-	end)
+		-- Begin fading out as soon as the close animation starts, rather than
+		-- dropping the blur on the frame where the view is removed.
+		local shouldBlur = UIController:IsOpen(VIEW_ID) and not isClosing()
+		local tween = TweenService:Create(
+			backdropBlur,
+			TweenInfo.new(
+				if shouldBlur then BLUR_FADE_IN_TIME else BLUR_FADE_OUT_TIME,
+				Enum.EasingStyle.Quad,
+				if shouldBlur then Enum.EasingDirection.Out else Enum.EasingDirection.InOut
+			),
+			{ Size = if shouldBlur then BACKDROP_BLUR_SIZE else 0 }
+		)
 
-	effect(function()
-		if not isRevealed() then
-			return
+		if shouldBlur then
+			backdropBlur.Enabled = true
 		end
 
-		local unit = getCurrentUnit()
-		local model = viewportModel()
-		if not unit or not model then
-			return
-		end
-
-		cleanup(playSummonEffect(model, unit.Rarity))
-		if unit.Rarity == "Absolute" then
-			cleanup(playSummonEffect(model, unit.Rarity, "AbsolutePlus", getModelFootPoint))
-		end
-		cleanup(playStaticSummonEffect(model, unit.Rarity))
+		local completed = tween.Completed:Connect(function(playbackState)
+			if playbackState == Enum.PlaybackState.Completed and not shouldBlur then
+				backdropBlur.Enabled = false
+			end
+		end)
+		tween:Play()
+		cleanup(function()
+			completed:Disconnect()
+			tween:Cancel()
+		end)
 	end)
 
 	return create("Frame")({
@@ -642,28 +295,8 @@ function SummonResultUI.RenderUI()
 				Name = "ViewportHolder",
 				AnchorPoint = Vector2.new(0.5, 0.5),
 				BackgroundTransparency = 1,
-				Position = spring(function()
-					if isRevealed() then
-						return UDim2.fromScale(0.5, 0.38)
-					end
-
-					if isClosing() then
-						return UDim2.fromScale(0.5, 0.58)
-					end
-
-					return UDim2.fromScale(0.5 + slideSign() * 0.14, 0.54)
-				end, if isClosing() then 0.32 else 0.38, 0.66),
-				Size = spring(function()
-					if isRevealed() then
-						return UDim2.fromScale(0.42, 0.48)
-					end
-
-					if isClosing() then
-						return UDim2.fromScale(0.08, 0.09)
-					end
-
-					return UDim2.fromScale(0.12, 0.14)
-				end, if isClosing() then 0.3 else 0.38, 0.64),
+				Position = UDim2.fromScale(0.5, 0.38),
+				Size = UDim2.fromScale(0.42, 0.48),
 				ZIndex = 53,
 
 				TowerViewport({
@@ -679,6 +312,7 @@ function SummonResultUI.RenderUI()
 					end, 0.45, 0.85),
 					Position = UDim2.fromScale(0.5, 1),
 					Size = UDim2.fromScale(1, 1),
+					ZIndex = 53,
 					ModelRotation = spring(function()
 						if isRevealed() then
 							return 0
@@ -690,8 +324,9 @@ function SummonResultUI.RenderUI()
 
 						return slideSign() * 95
 					end, if isClosing() then 0.38 else 0.45, 0.58),
-					UseViewportModel = true,
-					OnModelChanged = viewportModel,
+					-- A fixed camera fit prevents the model from jumping when the entry
+					-- spring changes the rendered UI size.
+					UseViewportModel = false,
 				}),
 			}),
 
@@ -842,7 +477,6 @@ end
 
 function SummonResultUI.Init()
 	UIController = ServiceRegistry:GetService("UIController")
-	ForgeVFX.init()
 end
 
 function SummonResultUI.Start() end

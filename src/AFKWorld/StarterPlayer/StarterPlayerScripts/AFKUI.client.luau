@@ -3,6 +3,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local player = Players.LocalPlayer
 local stateEvent = ReplicatedStorage:WaitForChild("AFKState")
+local stateRequestEvent = ReplicatedStorage:WaitForChild("RequestAFKState")
 local returnEvent = ReplicatedStorage:WaitForChild("ReturnToLobby")
 
 local function formatPlaytime(seconds: number): string
@@ -94,7 +95,16 @@ returnButton.Parent = background
 local buttonCorner = Instance.new("UICorner")
 buttonCorner.CornerRadius = UDim.new(0, 10)
 buttonCorner.Parent = returnButton
+
+local returnRequested = false
 returnButton.Activated:Connect(function()
+	if returnRequested then
+		return
+	end
+
+	returnRequested = true
+	returnButton.Active = false
+	returnButton.Text = "Returning..."
 	returnEvent:FireServer()
 end)
 
@@ -102,4 +112,25 @@ stateEvent.OnClientEvent:Connect(function(state)
 	playtime.Text = formatPlaytime(state.Playtime or 0)
 	coins.Text = `Coins: {state.Coins or 0}`
 	gems.Text = `Gems: {state.Gems or 0}`
+
+	if state.TeleportStatus == "Returning" then
+		returnRequested = true
+		returnButton.Active = false
+		returnButton.Text = "Returning..."
+	elseif state.TeleportStatus == "Refreshing" then
+		returnRequested = true
+		returnButton.Active = false
+		returnButton.Text = "Refreshing session..."
+	elseif state.Error then
+		returnRequested = false
+		returnButton.Active = true
+		returnButton.Text = state.Error
+		task.delay(4, function()
+			if not returnRequested then
+				returnButton.Text = "Return to Lobby"
+			end
+		end)
+	end
 end)
+
+stateRequestEvent:FireServer()
