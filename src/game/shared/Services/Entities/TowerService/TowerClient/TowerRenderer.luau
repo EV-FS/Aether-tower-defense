@@ -207,11 +207,9 @@ function TowerRenderer.ApplyAppearence(towerLevel: number, towerId: number)
 	end
 
 	targetTower.Level = towerLevel
-	targetTower.ComboIndex = nil
-	targetTower.ComboPlayId = (targetTower.ComboPlayId or 0) + 1
 
 	for key in pairs(targetTower) do
-		if string.match(key, "^MaxCombo_") then
+		if string.match(key, "^MaxCombo_") or string.match(key, "^ComboIndex_") then
 			targetTower[key] = nil
 		end
 	end
@@ -357,33 +355,41 @@ function TowerRenderer.OnAttack(towerId: number, enemyModel: Model, stats, attac
 	local variant = attackVariant or ""
 	local usesCombo, comboLevel = ResolveAttackSet(towerModel, attackVariant, renderData.Level)
 	local animName = `{variant}Attack`
+	local comboIndex: number?
+	local comboIndexKey = `ComboIndex_{attackVariant or "Default"}`
 
 	if usesCombo then
 		local maxCombo = GetMaxCombo(renderData, towerModel, attackVariant, stats, comboLevel)
-		local comboIndex = (renderData.ComboIndex or 0) % maxCombo + 1
-		renderData.ComboIndex = comboIndex
+		comboIndex = (renderData[comboIndexKey] or 0) % maxCombo + 1
+		renderData[comboIndexKey] = comboIndex
 		animName = `{variant}AttackCombo{comboIndex}`
 	else
-		renderData.ComboIndex = nil
+		renderData[comboIndexKey] = nil
 	end
 
-	local track = AnimationService.PlayOnce(towerModel, animName, {
+	AnimationService.PlayOnce(towerModel, animName, {
 		Level = renderData.Level,
 		Resume = "Idle",
 	})
 
-	if track then
-		local myPlayOnceId = (renderData.ComboPlayId or 0) + 1
-		renderData.ComboPlayId = myPlayOnceId
+	local comboEventPrefix = if comboIndex then `{variant}AttackCombo{comboIndex}` else nil
+	local function playAttackVisual(eventSuffix: string, range: number?, delay: number?)
+		local fallbackEventName = `{variant}Attack{eventSuffix}`
+		local eventName = if comboEventPrefix then `{comboEventPrefix}{eventSuffix}` else fallbackEventName
 
-		track.Stopped:Once(function()
-			if renderData.ComboPlayId == myPlayOnceId then
-				renderData.ComboIndex = nil
-			end
-		end)
+		VisualService.Play(
+			renderData.Name,
+			eventName,
+			renderData.Level,
+			towerModel,
+			enemyModel,
+			range,
+			delay,
+			if comboEventPrefix then fallbackEventName else nil
+		)
 	end
 
-	VisualService.Play(renderData.Name, `{variant}AttackStart`, renderData.Level, towerModel, enemyModel, stats.Range)
+	playAttackVisual("Start", stats.Range)
 
 	if hasHitConfig then
 		for hitIndex, hit in hits do
@@ -391,36 +397,12 @@ function TowerRenderer.OnAttack(towerId: number, enemyModel: Model, stats, attac
 			local visualDelay = if hitDelay > 0 then hitDelay else nil
 			local hitRange = hit.Range or stats.Range
 
-			VisualService.Play(
-				renderData.Name,
-				`{variant}AttackHit`,
-				renderData.Level,
-				towerModel,
-				enemyModel,
-				hitRange,
-				visualDelay
-			)
-			VisualService.Play(
-				renderData.Name,
-				`{variant}AttackHit{hitIndex}`,
-				renderData.Level,
-				towerModel,
-				enemyModel,
-				hitRange,
-				visualDelay
-			)
+			playAttackVisual("Hit", hitRange, visualDelay)
+			playAttackVisual(`Hit{hitIndex}`, hitRange, visualDelay)
 		end
 	end
 
-	VisualService.Play(
-		renderData.Name,
-		`{variant}AttackEnd`,
-		renderData.Level,
-		towerModel,
-		enemyModel,
-		stats.Range,
-		if attackEndDelay > 0 then attackEndDelay else nil
-	)
+	playAttackVisual("End", stats.Range, if attackEndDelay > 0 then attackEndDelay else nil)
 
 	if not targetPart:GetAttribute("Dead") then
 		TowerRenderer.LookAt(towerModel, targetPart.Position)

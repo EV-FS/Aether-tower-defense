@@ -3,6 +3,18 @@ local TableUtils = require(ReplicatedStorage.Shared.Modules.Utils.TableUtils)
 local TowerStats = require(script.TowerStats)
 
 --/Types
+export type AttackType = "Single" | "Splash" | "Angle" | "Line"
+
+export type HitConfig = {
+	Delay: number,
+	AttackType: AttackType?,
+	DamageScale: number?,
+	Range: number?,
+	SplashRange: number?,
+	Angle: number?,
+	Width: number?,
+}
+
 export type SummonUnitInfo = {
 	SummonUnit: string,
 	SummonCooldown: number,
@@ -14,7 +26,7 @@ export type SummonUnitInfo = {
 		Range: number,
 		StopWhenAttacking: boolean,
 		AttackDelay: number,
-		AttackType: string,
+		AttackType: AttackType,
 	},
 }
 
@@ -91,7 +103,7 @@ local RawTowerData: {
 			TowerImage = "rbxassetid://126863079208433",
 			MaxTowers = 5,
 		},
-		["기사"] = {
+		["Knight"] = {
 			Index = 9,
 			Rarity = "Legendary",
 			TowerImage = "rbxassetid://126863079208433",
@@ -132,6 +144,12 @@ local RawTowerData: {
 			Rarity = "Absolute",
 			TowerImage = "rbxassetid://127595189045553",
 			MaxTowers = 4,
+		},
+		["Dragon Slayer"] = {
+			Index = 16,
+			Rarity = "Absolute",
+			TowerImage = "rbxassetid://127595189045553",
+			MaxTowers = 2,
 		},
 		["Ranger Super Tower"] = {
 			Index = 31,
