@@ -24,6 +24,7 @@ local function newStep(sound: string, options: Options): Step
 		Type = options.Type,
 
 		Delay = options.Delay,
+		Volume = options.Volume,
 		At = options.At,
 	})
 end

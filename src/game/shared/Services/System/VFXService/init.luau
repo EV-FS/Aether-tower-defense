@@ -33,7 +33,7 @@ end
 --// Local Functions
 -------------------------------------------------
 local function resolveInstance(value: any, sourceModel: Model, targetModel: Model)
-	if typeof(value) == "BasePart" then
+	if typeof(value) == "Instance" then
 		return value
 	end
 
@@ -54,12 +54,12 @@ local function resolveInstance(value: any, sourceModel: Model, targetModel: Mode
 		return
 	end
 
-	if #parts == 1 then
-		if rootModel.PrimaryPart then
-			return rootModel.PrimaryPart
-		end
-
+	if not rootModel or not rootModel.Parent then
 		return
+	end
+
+	if #parts == 1 then
+		return rootModel.PrimaryPart
 	end
 
 	local current = rootModel
@@ -93,7 +93,7 @@ local function getAttachment(parentPart: BasePart)
 end
 
 local function isAlive(model): boolean
-	if not model or not model:IsDescendantOf(workspace) then
+	if not model or not model.PrimaryPart or not model:IsDescendantOf(workspace) then
 		return false
 	end
 
@@ -230,12 +230,20 @@ function VFXService._PlayEmitType(recipe: Steps.EmitStep, sourceModel: Model, ta
 end
 
 function VFXService._PlayProjectileType(recipe: Steps.ProjectileStep, sourceModel: Model, targetModel: Model)
-	local sourceCFrame = resolveInstance(recipe.From, sourceModel, targetModel).CFrame
-	local targetCFrame = resolveInstance(recipe.To, sourceModel, targetModel).CFrame
-	if not sourceCFrame or not targetCFrame then
+	local sourceInstance = resolveInstance(recipe.From, sourceModel, targetModel)
+	local targetInstance = resolveInstance(recipe.To, sourceModel, targetModel)
+	if
+		not sourceInstance
+		or not sourceInstance:IsA("BasePart")
+		or not targetInstance
+		or not targetInstance:IsA("BasePart")
+	then
 		warn(`위치를 찾을 수 없음: {recipe.Effect}`)
 		return
 	end
+
+	local sourceCFrame = sourceInstance.CFrame
+	local targetCFrame = targetInstance.CFrame
 
 	local startPos = sourceCFrame.Position
 	local endPos = targetCFrame.Position
@@ -379,7 +387,7 @@ function VFXService._PlayBeamType(recipe: Steps.BeamStep, sourceModel: Model, ta
 	if ActiveBeams[sourceModel][beamKey] then
 		return
 	end
-	if not isAlive(sourceModel) or targetModel:GetAttribute("DeadByBeam") then
+	if not isAlive(sourceModel) or not isAlive(targetModel) or targetModel:GetAttribute("DeadByBeam") then
 		return
 	end
 
@@ -520,7 +528,9 @@ function VFXService._PlayBeamType(recipe: Steps.BeamStep, sourceModel: Model, ta
 
 		if not isAlive(sourceModel) or not isAlive(targetModel) then
 			RunService.PreRender:Wait()
-			targetModel:SetAttribute("DeadByBeam", true)
+			if targetModel and targetModel.Parent then
+				targetModel:SetAttribute("DeadByBeam", true)
+			end
 			cleanup()
 			return
 		end

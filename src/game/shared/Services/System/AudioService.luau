@@ -5,6 +5,7 @@ local SoundService = game:GetService("SoundService")
 --/Modules
 local SFXRecipes = require(ReplicatedStorage.Settings.Visuals.SFXRecipes)
 local InstanceCache = require(ReplicatedStorage.Shared.Modules.Core.InstanceCache)
+local TimeService
 
 --/Variables
 local Caches = workspace:WaitForChild("Caches")
@@ -63,7 +64,7 @@ local function getSound(soundPath: string)
 end
 
 local function resolveInstance(value: any, sourceModel: Model, targetModel: Model)
-	if typeof(value) == "BasePart" then
+	if typeof(value) == "Instance" then
 		return value
 	end
 
@@ -84,12 +85,12 @@ local function resolveInstance(value: any, sourceModel: Model, targetModel: Mode
 		return
 	end
 
-	if #parts == 1 then
-		if rootModel.PrimaryPart then
-			return rootModel.PrimaryPart
-		end
-
+	if not rootModel or not rootModel.Parent then
 		return
+	end
+
+	if #parts == 1 then
+		return rootModel.PrimaryPart
 	end
 
 	local current = rootModel
@@ -141,7 +142,7 @@ function AudioService.PlayFromRecipes(soundRecipes: Recipes, sourceModel: Model,
 			local delayedRecipe = table.clone(recipe)
 			delayedRecipe.Delay = nil
 
-			task.delay(recipe.Delay, function()
+			TimeService.DeltaDelay(recipe.Delay):andThen(function()
 				AudioService.PlayFromRecipes({ delayedRecipe }, sourceModel, targetModel)
 			end)
 
@@ -150,13 +151,15 @@ function AudioService.PlayFromRecipes(soundRecipes: Recipes, sourceModel: Model,
 
 		local soundAsset = getSound(recipe.Sound)
 		local soundId = soundAsset and soundAsset.SoundId or recipe.Sound
-		local soundParent = resolveInstance(recipe.At, sourceModel, targetModel)
 		local volume = recipe.Volume or (soundAsset and soundAsset.Volume) or 1
 
 		if recipe.Type == "2D" then
 			AudioService.PlayOn2D(soundId, volume)
 		elseif recipe.Type == "3D" then
-			AudioService.PlayOn3D(soundId, volume, nil, soundParent)
+			local soundParent = resolveInstance(recipe.At, sourceModel, targetModel)
+			if soundParent then
+				AudioService.PlayOn3D(soundId, volume, nil, soundParent)
+			end
 		else
 			warn(`알 수 없는 SFX Type: {recipe.Type}`)
 		end
@@ -296,7 +299,9 @@ function AudioService.SetBGMState(playing: boolean?, volume: number?, newBGMId)
 	end
 end
 
-function AudioService.Init()
+function AudioService.Init(services)
+	TimeService = services:GetService("TimeService")
+
 	PlayerStorage = InstanceCache.new(Instance.new("AudioPlayer"), 30, Caches)
 	EmitterStorage = InstanceCache.new(Instance.new("AudioEmitter"), 30, Caches)
 	WireStorage = InstanceCache.new(Instance.new("Wire"), 60, Caches)

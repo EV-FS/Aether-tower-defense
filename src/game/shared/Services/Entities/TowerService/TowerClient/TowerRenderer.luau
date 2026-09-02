@@ -5,7 +5,6 @@ local RunService = game:GetService("RunService")
 
 --/ Modules
 local TowerData = require(ReplicatedStorage.Settings.Data.TowerData)
-local ServiceRegistry = require(ReplicatedStorage.Shared.Modules.Core.ServiceRegistry)
 local CharacterUtils = require(ReplicatedStorage.Shared.Modules.Utils.CharacterUtils)
 local CreateRangeIndicator = require(ReplicatedStorage.Shared.Services.Entities.TowerService.Utils.CreateRangeIndicator)
 local TimeService
@@ -92,18 +91,20 @@ TowerRenderer.CurrentRange = nil
 function TowerRenderer.Init(services)
 	AnimationService = services:GetService("AnimationService")
 	VisualService = services:GetService("VisualService")
+	TimeService = services:GetService("TimeService")
 end
 
 function TowerRenderer.Start()
-	RunService.PreRender:Connect(function()
+	RunService.PreRender:Connect(function(dt)
 		if next(TowerRenderer.TrackingTowers) == nil and not TowerRenderer.CurrentRange then
 			return
 		end
 
-		local now = os.clock()
 		for towerId, data in pairs(TowerRenderer.TrackingTowers) do
+			data.RemainingTime -= dt * TimeService:GetGameSpeed()
+
 			if
-				now > data.EndTime
+				data.RemainingTime <= 0
 				or not data.TowerModel.Parent
 				or not data.TargetPart.Parent
 				or data.TargetPart:GetAttribute("Dead")
@@ -342,7 +343,16 @@ function TowerRenderer.OnAttack(towerId: number, enemyModel: Model, stats, attac
 
 	local towerModel = renderData.Model
 	local targetPart = enemyModel.PrimaryPart
-	local attackDelay = stats.AttackDelay or 0
+	local hits = stats.Hits
+	local hasHitConfig = hits and #hits > 0
+	local attackEndDelay = stats.AttackDelay or 0
+
+	if hasHitConfig then
+		attackEndDelay = 0
+		for _, hit in hits do
+			attackEndDelay = math.max(attackEndDelay, hit.Delay or 0)
+		end
+	end
 
 	local variant = attackVariant or ""
 	local usesCombo, comboLevel = ResolveAttackSet(towerModel, attackVariant, renderData.Level)
@@ -373,9 +383,35 @@ function TowerRenderer.OnAttack(towerId: number, enemyModel: Model, stats, attac
 		end)
 	end
 
-	TimeService = TimeService or ServiceRegistry:GetService("TimeService")
-
 	VisualService.Play(renderData.Name, `{variant}AttackStart`, renderData.Level, towerModel, enemyModel, stats.Range)
+
+	if hasHitConfig then
+		for hitIndex, hit in hits do
+			local hitDelay = hit.Delay or 0
+			local visualDelay = if hitDelay > 0 then hitDelay else nil
+			local hitRange = hit.Range or stats.Range
+
+			VisualService.Play(
+				renderData.Name,
+				`{variant}AttackHit`,
+				renderData.Level,
+				towerModel,
+				enemyModel,
+				hitRange,
+				visualDelay
+			)
+			VisualService.Play(
+				renderData.Name,
+				`{variant}AttackHit{hitIndex}`,
+				renderData.Level,
+				towerModel,
+				enemyModel,
+				hitRange,
+				visualDelay
+			)
+		end
+	end
+
 	VisualService.Play(
 		renderData.Name,
 		`{variant}AttackEnd`,
@@ -383,7 +419,7 @@ function TowerRenderer.OnAttack(towerId: number, enemyModel: Model, stats, attac
 		towerModel,
 		enemyModel,
 		stats.Range,
-		attackDelay
+		if attackEndDelay > 0 then attackEndDelay else nil
 	)
 
 	if not targetPart:GetAttribute("Dead") then
@@ -391,7 +427,7 @@ function TowerRenderer.OnAttack(towerId: number, enemyModel: Model, stats, attac
 		TowerRenderer.TrackingTowers[towerId] = {
 			TowerModel = towerModel,
 			TargetPart = targetPart,
-			EndTime = os.clock() + (attackDelay / TimeService:GetGameSpeed()),
+			RemainingTime = attackEndDelay,
 		}
 	end
 end
