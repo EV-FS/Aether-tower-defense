@@ -1,4 +1,6 @@
+local Lighting = game:GetService("Lighting")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local TweenService = game:GetService("TweenService")
 local UserInputService = game:GetService("UserInputService")
 
 local Vide = require(ReplicatedStorage.Packages.Vide)
@@ -7,12 +9,17 @@ local ServiceRegistry = require(ReplicatedStorage.Shared.Modules.Core.ServiceReg
 local useButtonEffect = require(ReplicatedStorage.Shared.Modules.UI.Hooks.useButtonEffect)
 
 local create = Vide.create
+local cleanup = Vide.cleanup
 local source = Vide.source
 local spring = Vide.spring
 local action = Vide.action
 local effect = Vide.effect
 
 local VIEW_ID = "Settings"
+local WINDOW_EXIT_DURATION = 0.42
+local BACKDROP_BLUR_SIZE = 10
+local BLUR_IN_DURATION = 0.26
+local BLUR_OUT_DURATION = 0.32
 
 local SettingsClient
 local UIController
@@ -135,23 +142,119 @@ function SettingsUI.RenderUI()
 		return UIController:IsOpen("Settings") or UIController:IsOpen("Setting")
 	end
 
-	local windowScale = spring(function()
-		return if isVisible() then 1 else 0.85
-	end, 0.22, 0.78)
+	local isWindowMounted = source(false)
+	local isWindowOpen = source(false)
+	local isMounted = false
+	local visibilityToken = 0
 
-	return create("Frame")({
+	effect(function()
+		local shouldOpen = isVisible()
+		visibilityToken += 1
+		local token = visibilityToken
+
+		if shouldOpen then
+			if not isMounted then
+				isMounted = true
+				isWindowOpen(false)
+				isWindowMounted(true)
+				task.defer(function()
+					if token == visibilityToken and isMounted then
+						isWindowOpen(true)
+					end
+				end)
+			else
+				isWindowOpen(true)
+			end
+			return
+		end
+
+		isWindowOpen(false)
+		isCodeFrameOpen(false)
+		if not isMounted then
+			return
+		end
+
+		task.delay(WINDOW_EXIT_DURATION, function()
+			if token ~= visibilityToken or isWindowOpen() then
+				return
+			end
+
+			isMounted = false
+			isWindowMounted(false)
+		end)
+	end)
+
+	cleanup(function()
+		visibilityToken += 1
+	end)
+
+	local backdropBlur = Instance.new("BlurEffect")
+	backdropBlur.Name = "SettingsBackdropBlur"
+	backdropBlur.Size = 0
+	backdropBlur.Enabled = false
+	backdropBlur.Parent = Lighting
+	cleanup(function()
+		backdropBlur:Destroy()
+	end)
+
+	effect(function()
+		local shouldBlur = isWindowOpen()
+		if shouldBlur then
+			backdropBlur.Enabled = true
+		end
+
+		local tween = TweenService:Create(
+			backdropBlur,
+			TweenInfo.new(
+				if shouldBlur then BLUR_IN_DURATION else BLUR_OUT_DURATION,
+				Enum.EasingStyle.Quint,
+				if shouldBlur then Enum.EasingDirection.Out else Enum.EasingDirection.InOut
+			),
+			{ Size = if shouldBlur then BACKDROP_BLUR_SIZE else 0 }
+		)
+		local completed = tween.Completed:Connect(function(playbackState)
+			if playbackState == Enum.PlaybackState.Completed and not shouldBlur then
+				backdropBlur.Enabled = false
+			end
+		end)
+		tween:Play()
+
+		cleanup(function()
+			completed:Disconnect()
+			tween:Cancel()
+		end)
+	end)
+
+	local windowScale = spring(function()
+		return if isWindowOpen() then 1 else 0.72
+	end, 0.3, 0.78)
+	local windowPosition = spring(function()
+		return if isWindowOpen() then UDim2.fromScale(0.498839, 0.536386) else UDim2.fromScale(0.498839, 0.585)
+	end, 0.36, 0.78)
+	local windowRotation = spring(function()
+		return if isWindowOpen() then 0 else -4
+	end, 0.38, 0.72)
+	local windowTransparency = spring(function()
+		return if isWindowOpen() then 0 else 1
+	end, 0.24, 0.9)
+
+	return create("CanvasGroup")({
 		Name = "Setting",
 		AnchorPoint = Vector2.new(0.5, 0.5),
 		BackgroundTransparency = 1,
+		GroupTransparency = windowTransparency,
+		Interactable = isWindowOpen,
 		Position = UDim2.fromScale(0.5, 0.5),
 		Size = UDim2.fromScale(1, 1),
-		Visible = isVisible,
+		Visible = isWindowMounted,
 
 		create("ImageLabel")({
 			Name = "Main",
+			AnchorPoint = Vector2.new(0.5, 0.5),
 			BackgroundTransparency = 1,
 			Image = "rbxassetid://129320583643853",
-			Position = UDim2.fromScale(0.13799, 0.20195),
+			Position = windowPosition,
+			Rotation = windowRotation,
 			Size = UDim2.fromScale(0.721698, 0.668872),
 
 			create("UIScale")({
@@ -168,15 +271,23 @@ function SettingsUI.RenderUI()
 				Name = "Header",
 				BackgroundTransparency = 1,
 				Image = "rbxassetid://96923630520876",
-				Position = UDim2.fromScale(-0.0573612, -0.111321),
+				Position = spring(function()
+					return if isWindowOpen()
+						then UDim2.fromScale(-0.0573612, -0.111321)
+						else UDim2.fromScale(-0.105, -0.205)
+				end, 0.34, 0.72),
 				Size = UDim2.fromScale(0.692821, 0.28349),
 				ZIndex = 10,
 
 				create("ImageLabel")({
 					Name = "Gear",
+					AnchorPoint = Vector2.new(0.5, 0.5),
 					BackgroundTransparency = 1,
 					Image = "rbxassetid://131771458383625",
-					Position = UDim2.fromScale(0.0448113, 0.0551714),
+					Position = UDim2.fromScale(0.129065, 0.438255),
+					Rotation = spring(function()
+						return if isWindowOpen() then 0 else -65
+					end, 0.28, 0.68),
 					Size = UDim2.fromScale(0.168507, 0.766167),
 
 					create("UIAspectRatioConstraint")({
@@ -188,7 +299,11 @@ function SettingsUI.RenderUI()
 					Name = "Cloud",
 					BackgroundTransparency = 1,
 					Image = "rbxassetid://108560268349568",
-					Position = UDim2.fromScale(0.529887, 0.0551715),
+					Position = spring(function()
+						return if isWindowOpen()
+							then UDim2.fromScale(0.529887, 0.0551715)
+							else UDim2.fromScale(0.66, 0.015)
+					end, 0.4, 0.7),
 					Size = UDim2.fromScale(0.537766, 1.06417),
 
 					create("UIAspectRatioConstraint")({
@@ -219,7 +334,14 @@ function SettingsUI.RenderUI()
 				AnchorPoint = Vector2.new(0.5, 0.5),
 				BackgroundTransparency = 1,
 				Image = "rbxassetid://92651860309635",
-				Position = UDim2.fromScale(0.980096, 0.0289194),
+				Position = spring(function()
+					return if isWindowOpen()
+						then UDim2.fromScale(0.980096, 0.0289194)
+						else UDim2.fromScale(1.07, -0.055)
+				end, 0.32, 0.68),
+				Rotation = spring(function()
+					return if isWindowOpen() then 0 else 42
+				end, 0.28, 0.65),
 				Size = UDim2.fromScale(0.102144, 0.15458),
 
 				Activated = function()
@@ -240,7 +362,14 @@ function SettingsUI.RenderUI()
 				Name = "Buttons",
 				BackgroundTransparency = 1,
 				Image = "rbxassetid://130249132653728",
-				Position = UDim2.fromScale(0.019, 0.142896),
+				Position = spring(function()
+					return if isWindowOpen()
+						then UDim2.fromScale(0.019, 0.142896)
+						else UDim2.fromScale(-0.075, 0.17)
+				end, 0.38, 0.7),
+				Rotation = spring(function()
+					return if isWindowOpen() then 0 else -5
+				end, 0.4, 0.72),
 				Size = UDim2.fromScale(0.248173, 0.824884),
 
 				create("Frame")({
@@ -425,7 +554,9 @@ function SettingsUI.RenderUI()
 				Active = true,
 				BackgroundTransparency = 1,
 				BorderSizePixel = 0,
-				Position = UDim2.fromScale(0.262, 0.172),
+				Position = spring(function()
+					return if isWindowOpen() then UDim2.fromScale(0.262, 0.172) else UDim2.fromScale(0.34, 0.195)
+				end, 0.36, 0.74),
 				ScrollBarImageColor3 = Color3.new(),
 				Size = UDim2.fromScale(0.714, 0.799),
 				Visible = function()
@@ -666,7 +797,9 @@ function SettingsUI.RenderUI()
 				Active = true,
 				BackgroundTransparency = 1,
 				BorderSizePixel = 0,
-				Position = UDim2.fromScale(0.262, 0.172),
+				Position = spring(function()
+					return if isWindowOpen() then UDim2.fromScale(0.262, 0.172) else UDim2.fromScale(0.34, 0.195)
+				end, 0.36, 0.74),
 				ScrollBarImageColor3 = Color3.new(),
 				Size = UDim2.fromScale(0.714, 0.799),
 				Visible = function()
@@ -737,11 +870,12 @@ function SettingsUI.RenderUI()
 
 					create("ImageButton")({
 						Name = "NightToggle",
+						AnchorPoint = Vector2.new(0.5, 0.5),
 						BackgroundTransparency = 1,
 						Image = function()
 							return if night() then ICON_ON else ICON_OFF
 						end,
-						Position = UDim2.fromScale(0.849191, 0.195175),
+						Position = UDim2.fromScale(0.910334, 0.492328),
 						Size = UDim2.fromScale(0.122286, 0.594306),
 						ZIndex = 12,
 
@@ -818,11 +952,12 @@ function SettingsUI.RenderUI()
 
 					create("ImageButton")({
 						Name = "ShadowToggle",
+						AnchorPoint = Vector2.new(0.5, 0.5),
 						BackgroundTransparency = 1,
 						Image = function()
 							return if shadows() then ICON_ON else ICON_OFF
 						end,
-						Position = UDim2.fromScale(0.849191, 0.195175),
+						Position = UDim2.fromScale(0.910334, 0.492328),
 						Size = UDim2.fromScale(0.122286, 0.594306),
 						ZIndex = 12,
 
@@ -899,11 +1034,12 @@ function SettingsUI.RenderUI()
 
 					create("ImageButton")({
 						Name = "VFXToggle",
+						AnchorPoint = Vector2.new(0.5, 0.5),
 						BackgroundTransparency = 1,
 						Image = function()
 							return if vfx() then ICON_ON else ICON_OFF
 						end,
-						Position = UDim2.fromScale(0.849191, 0.195175),
+						Position = UDim2.fromScale(0.910334, 0.492328),
 						Size = UDim2.fromScale(0.122286, 0.594306),
 						ZIndex = 12,
 
@@ -930,7 +1066,9 @@ function SettingsUI.RenderUI()
 				Active = true,
 				BackgroundTransparency = 1,
 				BorderSizePixel = 0,
-				Position = UDim2.fromScale(0.262, 0.172),
+				Position = spring(function()
+					return if isWindowOpen() then UDim2.fromScale(0.262, 0.172) else UDim2.fromScale(0.34, 0.195)
+				end, 0.36, 0.74),
 				ScrollBarImageColor3 = Color3.new(),
 				Size = UDim2.fromScale(0.714, 0.799),
 				Visible = function()
@@ -1001,11 +1139,12 @@ function SettingsUI.RenderUI()
 
 					create("ImageButton")({
 						Name = "AutoSkipToggle",
+						AnchorPoint = Vector2.new(0.5, 0.5),
 						BackgroundTransparency = 1,
 						Image = function()
 							return if autoSkip() then ICON_ON else ICON_OFF
 						end,
-						Position = UDim2.fromScale(0.849191, 0.195175),
+						Position = UDim2.fromScale(0.910334, 0.492328),
 						Size = UDim2.fromScale(0.122286, 0.594306),
 						ZIndex = 12,
 
@@ -1082,11 +1221,12 @@ function SettingsUI.RenderUI()
 
 					create("ImageButton")({
 						Name = "TradeToggle",
+						AnchorPoint = Vector2.new(0.5, 0.5),
 						BackgroundTransparency = 1,
 						Image = function()
 							return if trade() then ICON_ON else ICON_OFF
 						end,
-						Position = UDim2.fromScale(0.849191, 0.195175),
+						Position = UDim2.fromScale(0.910334, 0.492328),
 						Size = UDim2.fromScale(0.122286, 0.594306),
 						ZIndex = 12,
 

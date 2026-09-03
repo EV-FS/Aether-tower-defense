@@ -1,3 +1,4 @@
+local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Lighting = game:GetService("Lighting")
 local TweenService = game:GetService("TweenService")
@@ -5,7 +6,7 @@ local TweenService = game:GetService("TweenService")
 local Vide = require(ReplicatedStorage.Packages.Vide)
 local RarityData = require(ReplicatedStorage.Settings.Data.RarityData)
 local ServiceRegistry = require(ReplicatedStorage.Shared.Modules.Core.ServiceRegistry)
-local TowerViewport = require(ReplicatedStorage.UI.Components.TowerViewport)
+local WorldTowerDisplay = require(ReplicatedStorage.UI.Components.WorldTowerDisplay)
 
 local create = Vide.create
 local cleanup = Vide.cleanup
@@ -19,6 +20,8 @@ export type PulledUnit = {
 }
 
 local VIEW_ID = "SummonResult"
+local PLAYER = Players.LocalPlayer
+local CONTROL_LOCK_ATTRIBUTE = "SummonControlsLocked"
 
 local RARITY_GRADIENTS = {
 	Common = ColorSequence.new({
@@ -48,6 +51,7 @@ local RARITY_GRADIENTS = {
 }
 
 local UIController
+local SprintClient
 
 local resultsQueue = source({} :: { PulledUnit })
 local currentIndex = source(0)
@@ -59,13 +63,192 @@ local slideSign = source(1)
 local EXIT_DELAY = 0.34
 local ENTER_DELAY = 0.42
 local CLOSE_DELAY = 0.4
-local BACKDROP_BLUR_SIZE = 8
-local BLUR_FADE_IN_TIME = 0.32
-local BLUR_FADE_OUT_TIME = 0.38
+local SUMMON_MODEL_DEPTH = 7
+local BACKDROP_FAR_INTENSITY = 0.65
+local BACKDROP_FOCUS_RADIUS = 3
+local FOCUS_FADE_IN_TIME = 0.32
+local FOCUS_FADE_OUT_TIME = 0.38
 
 local closeToken = 0
 
+type SavedCameraState = {
+	Camera: Camera,
+	CameraType: Enum.CameraType,
+	CameraSubject: Instance?,
+}
+
+local savedCameraState: SavedCameraState? = nil
+
+type SavedHumanoidState = {
+	Humanoid: Humanoid,
+	WalkSpeed: number,
+	JumpPower: number,
+	JumpHeight: number,
+	AutoRotate: boolean,
+	JumpingEnabled: boolean,
+}
+
+local controlsLocked = false
+local playerControls
+local savedHumanoidState: SavedHumanoidState? = nil
+local characterAddedConnection: RBXScriptConnection? = nil
+local sprintWasEnabled = false
+local sprintWasActive = false
+
 local SummonResultUI = {}
+
+local function restoreHumanoidState()
+	local state = savedHumanoidState
+	savedHumanoidState = nil
+	if not state or not state.Humanoid.Parent then
+		return
+	end
+
+	state.Humanoid.WalkSpeed = state.WalkSpeed
+	state.Humanoid.JumpPower = state.JumpPower
+	state.Humanoid.JumpHeight = state.JumpHeight
+	state.Humanoid.AutoRotate = state.AutoRotate
+	state.Humanoid:SetStateEnabled(Enum.HumanoidStateType.Jumping, state.JumpingEnabled)
+end
+
+local function lockCharacter(character: Model)
+	if not controlsLocked then
+		return
+	end
+
+	local humanoid = character:FindFirstChildOfClass("Humanoid") or character:WaitForChild("Humanoid", 5)
+	if not controlsLocked or not humanoid or not humanoid:IsA("Humanoid") then
+		return
+	end
+
+	savedHumanoidState = {
+		Humanoid = humanoid,
+		WalkSpeed = humanoid.WalkSpeed,
+		JumpPower = humanoid.JumpPower,
+		JumpHeight = humanoid.JumpHeight,
+		AutoRotate = humanoid.AutoRotate,
+		JumpingEnabled = humanoid:GetStateEnabled(Enum.HumanoidStateType.Jumping),
+	}
+
+	humanoid:Move(Vector3.zero, true)
+	humanoid.WalkSpeed = 0
+	humanoid.JumpPower = 0
+	humanoid.JumpHeight = 0
+	humanoid.AutoRotate = false
+	humanoid:SetStateEnabled(Enum.HumanoidStateType.Jumping, false)
+
+	local rootPart = character:FindFirstChild("HumanoidRootPart")
+	if rootPart and rootPart:IsA("BasePart") then
+		rootPart.AssemblyLinearVelocity = Vector3.zero
+		rootPart.AssemblyAngularVelocity = Vector3.zero
+	end
+	for _, descendant in character:GetDescendants() do
+		if descendant:IsA("LinearVelocity") and descendant.Name == "DashVelocity" then
+			descendant:Destroy()
+		end
+	end
+end
+
+local function getPlayerControls()
+	if playerControls then
+		return playerControls
+	end
+
+	local playerScripts = PLAYER:FindFirstChildOfClass("PlayerScripts")
+	local playerModuleScript = playerScripts and playerScripts:FindFirstChild("PlayerModule")
+	if not playerModuleScript or not playerModuleScript:IsA("ModuleScript") then
+		return nil
+	end
+
+	local ok, playerModule = pcall(require, playerModuleScript)
+	if not ok or type(playerModule) ~= "table" or type(playerModule.GetControls) ~= "function" then
+		return nil
+	end
+
+	playerControls = playerModule:GetControls()
+	return playerControls
+end
+
+local function lockPlayerControls()
+	if controlsLocked then
+		return
+	end
+	controlsLocked = true
+	PLAYER:SetAttribute(CONTROL_LOCK_ATTRIBUTE, true)
+
+	local controls = getPlayerControls()
+	if controls then
+		controls:Disable()
+	end
+
+	sprintWasEnabled = SprintClient and SprintClient.IsEnabled() or false
+	sprintWasActive = SprintClient and SprintClient.IsSprinting() or false
+	if SprintClient then
+		SprintClient.Disable()
+	end
+
+	if PLAYER.Character then
+		lockCharacter(PLAYER.Character)
+	end
+	characterAddedConnection = PLAYER.CharacterAdded:Connect(function(character)
+		task.defer(lockCharacter, character)
+	end)
+end
+
+local function restorePlayerControls()
+	if not controlsLocked then
+		return
+	end
+	controlsLocked = false
+	PLAYER:SetAttribute(CONTROL_LOCK_ATTRIBUTE, nil)
+
+	if characterAddedConnection then
+		characterAddedConnection:Disconnect()
+		characterAddedConnection = nil
+	end
+
+	local controls = getPlayerControls()
+	if controls then
+		controls:Enable()
+	end
+	restoreHumanoidState()
+	if SprintClient and sprintWasEnabled then
+		SprintClient.SetEnabled(true, sprintWasActive)
+	end
+	sprintWasEnabled = false
+	sprintWasActive = false
+end
+
+local function lockResultCamera()
+	if savedCameraState then
+		return
+	end
+
+	local camera = workspace.CurrentCamera
+	if not camera then
+		return
+	end
+
+	savedCameraState = {
+		Camera = camera,
+		CameraType = camera.CameraType,
+		CameraSubject = camera.CameraSubject,
+	}
+	camera.CameraType = Enum.CameraType.Scriptable
+end
+
+local function restoreResultCamera()
+	local state = savedCameraState
+	savedCameraState = nil
+	if not state or not state.Camera.Parent then
+		return
+	end
+
+	if state.CameraSubject and state.CameraSubject.Parent then
+		state.Camera.CameraSubject = state.CameraSubject
+	end
+	state.Camera.CameraType = state.CameraType
+end
 
 local function getCurrentUnit(): PulledUnit?
 	local queue = resultsQueue()
@@ -162,7 +345,13 @@ function SummonResultUI.ShowResults(units: { PulledUnit })
 	isTransitioning(false)
 	isClosing(false)
 	revealPhase(false)
-	UIController:Open(VIEW_ID)
+	if not UIController:OpenExclusive(VIEW_ID) then
+		resultsQueue({})
+		currentIndex(0)
+		return
+	end
+	lockResultCamera()
+	lockPlayerControls()
 	playInitialReveal()
 end
 
@@ -194,39 +383,45 @@ function SummonResultUI.Close()
 	revealPhase(false)
 	isTransitioning(false)
 	isClosing(false)
+	restoreResultCamera()
+	restorePlayerControls()
 end
 
 function SummonResultUI.RenderUI()
-	local backdropBlur = Instance.new("BlurEffect")
-	backdropBlur.Name = "SummonResultBackdropBlur"
-	backdropBlur.Size = 0
-	backdropBlur.Enabled = false
-	backdropBlur.Parent = Lighting
+	local backdropFocus = Instance.new("DepthOfFieldEffect")
+	backdropFocus.Name = "SummonResultBackdropFocus"
+	backdropFocus.FarIntensity = 0
+	backdropFocus.NearIntensity = 0
+	backdropFocus.FocusDistance = SUMMON_MODEL_DEPTH
+	backdropFocus.InFocusRadius = BACKDROP_FOCUS_RADIUS
+	backdropFocus.Enabled = false
+	backdropFocus.Parent = Lighting
 	cleanup(function()
-		backdropBlur:Destroy()
+		backdropFocus:Destroy()
 	end)
+	cleanup(restoreResultCamera)
+	cleanup(restorePlayerControls)
 
 	effect(function()
-		-- Begin fading out as soon as the close animation starts, rather than
-		-- dropping the blur on the frame where the view is removed.
-		local shouldBlur = UIController:IsOpen(VIEW_ID) and not isClosing()
+		-- Keep the local 3D summon sharp while softening the world behind it.
+		local shouldFocus = UIController:IsOpen(VIEW_ID) and not isClosing()
 		local tween = TweenService:Create(
-			backdropBlur,
+			backdropFocus,
 			TweenInfo.new(
-				if shouldBlur then BLUR_FADE_IN_TIME else BLUR_FADE_OUT_TIME,
+				if shouldFocus then FOCUS_FADE_IN_TIME else FOCUS_FADE_OUT_TIME,
 				Enum.EasingStyle.Quad,
-				if shouldBlur then Enum.EasingDirection.Out else Enum.EasingDirection.InOut
+				if shouldFocus then Enum.EasingDirection.Out else Enum.EasingDirection.InOut
 			),
-			{ Size = if shouldBlur then BACKDROP_BLUR_SIZE else 0 }
+			{ FarIntensity = if shouldFocus then BACKDROP_FAR_INTENSITY else 0 }
 		)
 
-		if shouldBlur then
-			backdropBlur.Enabled = true
+		if shouldFocus then
+			backdropFocus.Enabled = true
 		end
 
 		local completed = tween.Completed:Connect(function(playbackState)
-			if playbackState == Enum.PlaybackState.Completed and not shouldBlur then
-				backdropBlur.Enabled = false
+			if playbackState == Enum.PlaybackState.Completed and not shouldFocus then
+				backdropFocus.Enabled = false
 			end
 		end)
 		tween:Play()
@@ -256,6 +451,43 @@ function SummonResultUI.RenderUI()
 			ZIndex = 50,
 
 			Activated = SummonResultUI.Advance,
+		}),
+
+		WorldTowerDisplay({
+			TowerName = function()
+				local unit = getCurrentUnit()
+				return unit and unit.UnitName or ""
+			end,
+			Rarity = function()
+				local unit = getCurrentUnit()
+				return unit and unit.Rarity or nil
+			end,
+			RevealKey = currentIndex,
+			AnimationName = "Idle",
+			ScreenPosition = Vector2.new(0.5, 0.39),
+			ScreenHeight = 0.44,
+			ScreenWidth = 0.4,
+			Depth = SUMMON_MODEL_DEPTH,
+			Visible = function()
+				return UIController:IsOpen(VIEW_ID)
+			end,
+			Transparency = spring(function()
+				return if isRevealed() then 0 else 1
+			end, 0.45, 0.85),
+			DisplayScale = spring(function()
+				if isRevealed() then
+					return 1
+				end
+
+				return if isClosing() then 0.88 else 0.94
+			end, if isClosing() then 0.3 else 0.38, 0.68),
+			ModelRotation = spring(function()
+				if isRevealed() then
+					return 0
+				end
+
+				return if isClosing() then 35 else slideSign() * 95
+			end, if isClosing() then 0.38 else 0.45, 0.58),
 		}),
 
 		create("Frame")({
@@ -289,45 +521,6 @@ function SummonResultUI.RenderUI()
 
 					return 0.94
 				end, if isClosing() then 0.3 else 0.38, 0.68),
-			}),
-
-			create("Frame")({
-				Name = "ViewportHolder",
-				AnchorPoint = Vector2.new(0.5, 0.5),
-				BackgroundTransparency = 1,
-				Position = UDim2.fromScale(0.5, 0.38),
-				Size = UDim2.fromScale(0.42, 0.48),
-				ZIndex = 53,
-
-				TowerViewport({
-					TowerName = function()
-						local unit = getCurrentUnit()
-						return unit and unit.UnitName or ""
-					end,
-					AnimationName = "Idle",
-					AnchorPoint = Vector2.new(0.5, 1),
-					BackgroundTransparency = 1,
-					ImageTransparency = spring(function()
-						return if isRevealed() then 0 else 1
-					end, 0.45, 0.85),
-					Position = UDim2.fromScale(0.5, 1),
-					Size = UDim2.fromScale(1, 1),
-					ZIndex = 53,
-					ModelRotation = spring(function()
-						if isRevealed() then
-							return 0
-						end
-
-						if isClosing() then
-							return 35
-						end
-
-						return slideSign() * 95
-					end, if isClosing() then 0.38 else 0.45, 0.58),
-					-- A fixed camera fit prevents the model from jumping when the entry
-					-- spring changes the rendered UI size.
-					UseViewportModel = false,
-				}),
 			}),
 
 			create("TextLabel")({
@@ -477,6 +670,7 @@ end
 
 function SummonResultUI.Init()
 	UIController = ServiceRegistry:GetService("UIController")
+	SprintClient = ServiceRegistry:GetService("SprintClient")
 end
 
 function SummonResultUI.Start() end

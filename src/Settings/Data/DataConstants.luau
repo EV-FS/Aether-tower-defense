@@ -24,6 +24,10 @@ return TableUtils.DeepFreeze({
 		DevProducts = {},
 		Loadout = {},
 		Settings = {},
+		SummonPity = {
+			Mythic = 0,
+			Absolute = 0,
+		},
 		Quests = {},
 		TutorialCompleted = false,
 		_NextId = 1,

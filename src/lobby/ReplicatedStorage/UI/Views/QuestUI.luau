@@ -127,6 +127,9 @@ function QuestUI.RenderUI()
 		Size = UDim2.fromScale(0.180105, 1),
 		ZIndex = 5,
 		Visible = function()
+			if UIController and UIController:IsExclusive() then
+				return false
+			end
 			if DialogueClient and DialogueClient.IsOpen() then
 				return false
 			end

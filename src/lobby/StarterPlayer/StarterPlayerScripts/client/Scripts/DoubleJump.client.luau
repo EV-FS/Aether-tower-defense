@@ -32,6 +32,10 @@ setupCharacter(player.Character or player.CharacterAdded:Wait())
 player.CharacterAdded:Connect(setupCharacter)
 
 UserInputService.JumpRequest:Connect(function()
+	if player:GetAttribute("SummonControlsLocked") then
+		return
+	end
+
 	if not humanoid or humanoid.Health <= 0 then
 		return
 	end

@@ -41,10 +41,12 @@ local function handleSprint(_, inputState)
 	end
 end
 
-function SprintClient.SetEnabled(enabled: boolean)
+function SprintClient.SetEnabled(enabled: boolean, sprinting: boolean?)
 	isEnabled = enabled
 	if not enabled then
 		isSprinting = false
+	elseif sprinting ~= nil then
+		isSprinting = sprinting
 	end
 	updateSpeed()
 	updateMobileVisual()

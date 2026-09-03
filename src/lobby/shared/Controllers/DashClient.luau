@@ -71,6 +71,10 @@ local function PlayDashVFX(rootPart: BasePart, dashVector: Vector2)
 end
 
 function DashClient:Dash()
+	if PLAYER:GetAttribute("SummonControlsLocked") then
+		return
+	end
+
 	local character = PLAYER.Character
 	if not character then
 		return

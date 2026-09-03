@@ -35,6 +35,9 @@ function LoadoutUI.RenderUI()
 		Size = UDim2.fromScale(1, 1),
 		ZIndex = 2,
 		Visible = function()
+			if UIController and UIController:IsExclusive() then
+				return false
+			end
 			if DialogueClient and DialogueClient.IsOpen() then
 				return false
 			end

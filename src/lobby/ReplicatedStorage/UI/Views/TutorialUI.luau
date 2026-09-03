@@ -23,6 +23,7 @@ type SpotlightRect = {
 
 local TutorialUI = {}
 local TutorialClient
+local UIController
 
 local spotlightRect = source({
 	left = 0,
@@ -158,7 +159,9 @@ function TutorialUI.RenderUI()
 		Name = "TutorialUI",
 		BackgroundTransparency = 1,
 		Size = UDim2.fromScale(1, 1),
-		Visible = TutorialClient:IsVisible(),
+		Visible = function()
+			return TutorialClient:IsVisible()() and not UIController:IsExclusive()
+		end,
 		ZIndex = 40,
 
 		syncSpotlight(),
@@ -379,6 +382,7 @@ end
 
 function TutorialUI.Init()
 	TutorialClient = ServiceRegistry:GetService("TutorialClient")
+	UIController = ServiceRegistry:GetService("UIController")
 end
 
 return TutorialUI

@@ -1,12 +1,14 @@
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Vide = require(ReplicatedStorage.Packages.Vide)
 local LogMessage = require(ReplicatedStorage.UI.Components.LogMessage)
+local ServiceRegistry = require(ReplicatedStorage.Shared.Modules.Core.ServiceRegistry)
 
 local create = Vide.create
 local source = Vide.source
 local values = Vide.values
 
 local notification = source({})
+local UIController
 
 local DEFAULT_LIFETIME = 3
 
@@ -50,6 +52,9 @@ function NotificationUI.RenderUI()
 		Position = UDim2.fromScale(0.5, 0.2),
 		Size = UDim2.fromScale(0.45, 0.8),
 		ZIndex = 50,
+		Visible = function()
+			return not (UIController and UIController:IsExclusive())
+		end,
 
 		values(notification, function(value)
 			return LogMessage({
@@ -76,7 +81,9 @@ function NotificationUI.RenderUI()
 	})
 end
 
-function NotificationUI.Init() end
+function NotificationUI.Init()
+	UIController = ServiceRegistry:GetService("UIController")
+end
 
 function NotificationUI.Start() end
 
