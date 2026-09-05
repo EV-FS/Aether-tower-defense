@@ -328,7 +328,9 @@ function TowerRenderer.OnPassiveTriggered(towerId: number, passiveType: string, 
 
 	local towerModel = targetTower.Model
 	local eventName = `Passive{passiveType}`
-	local targetModel = if arg and arg.EnemyId then workspace.Enemies:FindFirstChild(`Enemy_{arg.EnemyId}`) else nil
+	local targetModel = if typeof(arg) == "table" and arg.EnemyId
+		then workspace.Enemies:FindFirstChild(`Enemy_{arg.EnemyId}`)
+		else nil
 
 	VisualService.Play(targetTower.Name, eventName, targetTower.Level, towerModel, targetModel)
 end
