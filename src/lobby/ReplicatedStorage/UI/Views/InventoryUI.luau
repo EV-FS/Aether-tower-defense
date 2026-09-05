@@ -5,6 +5,7 @@ local RarityGradient = require(ReplicatedStorage.Settings.Visuals.RarityGradient
 local ServiceRegistry = require(ReplicatedStorage.Shared.Modules.Core.ServiceRegistry)
 local useButtonEffect = require(ReplicatedStorage.Shared.Modules.UI.Hooks.useButtonEffect)
 local useColorSequenceCycle = require(ReplicatedStorage.Shared.Modules.UI.Hooks.useColorSequenceCycle)
+local useIsInScrollWindow = require(ReplicatedStorage.Shared.Modules.UI.Hooks.useIsInScrollWindow)
 local NumberUtils = require(ReplicatedStorage.Shared.Modules.Utils.NumberUtils)
 local TowerButton = require(ReplicatedStorage.UI.Components.TowerButton)
 local TowerViewport = require(ReplicatedStorage.UI.Components.TowerViewport)
@@ -12,12 +13,19 @@ local InventoryClient
 local UIController
 
 local create = Vide.create
+local cleanup = Vide.cleanup
+local derive = Vide.derive
+local effect = Vide.effect
+local show = Vide.show
 local source = Vide.source
 local spring = Vide.spring
 local values = Vide.values
 
 local towerInventory = source({})
 local currentSort = source("Rarity")
+
+local INITIAL_MOUNTED_TOWERS = 30
+local REVEAL_DELAY = 0.5
 
 local SORT_CRITERIA = { "Rarity", "ABC", "Level" }
 local RARITY_ORDER = {
@@ -30,13 +38,24 @@ local RARITY_ORDER = {
 	Common = 7,
 }
 
-local storageCount = source(0)
 local selectedName = source(nil)
 local selectedKey = source()
 local selectedDamage = source(0)
 local selectedCooldown = source(0)
 local selectedRange = source(0)
 local selectedMaxTower = source(0)
+
+local function storageCount(): number
+	local count = 0
+
+	for _, towers in towerInventory() do
+		for _ in towers do
+			count += 1
+		end
+	end
+
+	return count
+end
 
 local function getTowerKeyId(towerKey: string | number): number
 	return tonumber(tostring(towerKey):match("%d+$")) or 0
@@ -140,10 +159,10 @@ function InventoryUI.OnSelected(towerName: string, towerKey: string, _towerProfi
 	end
 	local towerStats = towerInfo.Stats
 
-	selectedMaxTower(towerInfo.MaxTowers)
-	selectedDamage(towerStats[0].Damage)
-	selectedCooldown(towerStats[0].Cooldown)
-	selectedRange(towerStats[0].Range)
+	selectedMaxTower(towerInfo.MaxTowers or 0)
+	selectedDamage(towerStats[0].Damage or 0)
+	selectedCooldown(towerStats[0].Cooldown or 0)
+	selectedRange(towerStats[0].Range or 0)
 end
 
 function InventoryUI.EquipActivated()
@@ -166,6 +185,29 @@ function InventoryUI.SortActivated()
 end
 
 function InventoryUI.RenderUI()
+	local isInventoryVisible = UIController:IsVisible("Inventory")
+	local showAllTowers = source(false)
+
+	effect(function()
+		showAllTowers(false)
+		if not isInventoryVisible() then
+			return
+		end
+
+		local pendingReveal: thread? = nil
+		pendingReveal = task.delay(REVEAL_DELAY, function()
+			pendingReveal = nil
+			showAllTowers(true)
+		end)
+
+		cleanup(function()
+			if pendingReveal then
+				task.cancel(pendingReveal)
+				pendingReveal = nil
+			end
+		end)
+	end)
+
 	local animatedCount = spring(storageCount, 0.5, 1)
 	local animatedDamage = spring(selectedDamage, 0.5, 1)
 	local animatedCooldown = spring(selectedCooldown, 0.5, 1)
@@ -173,7 +215,7 @@ function InventoryUI.RenderUI()
 	local animatedMaxTower = spring(selectedMaxTower, 0.5, 1)
 
 	return create("Frame")({
-		Name = "Container",
+		Name = "Inventory",
 		AnchorPoint = Vector2.new(0.5, 0.5),
 		BackgroundTransparency = 1,
 		Position = UDim2.fromScale(0.5, 0.5),
@@ -188,6 +230,7 @@ function InventoryUI.RenderUI()
 			Rotation = spring(function()
 				return if UIController:IsVisible("Inventory")() then 0 else -4
 			end, 0.5, 1),
+
 			Position = UDim2.fromScale(0.5, 0.20195),
 			Size = spring(function()
 				return if UIController:IsVisible("Inventory")()
@@ -411,13 +454,22 @@ function InventoryUI.RenderUI()
 							local buttons = {}
 
 							for towerKey, towerData in towers do
-								table.insert(
-									buttons,
-									TowerButton({
-										Visible = UIController:IsVisible("Inventory"),
+								local layoutOrder = derive(function()
+									return getTowerLayoutOrder(towerName(), towerKey, towerData)
+								end)
+								local shouldMount = derive(function()
+									return isInventoryVisible()
+										and (showAllTowers() or layoutOrder() <= INITIAL_MOUNTED_TOWERS)
+								end)
+
+								table.insert(buttons, show(shouldMount, function()
+									local isInView, bind = useIsInScrollWindow()
+									local button = TowerButton({
+										Bind = bind,
 										TowerName = towerName(),
 										TowerKey = towerKey,
 										TowerData = towerData,
+										IsInWindow = isInView,
 										IsSelected = function()
 											return if selectedName() == towerName()
 													and selectedKey() == towerKey
@@ -427,14 +479,21 @@ function InventoryUI.RenderUI()
 										IsEquipped = function()
 											return InventoryClient.IsEquipped(towerName(), towerKey)
 										end,
-										LayoutOrder = function()
-											return getTowerLayoutOrder(towerName(), towerKey, towerData)
-										end,
+										LayoutOrder = layoutOrder,
 										OnActivated = function()
 											InventoryUI.OnSelected(towerName(), towerKey, towerData)
 										end,
 									})
-								)
+
+									cleanup(function()
+										-- Let Vide detach the child before Destroy locks its Parent.
+										task.defer(function()
+											button:Destroy()
+										end)
+									end)
+
+									return button
+								end))
 							end
 
 							return buttons
@@ -954,8 +1013,6 @@ function InventoryUI.Init()
 	towerInventory = InventoryClient.Towers
 end
 
-function InventoryUI.Start()
-	UIController:Open("Inventory")
-end
+function InventoryUI.Start() end
 
 return InventoryUI

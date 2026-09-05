@@ -41,7 +41,6 @@ local towersLoaded = false
 local loadoutLoaded = false
 local towersRequestVersion = 0
 local loadoutRequestVersion = 0
-local remoteEventsConnected = false
 
 local function normalizeTowerKey(towerKey: TowerKey): (string?, number?)
 	local keyId
