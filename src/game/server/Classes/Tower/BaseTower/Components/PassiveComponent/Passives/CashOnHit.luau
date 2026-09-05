@@ -12,7 +12,7 @@ function CashOnHit.new(tower, config, fireTriggered)
 		local amount = config.Amount
 
 		EconomyService = EconomyService or ServiceRegistry:GetService("EconomyService")
-		EconomyService:AddCash(tower.Owner, amount)
+		EconomyService.AddCash(tower.Owner, amount)
 
 		fireTriggered(config.Type, amount)
 	end)
