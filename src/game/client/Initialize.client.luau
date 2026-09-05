@@ -12,6 +12,8 @@ ServiceRegistry:RegisterServices({
 
 	SharedServices.System.GameClient,
 
+	SharedServices.System.UIController,
+
 	SharedServices.System.EconomyService,
 	SharedServices.System.TimeService,
 	SharedServices.System.VisualService,
