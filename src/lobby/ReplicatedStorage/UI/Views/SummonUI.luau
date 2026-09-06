@@ -1,5 +1,7 @@
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local RunService = game:GetService("RunService")
+local TweenService = game:GetService("TweenService")
 
 local Vide = require(ReplicatedStorage.Packages.Vide)
 local ServiceRegistry = require(ReplicatedStorage.Shared.Modules.Core.ServiceRegistry)
@@ -15,13 +17,15 @@ local create = Vide.create
 local effect = Vide.effect
 local source = Vide.source
 local spring = Vide.spring
+local untrack = Vide.untrack
 
 local UIController
 local DataClient
 local summonZone
 
 local VIEW_ID = "Summon"
-local EXIT_DURATION = 0.32
+local ENTER_DURATION = 0.42
+local EXIT_DURATION = 0.18
 local ONE_PULL_COST = SummonConfig.Prices[1]
 local TEN_PULL_COST = SummonConfig.Prices[10]
 local BANNER_TIMER_DURATION = SummonConfig.BannerTimerDuration
@@ -134,7 +138,7 @@ local function createRarityGradient(rarity: string)
 	})
 end
 
-local function createUnitCard(rarity: string, layoutOrder: number)
+local function createUnitCard(rarity: string, layoutOrder: number, reveal: () -> number)
 	return create("Frame")({
 		Name = "Frame",
 		BackgroundTransparency = 1,
@@ -165,7 +169,12 @@ local function createUnitCard(rarity: string, layoutOrder: number)
 			LightDirection = Vector3.new(-1, -0.8, -0.65),
 			FieldOfView = 32,
 			FitPadding = 1.08,
-			Position = UDim2.fromScale(0, 0),
+			Position = function()
+				return UDim2.fromScale((layoutOrder - 2) * 0.08 * (1 - reveal()), 0.1 * (1 - reveal()))
+			end,
+			ImageTransparency = function()
+				return 1 - reveal()
+			end,
 			Size = UDim2.fromScale(1, 1),
 			UseCharacterBounds = true,
 			UseViewportModel = true,
@@ -177,7 +186,9 @@ local function createUnitCard(rarity: string, layoutOrder: number)
 			Name = "Name",
 			BackgroundTransparency = 1,
 			Image = NAME_PLATE_IMAGE,
-			Position = UDim2.fromScale(0.176933, 0.647593),
+			Position = function()
+				return UDim2.fromScale(0.176933, 0.647593 + 0.08 * (1 - reveal()))
+			end,
 			Size = UDim2.fromScale(0.652453, 0.178427),
 			ZIndex = 2,
 
@@ -288,7 +299,7 @@ local function createPurchaseButton(
 	amount: number,
 	title: string,
 	cost: number,
-	position: UDim2
+	position: UDim2 | (() -> UDim2)
 )
 	return create("ImageButton")({
 		Name = name,
@@ -567,47 +578,60 @@ end
 
 function SummonUI.RenderUI()
 	local isMounted = source(false)
-	local isAnimatedOpen = source(false)
-	local transitionToken = 0
+	local motion = source(0)
+	local reveal = source(0)
+	local opacity = source(0)
 
 	effect(function()
 		local shouldOpen = isOpen()
-		transitionToken += 1
-		local token = transitionToken
-
-		if shouldOpen then
-			isMounted(true)
-			isAnimatedOpen(false)
-			task.defer(function()
-				if token == transitionToken and isOpen() then
-					isAnimatedOpen(true)
-				end
-			end)
+		if not shouldOpen then
+			isProbabilityOpen(false)
+		end
+		if not shouldOpen and not untrack(isMounted) then
 			return
 		end
 
-		isAnimatedOpen(false)
-		isProbabilityOpen(false)
-		task.delay(EXIT_DURATION, function()
-			if token == transitionToken and not isOpen() then
-				isMounted(false)
+		-- Resume from the current frame when a transition is interrupted.
+		-- Disconnecting the previous animation also prevents a stale close from hiding a reopened window.
+		local startMotion = untrack(motion)
+		local startReveal = untrack(reveal)
+		local startOpacity = untrack(opacity)
+		local target = if shouldOpen then 1 else 0
+		local duration = if shouldOpen then ENTER_DURATION else EXIT_DURATION
+		local elapsed = 0
+		isMounted(true)
+
+		local connection: RBXScriptConnection
+		connection = RunService.RenderStepped:Connect(function(deltaTime)
+			elapsed += deltaTime
+			local progress = math.min(elapsed / duration, 1)
+			local eased = TweenService:GetValue(
+				progress,
+				if shouldOpen then Enum.EasingStyle.Back else Enum.EasingStyle.Quad,
+				if shouldOpen then Enum.EasingDirection.Out else Enum.EasingDirection.In
+			)
+			motion(startMotion + (target - startMotion) * eased)
+			reveal(startReveal + (target - startReveal) * progress)
+			local fade = if shouldOpen then math.min(elapsed / 0.14, 1) else progress
+			opacity(startOpacity + (target - startOpacity) * fade)
+
+			if progress == 1 then
+				connection:Disconnect()
+				isMounted(shouldOpen)
 			end
 		end)
+		cleanup(connection)
 	end)
 
-	cleanup(function()
-		transitionToken += 1
-	end)
-
-	local windowScale = spring(function()
-		return if isAnimatedOpen() then 1 else 0.9
-	end, 0.3, 0.86)
-	local windowPosition = spring(function()
-		return if isAnimatedOpen() then UDim2.fromScale(0.5, 0.5) else UDim2.fromScale(0.5, 0.535)
-	end, 0.3, 0.86)
-	local windowRotation = spring(function()
-		return if isAnimatedOpen() then 0 else -2
-	end, 0.32, 0.88)
+	local function stagger(delay: number): () -> number
+		return function()
+			local progress = math.clamp((reveal() * ENTER_DURATION - delay) / (ENTER_DURATION - delay), 0, 1)
+			return TweenService:GetValue(progress, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
+		end
+	end
+	local headerReveal = stagger(0.025)
+	local ornamentReveal = stagger(0.06)
+	local footerReveal = stagger(0.1)
 	local ratesTransparency = spring(function()
 		return if isOpen() and isProbabilityOpen() then 0 else 1
 	end, 0.2, 0.9)
@@ -621,9 +645,10 @@ function SummonUI.RenderUI()
 		BackgroundTransparency = 1,
 		Position = UDim2.fromScale(0.5, 0.5),
 		Size = UDim2.fromScale(1, 1),
-		Interactable = function()
-			return isOpen() and isAnimatedOpen()
+		GroupTransparency = function()
+			return 1 - opacity()
 		end,
+		Interactable = isOpen,
 		Visible = isMounted,
 
 		create("ImageLabel")({
@@ -631,12 +656,18 @@ function SummonUI.RenderUI()
 			AnchorPoint = Vector2.new(0.5, 0.5),
 			BackgroundTransparency = 1,
 			Image = MAIN_IMAGE,
-			Position = windowPosition,
-			Rotation = windowRotation,
+			Position = function()
+				return UDim2.fromScale(0.5, 0.5 + 0.06 * (1 - motion()))
+			end,
+			Rotation = function()
+				return -4 * (1 - motion())
+			end,
 			Size = UDim2.fromScale(0.721698, 0.668872),
 
 			create("UIScale")({
-				Scale = windowScale,
+				Scale = function()
+					return 0.88 + 0.12 * motion()
+				end,
 			}),
 
 			create("UIAspectRatioConstraint")({
@@ -647,7 +678,9 @@ function SummonUI.RenderUI()
 				Name = "Header",
 				BackgroundTransparency = 1,
 				Image = HEADER_IMAGE,
-				Position = UDim2.fromScale(-0.0573612, -0.111321),
+				Position = function()
+					return UDim2.fromScale(-0.0573612 - 0.065 * (1 - headerReveal()), -0.111321)
+				end,
 				Size = UDim2.fromScale(0.692821, 0.28349),
 				ZIndex = 10,
 
@@ -660,6 +693,9 @@ function SummonUI.RenderUI()
 					AnchorPoint = Vector2.new(0, 0),
 					BackgroundTransparency = 1,
 					Image = HELMET_IMAGE,
+					Rotation = function()
+						return -18 * (1 - ornamentReveal())
+					end,
 					Position = UDim2.fromScale(0.0623672, 0.17661),
 					Size = UDim2.fromScale(0.125872, 0.58156),
 
@@ -670,7 +706,12 @@ function SummonUI.RenderUI()
 					Name = "Cloud",
 					BackgroundTransparency = 1,
 					Image = CLOUD_IMAGE,
-					Position = UDim2.fromScale(0.529887, 0.0551715),
+					Position = function()
+						return UDim2.fromScale(0.529887 - 0.15 * (1 - ornamentReveal()), 0.0551715)
+					end,
+					ImageTransparency = function()
+						return 1 - ornamentReveal()
+					end,
 					Size = UDim2.fromScale(0.537766, 1.06417),
 
 					create("UIAspectRatioConstraint")({
@@ -685,6 +726,9 @@ function SummonUI.RenderUI()
 					Position = UDim2.fromScale(0.265238, 0.435573),
 					Size = UDim2.fromScale(0.283423, 0.290134),
 					Text = "SUMMON",
+					TextTransparency = function()
+						return 1 - headerReveal()
+					end,
 					TextColor3 = Color3.new(1, 1, 1),
 					TextScaled = true,
 					TextXAlignment = Enum.TextXAlignment.Left,
@@ -694,7 +738,12 @@ function SummonUI.RenderUI()
 					Name = "Sword",
 					BackgroundTransparency = 1,
 					Image = SWORD_IMAGE,
-					Position = UDim2.fromScale(0.01, -0.312),
+					Rotation = function()
+						return -24 * (1 - ornamentReveal())
+					end,
+					Position = function()
+						return UDim2.fromScale(0.01, -0.312 - 0.15 * (1 - ornamentReveal()))
+					end,
 					Size = UDim2.fromScale(0.251814, 1.53914),
 
 					create("UIAspectRatioConstraint")({
@@ -735,9 +784,9 @@ function SummonUI.RenderUI()
 					VerticalAlignment = Enum.VerticalAlignment.Center,
 				}),
 
-				createUnitCard(FEATURED_RARITIES[1], 1),
-				createUnitCard(FEATURED_RARITIES[2], 2),
-				createUnitCard(FEATURED_RARITIES[3], 3),
+				createUnitCard(FEATURED_RARITIES[1], 1, stagger(0.045)),
+				createUnitCard(FEATURED_RARITIES[2], 2, stagger(0.085)),
+				createUnitCard(FEATURED_RARITIES[3], 3, stagger(0.125)),
 			}),
 
 			createPurchaseButton(
@@ -745,7 +794,9 @@ function SummonUI.RenderUI()
 				1,
 				"SUMMON",
 				ONE_PULL_COST,
-				UDim2.fromScale(0.152616, 0.905)
+				function()
+					return UDim2.fromScale(0.152616, 0.905 + 0.035 * (1 - footerReveal()))
+				end
 			),
 
 			createPurchaseButton(
@@ -753,7 +804,9 @@ function SummonUI.RenderUI()
 				10,
 				"X10",
 				TEN_PULL_COST,
-				UDim2.fromScale(0.406167, 0.905)
+				function()
+					return UDim2.fromScale(0.406167, 0.905 + 0.035 * (1 - footerReveal()))
+				end
 			),
 
 			createStatusBar(
@@ -810,18 +863,20 @@ function SummonUI.RenderUI()
 				AutoButtonColor = false,
 				BackgroundTransparency = 1,
 				Image = PROBABILITY_BUTTON_IMAGE,
-				Position = UDim2.fromScale(0.91, 0.905),
+				Position = UDim2.fromScale(0.91, 0.895),
 				Rotation = spring(function()
 					return if isProbabilityOpen() then -6 else 0
 				end, 0.28, 0.72),
-				Size = UDim2.fromScale(0.08, 0.113861),
+				Size = UDim2.fromScale(0.052, 0.078),
 				ZIndex = 15,
 
 				Activated = function()
-					isProbabilityOpen(not isProbabilityOpen())
+					if isOpen() then
+						isProbabilityOpen(not isProbabilityOpen())
+					end
 				end,
 
-				useButtonEffect(0.88, 1.1),
+				useButtonEffect(0.94, 1.06),
 
 				create("UIAspectRatioConstraint")({}),
 
@@ -830,8 +885,8 @@ function SummonUI.RenderUI()
 					AnchorPoint = Vector2.new(0.5, 1),
 					BackgroundTransparency = 1,
 					FontFace = DISPLAY_FONT,
-					Position = UDim2.fromScale(0.5, 1.09),
-					Size = UDim2.fromScale(1.45, 0.27),
+					Position = UDim2.fromScale(0.5, 1.26),
+					Size = UDim2.fromScale(1.8, 0.3),
 					Text = "DROP RATE",
 					TextColor3 = Color3.new(1, 1, 1),
 					TextScaled = true,
@@ -852,7 +907,7 @@ function SummonUI.RenderUI()
 				GroupTransparency = ratesTransparency,
 				Interactable = isProbabilityOpen,
 				Visible = function()
-					return isOpen() and (isProbabilityOpen() or ratesTransparency() < 0.995)
+					return isMounted() and (isProbabilityOpen() or ratesTransparency() < 0.995)
 				end,
 				Position = spring(function()
 					return if isProbabilityOpen()
