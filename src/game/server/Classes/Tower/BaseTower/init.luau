@@ -3,6 +3,7 @@ local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 --/Configs
+local TraitHandlers = require(script.TraitHandlers)
 local Signal = require(ReplicatedStorage.Packages.Signal)
 local TowerData = require(ReplicatedStorage.Settings.Data.TowerData)
 local TraitData = require(ReplicatedStorage.Settings.Data.TraitData)
@@ -143,37 +144,18 @@ function BaseTower:_RecalculateStats()
 	self.Stats = TableUtils.DeepCopy(TowerData.ByName[self.Name].Stats[self.Level])
 
 	local traitName = self.TowerProfile.Trait
-	local traitData = TraitData.ByName[traitName]
-
-	local handlers = {
-		DamageMultiflier = function(val)
-			if not self.Stats.Damage then
-				return
+	local traitData = TraitData.ByName[traitName or ""]
+	if traitName and traitData then
+		for effectName, effectValue in traitData.Effects do
+			local handler = TraitHandlers[effectName]
+			if handler then
+				handler(self, effectValue)
 			end
-
-			self.Stats.Damage *= 1 + val
-		end,
-		RangeMultiflier = function(val)
-			if not self.Stats.Damage then
-				return
-			end
-
-			self.Stats.Range *= 1 + val
-		end,
-		CooldownMultiflier = function(val)
-			if not self.Stats.Range then
-				return
-			end
-
-			self.Stats.Cooldown *= 1 - val
-		end,
-	}
-
-	for effectName, effectValue in traitData.Effects do
-		local handler = handlers[effectName]
-		if handler then
-			handler(effectValue)
 		end
+	end
+
+	if self.Stats.Damage then
+		self.Stats.Damage = math.floor(self.Stats.Damage)
 	end
 end
 
@@ -182,7 +164,7 @@ function BaseTower:_ApplyNewStats()
 
 	local needsAttack = self.Stats.AttackType and self.Stats.Damage
 	local needsSecondaryAttack = self.Stats.Secondary and self.Stats.Secondary.AttackType
-	local needsFarm = self.Stats.Income
+	local needsFarm = self.Stats.Income and self.Stats.IsFarm
 	local needsBuff = self.Stats.DamageBuff or self.Stats.RangeBuff or self.Stats.CooldownBuff
 
 	self:_SyncComponent("Attack", "AttackComponent", needsAttack, self.Stats)
