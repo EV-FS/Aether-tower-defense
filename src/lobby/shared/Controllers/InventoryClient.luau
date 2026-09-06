@@ -276,6 +276,25 @@ function InventoryClient.OwnsTower(towerName: string, towerKey: TowerKey): boole
 	return InventoryClient.GetTower(towerName, towerKey) ~= nil
 end
 
+function InventoryClient.UpdateTowerField(towerName: string, towerKey: TowerKey, field: string, value: any): boolean
+	local normalizedKey = normalizeTowerKey(towerKey)
+	local currentTowers = InventoryClient.Towers()
+	local currentTowersOfType = if normalizedKey then currentTowers[towerName] else nil
+	local currentTower = if currentTowersOfType then currentTowersOfType[normalizedKey] else nil
+	if not normalizedKey or not currentTowersOfType or not currentTower then
+		return false
+	end
+
+	local updatedTowers = table.clone(currentTowers)
+	local updatedTowersOfType = table.clone(currentTowersOfType)
+	local updatedTower = table.clone(currentTower)
+	updatedTower[field] = value
+	updatedTowersOfType[normalizedKey] = updatedTower
+	updatedTowers[towerName] = updatedTowersOfType
+	setTowers(updatedTowers)
+	return true
+end
+
 function InventoryClient.GetLoadoutSlot(slotNumber: number): LoadoutEntry?
 	if slotNumber % 1 ~= 0 or slotNumber < 1 or slotNumber > MAX_LOADOUT_SIZE then
 		return nil

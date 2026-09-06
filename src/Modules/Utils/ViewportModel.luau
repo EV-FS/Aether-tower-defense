@@ -25,6 +25,28 @@ SOFTWARE.
 local BLOCK = { 0, 1, 2, 3, 4, 5, 6, 7 }
 local WEDGE = { 0, 1, 3, 4, 5, 7 }
 local CORNER_WEDGE = { 0, 1, 4, 5, 6 }
+local CHARACTER_BODY_PART_NAMES = {
+	Head = true,
+	Torso = true,
+	UpperTorso = true,
+	LowerTorso = true,
+	["Left Arm"] = true,
+	["Right Arm"] = true,
+	["Left Leg"] = true,
+	["Right Leg"] = true,
+	LeftUpperArm = true,
+	LeftLowerArm = true,
+	LeftHand = true,
+	RightUpperArm = true,
+	RightLowerArm = true,
+	RightHand = true,
+	LeftUpperLeg = true,
+	LeftLowerLeg = true,
+	LeftFoot = true,
+	RightUpperLeg = true,
+	RightLowerLeg = true,
+	RightFoot = true,
+}
 
 -- Class
 
@@ -52,10 +74,31 @@ local function getCorners(cf, size2, indices)
 	return corners
 end
 
-local function getModelPointCloud(model)
+local function isVisualPart(part)
+	if part.Transparency < 0.99 then
+		return true
+	end
+
+	for _, descendant in pairs(part:GetDescendants()) do
+		if
+			(descendant:IsA("Decal") or descendant:IsA("Texture"))
+			and descendant.Transparency < 0.99
+		then
+			return true
+		end
+	end
+
+	return false
+end
+
+local function getModelPointCloud(model, visualOnly, characterBodyOnly)
 	local points = {}
 	for _, part in pairs(model:GetDescendants()) do
-		if part:IsA("BasePart") then
+		if
+			part:IsA("BasePart")
+			and (not visualOnly or isVisualPart(part))
+			and (not characterBodyOnly or CHARACTER_BODY_PART_NAMES[part.Name])
+		then
 			local indices = getIndices(part)
 			local corners = getCorners(part.CFrame, part.Size / 2, indices)
 			for _, wp in pairs(corners) do
@@ -109,13 +152,39 @@ end
 -- Used to set the model that is being focused on
 -- should be used for new models and/or a change in the current model
 -- e.g. parts added/removed from the model or the model cframe changed
-function ViewportModelClass:SetModel(model)
+function ViewportModelClass:SetModel(model, useCharacterBounds)
 	self.Model = model
 
-	local cf, size = model:GetBoundingBox()
+	local points = if useCharacterBounds then getModelPointCloud(model, true, true) else {}
+	if #points == 0 then
+		points = getModelPointCloud(model, true, false)
+	end
+	if #points == 0 then
+		points = getModelPointCloud(model, false, false)
+	end
+	if #points == 0 then
+		points = { model:GetPivot().Position }
+	end
 
-	self._points = getModelPointCloud(model)
-	self._modelCFrame = cf
+	local minimum = points[1]
+	local maximum = points[1]
+	for index = 2, #points do
+		local point = points[index]
+		minimum = Vector3.new(
+			math.min(minimum.X, point.X),
+			math.min(minimum.Y, point.Y),
+			math.min(minimum.Z, point.Z)
+		)
+		maximum = Vector3.new(
+			math.max(maximum.X, point.X),
+			math.max(maximum.Y, point.Y),
+			math.max(maximum.Z, point.Z)
+		)
+	end
+
+	local size = maximum - minimum
+	self._points = points
+	self._modelCFrame = CFrame.new((minimum + maximum) * 0.5)
 	self._modelSize = size
 	self._modelRadius = size.Magnitude / 2
 end
@@ -125,6 +194,7 @@ end
 function ViewportModelClass:Calibrate()
 	local viewport = {}
 	local size = self.ViewportFrame.AbsoluteSize
+	size = Vector2.new(math.max(size.X, 1), math.max(size.Y, 1))
 
 	viewport.aspect = size.X / size.Y
 

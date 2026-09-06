@@ -24,6 +24,7 @@ return TableUtils.DeepFreeze({
 		DevProducts = {},
 		Loadout = {},
 		Settings = {},
+		RedeemedCodes = {},
 		SummonPity = {
 			Mythic = 0,
 			Absolute = 0,

@@ -1,4 +1,5 @@
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local RunService = game:GetService("RunService")
 
 local Vide = require(ReplicatedStorage.Packages.Vide)
 local ViewportModel = require(ReplicatedStorage.Shared.Modules.Utils.ViewportModel)
@@ -43,6 +44,7 @@ export type Props = {
 	FieldOfView: Reactive<number>?,
 	FitPadding: Reactive<number>?,
 	UseViewportModel: Reactive<boolean>?,
+	UseCharacterBounds: Reactive<boolean>?,
 	FocusYOffset: Reactive<number>?,
 	ModelRotation: Reactive<number>?,
 	AnimationName: Reactive<string?>?,
@@ -86,6 +88,7 @@ local function prepareModel(model: Model, towerName: string): ModelState
 			descendant:Destroy()
 		elseif descendant:IsA("BasePart") then
 			descendant.CanCollide = false
+			descendant.LocalTransparencyModifier = 0
 		end
 	end
 
@@ -302,25 +305,65 @@ local activeTrack = source(nil :: AnimationTrack?)
 	effect(function()
 		local state = modelState()
 		local frame = viewportFrame()
+		viewportFitter(nil)
 		if not read(props.UseViewportModel) or not state or not frame then
-			viewportFitter(nil)
 			return
 		end
+		local useCharacterBounds = read(props.UseCharacterBounds) == true
 
-		local fitter = ViewportModel.new(frame, camera)
-		fitter:SetModel(state.Instance)
-		viewportFitter(fitter)
-		-- The entry rotation settles over a few frames. Refit once it has settled,
-		-- rather than rebuilding the point cloud on every spring update.
-		task.delay(0.55, function()
-			if viewportFitter() ~= fitter or not state.Instance.Parent then
+		local cancelled = false
+		local fitter = nil
+		local sizeConnection = nil
+		local setupThread = task.spawn(function()
+			-- A freshly mounted ViewportFrame can report 0x0 for one or two frames.
+			-- Waiting here prevents an invalid aspect ratio from poisoning the first fit.
+			while
+				not cancelled
+				and frame.Parent
+				and state.Instance.Parent
+				and (frame.AbsoluteSize.X <= 0 or frame.AbsoluteSize.Y <= 0)
+			do
+				RunService.Heartbeat:Wait()
+			end
+
+			if cancelled or not frame.Parent or not state.Instance.Parent then
 				return
 			end
 
-			fitter:SetModel(state.Instance)
-			viewportFitterRevision(viewportFitterRevision() + 1)
+			fitter = ViewportModel.new(frame, camera)
+			fitter:SetModel(state.Instance, useCharacterBounds)
+			viewportFitter(fitter)
+
+			sizeConnection = frame:GetPropertyChangedSignal("AbsoluteSize"):Connect(function()
+				if frame.AbsoluteSize.X <= 0 or frame.AbsoluteSize.Y <= 0 or viewportFitter() ~= fitter then
+					return
+				end
+
+				fitter:Calibrate()
+				viewportFitterRevision(viewportFitterRevision() + 1)
+			end)
+
+			-- The entry rotation settles over a few frames. Rebuild its point cloud once
+			-- at rest instead of doing the expensive work on every spring update.
+			task.delay(0.55, function()
+				if cancelled or viewportFitter() ~= fitter or not state.Instance.Parent then
+					return
+				end
+
+				fitter:SetModel(state.Instance, useCharacterBounds)
+				fitter:Calibrate()
+				viewportFitterRevision(viewportFitterRevision() + 1)
+			end)
 		end)
+
 		cleanup(function()
+			cancelled = true
+			if sizeConnection then
+				sizeConnection:Disconnect()
+			end
+			if coroutine.status(setupThread) ~= "dead" then
+				task.cancel(setupThread)
+			end
 			if viewportFitter() == fitter then
 				viewportFitter(nil)
 			end

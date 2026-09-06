@@ -14,6 +14,7 @@ ServiceRegistry:RegisterServices({
 	ServerServices.DataService,
 	ServerServices.LoadoutService,
 	ServerServices.SettingsService,
+	ServerServices.CodeService,
 	ServerServices.StoreService,
 	ServerServices.SummonService,
 	ServerServices.GlobalExistService,

@@ -210,6 +210,7 @@ return function(props: Props)
 			Name = "Container",
 			AnchorPoint = Vector2.new(0.5, 0.5),
 			BackgroundTransparency = 1,
+			Interactable = visible,
 			GroupTransparency = spring(function()
 				return if visible() then 0 else 1
 			end, 0.28, 0.86),
@@ -219,6 +220,18 @@ return function(props: Props)
 			end, 0.24, 0.82),
 			Size = UDim2.fromScale(1, 1),
 			ZIndex = 100,
+
+			create("TextButton")({
+				Name = "InputBlocker",
+				Active = visible,
+				AutoButtonColor = false,
+				BackgroundTransparency = 1,
+				Size = UDim2.fromScale(1, 1),
+				Text = "",
+				Visible = visible,
+				ZIndex = 98,
+			}),
+
 			create("UIScale")({
 				Scale = spring(function()
 					return if visible() then 1 else 0.88
@@ -492,7 +505,7 @@ return function(props: Props)
 							instance.Rotation = (instance.Rotation + speed * deltaTime) % 360
 						end)
 					end),
-					create("ImageButton")({
+					create("ImageLabel")({
 						Name = "CloudLeftTop",
 						BackgroundTransparency = 1,
 						Image = "rbxassetid://89538349664387",
@@ -500,7 +513,7 @@ return function(props: Props)
 						Size = UDim2.fromScale(0.505, 0.522),
 						create("UIAspectRatioConstraint")({}),
 					}),
-					create("ImageButton")({
+					create("ImageLabel")({
 						Name = "CloudRightTop",
 						BackgroundTransparency = 1,
 						Image = "rbxassetid://102724658060172",
@@ -508,7 +521,7 @@ return function(props: Props)
 						Size = UDim2.fromScale(0.505, 0.522),
 						create("UIAspectRatioConstraint")({}),
 					}),
-					create("ImageButton")({
+					create("ImageLabel")({
 						Name = "CloudLeftBottom",
 						BackgroundTransparency = 1,
 						Image = "rbxassetid://80095269078857",
@@ -516,7 +529,7 @@ return function(props: Props)
 						Size = UDim2.fromScale(0.505, 0.522),
 						create("UIAspectRatioConstraint")({}),
 					}),
-					create("ImageButton")({
+					create("ImageLabel")({
 						Name = "CloudRightBottom",
 						BackgroundTransparency = 1,
 						Image = "rbxassetid://119418187970725",
