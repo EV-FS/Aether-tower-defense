@@ -4,6 +4,7 @@ local TweenService = game:GetService("TweenService")
 local UserInputService = game:GetService("UserInputService")
 
 local Vide = require(ReplicatedStorage.Packages.Vide)
+local Topbarplus = require(ReplicatedStorage.Packages.Topbarplus)
 local ServiceRegistry = require(ReplicatedStorage.Shared.Modules.Core.ServiceRegistry)
 local useButtonEffect = require(ReplicatedStorage.Shared.Modules.UI.Hooks.useButtonEffect)
 local SettingsMotion = require(ReplicatedStorage.Shared.Modules.UI.SettingsMotion)
@@ -24,6 +25,7 @@ local BLUR_OUT_DURATION = SettingsMotion.BlurOutDuration
 
 local SettingsClient
 local UIController
+local settingsIcon = source(nil :: any)
 
 --// Reactive States
 local activeTab = source("Sound") -- "Gameplay", "Sound", "Graphics"
@@ -121,6 +123,20 @@ end
 local SettingsUI = {}
 
 function SettingsUI.RenderUI()
+	effect(function()
+		local icon = settingsIcon()
+		if not icon or not UIController then
+			return
+		end
+
+		local isOpen = UIController:IsOpen(VIEW_ID) or UIController:IsOpen("Setting")
+		if isOpen and not icon.isSelected then
+			icon:select()
+		elseif not isOpen and icon.isSelected then
+			icon:deselect()
+		end
+	end)
+
 	local isVisible = function()
 		if not UIController then
 			return false
@@ -1599,6 +1615,28 @@ function SettingsUI.Init()
 end
 
 function SettingsUI.Start()
+	-- TopbarPlus Icon Creation
+	local icon = Topbarplus.new()
+	icon:setImage("rbxassetid://131771458383625")
+	icon:setLabel("Settings")
+	icon:setCaption("Settings")
+	icon:align("Left")
+
+	icon.selected:Connect(function()
+		if UIController and not (UIController:IsOpen(VIEW_ID) or UIController:IsOpen("Setting")) then
+			UIController:Open(VIEW_ID)
+		end
+	end)
+
+	icon.deselected:Connect(function()
+		if UIController and (UIController:IsOpen(VIEW_ID) or UIController:IsOpen("Setting")) then
+			UIController:Close(VIEW_ID)
+			UIController:Close("Setting")
+		end
+	end)
+
+	settingsIcon(icon)
+
 	-- Sync state from SettingsClient if available
 	task.spawn(function()
 		if SettingsClient then
