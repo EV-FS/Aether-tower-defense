@@ -53,6 +53,7 @@ export type Props = {
 	AnimationLooped: Reactive<boolean>?,
 	AnimationSpeed: Reactive<number>?,
 	AnimationFadeTime: Reactive<number>?,
+	UseCharacterBounds: Reactive<boolean>?,
 }
 
 local DEFAULT_SCREEN_POSITION = Vector2.new(0.5, 0.39)
@@ -73,6 +74,38 @@ local OCCLUSION_SAMPLE_OFFSETS = {
 	Vector2.new(0.45, 0),
 	Vector2.new(0, -0.45),
 	Vector2.new(0, 0.45),
+}
+local BOUNDS_CORNER_SIGNS = {
+	Vector3.new(-1, -1, -1),
+	Vector3.new(-1, -1, 1),
+	Vector3.new(-1, 1, -1),
+	Vector3.new(-1, 1, 1),
+	Vector3.new(1, -1, -1),
+	Vector3.new(1, -1, 1),
+	Vector3.new(1, 1, -1),
+	Vector3.new(1, 1, 1),
+}
+local CHARACTER_BODY_PART_NAMES = {
+	Head = true,
+	Torso = true,
+	UpperTorso = true,
+	LowerTorso = true,
+	["Left Arm"] = true,
+	["Right Arm"] = true,
+	["Left Leg"] = true,
+	["Right Leg"] = true,
+	LeftUpperArm = true,
+	LeftLowerArm = true,
+	LeftHand = true,
+	RightUpperArm = true,
+	RightLowerArm = true,
+	RightHand = true,
+	LeftUpperLeg = true,
+	LeftLowerLeg = true,
+	LeftFoot = true,
+	RightUpperLeg = true,
+	RightLowerLeg = true,
+	RightFoot = true,
 }
 
 local function isEffectRarity(rarity: string?): boolean
@@ -108,6 +141,67 @@ local function findRootPart(model: Model): BasePart?
 	end
 
 	return model:FindFirstChildWhichIsA("BasePart", true)
+end
+
+local function isVisualPart(part: BasePart): boolean
+	if part.Transparency < 0.99 then
+		return true
+	end
+
+	for _, descendant in part:GetDescendants() do
+		if
+			(descendant:IsA("Decal") or descendant:IsA("Texture"))
+			and descendant.Transparency < 0.99
+		then
+			return true
+		end
+	end
+
+	return false
+end
+
+local function getVisualBounds(model: Model, characterBodyOnly: boolean): (Vector3, Vector3)
+	local pivot = model:GetPivot()
+	local minimum: Vector3? = nil
+	local maximum: Vector3? = nil
+
+	for _, descendant in model:GetDescendants() do
+		if
+			descendant:IsA("BasePart")
+			and isVisualPart(descendant)
+			and (not characterBodyOnly or CHARACTER_BODY_PART_NAMES[descendant.Name])
+		then
+			local localCFrame = pivot:ToObjectSpace(descendant.CFrame)
+			local halfSize = descendant.Size * 0.5
+			for _, sign in BOUNDS_CORNER_SIGNS do
+				local point = localCFrame:PointToWorldSpace(halfSize * sign)
+				minimum = if minimum
+					then Vector3.new(
+						math.min(minimum.X, point.X),
+						math.min(minimum.Y, point.Y),
+						math.min(minimum.Z, point.Z)
+					)
+					else point
+				maximum = if maximum
+					then Vector3.new(
+						math.max(maximum.X, point.X),
+						math.max(maximum.Y, point.Y),
+						math.max(maximum.Z, point.Z)
+					)
+					else point
+			end
+		end
+	end
+
+	if minimum and maximum then
+		return (minimum + maximum) * 0.5, maximum - minimum
+	end
+	if characterBodyOnly then
+		return getVisualBounds(model, false)
+	end
+
+	local boundsCFrame, boundsSize = model:GetBoundingBox()
+	return pivot:PointToObjectSpace(boundsCFrame.Position), boundsSize
 end
 
 local function getSummonEffectTemplate(rarity: string, isStatic: boolean): BasePart?
@@ -361,7 +455,7 @@ local function updateOccluders(
 	end
 end
 
-local function prepareModel(model: Model): ModelState
+local function prepareModel(model: Model, useCharacterBounds: boolean): ModelState
 	local transparencyTargets = {}
 	local rootPart = findRootPart(model)
 
@@ -377,9 +471,10 @@ local function prepareModel(model: Model): ModelState
 			descendant.CanTouch = false
 			descendant.CastShadow = false
 			descendant.Massless = true
+			descendant.LocalTransparencyModifier = 0
 			table.insert(transparencyTargets, {
 				Instance = descendant,
-				Original = descendant.LocalTransparencyModifier,
+				Original = 0,
 			})
 		elseif descendant:IsA("Decal") or descendant:IsA("Texture") then
 			table.insert(transparencyTargets, {
@@ -402,8 +497,7 @@ local function prepareModel(model: Model): ModelState
 
 	model:PivotTo(CFrame.identity)
 	local baseScale = model:GetScale()
-	local boundsCFrame, boundsSize = model:GetBoundingBox()
-	local baseLocalCenter = model:GetPivot():PointToObjectSpace(boundsCFrame.Position)
+	local baseLocalCenter, boundsSize = getVisualBounds(model, useCharacterBounds)
 
 	return {
 		Instance = model,
@@ -509,7 +603,7 @@ return function(props: Props)
 
 		local model = towerAsset:Clone()
 		model.Name = `SummonDisplay_{towerName}`
-		local state = prepareModel(model)
+		local state = prepareModel(model, read(props.UseCharacterBounds) == true)
 		prepareSummonEffects(state, rarity)
 		model.Parent = workspace.CurrentCamera
 		local stopAnimation = playAnimation(model, towerName, props)

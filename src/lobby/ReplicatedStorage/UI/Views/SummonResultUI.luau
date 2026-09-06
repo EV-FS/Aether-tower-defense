@@ -59,6 +59,7 @@ local revealPhase = source(false)
 local isTransitioning = source(false)
 local isClosing = source(false)
 local slideSign = source(1)
+local queuedAdvance = false
 
 local EXIT_DELAY = 0.34
 local ENTER_DELAY = 0.42
@@ -70,6 +71,7 @@ local FOCUS_FADE_IN_TIME = 0.32
 local FOCUS_FADE_OUT_TIME = 0.38
 
 local closeToken = 0
+local completedCallback: (() -> ())? = nil
 
 type SavedCameraState = {
 	Camera: Camera,
@@ -96,6 +98,15 @@ local sprintWasEnabled = false
 local sprintWasActive = false
 
 local SummonResultUI = {}
+
+local function flushQueuedAdvance()
+	if not queuedAdvance or not UIController:IsOpen(VIEW_ID) or isTransitioning() or isClosing() then
+		return
+	end
+
+	queuedAdvance = false
+	task.defer(SummonResultUI.Advance)
+end
 
 local function restoreHumanoidState()
 	local state = savedHumanoidState
@@ -264,10 +275,6 @@ local function isRevealed(): boolean
 	return UIController:IsOpen(VIEW_ID) and revealPhase()
 end
 
-local function canInteract(): boolean
-	return isRevealed() and not isTransitioning()
-end
-
 local function isHintVisible(): boolean
 	return isRevealed() and not isTransitioning() and not isClosing()
 end
@@ -278,6 +285,7 @@ local function playInitialReveal()
 	task.defer(function()
 		if UIController:IsOpen(VIEW_ID) then
 			revealPhase(true)
+			flushQueuedAdvance()
 		end
 	end)
 end
@@ -305,6 +313,7 @@ local function playTransition(onSwitch: () -> ())
 
 			task.delay(ENTER_DELAY, function()
 				isTransitioning(false)
+				flushQueuedAdvance()
 			end)
 		end)
 	end)
@@ -333,19 +342,22 @@ local function playClose(onFinished: () -> ())
 	end)
 end
 
-function SummonResultUI.ShowResults(units: { PulledUnit })
+function SummonResultUI.ShowResults(units: { PulledUnit }, onCompleted: (() -> ())?)
 	if #units == 0 then
 		return
 	end
 
 	closeToken += 1
+	completedCallback = onCompleted
 	resultsQueue(units)
 	currentIndex(1)
 	slideSign(1)
 	isTransitioning(false)
 	isClosing(false)
 	revealPhase(false)
+	queuedAdvance = false
 	if not UIController:OpenExclusive(VIEW_ID) then
+		completedCallback = nil
 		resultsQueue({})
 		currentIndex(0)
 		return
@@ -356,9 +368,15 @@ function SummonResultUI.ShowResults(units: { PulledUnit })
 end
 
 function SummonResultUI.Advance()
-	if isTransitioning() then
+	if not UIController:IsOpen(VIEW_ID) or isClosing() then
 		return
 	end
+
+	if isTransitioning() or not revealPhase() then
+		queuedAdvance = true
+		return
+	end
+	queuedAdvance = false
 
 	local queue = resultsQueue()
 	local index = currentIndex()
@@ -377,14 +395,20 @@ end
 
 function SummonResultUI.Close()
 	closeToken += 1
+	local onCompleted = completedCallback
+	completedCallback = nil
 	UIController:Close(VIEW_ID)
 	resultsQueue({})
 	currentIndex(0)
 	revealPhase(false)
 	isTransitioning(false)
 	isClosing(false)
+	queuedAdvance = false
 	restoreResultCamera()
 	restorePlayerControls()
+	if onCompleted then
+		task.defer(onCompleted)
+	end
 end
 
 function SummonResultUI.RenderUI()
@@ -442,7 +466,7 @@ function SummonResultUI.RenderUI()
 			Name = "Backdrop",
 			AutoButtonColor = false,
 			Active = function()
-				return canInteract()
+				return UIController:IsOpen(VIEW_ID) and not isClosing()
 			end,
 			BackgroundColor3 = Color3.fromRGB(5, 5, 10),
 			BackgroundTransparency = 1,
@@ -467,6 +491,7 @@ function SummonResultUI.RenderUI()
 			ScreenPosition = Vector2.new(0.5, 0.39),
 			ScreenHeight = 0.44,
 			ScreenWidth = 0.4,
+			UseCharacterBounds = true,
 			Depth = SUMMON_MODEL_DEPTH,
 			Visible = function()
 				return UIController:IsOpen(VIEW_ID)

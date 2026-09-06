@@ -4,7 +4,6 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Vide = require(ReplicatedStorage.Packages.Vide)
 local ServiceRegistry = require(ReplicatedStorage.Shared.Modules.Core.ServiceRegistry)
 local useButtonEffect = require(ReplicatedStorage.Shared.Modules.UI.Hooks.useButtonEffect)
-local useColorSequenceCycle = require(ReplicatedStorage.Shared.Modules.UI.Hooks.useColorSequenceCycle)
 local TouchZone = require(ReplicatedStorage.Shared.Modules.Utils.TouchZone)
 local Net = require(ReplicatedStorage.Shared.Net)
 local SummonConfig = require(ReplicatedStorage.Settings.Data.SummonConfig)
@@ -18,9 +17,11 @@ local source = Vide.source
 local spring = Vide.spring
 
 local UIController
+local DataClient
+local summonZone
 
 local VIEW_ID = "Summon"
-local EXIT_DURATION = 0.38
+local EXIT_DURATION = 0.32
 local ONE_PULL_COST = SummonConfig.Prices[1]
 local TEN_PULL_COST = SummonConfig.Prices[10]
 local BANNER_TIMER_DURATION = SummonConfig.BannerTimerDuration
@@ -34,6 +35,7 @@ local DISPLAY_FONT = Font.new(
 	Enum.FontWeight.Bold,
 	Enum.FontStyle.Normal
 )
+local PLAIN_DISPLAY_FONT = Font.new("rbxasset://fonts/families/FredokaOne.json")
 local BODY_FONT = Font.new(
 	"rbxasset://fonts/families/SourceSansPro.json",
 	Enum.FontWeight.Bold,
@@ -56,6 +58,14 @@ local PROBABILITY_BUTTON_IMAGE = "rbxassetid://120545788069786"
 local RARITY_GRADIENTS = SummonConfig.RarityGradients
 local FEATURED_RARITIES = SummonConfig.FeaturedRarities
 local RATE_RARITIES = SummonConfig.RateDisplayOrder
+local PURCHASE_AVAILABLE_GRADIENT = ColorSequence.new({
+	ColorSequenceKeypoint.new(0, Color3.fromRGB(55, 255, 0)),
+	ColorSequenceKeypoint.new(1, Color3.fromRGB(255, 238, 1)),
+})
+local PURCHASE_UNAVAILABLE_GRADIENT = ColorSequence.new({
+	ColorSequenceKeypoint.new(0, Color3.fromRGB(108, 108, 108)),
+	ColorSequenceKeypoint.new(1, Color3.fromRGB(48, 48, 48)),
+})
 
 type UnitBannerInfo = {
 	Name: string,
@@ -112,29 +122,21 @@ local function formatTimer(seconds: number): string
 	return string.format("%02d:%02d", math.floor(roundedSeconds / 60), roundedSeconds % 60)
 end
 
-local function createRarityGradient(rarity: string, animated: boolean?)
-	local colors = RARITY_GRADIENTS[rarity] or RARITY_GRADIENTS.Common
-	if animated then
-		return create("UIGradient")({
-			Name = "RarityGradient",
-			Rotation = 45,
-			useColorSequenceCycle(colors, 1.35, isOpen),
-		})
-	end
+local function canPurchase(cost: number): boolean
+	return DataClient ~= nil and not summonInProgress() and DataClient.Coins() >= cost
+end
 
+local function createRarityGradient(rarity: string)
+	local colors = RARITY_GRADIENTS[rarity] or RARITY_GRADIENTS.Common
 	return create("UIGradient")({
-		Name = "RarityGradient",
+		Name = "UIGradient",
 		Color = colors,
-		Rotation = 45,
 	})
 end
 
 local function createUnitCard(rarity: string, layoutOrder: number)
-	local entryDirection = layoutOrder - 2
-	local entryPeriod = 0.34 + layoutOrder * 0.035
-
 	return create("Frame")({
-		Name = rarity .. "Card",
+		Name = "Frame",
 		BackgroundTransparency = 1,
 		LayoutOrder = layoutOrder,
 		Size = UDim2.fromScale(0.290764, 1),
@@ -143,14 +145,9 @@ local function createUnitCard(rarity: string, layoutOrder: number)
 			Name = "Shadow",
 			BackgroundTransparency = 1,
 			Image = CARD_SHADOW_IMAGE,
-			ImageTransparency = spring(function()
-				return if isOpen() then 0 else 1
-			end, 0.3, 0.9),
-			Position = spring(function()
-				return if isOpen() then UDim2.fromScale(0.00631904, 0.106321) else UDim2.fromScale(0.00631904, 0.16)
-			end, entryPeriod, 0.78),
+			Position = UDim2.fromScale(0.00631904, 0.106321),
 			Size = UDim2.fromScale(1, 1),
-			ZIndex = 1,
+			ZIndex = -1,
 
 			create("UIAspectRatioConstraint")({}),
 		}),
@@ -159,65 +156,47 @@ local function createUnitCard(rarity: string, layoutOrder: number)
 			TowerName = function()
 				return getUnitInfo(rarity).Name
 			end,
+			Name = "ViewportFrame",
 			AnimationName = "Idle",
-			AnchorPoint = Vector2.new(0.5, 1),
+			AnchorPoint = Vector2.new(0, 0),
 			BackgroundTransparency = 1,
-			FitPadding = 1.04,
-			ImageTransparency = spring(function()
-				return if isOpen() then 0 else 1
-			end, entryPeriod, 0.9),
-			Position = spring(function()
-				if isOpen() then
-					return UDim2.fromScale(0.5, 0.84)
-				end
-				return UDim2.fromScale(0.5 + entryDirection * 0.12, 0.96)
-			end, entryPeriod, 0.72),
-			Size = UDim2.fromScale(0.92, 0.88),
-			ModelRotation = spring(function()
-				return if isOpen() then 0 else entryDirection * 55
-			end, entryPeriod + 0.12, 0.68),
-			ZIndex = 2,
+			Ambient = Color3.fromRGB(190, 190, 190),
+			LightColor = Color3.new(1, 1, 1),
+			LightDirection = Vector3.new(-1, -0.8, -0.65),
+			FieldOfView = 32,
+			FitPadding = 1.08,
+			Position = UDim2.fromScale(0, 0),
+			Size = UDim2.fromScale(1, 1),
+			UseCharacterBounds = true,
+			UseViewportModel = true,
+			ModelRotation = 0,
+			ZIndex = 1,
 		}),
 
 		create("ImageLabel")({
-			Name = "NamePlate",
+			Name = "Name",
 			BackgroundTransparency = 1,
 			Image = NAME_PLATE_IMAGE,
-			ImageTransparency = spring(function()
-				return if isOpen() then 0 else 1
-			end, 0.3 + layoutOrder * 0.04, 0.9),
-			Position = spring(function()
-				return if isOpen()
-					then UDim2.fromScale(0.176933, 0.647593)
-					else UDim2.fromScale(0.176933, 0.76)
-			end, entryPeriod, 0.74),
+			Position = UDim2.fromScale(0.176933, 0.647593),
 			Size = UDim2.fromScale(0.652453, 0.178427),
-			ZIndex = 4,
+			ZIndex = 2,
 
 			create("TextLabel")({
-				Name = "UnitName",
+				Name = "Name",
 				AnchorPoint = Vector2.new(0.5, 0.5),
 				BackgroundTransparency = 1,
 				FontFace = DISPLAY_FONT,
-				Position = UDim2.fromScale(0.5, 0.31),
-				Size = UDim2.fromScale(0.9, 0.37),
+				Position = UDim2.fromScale(0.5, 0.5),
+				Size = UDim2.fromScale(1, 0.4),
 				Text = function()
 					return getUnitInfo(rarity).Name
 				end,
 				TextColor3 = Color3.new(1, 1, 1),
 				TextScaled = true,
 				TextTruncate = Enum.TextTruncate.AtEnd,
-				ZIndex = 5,
 
-				create("UIStroke")({
-					Color = Color3.fromRGB(33, 30, 45),
-					Thickness = 1.5,
-				}),
-
-				create("UITextSizeConstraint")({
-					MaxTextSize = 25,
-					MinTextSize = 8,
-				}),
+				create("UIStroke")({}),
+				create("UITextSizeConstraint")({ MinTextSize = 8, MaxTextSize = 22 }),
 			}),
 
 			create("TextLabel")({
@@ -225,19 +204,22 @@ local function createUnitCard(rarity: string, layoutOrder: number)
 				AnchorPoint = Vector2.new(0.5, 0.5),
 				BackgroundTransparency = 1,
 				FontFace = DISPLAY_FONT,
-				Position = UDim2.fromScale(0.5, 0.7),
-				Size = UDim2.fromScale(0.9, 0.3),
+				Position = UDim2.fromScale(0.5, 0.757312),
+				Size = UDim2.fromScale(1, 0.3),
 				Text = string.upper(rarity),
 				TextColor3 = Color3.new(1, 1, 1),
 				TextScaled = true,
-				ZIndex = 5,
 
-				create("UIStroke")({
-					Color = Color3.fromRGB(30, 24, 42),
-					Thickness = 1.5,
-				}),
+				create("UIStroke")({}),
+				create("UITextSizeConstraint")({ MinTextSize = 7, MaxTextSize = 14 }),
 
-				createRarityGradient(rarity, true),
+				createRarityGradient(rarity),
+			}),
+
+			create("UIListLayout")({
+				HorizontalAlignment = Enum.HorizontalAlignment.Center,
+				SortOrder = Enum.SortOrder.LayoutOrder,
+				VerticalAlignment = Enum.VerticalAlignment.Center,
 			}),
 		}),
 	})
@@ -306,83 +288,77 @@ local function createPurchaseButton(
 	amount: number,
 	title: string,
 	cost: number,
-	position: UDim2,
-	colors: ColorSequence,
-	entryDelay: number
+	position: UDim2
 )
 	return create("ImageButton")({
 		Name = name,
 		Active = function()
-			return isOpen() and not summonInProgress()
+			return isOpen() and canPurchase(cost)
 		end,
 		AnchorPoint = Vector2.new(0.5, 0.5),
-		AutoButtonColor = false,
 		BackgroundTransparency = 1,
 		Image = PURCHASE_BUTTON_IMAGE,
-		ImageColor3 = function()
-			return if summonInProgress() then Color3.fromRGB(170, 170, 170) else Color3.new(1, 1, 1)
-		end,
-		Position = spring(function()
-			return if isOpen() then position else position + UDim2.fromScale(0, 0.075)
-		end, entryDelay, 0.76),
+		Position = position,
 		Size = UDim2.fromScale(0.238867, 0.113861),
-		ZIndex = 8,
 
 		Activated = function()
 			SummonUI.Summon(amount)
 		end,
 
-		useButtonEffect(0.92, 1.035),
+		useButtonEffect(0.97, 1.025),
+
+		create("UICorner")({}),
+
+		create("UIStroke")({
+			Color = function()
+				return if canPurchase(cost) then Color3.new(1, 1, 1) else Color3.fromRGB(121, 121, 121)
+			end,
+		}),
 
 		create("UIGradient")({
-			Color = colors,
-			Rotation = 90,
+			Color = function()
+				return if canPurchase(cost) then PURCHASE_AVAILABLE_GRADIENT else PURCHASE_UNAVAILABLE_GRADIENT
+			end,
 		}),
 
 		create("TextLabel")({
-			Name = "Action",
+			Name = "Title",
 			BackgroundTransparency = 1,
-			FontFace = DISPLAY_FONT,
-			Position = UDim2.fromScale(0.0483483, 0.168285),
-			Size = UDim2.fromScale(0.48, 0.699418),
+			FontFace = PLAIN_DISPLAY_FONT,
+			Position = if amount == 1
+				then UDim2.fromScale(0.0483483, 0.168285)
+				else UDim2.fromScale(0.0483484, 0.253242),
+			Size = if amount == 1
+				then UDim2.fromScale(0.402995, 0.699418)
+				else UDim2.fromScale(0.547652, 0.473445),
 			Text = title,
 			TextColor3 = Color3.new(1, 1, 1),
 			TextScaled = true,
 			TextXAlignment = Enum.TextXAlignment.Left,
-			ZIndex = 9,
 
-			create("UIStroke")({
-				Color = Color3.fromRGB(48, 43, 28),
-				Thickness = 1.5,
-			}),
+			create("UIStroke")({}),
 		}),
 
 		create("TextLabel")({
-			Name = "Cost",
+			Name = "Title",
 			BackgroundTransparency = 1,
-			FontFace = DISPLAY_FONT,
-			Position = UDim2.fromScale(0.59, 0.278),
-			Size = UDim2.fromScale(0.17, 0.498891),
+			FontFace = PLAIN_DISPLAY_FONT,
+			Position = UDim2.fromScale(0.596, 0.278),
+			Size = UDim2.fromScale(0.164253, 0.498891),
 			Text = tostring(cost),
 			TextColor3 = Color3.new(1, 1, 1),
 			TextScaled = true,
-			TextXAlignment = Enum.TextXAlignment.Right,
-			ZIndex = 9,
 
-			create("UIStroke")({
-				Color = Color3.fromRGB(48, 43, 28),
-				Thickness = 1.5,
-			}),
+			create("UIStroke")({}),
 		}),
 
 		create("ImageLabel")({
-			Name = "Currency",
+			Name = "ImageLabel",
 			BackgroundTransparency = 1,
 			Image = CURRENCY_IMAGE,
-			Position = UDim2.fromScale(0.775, 0.16),
+			Position = UDim2.fromScale(0.7598, 0.0835799),
 			ScaleType = Enum.ScaleType.Fit,
-			Size = UDim2.fromScale(0.18, 0.68),
-			ZIndex = 9,
+			Size = UDim2.fromScale(0.226426, 0.784124),
 
 			create("UIAspectRatioConstraint")({}),
 		}),
@@ -396,7 +372,8 @@ local function createStatusBar(
 	getRatio: () -> number,
 	getValueText: () -> string,
 	colors: ColorSequence,
-	layoutOrder: number
+	position: UDim2,
+	size: UDim2
 )
 	local animatedRatio = spring(function()
 		return math.clamp(getRatio(), 0, 1)
@@ -404,10 +381,11 @@ local function createStatusBar(
 
 	return create("Frame")({
 		Name = name,
+		AnchorPoint = Vector2.new(0.5, 0.5),
 		BackgroundColor3 = Color3.fromRGB(26, 24, 43),
 		BackgroundTransparency = 0.08,
-		LayoutOrder = layoutOrder,
-		Size = UDim2.fromScale(1, 0.285),
+		Position = position,
+		Size = size,
 		ZIndex = 10,
 
 		create("UICorner")({
@@ -554,7 +532,8 @@ function SummonUI.UpdateBanner(bannerData)
 end
 
 function SummonUI.Summon(number: number)
-	if summonInProgress() then
+	local cost = SummonConfig.Prices[number]
+	if not cost or not canPurchase(cost) then
 		return
 	end
 	summonInProgress(true)
@@ -577,102 +556,83 @@ function SummonUI.Summon(number: number)
 		local pulledUnits = result.PulledUnits
 		if type(pulledUnits) == "table" and #pulledUnits > 0 then
 			isProbabilityOpen(false)
-			SummonResultUI.ShowResults(pulledUnits)
+			SummonResultUI.ShowResults(pulledUnits, function()
+				if summonZone and summonZone:IsTouching(Players.LocalPlayer) then
+					SummonUI.Open()
+				end
+			end)
 		end
 	end)
 end
 
 function SummonUI.RenderUI()
-	local isMountedSource = source(false)
+	local isMounted = source(false)
 	local isAnimatedOpen = source(false)
-	local mounted = false
-	local visibilityToken = 0
+	local transitionToken = 0
 
 	effect(function()
 		local shouldOpen = isOpen()
-		visibilityToken += 1
-		local token = visibilityToken
+		transitionToken += 1
+		local token = transitionToken
 
 		if shouldOpen then
-			if not mounted then
-				mounted = true
-				isAnimatedOpen(false)
-				isMountedSource(true)
-				task.defer(function()
-					if token == visibilityToken and mounted then
-						isAnimatedOpen(true)
-					end
-				end)
-			else
-				isAnimatedOpen(true)
-			end
+			isMounted(true)
+			isAnimatedOpen(false)
+			task.defer(function()
+				if token == transitionToken and isOpen() then
+					isAnimatedOpen(true)
+				end
+			end)
 			return
 		end
 
 		isAnimatedOpen(false)
 		isProbabilityOpen(false)
-		if not mounted then
-			return
-		end
-
 		task.delay(EXIT_DURATION, function()
-			if token ~= visibilityToken or isAnimatedOpen() then
-				return
+			if token == transitionToken and not isOpen() then
+				isMounted(false)
 			end
-			mounted = false
-			isMountedSource(false)
 		end)
 	end)
 
 	cleanup(function()
-		visibilityToken += 1
+		transitionToken += 1
 	end)
 
 	local windowScale = spring(function()
-		return if isAnimatedOpen() then 1 else 0.76
-	end, 0.34, 0.74)
-	local windowTransparency = spring(function()
-		return if isAnimatedOpen() then 0 else 1
-	end, 0.24, 0.92)
+		return if isAnimatedOpen() then 1 else 0.9
+	end, 0.3, 0.86)
+	local windowPosition = spring(function()
+		return if isAnimatedOpen() then UDim2.fromScale(0.5, 0.5) else UDim2.fromScale(0.5, 0.535)
+	end, 0.3, 0.86)
+	local windowRotation = spring(function()
+		return if isAnimatedOpen() then 0 else -2
+	end, 0.32, 0.88)
 	local ratesTransparency = spring(function()
-		return if isAnimatedOpen() and isProbabilityOpen() then 0 else 1
+		return if isOpen() and isProbabilityOpen() then 0 else 1
 	end, 0.2, 0.9)
 	local ratesScale = spring(function()
-		return if isAnimatedOpen() and isProbabilityOpen() then 1 else 0.82
+		return if isOpen() and isProbabilityOpen() then 1 else 0.82
 	end, 0.28, 0.74)
-	local statusTransparency = spring(function()
-		return if isAnimatedOpen() then 0 else 1
-	end, 0.3, 0.88)
-	local statusScale = spring(function()
-		return if isAnimatedOpen() then 1 else 0.78
-	end, 0.38, 0.7)
 
 	return create("CanvasGroup")({
 		Name = "Container",
 		AnchorPoint = Vector2.new(0.5, 0.5),
 		BackgroundTransparency = 1,
-		GroupTransparency = windowTransparency,
-		Interactable = isAnimatedOpen,
-		Position = spring(function()
-			return if isAnimatedOpen() then UDim2.fromScale(0.5, 0.5) else UDim2.fromScale(0.5, 0.575)
-		end, 0.36, 0.76),
-		Rotation = spring(function()
-			return if isAnimatedOpen() then 0 else -4
-		end, 0.4, 0.7),
+		Position = UDim2.fromScale(0.5, 0.5),
 		Size = UDim2.fromScale(1, 1),
-		Visible = isMountedSource,
-
-		create("UIAspectRatioConstraint")({
-			AspectRatio = 1.547,
-			AspectType = Enum.AspectType.ScaleWithParentSize,
-		}),
+		Interactable = function()
+			return isOpen() and isAnimatedOpen()
+		end,
+		Visible = isMounted,
 
 		create("ImageLabel")({
 			Name = "Main",
 			AnchorPoint = Vector2.new(0.5, 0.5),
 			BackgroundTransparency = 1,
 			Image = MAIN_IMAGE,
-			Position = UDim2.fromScale(0.498839, 0.536386),
+			Position = windowPosition,
+			Rotation = windowRotation,
 			Size = UDim2.fromScale(0.721698, 0.668872),
 
 			create("UIScale")({
@@ -687,23 +647,20 @@ function SummonUI.RenderUI()
 				Name = "Header",
 				BackgroundTransparency = 1,
 				Image = HEADER_IMAGE,
-				Position = spring(function()
-					return if isAnimatedOpen()
-						then UDim2.fromScale(-0.0573612, -0.111321)
-						else UDim2.fromScale(-0.12, -0.22)
-				end, 0.34, 0.7),
+				Position = UDim2.fromScale(-0.0573612, -0.111321),
 				Size = UDim2.fromScale(0.692821, 0.28349),
 				ZIndex = 10,
 
+				create("UIAspectRatioConstraint")({
+					AspectRatio = 4.53,
+				}),
+
 				create("ImageLabel")({
 					Name = "Helmet",
-					AnchorPoint = Vector2.new(0.5, 0.5),
+					AnchorPoint = Vector2.new(0, 0),
 					BackgroundTransparency = 1,
 					Image = HELMET_IMAGE,
-					Position = UDim2.fromScale(0.125303, 0.46739),
-					Rotation = spring(function()
-						return if isAnimatedOpen() then 0 else -28
-					end, 0.3, 0.66),
+					Position = UDim2.fromScale(0.0623672, 0.17661),
 					Size = UDim2.fromScale(0.125872, 0.58156),
 
 					create("UIAspectRatioConstraint")({}),
@@ -713,11 +670,7 @@ function SummonUI.RenderUI()
 					Name = "Cloud",
 					BackgroundTransparency = 1,
 					Image = CLOUD_IMAGE,
-					Position = spring(function()
-						return if isAnimatedOpen()
-							then UDim2.fromScale(0.529887, 0.0551715)
-							else UDim2.fromScale(0.68, 0.01)
-					end, 0.42, 0.72),
+					Position = UDim2.fromScale(0.529887, 0.0551715),
 					Size = UDim2.fromScale(0.537766, 1.06417),
 
 					create("UIAspectRatioConstraint")({
@@ -728,32 +681,20 @@ function SummonUI.RenderUI()
 				create("TextLabel")({
 					Name = "Title",
 					BackgroundTransparency = 1,
-					FontFace = DISPLAY_FONT,
+					FontFace = PLAIN_DISPLAY_FONT,
 					Position = UDim2.fromScale(0.265238, 0.435573),
 					Size = UDim2.fromScale(0.283423, 0.290134),
 					Text = "SUMMON",
 					TextColor3 = Color3.new(1, 1, 1),
 					TextScaled = true,
 					TextXAlignment = Enum.TextXAlignment.Left,
-
-					create("UIStroke")({
-						Color = Color3.fromRGB(39, 33, 58),
-						Thickness = 1.5,
-					}),
 				}),
 
 				create("ImageLabel")({
 					Name = "Sword",
 					BackgroundTransparency = 1,
 					Image = SWORD_IMAGE,
-					Position = spring(function()
-						return if isAnimatedOpen()
-							then UDim2.fromScale(0.01, -0.312)
-							else UDim2.fromScale(-0.08, -0.48)
-					end, 0.38, 0.68),
-					Rotation = spring(function()
-						return if isAnimatedOpen() then 0 else -18
-					end, 0.34, 0.65),
+					Position = UDim2.fromScale(0.01, -0.312),
 					Size = UDim2.fromScale(0.251814, 1.53914),
 
 					create("UIAspectRatioConstraint")({
@@ -765,21 +706,13 @@ function SummonUI.RenderUI()
 			create("ImageButton")({
 				Name = "CancelButton",
 				AnchorPoint = Vector2.new(0.5, 0.5),
-				AutoButtonColor = false,
 				BackgroundTransparency = 1,
 				Image = CLOSE_IMAGE,
-				Position = spring(function()
-					return if isAnimatedOpen()
-						then UDim2.fromScale(0.980096, 0.0289194)
-						else UDim2.fromScale(1.07, -0.06)
-				end, 0.31, 0.68),
-				Rotation = spring(function()
-					return if isAnimatedOpen() then 0 else 45
-				end, 0.28, 0.64),
+				Position = UDim2.fromScale(0.980096, 0.0289194),
 				Size = UDim2.fromScale(0.102144, 0.15458),
-				ZIndex = 12,
 
 				Activated = function()
+					isProbabilityOpen(false)
 					UIController:Close(VIEW_ID)
 				end,
 
@@ -792,16 +725,8 @@ function SummonUI.RenderUI()
 				Name = "Banner",
 				BackgroundTransparency = 1,
 				Image = BANNER_IMAGE,
-				ImageTransparency = spring(function()
-					return if isAnimatedOpen() then 0 else 0.4
-				end, 0.28, 0.86),
-				Position = spring(function()
-					return if isAnimatedOpen()
-						then UDim2.fromScale(0.0334857, 0.172169)
-						else UDim2.fromScale(0.0334857, 0.235)
-				end, 0.38, 0.75),
+				Position = UDim2.fromScale(0.0334857, 0.172169),
 				Size = UDim2.fromScale(0.932419, 0.666445),
-				ZIndex = 2,
 
 				create("UIListLayout")({
 					FillDirection = Enum.FillDirection.Horizontal,
@@ -816,120 +741,68 @@ function SummonUI.RenderUI()
 			}),
 
 			createPurchaseButton(
-				"OnePickButton",
+				"PurchaseButton",
 				1,
 				"SUMMON",
 				ONE_PULL_COST,
-				UDim2.fromScale(0.152616, 0.905),
-				ColorSequence.new({
-					ColorSequenceKeypoint.new(0, Color3.fromRGB(55, 255, 0)),
-					ColorSequenceKeypoint.new(1, Color3.fromRGB(255, 238, 1)),
-				}),
-				0.34
+				UDim2.fromScale(0.152616, 0.905)
 			),
 
 			createPurchaseButton(
-				"TenPickButton",
+				"PurchaseButton",
 				10,
 				"X10",
 				TEN_PULL_COST,
-				UDim2.fromScale(0.406167, 0.905),
-				ColorSequence.new({
-					ColorSequenceKeypoint.new(0, Color3.fromRGB(108, 108, 108)),
-					ColorSequenceKeypoint.new(1, Color3.fromRGB(48, 48, 48)),
-				}),
-				0.4
+				UDim2.fromScale(0.406167, 0.905)
 			),
 
-			create("CanvasGroup")({
-				Name = "SummonStatus",
-				AnchorPoint = Vector2.new(0.5, 0.5),
-				BackgroundColor3 = Color3.fromRGB(20, 18, 36),
-				BackgroundTransparency = 0.12,
-				GroupTransparency = statusTransparency,
-				Position = spring(function()
-					return if isAnimatedOpen()
-						then UDim2.fromScale(0.711, 0.905)
-						else UDim2.fromScale(0.711, 1.03)
-				end, 0.42, 0.7),
-				Size = UDim2.fromScale(0.285, 0.126),
-				ZIndex = 9,
-
-				create("UIScale")({
-					Scale = statusScale,
+			createStatusBar(
+				"BannerTimer",
+				"BannerTimerFill",
+				"TIMER",
+				function()
+					return bannerSecondsRemaining() / BANNER_TIMER_DURATION
+				end,
+				function()
+					return formatTimer(bannerSecondsRemaining())
+				end,
+				ColorSequence.new({
+					ColorSequenceKeypoint.new(0, Color3.fromRGB(67, 211, 255)),
+					ColorSequenceKeypoint.new(1, Color3.fromRGB(110, 103, 255)),
 				}),
+				UDim2.fromScale(0.8, 0.105),
+				UDim2.fromScale(0.26, 0.036)
+			),
 
-				create("UICorner")({
-					CornerRadius = UDim.new(0.08, 0),
-				}),
+			createStatusBar(
+				"MythicFloorBar",
+				"Fill",
+				"MYTHIC PITY",
+				function()
+					return mythicPity() / MYTHIC_PITY_LIMIT
+				end,
+				function()
+					return `{mythicPity()}/{MYTHIC_PITY_LIMIT}`
+				end,
+				RARITY_GRADIENTS.Mythic,
+				UDim2.fromScale(0.7, 0.875),
+				UDim2.fromScale(0.26, 0.036)
+			),
 
-				create("UIStroke")({
-					Color = Color3.fromRGB(116, 107, 170),
-					Thickness = 1.2,
-					Transparency = function()
-						return 0.3 + (0.7 * statusTransparency())
-					end,
-				}),
-
-				create("UIPadding")({
-					PaddingBottom = UDim.new(0.07, 0),
-					PaddingLeft = UDim.new(0.035, 0),
-					PaddingRight = UDim.new(0.035, 0),
-					PaddingTop = UDim.new(0.07, 0),
-				}),
-
-				create("UIListLayout")({
-					HorizontalAlignment = Enum.HorizontalAlignment.Center,
-					Padding = UDim.new(0.04, 0),
-					SortOrder = Enum.SortOrder.LayoutOrder,
-					VerticalAlignment = Enum.VerticalAlignment.Center,
-				}),
-
-				createStatusBar(
-					"BannerTimer",
-					"BannerTimerFill",
-					"TIMER",
-					function()
-						return bannerSecondsRemaining() / BANNER_TIMER_DURATION
-					end,
-					function()
-						return formatTimer(bannerSecondsRemaining())
-					end,
-					ColorSequence.new({
-						ColorSequenceKeypoint.new(0, Color3.fromRGB(67, 211, 255)),
-						ColorSequenceKeypoint.new(1, Color3.fromRGB(110, 103, 255)),
-					}),
-					1
-				),
-
-				createStatusBar(
-					"MythicFloorBar",
-					"Fill",
-					"MYTHIC PITY",
-					function()
-						return mythicPity() / MYTHIC_PITY_LIMIT
-					end,
-					function()
-						return `{mythicPity()}/{MYTHIC_PITY_LIMIT}`
-					end,
-					RARITY_GRADIENTS.Mythic,
-					2
-				),
-
-				createStatusBar(
-					"AbsoluteFloorBar",
-					"Fill",
-					"ABSOLUTE PITY",
-					function()
-						return absolutePity() / ABSOLUTE_PITY_LIMIT
-					end,
-					function()
-						return `{absolutePity()}/{ABSOLUTE_PITY_LIMIT}`
-					end,
-					RARITY_GRADIENTS.Absolute,
-					3
-				),
-			}),
+			createStatusBar(
+				"AbsoluteFloorBar",
+				"Fill",
+				"ABSOLUTE PITY",
+				function()
+					return absolutePity() / ABSOLUTE_PITY_LIMIT
+				end,
+				function()
+					return `{absolutePity()}/{ABSOLUTE_PITY_LIMIT}`
+				end,
+				RARITY_GRADIENTS.Absolute,
+				UDim2.fromScale(0.7, 0.935),
+				UDim2.fromScale(0.26, 0.036)
+			),
 
 			create("ImageButton")({
 				Name = "DropRateButton",
@@ -937,15 +810,11 @@ function SummonUI.RenderUI()
 				AutoButtonColor = false,
 				BackgroundTransparency = 1,
 				Image = PROBABILITY_BUTTON_IMAGE,
-				Position = spring(function()
-					return if isAnimatedOpen()
-						then UDim2.fromScale(0.925, 0.905)
-						else UDim2.fromScale(0.925, 1.05)
-				end, 0.34, 0.68),
+				Position = UDim2.fromScale(0.91, 0.905),
 				Rotation = spring(function()
-					return if isProbabilityOpen() then 45 else 0
+					return if isProbabilityOpen() then -6 else 0
 				end, 0.28, 0.72),
-				Size = UDim2.fromScale(0.075, 0.112),
+				Size = UDim2.fromScale(0.08, 0.113861),
 				ZIndex = 15,
 
 				Activated = function()
@@ -983,7 +852,7 @@ function SummonUI.RenderUI()
 				GroupTransparency = ratesTransparency,
 				Interactable = isProbabilityOpen,
 				Visible = function()
-					return isAnimatedOpen() and (isProbabilityOpen() or ratesTransparency() < 0.995)
+					return isOpen() and (isProbabilityOpen() or ratesTransparency() < 0.995)
 				end,
 				Position = spring(function()
 					return if isProbabilityOpen()
@@ -1052,6 +921,7 @@ end
 
 function SummonUI.Init()
 	UIController = ServiceRegistry:GetService("UIController")
+	DataClient = ServiceRegistry:GetService("DataClient")
 end
 
 function SummonUI.Start()
@@ -1111,10 +981,10 @@ function SummonUI.Start()
 	end)
 
 	local summonTouch = workspace:WaitForChild("TouchZone"):WaitForChild("SummonTouch")
-	local zone = TouchZone.new(summonTouch)
-	zone:Start()
+	summonZone = TouchZone.new(summonTouch)
+	summonZone:Start()
 
-	zone.Touched:Connect(function(player: Player)
+	summonZone.Touched:Connect(function(player: Player)
 		if player ~= Players.LocalPlayer then
 			return
 		end
@@ -1122,11 +992,12 @@ function SummonUI.Start()
 		SummonUI.Open()
 	end)
 
-	zone.TouchEnded:Connect(function(player: Player)
+	summonZone.TouchEnded:Connect(function(player: Player)
 		if player ~= Players.LocalPlayer then
 			return
 		end
 
+		isProbabilityOpen(false)
 		UIController:Close(VIEW_ID)
 	end)
 end

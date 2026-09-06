@@ -34,6 +34,68 @@ local function getSummonKey(i)
 	return if i == 1 then "Summon" else "Summon_" .. i
 end
 
+local function multiplyStat(stats, key: string, multiplier: number?)
+	if multiplier and typeof(stats[key]) == "number" then
+		stats[key] *= 1 + multiplier
+	end
+end
+
+local function reduceStat(stats, key: string, reduction: number?)
+	if reduction and typeof(stats[key]) == "number" then
+		stats[key] *= math.max(0.05, 1 - reduction)
+	end
+end
+
+local function applyAttackEffects(stats, effects)
+	multiplyStat(stats, "Damage", effects.DamageMultiplier)
+	multiplyStat(stats, "Range", effects.RangeMultiplier)
+	reduceStat(stats, "Cooldown", effects.CooldownReduction)
+end
+
+local function applyTraitEffects(stats, effects)
+	applyAttackEffects(stats, effects)
+	if typeof(stats.Secondary) == "table" then
+		applyAttackEffects(stats.Secondary, effects)
+	end
+
+	if effects.DotDamageMultiplier then
+		for _, passive in stats.Passives or {} do
+			if
+				type(passive) == "table"
+				and (passive.Type == "Burn" or passive.Type == "Bleed")
+				and typeof(passive.Amount) == "number"
+			then
+				passive.Amount *= 1 + effects.DotDamageMultiplier
+			end
+		end
+	end
+
+	if effects.IncomeGrowthPerWave and typeof(stats.Income) == "number" then
+		stats.TraitIncomeGrowthPerWave = effects.IncomeGrowthPerWave
+		stats.TraitIncomeGrowthMaximum = effects.IncomeGrowthMaximum or effects.IncomeGrowthPerWave
+	end
+
+	if effects.SummonHealthMultiplier then
+		local function improveSummon(summonStats)
+			local unitStats = summonStats and summonStats.UnitStats
+			if unitStats and typeof(unitStats.MaxHealth) == "number" then
+				unitStats.MaxHealth *= 1 + effects.SummonHealthMultiplier
+			end
+		end
+
+		improveSummon(stats)
+		for _, summonStats in stats.Summons or {} do
+			improveSummon(summonStats)
+		end
+	end
+
+	if effects.BuffMultiplier then
+		for _, key in { "DamageBuff", "RangeBuff", "CooldownBuff" } do
+			multiplyStat(stats, key, effects.BuffMultiplier)
+		end
+	end
+end
+
 -------------------------------------------------
 --// BaseTower
 -------------------------------------------------
@@ -142,39 +204,15 @@ end
 function BaseTower:_RecalculateStats()
 	self.Stats = TableUtils.DeepCopy(TowerData.ByName[self.Name].Stats[self.Level])
 
-	local traitName = self.TowerProfile.Trait
+	local traitName = self.TowerProfile and self.TowerProfile.Trait
 	local traitData = TraitData.ByName[traitName]
-
-	local handlers = {
-		DamageMultiflier = function(val)
-			if not self.Stats.Damage then
-				return
-			end
-
-			self.Stats.Damage *= 1 + val
-		end,
-		RangeMultiflier = function(val)
-			if not self.Stats.Damage then
-				return
-			end
-
-			self.Stats.Range *= 1 + val
-		end,
-		CooldownMultiflier = function(val)
-			if not self.Stats.Range then
-				return
-			end
-
-			self.Stats.Cooldown *= 1 - val
-		end,
-	}
-
-	for effectName, effectValue in traitData.Effects do
-		local handler = handlers[effectName]
-		if handler then
-			handler(effectValue)
-		end
+	if traitData then
+		applyTraitEffects(self.Stats, traitData.Effects)
 	end
+
+	-- BuffComponent uses this snapshot so receiving a buff does not erase the
+	-- selected unit's own trait multipliers.
+	self.BaseStats = TableUtils.DeepCopy(self.Stats)
 end
 
 function BaseTower:_ApplyNewStats()
