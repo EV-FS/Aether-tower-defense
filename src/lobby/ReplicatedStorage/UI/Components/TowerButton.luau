@@ -4,7 +4,6 @@ local TowerData = require(ReplicatedStorage.Settings.Data.TowerData)
 local RarityGradient = require(ReplicatedStorage.Settings.Visuals.RarityGradient)
 local useButtonEffect = require(ReplicatedStorage.Shared.Modules.UI.Hooks.useButtonEffect)
 local useColorSequenceCycle = require(ReplicatedStorage.Shared.Modules.UI.Hooks.useColorSequenceCycle)
-local retime = require(ReplicatedStorage.Shared.Modules.Utils.ForgeVFX.mod.retime)
 
 local create = Vide.create
 local spring = Vide.spring
@@ -29,12 +28,11 @@ return function(props)
 	local shimmerSpeed = RarityGradient.ShimmerSpeed[rarity] or 0.75
 
 	return create("ImageButton")({
+		props.Bind,
+
 		Name = "ImageButton",
 		BackgroundTransparency = 1,
-		Image = "rbxassetid://87496848270095",
-		ImageTransparency = spring(function()
-			return if props.Visible() then 0 else 1
-		end, 0.5, 1),
+		Image = "",
 
 		LayoutOrder = props.LayoutOrder or 0,
 		Size = UDim2.fromScale(0.186, 0.125),
@@ -55,36 +53,64 @@ return function(props)
 			CornerRadius = UDim.new(0.08),
 		}),
 
-		create("Frame")({
-			Name = "SelectedEffect",
+		create("ImageLabel")({
+			Name = "BG",
 			AnchorPoint = Vector2.new(0.5, 0.5),
 			BackgroundTransparency = 1,
-			Size = UDim2.fromScale(0.95, 0.95),
-			Position = UDim2.fromScale(0.5, 0.5),
+			Rotation = spring(function()
+				return if props.IsInWindow() then 0 else -10
+			end, 0.5, 1),
 
-			create("UICorner")({
-				CornerRadius = UDim.new(0.08),
+			Size = spring(function()
+				return if props.IsInWindow() then UDim2.fromScale(1, 1) else UDim2.fromScale(0.8, 0.8)
+			end, 0.5, 1),
+
+			Position = UDim2.fromScale(0.5, 0.5),
+			Image = "rbxassetid://87496848270095",
+			ImageTransparency = spring(function()
+				return if props.IsInWindow() then 0 else 1
+			end, 0.5, 1),
+			ZIndex = -1,
+
+			create("UIGradient")({
+				Name = "UIGradient",
+				Rotation = 45,
+
+				useColorSequenceCycle(gradient, shimmerSpeed, props.IsInWindow),
 			}),
 
-			create("UIStroke")({
+			create("UIShadow")({
+				BlurRadius = UDim.new(0.075),
 				Color = function()
 					return if props.IsEquipped() then Color3.new(0, 1, 0) else Color3.new(1, 1, 1)
 				end,
-				Thickness = 3,
 				Transparency = spring(function()
-					return if props.IsSelected() or props.IsEquipped() then 0 else 1
+					return if props.IsSelected() or props.IsEquipped() then 0.2 else 1
 				end, 0.2, 1),
+				ZIndex = -1,
 			}),
-		}),
-		create("UIShadow")({
-			BlurRadius = UDim.new(0.075),
-			Color = function()
-				return if props.IsEquipped() then Color3.new(0, 1, 0) else Color3.new(1, 1, 1)
-			end,
-			Transparency = spring(function()
-				return if props.IsSelected() or props.IsEquipped() then 0.2 else 1
-			end, 0.2, 1),
-			ZIndex = -1,
+
+			create("Frame")({
+				Name = "SelectedEffect",
+				AnchorPoint = Vector2.new(0.5, 0.5),
+				BackgroundTransparency = 1,
+				Size = UDim2.fromScale(0.95, 0.95),
+				Position = UDim2.fromScale(0.5, 0.5),
+
+				create("UICorner")({
+					CornerRadius = UDim.new(0.08),
+				}),
+
+				create("UIStroke")({
+					Color = function()
+						return if props.IsEquipped() then Color3.new(0, 1, 0) else Color3.new(1, 1, 1)
+					end,
+					Thickness = 3,
+					Transparency = spring(function()
+						return if props.IsSelected() or props.IsEquipped() then 0 else 1
+					end, 0.2, 1),
+				}),
+			}),
 		}),
 
 		create("TextLabel")({
@@ -198,13 +224,6 @@ return function(props)
 				}),
 				Rotation = 90,
 			}),
-		}),
-
-		create("UIGradient")({
-			Name = "UIGradient",
-			Rotation = 45,
-
-			useColorSequenceCycle(gradient, shimmerSpeed, props.Visible),
 		}),
 	})
 end
