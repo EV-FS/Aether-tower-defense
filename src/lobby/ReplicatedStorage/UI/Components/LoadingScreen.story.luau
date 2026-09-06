@@ -1,7 +1,8 @@
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local ReplicatedFirst = game:GetService("ReplicatedFirst")
 
 local Vide = require(ReplicatedStorage.Packages.Vide)
-local LoadingScreen = require(script.Parent.LoadingScreen)
+local LoadingScreen = require(ReplicatedFirst.LoadingScreen)
 
 local mount = Vide.mount
 local source = Vide.source
@@ -19,13 +20,13 @@ return function(target: Instance)
 		if target.Parent then
 			isVisible(true)
 
-			task.delay(100, function()
+			task.delay(3.5, function()
 				if not target.Parent then
 					return
 				end
 
 				isVisible(false)
-				task.delay(1.6, function()
+				task.delay(1.25, function()
 					if target.Parent then
 						isVisible(true)
 					end

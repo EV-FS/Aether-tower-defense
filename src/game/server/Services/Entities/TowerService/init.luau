@@ -75,17 +75,17 @@ function TowerService.SpawnTower(player: Player, towerName: string, towerKey: st
 	end
 
 	local towerInfo = TowerData.ByName[towerName]
-	EconomyService.SubtractCash(player, towerInfo.Stats[0].Cost)
-
-	local placedCounts = TowerService.PlacedTowers[player.UserId]
-	placedCounts[towerName] = (placedCounts[towerName] or 0) + 1
-
 	local newTower
 	if towerClasses[towerName] then
 		newTower = towerClasses[towerName].new(player, TowerRegistry.generateId(), towerName, towerKey, spawnLocation)
 	else
 		newTower = BaseTower.new(player, TowerRegistry.generateId(), towerName, towerKey, spawnLocation)
 	end
+
+	-- Only charge and count the placement after construction succeeds.
+	EconomyService.SubtractCash(player, towerInfo.Stats[0].Cost)
+	local placedCounts = TowerService.PlacedTowers[player.UserId]
+	placedCounts[towerName] = (placedCounts[towerName] or 0) + 1
 
 	newTower.SpendedCash = towerInfo.Stats[0].Cost
 
@@ -114,8 +114,11 @@ function TowerService.UpgradeTower(player: Player, towerId: number)
 
 	local towerInfo = TowerData.ByName[targetTower.Name]
 	local nextLevelStats = towerInfo.Stats[targetTower.Level + 1]
+	if not nextLevelStats then
+		return false
+	end
 	local nextCost = nextLevelStats.Cost
-	if not nextLevelStats or not nextCost then
+	if not nextCost then
 		return false
 	end
 

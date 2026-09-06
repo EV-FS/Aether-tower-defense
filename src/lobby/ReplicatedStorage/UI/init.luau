@@ -1,11 +1,12 @@
 --/Services
 local Players = game:GetService("Players")
+local ReplicatedFirst = game:GetService("ReplicatedFirst")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 --/Modules
 local Vide = require(ReplicatedStorage.Packages.Vide)
 local App = require(script.App)
-local LoadingScreen = require(script.Components.LoadingScreen)
+local LoadingController = require(ReplicatedFirst:WaitForChild("LoadingController"))
 local UIOffsetScaler = require(script.Utils.UIOffsetScaler)
 
 local mount = Vide.mount
@@ -14,45 +15,12 @@ local UI = {}
 local isInitialized = false
 local unmount: (() -> ())? = nil
 local mountedViews = nil
-local loadingVisible = Vide.source(true)
-local loadingUnmount: (() -> ())? = nil
-local loadingToken = 0
-
 function UI.ShowLoading()
-	loadingToken += 1
-	loadingVisible(true)
-
-	if loadingUnmount then
-		return
-	end
-
-	local playerGui = Players.LocalPlayer:WaitForChild("PlayerGui")
-	loadingVisible(false)
-	loadingUnmount = mount(function()
-		return LoadingScreen({ IsVisible = loadingVisible })
-	end, playerGui)
-	task.defer(function()
-		if loadingUnmount then
-			loadingVisible(true)
-		end
-	end)
+	LoadingController.Show()
 end
 
 function UI.HideLoading()
-	if not loadingUnmount then
-		return
-	end
-
-	loadingVisible(false)
-	loadingToken += 1
-	local token = loadingToken
-	local currentUnmount = loadingUnmount
-	task.delay(1.1, function()
-		if loadingToken == token and loadingUnmount == currentUnmount then
-			currentUnmount()
-			loadingUnmount = nil
-		end
-	end)
+	LoadingController.Hide()
 end
 
 local function GetViews()
@@ -97,7 +65,10 @@ function UI.Init()
 		local uiElements = {}
 		for _, view in ipairs(views) do
 			if view.RenderUI then
-				table.insert(uiElements, view.RenderUI())
+				local element = view.RenderUI()
+				if element then
+					table.insert(uiElements, element)
+				end
 			end
 		end
 		return App(uiElements)
@@ -111,11 +82,7 @@ function UI.Init()
 end
 
 function UI.Destroy()
-	if loadingUnmount then
-		loadingUnmount()
-		loadingUnmount = nil
-	end
-	loadingVisible(true)
+	LoadingController.Destroy()
 
 	if not isInitialized then
 		return

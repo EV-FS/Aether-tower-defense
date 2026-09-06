@@ -4,9 +4,9 @@ local TweenService = game:GetService("TweenService")
 local UserInputService = game:GetService("UserInputService")
 
 local Vide = require(ReplicatedStorage.Packages.Vide)
-local Topbarplus = require(ReplicatedStorage.Packages.Topbarplus)
 local ServiceRegistry = require(ReplicatedStorage.Shared.Modules.Core.ServiceRegistry)
 local useButtonEffect = require(ReplicatedStorage.Shared.Modules.UI.Hooks.useButtonEffect)
+local SettingsMotion = require(ReplicatedStorage.Shared.Modules.UI.SettingsMotion)
 
 local create = Vide.create
 local cleanup = Vide.cleanup
@@ -15,15 +15,13 @@ local spring = Vide.spring
 local action = Vide.action
 local effect = Vide.effect
 
-local VIEW_ID = "Settings"
-local WINDOW_EXIT_DURATION = 0.42
+local WINDOW_EXIT_DURATION = SettingsMotion.WindowExitDuration
 local BACKDROP_BLUR_SIZE = 10
 local BLUR_IN_DURATION = 0.26
-local BLUR_OUT_DURATION = 0.32
+local BLUR_OUT_DURATION = SettingsMotion.BlurOutDuration
 
 local SettingsClient
 local UIController
-local settingsIcon = source(nil :: any)
 
 --// Reactive States
 local activeTab = source("Sound") -- "Gameplay", "Sound", "Graphics"
@@ -121,20 +119,6 @@ end
 local SettingsUI = {}
 
 function SettingsUI.RenderUI()
-	effect(function()
-		local icon = settingsIcon()
-		if not icon or not UIController then
-			return
-		end
-
-		local isOpen = UIController:IsOpen(VIEW_ID) or UIController:IsOpen("Setting")
-		if isOpen and not icon.isSelected then
-			icon:select()
-		elseif not isOpen and icon.isSelected then
-			icon:deselect()
-		end
-	end)
-
 	local isVisible = function()
 		if not UIController then
 			return false
@@ -226,17 +210,29 @@ function SettingsUI.RenderUI()
 	end)
 
 	local windowScale = spring(function()
-		return if isWindowOpen() then 1 else 0.72
-	end, 0.3, 0.78)
+		return if isWindowOpen() then 1 else SettingsMotion.WindowScale.Closed
+	end, SettingsMotion.WindowScale.Speed, SettingsMotion.WindowScale.Damping)
 	local windowPosition = spring(function()
-		return if isWindowOpen() then UDim2.fromScale(0.498839, 0.536386) else UDim2.fromScale(0.498839, 0.585)
-	end, 0.36, 0.78)
+		return if isWindowOpen() then SettingsMotion.WindowPosition.Open else SettingsMotion.WindowPosition.Closed
+	end, SettingsMotion.WindowPosition.Speed, SettingsMotion.WindowPosition.Damping)
 	local windowRotation = spring(function()
-		return if isWindowOpen() then 0 else -4
-	end, 0.38, 0.72)
+		return if isWindowOpen() then SettingsMotion.WindowRotation.Open else SettingsMotion.WindowRotation.Closed
+	end, SettingsMotion.WindowRotation.Speed, SettingsMotion.WindowRotation.Damping)
 	local windowTransparency = spring(function()
-		return if isWindowOpen() then 0 else 1
-	end, 0.24, 0.9)
+		return if isWindowOpen() then SettingsMotion.WindowTransparency.Open else SettingsMotion.WindowTransparency.Closed
+	end, SettingsMotion.WindowTransparency.Speed, SettingsMotion.WindowTransparency.Damping)
+	local codeFrameScale = spring(function()
+		return if isCodeFrameOpen() then SettingsMotion.CodeFrameScale.Open else SettingsMotion.CodeFrameScale.Closed
+	end, SettingsMotion.CodeFrameScale.Speed, SettingsMotion.CodeFrameScale.Damping)
+	local codeFramePosition = spring(function()
+		return if isCodeFrameOpen() then SettingsMotion.CodeFramePosition.Open else SettingsMotion.CodeFramePosition.Closed
+	end, SettingsMotion.CodeFramePosition.Speed, SettingsMotion.CodeFramePosition.Damping)
+	local codeFrameRotation = spring(function()
+		return if isCodeFrameOpen() then SettingsMotion.CodeFrameRotation.Open else SettingsMotion.CodeFrameRotation.Closed
+	end, SettingsMotion.CodeFrameRotation.Speed, SettingsMotion.CodeFrameRotation.Damping)
+	local codeFrameTransparency = spring(function()
+		return if isCodeFrameOpen() then SettingsMotion.CodeFrameTransparency.Open else SettingsMotion.CodeFrameTransparency.Closed
+	end, SettingsMotion.CodeFrameTransparency.Speed, SettingsMotion.CodeFrameTransparency.Damping)
 
 	return create("CanvasGroup")({
 		Name = "Setting",
@@ -272,10 +268,8 @@ function SettingsUI.RenderUI()
 				BackgroundTransparency = 1,
 				Image = "rbxassetid://96923630520876",
 				Position = spring(function()
-					return if isWindowOpen()
-						then UDim2.fromScale(-0.0573612, -0.111321)
-						else UDim2.fromScale(-0.105, -0.205)
-				end, 0.34, 0.72),
+					return if isWindowOpen() then SettingsMotion.HeaderPosition.Open else SettingsMotion.HeaderPosition.Closed
+				end, SettingsMotion.HeaderPosition.Speed, SettingsMotion.HeaderPosition.Damping),
 				Size = UDim2.fromScale(0.692821, 0.28349),
 				ZIndex = 10,
 
@@ -286,8 +280,8 @@ function SettingsUI.RenderUI()
 					Image = "rbxassetid://131771458383625",
 					Position = UDim2.fromScale(0.129065, 0.438255),
 					Rotation = spring(function()
-						return if isWindowOpen() then 0 else -65
-					end, 0.28, 0.68),
+						return if isWindowOpen() then SettingsMotion.GearRotation.Open else SettingsMotion.GearRotation.Closed
+					end, SettingsMotion.GearRotation.Speed, SettingsMotion.GearRotation.Damping),
 					Size = UDim2.fromScale(0.168507, 0.766167),
 
 					create("UIAspectRatioConstraint")({
@@ -300,10 +294,11 @@ function SettingsUI.RenderUI()
 					BackgroundTransparency = 1,
 					Image = "rbxassetid://108560268349568",
 					Position = spring(function()
-						return if isWindowOpen()
-							then UDim2.fromScale(0.529887, 0.0551715)
-							else UDim2.fromScale(0.66, 0.015)
-					end, 0.4, 0.7),
+						return if isWindowOpen() then SettingsMotion.CloudPosition.Open else SettingsMotion.CloudPosition.Closed
+					end, SettingsMotion.CloudPosition.Speed, SettingsMotion.CloudPosition.Damping),
+					ImageTransparency = spring(function()
+						return if isWindowOpen() then 0 else 1
+					end, SettingsMotion.HeaderFade.Speed, SettingsMotion.HeaderFade.Damping),
 					Size = UDim2.fromScale(0.537766, 1.06417),
 
 					create("UIAspectRatioConstraint")({
@@ -321,6 +316,9 @@ function SettingsUI.RenderUI()
 					Text = "SETTINGS",
 					TextColor3 = Color3.new(1, 1, 1),
 					TextScaled = true,
+					TextTransparency = spring(function()
+						return if isWindowOpen() then 0 else 1
+					end, SettingsMotion.HeaderFade.Speed, SettingsMotion.HeaderFade.Damping),
 
 					create("UIAspectRatioConstraint")({
 						Name = "UIAspectRatioConstraint",
@@ -335,13 +333,11 @@ function SettingsUI.RenderUI()
 				BackgroundTransparency = 1,
 				Image = "rbxassetid://92651860309635",
 				Position = spring(function()
-					return if isWindowOpen()
-						then UDim2.fromScale(0.980096, 0.0289194)
-						else UDim2.fromScale(1.07, -0.055)
-				end, 0.32, 0.68),
+					return if isWindowOpen() then SettingsMotion.CancelPosition.Open else SettingsMotion.CancelPosition.Closed
+				end, SettingsMotion.CancelPosition.Speed, SettingsMotion.CancelPosition.Damping),
 				Rotation = spring(function()
-					return if isWindowOpen() then 0 else 42
-				end, 0.28, 0.65),
+					return if isWindowOpen() then SettingsMotion.CancelRotation.Open else SettingsMotion.CancelRotation.Closed
+				end, SettingsMotion.CancelRotation.Speed, SettingsMotion.CancelRotation.Damping),
 				Size = UDim2.fromScale(0.102144, 0.15458),
 
 				Activated = function()
@@ -1250,13 +1246,19 @@ function SettingsUI.RenderUI()
 			-- Coupon Button
 			create("ImageButton")({
 				Name = "CouponeButton",
+				AnchorPoint = Vector2.new(0.5, 0.5),
 				BackgroundTransparency = 1,
 				Image = "rbxassetid://110509589182931",
-				Position = UDim2.fromScale(0.025, 0.811),
+				Position = spring(function()
+					return if isWindowOpen() then SettingsMotion.CodeButtonPosition.Open else SettingsMotion.CodeButtonPosition.Closed
+				end, SettingsMotion.CodeButtonPosition.Speed, SettingsMotion.CodeButtonPosition.Damping),
 				Size = UDim2.fromScale(0.0773201, 0.138996),
 				ZIndex = 11,
 
 				Activated = function()
+					if not isWindowOpen() then
+						return
+					end
 					isCodeFrameOpen(not isCodeFrameOpen())
 				end,
 
@@ -1268,14 +1270,25 @@ function SettingsUI.RenderUI()
 			}),
 
 			-- Code Frame Popup
-			create("ImageLabel")({
+			create("CanvasGroup")({
 				Name = "CodeFrame",
 				BackgroundTransparency = 1,
-				Image = "rbxassetid://89682027301608",
-				Position = UDim2.fromScale(0.142402, 0.214742),
+				GroupTransparency = codeFrameTransparency,
+				Interactable = function() return isWindowOpen() and isCodeFrameOpen() end,
+				Position = codeFramePosition,
+				Rotation = codeFrameRotation,
 				Size = UDim2.fromScale(0.721978, 0.581701),
-				Visible = isCodeFrameOpen,
+				Visible = function() return isCodeFrameOpen() or codeFrameTransparency() < 0.995 end,
 				ZIndex = 20,
+
+				create("UIScale")({ Name = "PopupScale", Scale = codeFrameScale }),
+				create("ImageLabel")({
+					Name = "Background",
+					BackgroundTransparency = 1,
+					Image = "rbxassetid://89682027301608",
+					Size = UDim2.fromScale(1, 1),
+					ZIndex = 20,
+				}),
 
 				create("ImageLabel")({
 					Name = "Textbox",
@@ -1391,28 +1404,6 @@ function SettingsUI.Init()
 end
 
 function SettingsUI.Start()
-	-- TopbarPlus Icon Creation
-	local icon = Topbarplus.new()
-	icon:setImage("rbxassetid://131771458383625")
-	icon:setLabel("Settings")
-	icon:setCaption("Settings")
-	icon:align("Left")
-
-	icon.selected:Connect(function()
-		if UIController and not (UIController:IsOpen(VIEW_ID) or UIController:IsOpen("Setting")) then
-			UIController:Open(VIEW_ID)
-		end
-	end)
-
-	icon.deselected:Connect(function()
-		if UIController and (UIController:IsOpen(VIEW_ID) or UIController:IsOpen("Setting")) then
-			UIController:Close(VIEW_ID)
-			UIController:Close("Setting")
-		end
-	end)
-
-	settingsIcon(icon)
-
 	-- Sync state from SettingsClient if available
 	task.spawn(function()
 		if SettingsClient then

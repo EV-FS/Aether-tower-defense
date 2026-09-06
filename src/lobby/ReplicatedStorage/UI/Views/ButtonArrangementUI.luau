@@ -183,11 +183,8 @@ function ButtonArrangementUI.RenderUI()
 		end),
 		createMenuButton("ShopButton", "SHOP", "rbxassetid://116881322718656", 2),
 		createMenuButton("TradeBUtton", "TRADE", "rbxassetid://131037655538280", 3),
-		createMenuButton("SettingButton", "SETTINGS", "rbxassetid://87579593338768", 4, function()
-			UIController:Toggle("Settings")
-		end),
-		createMenuButton("QuestButton", "QUESTS", "rbxassetid://102609699370792", 5),
-		createMenuButton("IndexButton", "INDEX", "rbxassetid://80352298798116", 6),
+		createMenuButton("QuestButton", "QUESTS", "rbxassetid://102609699370792", 4),
+		createMenuButton("IndexButton", "INDEX", "rbxassetid://80352298798116", 5),
 
 		create("UIAspectRatioConstraint")({
 			Name = "UIAspectRatioConstraint",

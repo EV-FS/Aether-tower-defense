@@ -56,7 +56,10 @@ function UI.Init()
 		local uiElements = {}
 		for _, view in ipairs(views) do
 			if view.RenderUI then
-				table.insert(uiElements, view.RenderUI())
+				local element = view.RenderUI()
+				if element then
+					table.insert(uiElements, element)
+				end
 			end
 		end
 		return App(uiElements)

@@ -1,7 +1,5 @@
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
-local UserInputService = game:GetService("UserInputService")
 
-local Topbarplus = require(ReplicatedStorage.Packages.Topbarplus)
 local Vide = require(ReplicatedStorage.Packages.Vide)
 local ServiceRegistry = require(ReplicatedStorage.Shared.Modules.Core.ServiceRegistry)
 local EmoteData = require(ReplicatedStorage.Settings.Data.EmoteData)
@@ -76,16 +74,6 @@ function EmoteUI.Start()
 		UIController:Toggle(VIEW_ID)
 	end)
 
-	if UserInputService.TouchEnabled then
-		local icon = Topbarplus.new()
-		icon:setLabel("Emote")
-		icon:oneClick(true)
-		icon:align("Left")
-
-		icon:bindEvent("deselected", function()
-			UIController:Toggle(VIEW_ID)
-		end)
-	end
 end
 
 return EmoteUI

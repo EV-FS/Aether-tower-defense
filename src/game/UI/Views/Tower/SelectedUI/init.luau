@@ -8,6 +8,7 @@ local Vide = require(ReplicatedStorage.Packages.Vide)
 local TowerData = require(ReplicatedStorage.Settings.Data.TowerData)
 local ClientSignals = require(StarterPlayer.StarterPlayerScripts.Client.ClientSignals)
 local ServiceRegistry = require(ReplicatedStorage.Shared.Modules.Core.ServiceRegistry)
+local TowerClient = require(ReplicatedStorage.Shared.Services.Entities.TowerService.TowerClient)
 local SelectedFrame = require(script.Components.SelectedFrame)
 
 local EconomyService
@@ -20,14 +21,21 @@ local source = Vide.source
 local TARGET_MODES = { "First", "Last", "Strongest", "Weakest", "Closest", "Farthest", "Random" }
 
 --/UI States
-local currentTowerId = source(nil)
-local currentTowerData = source(nil)
+local selectedTower = source({ towerId = nil, towerData = nil })
+local function currentTowerId()
+	return selectedTower().towerId
+end
+
+local function currentTowerData()
+	return selectedTower().towerData
+end
+local currentTowerCount = source(0)
 local playerCash = source(0)
 local isMenuMounted = source(false)
 local isMenuOpen = source(false)
 local visibilityToken = 0
 
-local EXIT_DURATION = 0.42
+local EXIT_DURATION = 0.3
 
 -------------------------------------------------
 --// Local Functions
@@ -86,8 +94,8 @@ local SelectedUI = {}
 function SelectedUI.ShowUI(towerId, towerInfo)
 	visibilityToken += 1
 	local token = visibilityToken
-	currentTowerId(towerId)
-	currentTowerData(towerInfo)
+	selectedTower({ towerId = towerId, towerData = towerInfo })
+	currentTowerCount(TowerClient.GetTowerCount(towerInfo.Name))
 	isMenuMounted(true)
 	-- Defer this so the panel first renders at its hidden pose, then springs in.
 	task.defer(function()
@@ -115,8 +123,7 @@ function SelectedUI.HideMenu()
 		end
 
 		isMenuMounted(false)
-		currentTowerId(nil)
-		currentTowerData(nil)
+		selectedTower({ towerId = nil, towerData = nil })
 	end)
 end
 
@@ -152,7 +159,14 @@ function SelectedUI.Start()
 
 	ClientSignals.TowerUpdated:Connect(function(updatedId, newData)
 		if updatedId == currentTowerId() then
-			currentTowerData(newData)
+			selectedTower({ towerId = updatedId, towerData = newData })
+		end
+	end)
+
+	ClientSignals.TowerCountChanged:Connect(function(towerName, count)
+		local data = currentTowerData()
+		if data and data.Name == towerName then
+			currentTowerCount(count)
 		end
 	end)
 
@@ -170,6 +184,7 @@ function SelectedUI.RenderUI()
 	return SelectedFrame({
 		towerId = currentTowerId,
 		towerData = currentTowerData,
+		towerCount = currentTowerCount,
 		playerCash = playerCash,
 		isMounted = isMenuMounted,
 		isOpen = isMenuOpen,

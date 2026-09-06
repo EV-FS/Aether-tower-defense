@@ -3,10 +3,8 @@ local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 --/Configs
-local TraitHandlers = require(script.TraitHandlers)
 local Signal = require(ReplicatedStorage.Packages.Signal)
 local TowerData = require(ReplicatedStorage.Settings.Data.TowerData)
-local TraitData = require(ReplicatedStorage.Settings.Data.TraitData)
 local ServiceRegistry = require(ReplicatedStorage.Shared.Modules.Core.ServiceRegistry)
 local TableUtils = require(ReplicatedStorage.Shared.Modules.Utils.TableUtils)
 local Net = require(ReplicatedStorage.Shared.Net)
@@ -46,8 +44,7 @@ function BaseTower.new(
 	towerId: number,
 	towerName: string,
 	towerKey: string,
-	position: Vector3,
-	towerProfile
+	position: Vector3
 ): Tower
 	local self = setmetatable({}, BaseTower)
 
@@ -55,7 +52,6 @@ function BaseTower.new(
 	self.Name = towerName
 	self.TowerKey = towerKey
 	self.Owner = player
-	self.TowerProfile = towerProfile
 	self.Level = 0
 	self.MaxLevel = self:_CalculateMaxLevel()
 	self.TargetMode = "First"
@@ -142,17 +138,6 @@ end
 
 function BaseTower:_RecalculateStats()
 	self.Stats = TableUtils.DeepCopy(TowerData.ByName[self.Name].Stats[self.Level])
-
-	local traitName = self.TowerProfile.Trait
-	local traitData = TraitData.ByName[traitName or ""]
-	if traitName and traitData then
-		for effectName, effectValue in traitData.Effects do
-			local handler = TraitHandlers[effectName]
-			if handler then
-				handler(self, effectValue)
-			end
-		end
-	end
 
 	if self.Stats.Damage then
 		self.Stats.Damage = math.floor(self.Stats.Damage)

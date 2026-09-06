@@ -191,6 +191,7 @@ function TowerClient.RegisterTower(player: Player?, towerId: number, data)
 
 	if player == PLAYER then
 		TowerClient.PlacedTowers[data.towerName] = (TowerClient.PlacedTowers[data.towerName] or 0) + 1
+		ClientSignals.TowerCountChanged:Fire(data.towerName, TowerClient.PlacedTowers[data.towerName])
 	end
 
 	TowerClient.ActiveTowers[towerId] = {
@@ -266,6 +267,7 @@ function TowerClient.RemoveTower(towerId: number)
 
 	if TowerClient.PlacedTowers[towerData.Name] then
 		TowerClient.PlacedTowers[towerData.Name] = math.max(0, TowerClient.PlacedTowers[towerData.Name] - 1)
+		ClientSignals.TowerCountChanged:Fire(towerData.Name, TowerClient.PlacedTowers[towerData.Name])
 	end
 
 	TowerRenderer.SellVisuals(towerId)
