@@ -57,7 +57,7 @@ local RawTowerData: {
 	{
 		["Fighter"] = {
 			Index = 1,
-			Rarity = "Uncommon",
+			Rarity = "Common",
 			TowerImage = "rbxassetid://96421319964530",
 			MaxTowers = 12,
 		},
