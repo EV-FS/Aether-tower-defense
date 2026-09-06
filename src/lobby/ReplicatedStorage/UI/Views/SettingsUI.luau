@@ -10,16 +10,17 @@ local useButtonEffect = require(ReplicatedStorage.Shared.Modules.UI.Hooks.useBut
 
 local create = Vide.create
 local cleanup = Vide.cleanup
+local changed = Vide.changed
 local source = Vide.source
 local spring = Vide.spring
 local action = Vide.action
 local effect = Vide.effect
 
 local VIEW_ID = "Settings"
-local WINDOW_EXIT_DURATION = 0.42
+local WINDOW_EXIT_DURATION = 0.24
 local BACKDROP_BLUR_SIZE = 10
 local BLUR_IN_DURATION = 0.26
-local BLUR_OUT_DURATION = 0.32
+local BLUR_OUT_DURATION = 0.2
 
 local SettingsClient
 local UIController
@@ -141,6 +142,60 @@ function SettingsUI.RenderUI()
 		end
 		return UIController:IsOpen("Settings") or UIController:IsOpen("Setting")
 	end
+	local enteredCode = source("")
+	local isRedeemingCode = source(false)
+	local codeStatus = source("")
+	local codeStatusIsError = source(false)
+	local codeTextBoxInstance: TextBox? = nil
+
+	local function submitCode()
+		if isRedeemingCode() or not isCodeFrameOpen() or not isVisible() then
+			return
+		end
+
+		local code = string.match(enteredCode(), "^%s*(.-)%s*$") or ""
+		if code == "" then
+			codeStatusIsError(true)
+			codeStatus("Enter a code first.")
+			return
+		end
+
+		isRedeemingCode(true)
+		codeStatusIsError(false)
+		codeStatus("Checking code...")
+		task.spawn(function()
+			local ok, result = pcall(function()
+				local folder = ReplicatedStorage:WaitForChild("RuntimeRemotes", 5)
+				local remote = folder and folder:WaitForChild("RedeemCode", 5)
+				if not remote or not remote:IsA("RemoteFunction") then
+					error("RedeemCode remote is unavailable")
+				end
+				return remote:InvokeServer(code)
+			end)
+
+			isRedeemingCode(false)
+			if not ok or type(result) ~= "table" then
+				codeStatusIsError(true)
+				codeStatus("Could not redeem the code. Please try again.")
+				return
+			end
+
+			codeStatusIsError(result.Success ~= true)
+			codeStatus(result.Message or (if result.Success then "Code redeemed!" else "Code could not be redeemed."))
+		end)
+	end
+
+	effect(function()
+		if not isCodeFrameOpen() then
+			return
+		end
+
+		task.defer(function()
+			if isCodeFrameOpen() and codeTextBoxInstance then
+				codeTextBoxInstance:CaptureFocus()
+			end
+		end)
+	end)
 
 	local isWindowMounted = source(false)
 	local isWindowOpen = source(false)
@@ -226,17 +281,29 @@ function SettingsUI.RenderUI()
 	end)
 
 	local windowScale = spring(function()
-		return if isWindowOpen() then 1 else 0.72
-	end, 0.3, 0.78)
+		return if isWindowOpen() then 1 else 0.935
+	end, 0.5, 0.5)
 	local windowPosition = spring(function()
-		return if isWindowOpen() then UDim2.fromScale(0.498839, 0.536386) else UDim2.fromScale(0.498839, 0.585)
-	end, 0.36, 0.78)
+		return if isWindowOpen() then UDim2.fromScale(0.498839, 0.536386) else UDim2.fromScale(0.498839, 0.56)
+	end, 0.5, 1)
 	local windowRotation = spring(function()
 		return if isWindowOpen() then 0 else -4
-	end, 0.38, 0.72)
+	end, 0.5, 1)
 	local windowTransparency = spring(function()
 		return if isWindowOpen() then 0 else 1
-	end, 0.24, 0.9)
+	end, 0.35, 1)
+	local codeFrameScale = spring(function()
+		return if isCodeFrameOpen() then 1 else 0.82
+	end, 0.3, 0.72)
+	local codeFramePosition = spring(function()
+		return if isCodeFrameOpen() then UDim2.fromScale(0.503391, 0.505593) else UDim2.fromScale(0.503391, 0.55)
+	end, 0.32, 0.76)
+	local codeFrameRotation = spring(function()
+		return if isCodeFrameOpen() then 0 else -3
+	end, 0.3, 0.72)
+	local codeFrameTransparency = spring(function()
+		return if isCodeFrameOpen() then 0 else 1
+	end, 0.22, 0.9)
 
 	return create("CanvasGroup")({
 		Name = "Setting",
@@ -274,8 +341,8 @@ function SettingsUI.RenderUI()
 				Position = spring(function()
 					return if isWindowOpen()
 						then UDim2.fromScale(-0.0573612, -0.111321)
-						else UDim2.fromScale(-0.105, -0.205)
-				end, 0.34, 0.72),
+						else UDim2.fromScale(-0.1, -0.111321)
+				end, 0.5, 1),
 				Size = UDim2.fromScale(0.692821, 0.28349),
 				ZIndex = 10,
 
@@ -287,7 +354,7 @@ function SettingsUI.RenderUI()
 					Position = UDim2.fromScale(0.129065, 0.438255),
 					Rotation = spring(function()
 						return if isWindowOpen() then 0 else -65
-					end, 0.28, 0.68),
+					end, 0.5, 0.7),
 					Size = UDim2.fromScale(0.168507, 0.766167),
 
 					create("UIAspectRatioConstraint")({
@@ -302,8 +369,11 @@ function SettingsUI.RenderUI()
 					Position = spring(function()
 						return if isWindowOpen()
 							then UDim2.fromScale(0.529887, 0.0551715)
-							else UDim2.fromScale(0.66, 0.015)
-					end, 0.4, 0.7),
+							else UDim2.fromScale(0.375, 0.0551715)
+					end, 0.7, 0.8),
+					ImageTransparency = spring(function()
+						return if isWindowOpen() then 0 else 1
+					end, 0.5, 1),
 					Size = UDim2.fromScale(0.537766, 1.06417),
 
 					create("UIAspectRatioConstraint")({
@@ -321,6 +391,9 @@ function SettingsUI.RenderUI()
 					Text = "SETTINGS",
 					TextColor3 = Color3.new(1, 1, 1),
 					TextScaled = true,
+					TextTransparency = spring(function()
+						return if isWindowOpen() then 0 else 1
+					end, 0.5, 1),
 
 					create("UIAspectRatioConstraint")({
 						Name = "UIAspectRatioConstraint",
@@ -365,8 +438,8 @@ function SettingsUI.RenderUI()
 				Position = spring(function()
 					return if isWindowOpen()
 						then UDim2.fromScale(0.019, 0.142896)
-						else UDim2.fromScale(-0.075, 0.17)
-				end, 0.38, 0.7),
+						else UDim2.fromScale(-0.075, 0.142896)
+				end, 0.5, 1),
 				Rotation = spring(function()
 					return if isWindowOpen() then 0 else -5
 				end, 0.4, 0.72),
@@ -1253,17 +1326,31 @@ function SettingsUI.RenderUI()
 				}),
 			}),
 
-			-- Coupon Button
+			-- Code Button
 			create("ImageButton")({
-				Name = "CouponeButton",
+				Name = "CodeButton",
+				AnchorPoint = Vector2.new(0.5, 0.5),
 				BackgroundTransparency = 1,
 				Image = "rbxassetid://110509589182931",
-				Position = UDim2.fromScale(0.025, 0.811),
+				Position = spring(function()
+					return if isWindowOpen()
+						then UDim2.fromScale(0.06366, 0.8805)
+						else UDim2.fromScale(0.015, 0.8805)
+				end, 0.5, 1),
 				Size = UDim2.fromScale(0.0773201, 0.138996),
 				ZIndex = 11,
 
 				Activated = function()
-					isCodeFrameOpen(not isCodeFrameOpen())
+					if not isWindowOpen() then
+						return
+					end
+					local willOpen = not isCodeFrameOpen()
+					if willOpen then
+						enteredCode("")
+						codeStatus("")
+						codeStatusIsError(false)
+					end
+					isCodeFrameOpen(willOpen)
 				end,
 
 				useButtonEffect(0.9, 1.1),
@@ -1273,15 +1360,57 @@ function SettingsUI.RenderUI()
 				}),
 			}),
 
+			-- Dim the settings behind the code popup and let players click outside to close it.
+			create("TextButton")({
+				Name = "CodeBackdrop",
+				Active = isCodeFrameOpen,
+				AutoButtonColor = false,
+				BackgroundColor3 = Color3.fromRGB(9, 10, 24),
+				BackgroundTransparency = spring(function()
+					return if isCodeFrameOpen() then 0.38 else 1
+				end, 0.22, 0.9),
+				BorderSizePixel = 0,
+				Size = UDim2.fromScale(1, 1),
+				Text = "",
+				Visible = function()
+					return isCodeFrameOpen() or codeFrameTransparency() < 0.995
+				end,
+				ZIndex = 19,
+
+				Activated = function()
+					isCodeFrameOpen(false)
+				end,
+			}),
+
 			-- Code Frame Popup
-			create("ImageLabel")({
+			create("CanvasGroup")({
 				Name = "CodeFrame",
+				AnchorPoint = Vector2.new(0.5, 0.5),
 				BackgroundTransparency = 1,
-				Image = "rbxassetid://89682027301608",
-				Position = UDim2.fromScale(0.142402, 0.214742),
+				GroupTransparency = codeFrameTransparency,
+				Interactable = function()
+					return isWindowOpen() and isCodeFrameOpen()
+				end,
+				Position = codeFramePosition,
+				Rotation = codeFrameRotation,
 				Size = UDim2.fromScale(0.721978, 0.581701),
-				Visible = isCodeFrameOpen,
+				Visible = function()
+					return isCodeFrameOpen() or codeFrameTransparency() < 0.995
+				end,
 				ZIndex = 20,
+
+				create("UIScale")({
+					Name = "PopupScale",
+					Scale = codeFrameScale,
+				}),
+
+				create("ImageLabel")({
+					Name = "Background",
+					BackgroundTransparency = 1,
+					Image = "rbxassetid://89682027301608",
+					Size = UDim2.fromScale(1, 1),
+					ZIndex = 20,
+				}),
 
 				create("ImageLabel")({
 					Name = "Textbox",
@@ -1300,6 +1429,7 @@ function SettingsUI.RenderUI()
 						Name = "TextBox",
 						AnchorPoint = Vector2.new(0.5, 0.5),
 						BackgroundTransparency = 1,
+						ClearTextOnFocus = false,
 						FontFace = Font.new(
 							"rbxasset://fonts/families/FredokaOne.json",
 							Enum.FontWeight.Bold,
@@ -1309,11 +1439,39 @@ function SettingsUI.RenderUI()
 						PlaceholderColor3 = Color3.fromRGB(177, 177, 177),
 						Position = UDim2.fromScale(0.5, 0.5),
 						Size = UDim2.fromScale(0.904278, 0.333969),
-						Text = "",
+						Text = enteredCode,
 						TextColor3 = Color3.new(1, 1, 1),
+						TextEditable = function()
+							return not isRedeemingCode()
+						end,
 						TextScaled = true,
 						TextXAlignment = Enum.TextXAlignment.Left,
 						ZIndex = 22,
+
+						changed("Text", function(value: string)
+							if #value > 40 then
+								value = string.sub(value, 1, 40)
+							end
+							enteredCode(value)
+							if not isRedeemingCode() then
+								codeStatus("")
+							end
+						end),
+
+						action(function(textBox: TextBox)
+							codeTextBoxInstance = textBox
+							local connection = textBox.FocusLost:Connect(function(enterPressed)
+								if enterPressed then
+									submitCode()
+								end
+							end)
+							cleanup(function()
+								connection:Disconnect()
+								if codeTextBoxInstance == textBox then
+									codeTextBoxInstance = nil
+								end
+							end)
+						end),
 
 						create("UIGradient")({
 							Name = "UIGradient",
@@ -1340,6 +1498,73 @@ function SettingsUI.RenderUI()
 					TextColor3 = Color3.new(1, 1, 1),
 					TextScaled = true,
 					ZIndex = 21,
+				}),
+
+				create("TextLabel")({
+					Name = "Status",
+					BackgroundTransparency = 1,
+					FontFace = Font.new(
+						"rbxasset://fonts/families/SourceSansPro.json",
+						Enum.FontWeight.Bold,
+						Enum.FontStyle.Normal
+					),
+					Position = UDim2.fromScale(0.16, 0.65),
+					Size = UDim2.fromScale(0.68, 0.075),
+					Text = codeStatus,
+					TextColor3 = function()
+						return if codeStatusIsError()
+							then Color3.fromRGB(255, 105, 117)
+							else Color3.fromRGB(136, 255, 169)
+					end,
+					TextScaled = true,
+					TextWrapped = true,
+					ZIndex = 22,
+
+					create("UIStroke")({
+						Color = Color3.fromRGB(29, 22, 48),
+						Thickness = 1.2,
+					}),
+					create("UITextSizeConstraint")({ MinTextSize = 8, MaxTextSize = 17 }),
+				}),
+
+				create("ImageButton")({
+					Name = "RedeemButton",
+					Active = function()
+						return not isRedeemingCode()
+					end,
+					AnchorPoint = Vector2.new(0.5, 0.5),
+					AutoButtonColor = false,
+					BackgroundTransparency = 1,
+					Image = "rbxassetid://139274506988816",
+					ImageColor3 = function()
+						return if isRedeemingCode() then Color3.fromRGB(145, 145, 160) else Color3.new(1, 1, 1)
+					end,
+					Position = UDim2.fromScale(0.5, 0.82),
+					Size = UDim2.fromScale(0.34, 0.13),
+					ZIndex = 22,
+
+					Activated = submitCode,
+					useButtonEffect(0.95, 1.04),
+
+					create("UIGradient")({
+						Color = SELECTED_GRADIENT,
+						Rotation = 90,
+					}),
+					create("TextLabel")({
+						Name = "Title",
+						BackgroundTransparency = 1,
+						FontFace = Font.new("rbxasset://fonts/families/FredokaOne.json"),
+						Size = UDim2.fromScale(1, 1),
+						Text = function()
+							return if isRedeemingCode() then "CHECKING..." else "REDEEM"
+						end,
+						TextColor3 = Color3.new(1, 1, 1),
+						TextScaled = true,
+						ZIndex = 23,
+
+						create("UIStroke")({ Thickness = 1.2 }),
+						create("UITextSizeConstraint")({ MinTextSize = 9, MaxTextSize = 22 }),
+					}),
 				}),
 
 				create("UIAspectRatioConstraint")({
