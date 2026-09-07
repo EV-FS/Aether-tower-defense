@@ -21,7 +21,7 @@ local Net = require(ReplicatedStorage.Shared.Net.client)
 local CharacterUtils = require(script.CharacterUtils)
 local ServiceUtils = require(script.ServiceUtils)
 local CharacterEmoteObserver = require(script.CharacterEmoteObserver)
-local LocalEmotePlayer = require(script.LocalEmotePlayer)
+local LocalEmotePlayer = require(ReplicatedStorage.Shared.Modules.UI.Emote.LocalEmotePlayer)
 
 -------------------------------------------------
 --// State
@@ -43,12 +43,15 @@ function EmoteClient.StartLocalEmote(emoteId: string)
 		return
 	end
 
+	local didStart = emotePlayer:Start(emoteId, emoteConfig)
 	local sprintCtrl = ServiceUtils.Get("SprintClient")
 	if sprintCtrl then
-		sprintCtrl.Disable()
+		if didStart then
+			sprintCtrl.Disable()
+		else
+			sprintCtrl.Enable()
+		end
 	end
-
-	emotePlayer:Start(emoteId, emoteConfig)
 end
 
 --[[ Stops the local player's emote without notifying the server. ]]

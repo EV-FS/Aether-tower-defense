@@ -8,7 +8,6 @@ local action = Vide.action
 local cleanup = Vide.cleanup
 local create = Vide.create
 local effect = Vide.effect
-local spring = Vide.spring
 local source = Vide.source
 local untrack = Vide.untrack
 
@@ -21,6 +20,7 @@ local STAR_SPIN_DELAY = 0.82
 local STAR_SPIN_DURATION = 0.84
 local STAR_SPIN_DEGREES = 1080
 local CLOUD_SPIN_SPEED = 145
+local SPOTLIGHT_FOCUS_DURATION = 0.92
 local STAR_START_POSITION = Vector2.new(-0.28, -0.72)
 local STAR_CONTROL_POSITION = Vector2.new(0.72, -1.32)
 local STAR_END_POSITION = Vector2.new(0.779, 0.632)
@@ -154,6 +154,265 @@ local function animateCloudEntrance(
 	end)
 end
 
+local function animateSpotlightFocus(
+	instance: ImageLabel,
+	visible: () -> boolean,
+	delayTime: number,
+	startPosition: UDim2,
+	targetPosition: UDim2,
+	startSize: UDim2,
+	targetSize: UDim2,
+	phase: number
+)
+	local elapsed = 0
+	local idleElapsed = 0
+	local wasVisible = false
+
+	local function reset()
+		instance.Position = startPosition
+		instance.Size = startSize
+		instance.ImageTransparency = 0.72
+		idleElapsed = 0
+	end
+
+	reset()
+	local connection: RBXScriptConnection
+	connection = RunService.RenderStepped:Connect(function(deltaTime)
+		if not instance.Parent then
+			connection:Disconnect()
+			return
+		end
+
+		local isVisible = visible()
+		if isVisible and not wasVisible then
+			elapsed = -delayTime
+			reset()
+		elseif not isVisible then
+			reset()
+		end
+		wasVisible = isVisible
+
+		if not isVisible then
+			return
+		end
+
+		elapsed += deltaTime
+		if elapsed < 0 then
+			return
+		end
+
+		local progress = math.clamp(elapsed / SPOTLIGHT_FOCUS_DURATION, 0, 1)
+		if progress < 1 then
+			local eased = TweenService:GetValue(progress, Enum.EasingStyle.Quint, Enum.EasingDirection.Out)
+			local fade = TweenService:GetValue(progress, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
+			instance.Position = startPosition:Lerp(targetPosition, eased)
+			instance.Size = startSize:Lerp(targetSize, eased)
+			instance.ImageTransparency = 0.72 - 0.64 * fade
+			return
+		end
+
+		idleElapsed += deltaTime
+		local breathe = math.sin(idleElapsed * 1.15 + phase)
+		instance.Position = targetPosition + UDim2.fromScale(0, breathe * 0.0025)
+		instance.Size = targetSize + UDim2.fromScale(targetSize.X.Scale * breathe * 0.012, 0)
+		instance.ImageTransparency = 0.1 - breathe * 0.025
+	end)
+	cleanup(connection)
+end
+
+local function animateImageReveal(
+	instance: ImageLabel,
+	visible: () -> boolean,
+	delayTime: number,
+	duration: number,
+	startPosition: UDim2,
+	targetPosition: UDim2,
+	startSize: UDim2,
+	targetSize: UDim2,
+	targetTransparency: number,
+	idleAmount: number,
+	phase: number
+)
+	local elapsed = 0
+	local idleElapsed = 0
+	local wasVisible = false
+
+	local function reset()
+		instance.Position = startPosition
+		instance.Size = startSize
+		instance.ImageTransparency = 1
+		idleElapsed = 0
+	end
+
+	reset()
+	local connection: RBXScriptConnection
+	connection = RunService.RenderStepped:Connect(function(deltaTime)
+		if not instance.Parent then
+			connection:Disconnect()
+			return
+		end
+
+		local isVisible = visible()
+		if isVisible and not wasVisible then
+			elapsed = -delayTime
+			reset()
+		elseif not isVisible then
+			reset()
+		end
+		wasVisible = isVisible
+
+		if not isVisible then
+			return
+		end
+
+		elapsed += deltaTime
+		if elapsed < 0 then
+			return
+		end
+
+		local progress = math.clamp(elapsed / duration, 0, 1)
+		if progress < 1 then
+			local eased = TweenService:GetValue(progress, Enum.EasingStyle.Back, Enum.EasingDirection.Out)
+			local fade = TweenService:GetValue(progress, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
+			instance.Position = startPosition:Lerp(targetPosition, eased)
+			instance.Size = startSize:Lerp(targetSize, eased)
+			instance.ImageTransparency = 1 - (1 - targetTransparency) * fade
+			return
+		end
+
+		idleElapsed += deltaTime
+		local idleOffset = math.sin(idleElapsed * 1.3 + phase) * idleAmount
+		instance.Position = targetPosition + UDim2.fromScale(0, idleOffset)
+		instance.Size = targetSize
+		instance.ImageTransparency = targetTransparency
+	end)
+	cleanup(connection)
+end
+
+local function animateTextReveal(
+	instance: TextLabel,
+	visible: () -> boolean,
+	delayTime: number,
+	duration: number,
+	startPosition: UDim2,
+	targetPosition: UDim2,
+	targetTransparency: number,
+	idleAmount: number
+)
+	local elapsed = 0
+	local idleElapsed = 0
+	local wasVisible = false
+
+	local function reset()
+		instance.Position = startPosition
+		instance.TextTransparency = 1
+		idleElapsed = 0
+	end
+
+	reset()
+	local connection: RBXScriptConnection
+	connection = RunService.RenderStepped:Connect(function(deltaTime)
+		if not instance.Parent then
+			connection:Disconnect()
+			return
+		end
+
+		local isVisible = visible()
+		if isVisible and not wasVisible then
+			elapsed = -delayTime
+			reset()
+		elseif not isVisible then
+			reset()
+		end
+		wasVisible = isVisible
+
+		if not isVisible then
+			return
+		end
+
+		elapsed += deltaTime
+		if elapsed < 0 then
+			return
+		end
+
+		local progress = math.clamp(elapsed / duration, 0, 1)
+		if progress < 1 then
+			local eased = TweenService:GetValue(progress, Enum.EasingStyle.Quart, Enum.EasingDirection.Out)
+			instance.Position = startPosition:Lerp(targetPosition, eased)
+			instance.TextTransparency = 1 - (1 - targetTransparency) * eased
+			return
+		end
+
+		idleElapsed += deltaTime
+		instance.Position = targetPosition + UDim2.fromScale(0, math.sin(idleElapsed * 1.4) * idleAmount)
+		instance.TextTransparency = targetTransparency
+	end)
+	cleanup(connection)
+end
+
+local function animateSpinnerEntrance(instance: CanvasGroup, visible: () -> boolean)
+	local motionScale = instance:FindFirstChild("MotionScale")
+	if not motionScale or not motionScale:IsA("UIScale") then
+		return
+	end
+
+	local elapsed = 0
+	local idleElapsed = 0
+	local wasVisible = false
+	local delayTime = 1.04
+	local duration = 0.48
+
+	local function reset()
+		instance.Position = UDim2.fromScale(0.5, 0.835)
+		instance.GroupTransparency = 1
+		motionScale.Scale = 0.72
+		idleElapsed = 0
+	end
+
+	reset()
+	local connection: RBXScriptConnection
+	connection = RunService.RenderStepped:Connect(function(deltaTime)
+		if not instance.Parent then
+			connection:Disconnect()
+			return
+		end
+
+		local isVisible = visible()
+		if isVisible and not wasVisible then
+			elapsed = -delayTime
+			reset()
+		elseif not isVisible then
+			reset()
+		end
+		wasVisible = isVisible
+
+		if not isVisible then
+			return
+		end
+
+		elapsed += deltaTime
+		if elapsed < 0 then
+			return
+		end
+
+		local progress = math.clamp(elapsed / duration, 0, 1)
+		if progress < 1 then
+			local eased = TweenService:GetValue(progress, Enum.EasingStyle.Back, Enum.EasingDirection.Out)
+			instance.Position = UDim2.fromScale(0.5, 0.835 - 0.035 * eased)
+			instance.GroupTransparency = 1 - math.clamp(progress / 0.62, 0, 1)
+			motionScale.Scale = 0.72 + 0.28 * eased
+			return
+		end
+
+		idleElapsed += deltaTime
+		local breathe = math.sin(idleElapsed * 1.65)
+		instance.Position = UDim2.fromScale(0.5, 0.8 + breathe * 0.004)
+		instance.GroupTransparency = 0
+		motionScale.Scale = 1 + breathe * 0.018
+	end)
+	cleanup(connection)
+end
+
 local function impactTitle(star: GuiObject, visible: () -> boolean)
 	local title = star.Parent
 	if not title or not title:IsA("ImageLabel") then
@@ -220,8 +479,10 @@ local function settleStar(instance: GuiObject, visible: () -> boolean)
 	end
 
 	local elapsed = 0
+	local idleElapsed = 0
 	local wasVisible = false
 	local isPlaying = false
+	local isSettled = false
 	reset()
 	local connection: RBXScriptConnection
 	connection = RunService.RenderStepped:Connect(function(deltaTime)
@@ -233,15 +494,26 @@ local function settleStar(instance: GuiObject, visible: () -> boolean)
 		local isVisible = visible()
 		if isVisible and not wasVisible then
 			elapsed = -STAR_SPIN_DELAY
+			idleElapsed = 0
+			isSettled = false
 			reset()
 			isPlaying = true
 		elseif not isVisible then
+			isSettled = false
 			reset()
 			isPlaying = false
 		end
 		wasVisible = isVisible
 
 		if not isPlaying then
+			if isVisible and isSettled then
+				idleElapsed += deltaTime
+				local shimmer = math.sin(idleElapsed * 2.1)
+				motionScale.Scale = 1 + shimmer * 0.012
+				if glow and glow:IsA("ImageLabel") then
+					glow.ImageTransparency = 0.86 - shimmer * 0.055
+				end
+			end
 			return
 		end
 
@@ -284,6 +556,7 @@ local function settleStar(instance: GuiObject, visible: () -> boolean)
 				glow.ImageTransparency = 0.88
 			end
 			impactTitle(instance, visible)
+			isSettled = true
 			isPlaying = false
 		end
 	end)
@@ -598,10 +871,16 @@ return function(props: Props)
 						ZIndex = 99,
 						create("UIGradient")({ Color = ColorSequence.new(Color3.fromRGB(255, 46, 255)) }),
 						action(function(instance)
-							tween(instance, TweenInfo.new(1.25, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {
-								Position = UDim2.fromScale(0.00876923, 0.00699998),
-								Size = UDim2.fromScale(0.374045, 0.985907),
-							})
+							animateSpotlightFocus(
+								instance,
+								visible,
+								0.08,
+								UDim2.fromScale(-0.12, -0.055),
+								UDim2.fromScale(0.00876923, 0.00699998),
+								UDim2.fromScale(0.52, 1.12),
+								UDim2.fromScale(0.374045, 0.985907),
+								0
+							)
 						end),
 					}),
 					create("ImageLabel")({
@@ -613,10 +892,16 @@ return function(props: Props)
 						ZIndex = 99,
 						create("UIGradient")({ Color = ColorSequence.new(Color3.fromRGB(255, 46, 255)) }),
 						action(function(instance)
-							tween(instance, TweenInfo.new(1.35, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {
-								Position = UDim2.fromScale(0.617, 0.00686102),
-								Size = UDim2.fromScale(0.374045, 0.985907),
-							})
+							animateSpotlightFocus(
+								instance,
+								visible,
+								0.12,
+								UDim2.fromScale(0.6, -0.055),
+								UDim2.fromScale(0.617, 0.00686102),
+								UDim2.fromScale(0.52, 1.12),
+								UDim2.fromScale(0.374045, 0.985907),
+								math.pi
+							)
 						end),
 					}),
 					create("ImageLabel")({
@@ -625,9 +910,7 @@ return function(props: Props)
 						BackgroundTransparency = 1,
 						Image = "rbxassetid://106539961470258",
 						Position = UDim2.fromScale(0.499704, 0.492323),
-						Size = spring(function()
-							return if visible() then UDim2.fromScale(0.562368, 0.985907) else UDim2.fromScale(0.64, 0.985907)
-						end, 0.18, 0.86),
+						Size = UDim2.fromScale(0.562368, 0.985907),
 						ZIndex = 102,
 						create("UIGradient")({ Color = ColorSequence.new(Color3.fromRGB(255, 46, 255)) }),
 						create("UIScale")({ Name = "Pulse", Scale = 1 }),
@@ -635,9 +918,16 @@ return function(props: Props)
 							pulse(instance, 0.25, 1.035, 2.6)
 						end),
 						action(function(instance)
-							tween(instance, TweenInfo.new(0.8, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {
-								ImageTransparency = 0.05,
-							})
+							animateSpotlightFocus(
+								instance,
+								visible,
+								0.18,
+								UDim2.fromScale(0.499704, 0.46),
+								UDim2.fromScale(0.499704, 0.492323),
+								UDim2.fromScale(0.84, 1.15),
+								UDim2.fromScale(0.562368, 0.985907),
+								math.pi * 0.5
+							)
 						end),
 					}),
 				}),
@@ -699,13 +989,17 @@ return function(props: Props)
 					}),
 				}),
 
-				create("Frame")({
+				create("CanvasGroup")({
 					Name = "CloudCircl",
 					AnchorPoint = Vector2.new(0.5, 0.5),
 					BackgroundTransparency = 1,
 					Position = UDim2.fromScale(0.5, 0.8),
 					Size = UDim2.fromScale(0.0659627, 0.135511),
 					ZIndex = 105,
+					create("UIScale")({ Name = "MotionScale", Scale = 0.72 }),
+					action(function(instance)
+						animateSpinnerEntrance(instance, visible)
+					end),
 					action(function(instance)
 						rotateCloudCircle(instance, visible)
 					end),
@@ -754,6 +1048,18 @@ return function(props: Props)
 					TextColor3 = Color3.fromRGB(244, 244, 244),
 					TextTransparency = 0,
 					TextScaled = true,
+					action(function(instance)
+						animateTextReveal(
+							instance,
+							visible,
+							1.02,
+							0.42,
+							UDim2.fromScale(0.465846, 0.684),
+							UDim2.fromScale(0.465846, 0.659924),
+							0,
+							0.0018
+						)
+					end),
 					action(function(instance)
 						animateLoadingText(instance, visible)
 					end),
@@ -813,6 +1119,18 @@ return function(props: Props)
 					TextColor3 = Color3.fromRGB(137, 126, 150),
 					TextTransparency = 0.12,
 					TextScaled = true,
+					action(function(instance)
+						animateTextReveal(
+							instance,
+							visible,
+							1.2,
+							0.52,
+							UDim2.fromScale(0, 0.934),
+							UDim2.fromScale(0, 0.905183),
+							0.12,
+							0.0012
+						)
+					end),
 					create("UITextSizeConstraint")({
 						MaxTextSize = 22,
 						MinTextSize = 11,
@@ -826,6 +1144,21 @@ return function(props: Props)
 					Image = "rbxassetid://76748326209585",
 					Position = UDim2.fromScale(0.572923, 0.498104),
 					Size = UDim2.fromScale(0.119385, 0.00632111),
+					action(function(instance)
+						animateImageReveal(
+							instance,
+							visible,
+							1.14,
+							0.46,
+							UDim2.fromScale(0.515, 0.498104),
+							UDim2.fromScale(0.572923, 0.498104),
+							UDim2.fromScale(0.012, 0.00632111),
+							UDim2.fromScale(0.119385, 0.00632111),
+							0,
+							0.001,
+							math.pi
+						)
+					end),
 					create("UIGradient")({
 						Color = ColorSequence.new({
 							ColorSequenceKeypoint.new(0, Color3.fromRGB(115, 21, 115)),
@@ -841,6 +1174,21 @@ return function(props: Props)
 					Image = "rbxassetid://81331354109408",
 					Position = UDim2.fromScale(0.426462, 0.498104),
 					Size = UDim2.fromScale(0.119385, 0.00632111),
+					action(function(instance)
+						animateImageReveal(
+							instance,
+							visible,
+							1.14,
+							0.46,
+							UDim2.fromScale(0.485, 0.498104),
+							UDim2.fromScale(0.426462, 0.498104),
+							UDim2.fromScale(0.012, 0.00632111),
+							UDim2.fromScale(0.119385, 0.00632111),
+							0,
+							0.001,
+							0
+						)
+					end),
 					create("UIGradient")({
 						Color = ColorSequence.new({
 							ColorSequenceKeypoint.new(0, Color3.fromRGB(115, 21, 115)),
@@ -856,6 +1204,21 @@ return function(props: Props)
 					Image = "rbxassetid://94099229991691",
 					Position = UDim2.fromScale(0.499692, 0.522124),
 					Size = UDim2.fromScale(0.0227692, 0.079646),
+					action(function(instance)
+						animateImageReveal(
+							instance,
+							visible,
+							1.3,
+							0.48,
+							UDim2.fromScale(0.499692, 0.505),
+							UDim2.fromScale(0.499692, 0.522124),
+							UDim2.fromScale(0.011, 0.04),
+							UDim2.fromScale(0.0227692, 0.079646),
+							0,
+							0.002,
+							math.pi * 0.5
+						)
+					end),
 					create("UIGradient")({
 						Color = ColorSequence.new({
 							ColorSequenceKeypoint.new(0, Color3.fromRGB(115, 21, 115)),

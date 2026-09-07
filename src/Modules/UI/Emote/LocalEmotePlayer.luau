@@ -1,4 +1,4 @@
---// LocalEmotePlayer
+--// Shared LocalEmotePlayer
 -- Manages the local player's emote animation playback:
 -- creating/playing/stopping tracks, saving/restoring walkspeed,
 -- and auto-stopping on jump/freefall.
@@ -63,22 +63,22 @@ end
 
 --[[ Starts playing an emote animation on the local character.
      Skips if the same emote is already playing. ]]
-function LocalEmotePlayer.Start(self: LocalEmotePlayer, emoteId: string, emoteConfig: EmoteConfig)
+function LocalEmotePlayer.Start(self: LocalEmotePlayer, emoteId: string, emoteConfig: EmoteConfig): boolean
 	if self.CurrentEmoteId == emoteId and self.CurrentTrack and self.CurrentTrack.IsPlaying then
-		return
+		return true
 	end
 
 	self:Stop()
 
 	local character = localPlayer.Character
 	if not character then
-		return
+		return false
 	end
 
 	local humanoid = character:FindFirstChildOfClass("Humanoid")
 	local animator = humanoid and humanoid:FindFirstChildOfClass("Animator")
 	if not animator or not humanoid then
-		return
+		return false
 	end
 
 	-- Save walkspeed before modification
@@ -125,6 +125,8 @@ function LocalEmotePlayer.Start(self: LocalEmotePlayer, emoteId: string, emoteCo
 		end
 	end)
 	table.insert(self.Connections, stopConn)
+
+	return true
 end
 
 --[[ Stops the current emote and restores walkspeed.

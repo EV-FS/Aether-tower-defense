@@ -1,4 +1,5 @@
 --/Service
+local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local StarterPlayer = game:GetService("StarterPlayer")
 
@@ -8,6 +9,7 @@ local ClientSignals = require(StarterPlayer.StarterPlayerScripts.Client.ClientSi
 local Vide = require(ReplicatedStorage.Packages.Vide)
 local ServiceRegistry = require(ReplicatedStorage.Shared.Modules.Core.ServiceRegistry)
 local Net = require(ReplicatedStorage.Shared.Net)
+local EconomyService
 local InputService
 
 local create = Vide.create
@@ -17,6 +19,7 @@ local read = Vide.read
 --/UI States
 local Loadout = source({})
 local OwnedTowers = source({})
+local PlayerCash = source(0)
 
 -------------------------------------------------
 --// TowerLoadout
@@ -33,6 +36,7 @@ function TowerLoadout.RenderUI()
 				slotNumber = i,
 				loadout = Loadout,
 				ownedTowers = OwnedTowers,
+				playerCash = PlayerCash,
 				Activated = function()
 					TowerLoadout.RequestSpawn(i)
 				end,
@@ -103,10 +107,16 @@ function TowerLoadout.RequestSpawn(slotIndex: number)
 end
 
 function TowerLoadout.Init()
+	EconomyService = ServiceRegistry:GetService("EconomyService")
 	InputService = ServiceRegistry:GetService("InputService")
 end
 
 function TowerLoadout.Start()
+	PlayerCash(EconomyService.GetCash(Players.LocalPlayer))
+	ClientSignals.CashChanged:Connect(function(newCash: number)
+		PlayerCash(newCash)
+	end)
+
 	local playerLoadout = Net.DataService.GetDataValue.Invoke("Loadout"):expect()
 	if playerLoadout then
 		Loadout(playerLoadout)

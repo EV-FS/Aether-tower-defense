@@ -12,184 +12,183 @@ local ButtonArrangementUI = {}
 local UIController
 local DialogueClient
 
-local function createMenuButton(name: string, label: string, image: string, layoutOrder: number, activated: (() -> ())?)
+type MenuButtonConfig = {
+	Name: string,
+	Label: string,
+	Image: string,
+	LayoutOrder: number,
+	Activated: (() -> ())?,
+	Icon: string?,
+}
+
+local MENU_BUTTONS: { MenuButtonConfig } = {
+	{
+		Name = "InventoryButton",
+		Label = "인벤토리",
+		Image = "rbxassetid://78824365403347",
+		LayoutOrder = 1,
+	},
+	{
+		Name = "TradeButton",
+		Label = "거래",
+		Image = "rbxassetid://101920175927849",
+		LayoutOrder = 2,
+	},
+	{
+		Name = "ShopButton",
+		Label = "상점",
+		Image = "rbxassetid://81803440554186",
+		LayoutOrder = 3,
+	},
+	{
+		Name = "IndexButton",
+		Label = "인덱스",
+		Image = "rbxassetid://135162687505077",
+		LayoutOrder = 4,
+	},
+	{
+		Name = "QuestButton",
+		Label = "퀘스트",
+		Image = "rbxassetid://83257230376880",
+		LayoutOrder = 5,
+	},
+	{
+		Name = "UnitButton",
+		Label = "유닛",
+		Image = "rbxassetid://76150462384511",
+		Icon = "rbxassetid://96662802265325",
+		LayoutOrder = 6,
+		Activated = function()
+			if UIController then
+				UIController:Toggle("Inventory")
+			end
+		end,
+	},
+}
+
+local function createMenuButton(config: MenuButtonConfig)
+	local isInteractive = config.Activated ~= nil
 	local isHovered = source(false)
-	local tooltipAlpha = spring(function()
-		return if isHovered() then 0 else 1
-	end, 0.25, 0.85)
-	local tooltipScale = spring(function()
-		return if isHovered() then 1 else 0.86
-	end, 0.22, 0.8)
-	local tooltipOffset = spring(function()
-		return if isHovered() then 0 else -10
-	end, 0.24, 0.88)
-	local iconColor = spring(function()
-		return if isHovered() then Color3.fromRGB(255, 224, 142) else Color3.new(1, 1, 1)
-	end, 0.22, 0.82)
-	local iconRotation = spring(function()
-		return if isHovered() then -1.5 else 0
-	end, 0.24, 0.78)
-	local highlightTransparency = spring(function()
-		return if isHovered() then 0.78 else 1
-	end, 0.18, 0.9)
+	local hoverGlow = spring(function()
+		return if isHovered() then 0.8 else 1
+	end, 0.16, 0.82)
 
 	return create("ImageButton")({
-		Name = name,
+		Name = config.Name,
+		Active = isInteractive,
+		AutoButtonColor = false,
 		BackgroundTransparency = 1,
-		Image = image,
-		ImageColor3 = iconColor,
-		LayoutOrder = layoutOrder,
-		Rotation = iconRotation,
-		Size = UDim2.fromScale(0.542, 0.109),
+		Image = config.Image,
+		LayoutOrder = config.LayoutOrder,
+		Selectable = isInteractive,
+		Size = UDim2.fromScale(0.509, 0.173),
 
-		Activated = activated,
+		Activated = config.Activated,
 		MouseEnter = function()
-			isHovered(true)
+			if isInteractive then
+				isHovered(true)
+			end
 		end,
 		MouseLeave = function()
 			isHovered(false)
 		end,
 
-		useButtonEffect(0.92, 1.08),
+		useButtonEffect(0.93, 1.055),
 
 		create("ImageLabel")({
-			Name = "HoverHighlight",
-			Active = false,
+			Name = "HoverGlow",
+			BackgroundTransparency = 1,
+			Image = config.Image,
+			ImageColor3 = Color3.fromRGB(255, 255, 255),
+			ImageTransparency = hoverGlow,
+			Size = UDim2.fromScale(1, 1),
+			ZIndex = 9,
+		}),
+
+		if config.Icon then create("ImageLabel")({
+			Name = "ICON",
 			AnchorPoint = Vector2.new(0.5, 0.5),
 			BackgroundTransparency = 1,
-			Image = image,
-			ImageColor3 = Color3.fromRGB(255, 252, 225),
-			ImageTransparency = highlightTransparency,
-			Position = UDim2.fromScale(0.5, 0.5),
-			Size = UDim2.fromScale(0.94, 0.94),
-			ZIndex = 3,
-		}),
+			Image = config.Icon,
+			Position = UDim2.fromScale(0.498196, 0.5),
+			Size = UDim2.fromScale(0.825, 0.580307),
+			ZIndex = 9,
+		}) else nil,
 
-		create("Frame")({
-			Name = "HoverLabel",
-			Active = false,
-			AnchorPoint = Vector2.new(0, 0.5),
-			AutomaticSize = Enum.AutomaticSize.X,
-			BackgroundColor3 = Color3.fromRGB(23, 27, 39),
-			BackgroundTransparency = function()
-				return 0.12 + tooltipAlpha() * 0.88
-			end,
-			Position = function()
-				return UDim2.new(1.22, tooltipOffset(), 0.5, 0)
-			end,
-			Size = UDim2.fromOffset(0, 34),
-			ZIndex = 3,
+		create("TextLabel")({
+			Name = "Name",
+			BackgroundTransparency = 1,
+			FontFace = Font.new(
+				"rbxasset://fonts/families/SourceSansPro.json",
+				Enum.FontWeight.Bold,
+				Enum.FontStyle.Normal
+			),
+			Position = UDim2.fromScale(0.189005, 0.757618),
+			Size = UDim2.fromScale(0.61743, 0.172688),
+			Text = config.Label,
+			TextColor3 = Color3.new(1, 1, 1),
+			TextScaled = true,
+			ZIndex = 10,
 
-			create("UICorner")({
-				Name = "UICorner",
-				CornerRadius = UDim.new(0, 8),
+			create("UIStroke")({
+				Name = "UIStroke",
+				Thickness = 2,
 			}),
-
-			create("UIGradient")({
-				Name = "UIGradient",
-				Color = ColorSequence.new({
-					ColorSequenceKeypoint.new(0, Color3.fromRGB(38, 43, 59)),
-					ColorSequenceKeypoint.new(1, Color3.fromRGB(19, 22, 32)),
-				}),
-				Rotation = 90,
-			}),
-
-			create("UIPadding")({
-				Name = "UIPadding",
-				PaddingLeft = UDim.new(0, 11),
-				PaddingRight = UDim.new(0, 13),
-			}),
-
-			create("UIListLayout")({
-				Name = "UIListLayout",
-				FillDirection = Enum.FillDirection.Horizontal,
-				Padding = UDim.new(0, 7),
-				VerticalAlignment = Enum.VerticalAlignment.Center,
-			}),
-
-			create("UIScale")({
-				Name = "TooltipScale",
-				Scale = tooltipScale,
-			}),
-
-			create("Frame")({
-				Name = "Accent",
-				BackgroundColor3 = Color3.fromRGB(255, 211, 100),
-				BackgroundTransparency = function()
-					return 0.08 + tooltipAlpha() * 0.92
-				end,
-				Size = UDim2.fromOffset(4, 4),
-				ZIndex = 4,
-
-				create("UICorner")({
-					Name = "UICorner",
-					CornerRadius = UDim.new(1, 0),
-				}),
-			}),
-
-			create("TextLabel")({
-				Name = "Label",
-				Active = false,
-				AutomaticSize = Enum.AutomaticSize.X,
-				BackgroundTransparency = 1,
-				FontFace = Font.new("rbxasset://fonts/families/GothamSSm.json", Enum.FontWeight.Bold),
-				Size = UDim2.fromOffset(0, 34),
-				Text = label,
-				TextColor3 = Color3.fromRGB(255, 240, 193),
-				TextSize = 13,
-				TextTransparency = tooltipAlpha,
-				TextXAlignment = Enum.TextXAlignment.Left,
-				ZIndex = 4,
-			}),
-		}),
-
-		create("UIAspectRatioConstraint")({
-			Name = "UIAspectRatioConstraint",
 		}),
 	})
 end
 
 function ButtonArrangementUI.RenderUI()
+	local function isMenuVisible(): boolean
+		if UIController and UIController:IsExclusive() then
+			return false
+		end
+		if DialogueClient and DialogueClient.IsOpen() then
+			return false
+		end
+		if UIController and UIController:IsOpen("Dialogue") then
+			return false
+		end
+		return true
+	end
+
+	local menuScale = spring(function()
+		return if isMenuVisible() then 1 else 0.92
+	end, 0.22, 0.82)
+
+	local buttons = table.create(#MENU_BUTTONS)
+	for _, config in MENU_BUTTONS do
+		table.insert(buttons, createMenuButton(config))
+	end
+
 	return create("Frame")({
 		Name = "ButtonArrangement",
 		AnchorPoint = Vector2.new(0.5, 0.5),
 		BackgroundTransparency = 1,
-		Position = UDim2.fromScale(0.0561939, 0.499861),
-		Size = UDim2.fromScale(0.145, 1),
+		Position = UDim2.fromScale(0.1, 0.5),
+		Size = UDim2.fromScale(0.189397, 1),
+		Visible = isMenuVisible,
 		ZIndex = 2,
-		Visible = function()
-			if UIController and UIController:IsExclusive() then
-				return false
-			end
-			if DialogueClient and DialogueClient.IsOpen() then
-				return false
-			end
-			if UIController and UIController:IsOpen("Dialogue") then
-				return false
-			end
-			return true
-		end,
 
-		create("UIListLayout")({
-			Name = "UIListLayout",
-			HorizontalAlignment = Enum.HorizontalAlignment.Center,
-			Padding = UDim.new(0.01, 0),
+		create("UIScale")({
+			Name = "MenuScale",
+			Scale = menuScale,
+		}),
+
+		create("UIAspectRatioConstraint")({
+			Name = "UIAspectRatioConstraint",
+			AspectRatio = 0.34,
+		}),
+
+		create("UIGridLayout")({
+			Name = "UIGridLayout",
+			CellPadding = UDim2.fromScale(-0.04, -0.015),
+			CellSize = UDim2.fromScale(0.392, 0.133),
 			SortOrder = Enum.SortOrder.LayoutOrder,
 			VerticalAlignment = Enum.VerticalAlignment.Center,
 		}),
 
-		createMenuButton("InventoryButton", "INVENTORY", "rbxassetid://98616994645968", 1, function()
-			UIController:Toggle("Inventory")
-		end),
-		createMenuButton("ShopButton", "SHOP", "rbxassetid://116881322718656", 2),
-		createMenuButton("TradeBUtton", "TRADE", "rbxassetid://131037655538280", 3),
-		createMenuButton("QuestButton", "QUESTS", "rbxassetid://102609699370792", 4),
-		createMenuButton("IndexButton", "INDEX", "rbxassetid://80352298798116", 5),
-
-		create("UIAspectRatioConstraint")({
-			Name = "UIAspectRatioConstraint",
-			AspectRatio = 0.21,
-		}),
+		unpack(buttons),
 	})
 end
 

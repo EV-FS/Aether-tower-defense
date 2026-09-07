@@ -4,7 +4,6 @@ local TweenService = game:GetService("TweenService")
 local UserInputService = game:GetService("UserInputService")
 
 local Vide = require(ReplicatedStorage.Packages.Vide)
-local Topbarplus = require(ReplicatedStorage.Packages.Topbarplus)
 local ServiceRegistry = require(ReplicatedStorage.Shared.Modules.Core.ServiceRegistry)
 local useButtonEffect = require(ReplicatedStorage.Shared.Modules.UI.Hooks.useButtonEffect)
 local SettingsMotion = require(ReplicatedStorage.Shared.Modules.UI.SettingsMotion)
@@ -1420,29 +1419,24 @@ function SettingsUI.Init()
 	UIController = ServiceRegistry:GetService("UIController")
 end
 
-function SettingsUI.Start()
-	-- TopbarPlus Icon Creation
-	local icon = Topbarplus.new()
-	icon:setImage("rbxassetid://131771458383625")
-	icon:setLabel("Settings")
-	icon:setCaption("Settings")
-	icon:align("Left")
-
-	icon.selected:Connect(function()
-		if UIController and not (UIController:IsOpen(VIEW_ID) or UIController:IsOpen("Setting")) then
-			UIController:Open(VIEW_ID)
-		end
-	end)
-
-	icon.deselected:Connect(function()
-		if UIController and (UIController:IsOpen(VIEW_ID) or UIController:IsOpen("Setting")) then
-			UIController:Close(VIEW_ID)
-			UIController:Close("Setting")
-		end
-	end)
-
+function SettingsUI.BindTopbarIcon(icon: any)
 	settingsIcon(icon)
+end
 
+function SettingsUI.Open()
+	if UIController and not (UIController:IsOpen(VIEW_ID) or UIController:IsOpen("Setting")) then
+		UIController:Open(VIEW_ID)
+	end
+end
+
+function SettingsUI.Close()
+	if UIController and (UIController:IsOpen(VIEW_ID) or UIController:IsOpen("Setting")) then
+		UIController:Close(VIEW_ID)
+		UIController:Close("Setting")
+	end
+end
+
+function SettingsUI.Start()
 	-- Sync state from SettingsClient if available
 	task.spawn(function()
 		if SettingsClient then

@@ -15,6 +15,7 @@ return function(target: Instance)
 
 	local mockLoadout = source({})
 	local mockOwnedTowers = source({})
+	local mockCash = source(0)
 
 	local destroyVide = mount(function()
 		local slots = {}
@@ -25,6 +26,7 @@ return function(target: Instance)
 					slotNumber = i,
 					loadout = mockLoadout,
 					ownedTowers = mockOwnedTowers,
+					playerCash = mockCash,
 					Activated = function()
 						print(`💥 [스토리] 슬롯 {i}번이 클릭되었습니다!`)
 					end,

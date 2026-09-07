@@ -1,3 +1,4 @@
+-- Shared radial emote menu used in every place.
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local PlayerCharacter = require(script.Parent.PlayerCharacter)

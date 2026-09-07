@@ -123,7 +123,7 @@ function QuestUI.RenderUI()
 	return create("Frame")({
 		Name = "QuestFrame",
 		BackgroundTransparency = 1,
-		Position = UDim2.fromScale(0.819361, 0),
+		Position = UDim2.new(0.819361, 0, 0, 62),
 		Size = UDim2.fromScale(0.180105, 1),
 		ZIndex = 5,
 		Visible = function()

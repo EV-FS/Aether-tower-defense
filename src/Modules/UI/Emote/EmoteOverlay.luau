@@ -1,3 +1,4 @@
+-- Shared modal motion used by lobby and in-game emote wheels.
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Vide = require(ReplicatedStorage.Packages.Vide)

@@ -126,10 +126,6 @@ local function startScheduler()
 				continue
 			end
 
-			if state.enabled and not read(state.enabled) then
-				continue
-			end
-
 			if not isVisibleOnScreen(gradient) then
 				continue
 			end
@@ -138,6 +134,11 @@ local function startScheduler()
 			if nextSequence ~= state.activeSequence then
 				state.activeSequence = nextSequence
 				state.cycleStartedAt = schedulerTime
+			end
+
+			if state.enabled and not read(state.enabled) then
+				gradient.Color = state.activeSequence
+				continue
 			end
 
 			local duration = math.max(if state.transitionTime then read(state.transitionTime) else 1, 0.01)

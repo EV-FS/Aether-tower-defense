@@ -5,21 +5,50 @@ local TowerData = require(ReplicatedStorage.Settings.Data.TowerData)
 local TowerViewport = require(ReplicatedStorage.UI.Components.TowerViewport)
 local NumberUtils = require(ReplicatedStorage.Shared.Modules.Utils.NumberUtils)
 local useButtonEffect = require(ReplicatedStorage.Shared.Modules.UI.Hooks.useButtonEffect)
-local useRarityShine = require(ReplicatedStorage.Shared.Modules.UI.Hooks.useRarityShine)
+local useDiagonalShine = require(ReplicatedStorage.Shared.Modules.UI.Hooks.useDiagonalShine)
 
 local create = Vide.create
 local derive = Vide.derive
 local source = Vide.source
 local spring = Vide.spring
 
-local RARITY_IMAGE_COLORS = {
-	Common = Color3.fromRGB(236, 230, 230),
-	Rare = Color3.fromRGB(47, 145, 231),
-	Epic = Color3.fromRGB(228, 76, 255),
-	Legendary = Color3.fromRGB(218, 56, 58),
-	Mythic = Color3.fromRGB(255, 161, 67),
-	Exclusive = Color3.fromRGB(154, 0, 5),
-	Absolute = Color3.fromRGB(164, 246, 255),
+local EMPTY_BACKGROUND_COLOR = Color3.fromRGB(72, 76, 86)
+
+local BACKGROUND_COLORS = {
+	Common = Color3.fromRGB(185, 175, 175),
+	Rare = Color3.fromRGB(45, 115, 240),
+	Epic = Color3.fromRGB(180, 72, 240),
+	Legendary = Color3.fromRGB(245, 160, 50),
+	Mythic = Color3.fromRGB(225, 58, 120),
+	Exclusive = Color3.fromRGB(190, 35, 75),
+	Absolute = Color3.fromRGB(175, 215, 250),
+}
+
+local SHINE_SPEEDS = {
+	Common = 0.54,
+	Rare = 0.58,
+	Epic = 0.6,
+	Legendary = 0.62,
+	Mythic = 0.64,
+	Exclusive = 0.66,
+	Absolute = 0.68,
+}
+
+local SHINE_COLORS = {
+	Common = Color3.fromRGB(240, 229, 229),
+	Rare = Color3.fromRGB(105, 185, 255),
+	Epic = Color3.fromRGB(230, 142, 255),
+	Legendary = Color3.fromRGB(255, 220, 112),
+	Mythic = Color3.fromRGB(255, 122, 180),
+	Exclusive = Color3.fromRGB(255, 104, 148),
+	Absolute = Color3.fromRGB(220, 246, 255),
+}
+
+local LOBBY_SHINE_MOTION = {
+	startPosition = UDim2.fromScale(-0.34, -0.28),
+	endPosition = UDim2.fromScale(1.34, 1.28),
+	duration = 1.24,
+	restInterval = 3.15,
 }
 
 export type Props = {
@@ -27,6 +56,54 @@ export type Props = {
 	loadout: () -> { [string | number]: { Name: string?, Key: string?, towerName: string? }? },
 	Activated: (() -> ())?,
 }
+
+local function createGlowLine(name: string, color: () -> Color3, positionX: number, width: number, transparency: number)
+	return create("Frame")({
+		Name = name,
+		AnchorPoint = Vector2.new(0.5, 0.5),
+		BackgroundColor3 = color,
+		BackgroundTransparency = transparency,
+		BorderSizePixel = 0,
+		Position = UDim2.fromScale(positionX, 0.5),
+		Size = UDim2.fromScale(width, 1),
+		ZIndex = 4,
+
+		create("UIGradient")({
+			Transparency = NumberSequence.new({
+				NumberSequenceKeypoint.new(0, 1),
+				NumberSequenceKeypoint.new(0.08, 0.99),
+				NumberSequenceKeypoint.new(0.26, 0.9),
+				NumberSequenceKeypoint.new(0.5, 0.56),
+				NumberSequenceKeypoint.new(0.74, 0.9),
+				NumberSequenceKeypoint.new(0.92, 0.99),
+				NumberSequenceKeypoint.new(1, 1),
+			}),
+		}),
+	})
+end
+
+local function createShinePair(
+	name: string,
+	color: () -> Color3,
+	active: () -> boolean,
+	speed: () -> number,
+	delay: number
+)
+	return create("Frame")({
+		Name = name,
+		AnchorPoint = Vector2.new(0.5, 0.5),
+		BackgroundTransparency = 1,
+		BorderSizePixel = 0,
+		Rotation = 18,
+		Size = UDim2.fromScale(0.64, 1.38),
+		ZIndex = 4,
+
+		createGlowLine("LeadingGlow", color, 0.24, 0.48, 0.2),
+		createGlowLine("TrailingGlow", color, 0.76, 0.4, 0.28),
+
+		useDiagonalShine(active, speed, delay, LOBBY_SHINE_MOTION),
+	})
+end
 
 return function(props: Props)
 	local tower = derive(function()
@@ -53,14 +130,23 @@ return function(props: Props)
 		return `₩{NumberUtils.FormatComma(cost)}`
 	end)
 
-	local imageColor = derive(function()
-		local towerInfo = TowerData.ByName[towerName()]
-		return if towerInfo then RARITY_IMAGE_COLORS[towerInfo.Rarity] or Color3.new(1, 1, 1) else Color3.new(1, 1, 1)
-	end)
-
 	local rarity = derive(function()
 		local towerInfo = TowerData.ByName[towerName()]
 		return towerInfo and towerInfo.Rarity or "Common"
+	end)
+
+	local backgroundColor = derive(function()
+		if not hasTower() then
+			return EMPTY_BACKGROUND_COLOR
+		end
+		return BACKGROUND_COLORS[rarity()] or BACKGROUND_COLORS.Common
+	end)
+
+	local shineSpeed = derive(function()
+		return SHINE_SPEEDS[rarity()] or SHINE_SPEEDS.Common
+	end)
+	local shineColor = derive(function()
+		return SHINE_COLORS[rarity()] or SHINE_COLORS.Common
 	end)
 
 	local isHovered = source(false)
@@ -81,7 +167,7 @@ return function(props: Props)
 		BackgroundTransparency = 1,
 		ClipsDescendants = false,
 		Image = "rbxassetid://87496848270095",
-		ImageColor3 = imageColor,
+		ImageColor3 = backgroundColor,
 		ImageTransparency = function()
 			return if hasTower() then 0 else 0.2
 		end,
@@ -263,30 +349,28 @@ return function(props: Props)
 		}),
 
 		create("CanvasGroup")({
-			Name = "CanvasGroup",
+			Name = "DiagonalShineMask",
 			AnchorPoint = Vector2.new(0.5, 0.5),
 			BackgroundTransparency = 1,
 			ClipsDescendants = true,
 			GroupTransparency = 0,
 			Position = UDim2.fromScale(0.5, 0.5),
-			Size = UDim2.fromScale(1, 1),
-			ZIndex = 11,
+			Size = UDim2.fromScale(0.94, 0.94),
+			Visible = hasTower,
+			ZIndex = 4,
 
 			create("UICorner")({
 				Name = "ShineCorner",
 				CornerRadius = UDim.new(0, 8),
 			}),
 
-			useRarityShine(rarity),
-		}),
-
-		create("UIGradient")({
-			Name = "UIGradient",
-			Color = ColorSequence.new({
-				ColorSequenceKeypoint.new(0, Color3.fromRGB(255, 228, 228)),
-				ColorSequenceKeypoint.new(1, Color3.fromRGB(85, 76, 76)),
-			}),
-			Rotation = 45,
+			createShinePair(
+				"DoubleShine",
+				shineColor,
+				hasTower,
+				shineSpeed,
+				(props.slotNumber - 1) * 0.24
+			),
 		}),
 	})
 end

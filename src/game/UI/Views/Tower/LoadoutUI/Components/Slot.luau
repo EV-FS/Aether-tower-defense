@@ -1,17 +1,27 @@
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Vide = require(ReplicatedStorage.Packages.Vide)
 local TowerData = require(ReplicatedStorage.Settings.Data.TowerData)
-local RarityColor = require(ReplicatedStorage.Settings.Visuals.RarityColor)
+local SummonConfig = require(ReplicatedStorage.Settings.Data.SummonConfig)
+local RarityGradient = require(ReplicatedStorage.Settings.Visuals.RarityGradient)
 local useButtonEffect = require(ReplicatedStorage.Shared.Modules.UI.Hooks.useButtonEffect)
+local useColorSequenceCycle = require(ReplicatedStorage.Shared.Modules.UI.Hooks.useColorSequenceCycle)
+local useDiagonalShine = require(ReplicatedStorage.Shared.Modules.UI.Hooks.useDiagonalShine)
 local NumberUtils = require(ReplicatedStorage.Shared.Modules.Utils.NumberUtils)
 
 local create = Vide.create
 local derive = Vide.derive
+local spring = Vide.spring
+
+local EMPTY_GRADIENT = ColorSequence.new({
+	ColorSequenceKeypoint.new(0, Color3.new(1, 1, 1)),
+	ColorSequenceKeypoint.new(1, Color3.fromRGB(136, 136, 136)),
+})
 
 export type Props = {
 	slotNumber: number,
 	loadout: () -> {},
 	ownedTowers: () -> {},
+	playerCash: () -> number,
 	Activated: () -> (),
 }
 
@@ -23,17 +33,31 @@ return function(props: Props)
 	local hasTower = derive(function()
 		return tower() ~= nil
 	end)
-	local imageColor = derive(function()
+	local rarity = derive(function()
 		local t = tower()
 		if not t then
-			return Color3.new(0.75, 0.75, 0.75)
+			return "Common"
 		end
 
 		local towerName = t.Name or t.towerName
 		local towerInfo = TowerData.ByName[towerName]
-		local rarity = towerInfo and towerInfo.Rarity
+		return towerInfo and towerInfo.Rarity or "Common"
+	end)
+	local imageTint = derive(function()
+		return if hasTower() then Color3.new(1, 1, 1) else Color3.new(0.75, 0.75, 0.75)
+	end)
+	local backgroundGradient = derive(function()
+		if not hasTower() then
+			return EMPTY_GRADIENT
+		end
 
-		return RarityColor[rarity] or Color3.new(0.75, 0.75, 0.75)
+		return SummonConfig.RarityGradients[rarity()] or SummonConfig.RarityGradients.Common
+	end)
+	local shimmerSpeed = derive(function()
+		return RarityGradient.ShimmerSpeed[rarity()] or 0.75
+	end)
+	local gradientTransitionTime = derive(function()
+		return 3.4 / shimmerSpeed()
 	end)
 	local towerImage = derive(function()
 		local t = tower()
@@ -64,10 +88,10 @@ return function(props: Props)
 
 		return `Lv.{0}`
 	end)
-	local towerCost = derive(function()
+	local towerCostValue = derive(function()
 		local t = tower()
 		if not t then
-			return "$0"
+			return 0
 		end
 
 		local towerName = t.Name or t.towerName
@@ -76,8 +100,27 @@ return function(props: Props)
 		if towerInfo and towerInfo.Stats and towerInfo.Stats[0] then
 			cost = towerInfo.Stats[0].Cost or 0
 		end
-		return `${NumberUtils.FormatComma(cost)}`
+		return cost
 	end)
+	local towerCost = derive(function()
+		return `${NumberUtils.FormatComma(towerCostValue())}`
+	end)
+	local canAfford = derive(function()
+		return not hasTower() or props.playerCash() >= towerCostValue()
+	end)
+	local missingCashRatio = derive(function()
+		local cost = towerCostValue()
+		if not hasTower() or cost <= 0 then
+			return 0
+		end
+
+		return math.clamp(1 - math.max(props.playerCash(), 0) / cost, 0, 1)
+	end)
+	local animatedMissingRatio = spring(missingCashRatio, 0.16, 0.82)
+	local edgeTransparency = spring(function()
+		local ratio = missingCashRatio()
+		return if ratio > 0.001 and ratio < 0.999 then 0.48 else 1
+	end, 0.16, 0.82)
 
 	return create("ImageButton")({
 		Name = `Slot{props.slotNumber}`,
@@ -85,7 +128,7 @@ return function(props: Props)
 		Image = "rbxassetid://128510116496993",
 		Size = UDim2.fromScale(1, 1),
 		SizeConstraint = Enum.SizeConstraint.RelativeYY,
-		ImageColor3 = imageColor,
+		ImageColor3 = imageTint,
 
 		Activated = props.Activated,
 
@@ -102,7 +145,7 @@ return function(props: Props)
 			TextColor3 = Color3.new(1, 1, 1),
 			TextScaled = true,
 			TextXAlignment = Enum.TextXAlignment.Left,
-			ZIndex = 2,
+			ZIndex = 5,
 			create("UIStroke")({}),
 		}),
 
@@ -117,9 +160,11 @@ return function(props: Props)
 			Visible = hasTower,
 			Text = towerCost,
 
-			TextColor3 = Color3.new(1, 1, 1),
+			TextColor3 = function()
+				return if canAfford() then Color3.new(1, 1, 1) else Color3.fromRGB(255, 62, 62)
+			end,
 			TextScaled = true,
-			ZIndex = 2,
+			ZIndex = 5,
 			create("UIStroke")({ Thickness = 2 }),
 		}),
 
@@ -132,8 +177,101 @@ return function(props: Props)
 
 			Visible = hasTower,
 			Image = towerImage,
+			ZIndex = 1,
 
 			create("UIAspectRatioConstraint")({}),
+		}),
+
+		create("Frame")({
+			Name = "RarityShineClip",
+			BackgroundTransparency = 1,
+			ClipsDescendants = true,
+			Position = UDim2.fromScale(0.055, 0.055),
+			Size = UDim2.fromScale(0.89, 0.89),
+			Visible = hasTower,
+			ZIndex = 2,
+
+			create("UICorner")({
+				CornerRadius = UDim.new(0.12, 0),
+			}),
+
+			create("Frame")({
+				Name = "DiagonalShine",
+				AnchorPoint = Vector2.new(0.5, 0.5),
+				BackgroundColor3 = Color3.new(1, 1, 1),
+				BackgroundTransparency = 0.12,
+				BorderSizePixel = 0,
+				Rotation = 18,
+				Size = UDim2.fromScale(0.2, 1.55),
+				ZIndex = 2,
+
+				create("UIGradient")({
+					Transparency = NumberSequence.new({
+						NumberSequenceKeypoint.new(0, 1),
+						NumberSequenceKeypoint.new(0.22, 0.85),
+						NumberSequenceKeypoint.new(0.5, 0.2),
+						NumberSequenceKeypoint.new(0.78, 0.85),
+						NumberSequenceKeypoint.new(1, 1),
+					}),
+				}),
+
+				useDiagonalShine(hasTower, shimmerSpeed, 0.25 + props.slotNumber * 0.16),
+			}),
+		}),
+
+		create("Frame")({
+			Name = "AffordabilityMask",
+			BackgroundTransparency = 1,
+			ClipsDescendants = true,
+			Position = UDim2.fromScale(0.055, 0.055),
+			Size = UDim2.fromScale(0.89, 0.89),
+			Visible = hasTower,
+			ZIndex = 3,
+
+			create("UICorner")({
+				CornerRadius = UDim.new(0.12, 0),
+			}),
+
+			create("Frame")({
+				Name = "MissingCashFill",
+				AnchorPoint = Vector2.new(0, 1),
+				BackgroundColor3 = Color3.fromRGB(3, 5, 8),
+				BackgroundTransparency = 0.3,
+				BorderSizePixel = 0,
+				Position = UDim2.fromScale(0, 1),
+				Size = function()
+					return UDim2.fromScale(1, math.clamp(animatedMissingRatio(), 0, 1))
+				end,
+				ZIndex = 3,
+
+				create("UIGradient")({
+					Rotation = 90,
+					Transparency = NumberSequence.new({
+						NumberSequenceKeypoint.new(0, 0.12),
+						NumberSequenceKeypoint.new(0.25, 0.02),
+						NumberSequenceKeypoint.new(1, 0),
+					}),
+				}),
+
+				create("Frame")({
+					Name = "ProgressEdge",
+					BackgroundColor3 = Color3.fromRGB(235, 241, 255),
+					BackgroundTransparency = edgeTransparency,
+					BorderSizePixel = 0,
+					Size = UDim2.new(1, 0, 0, 1),
+					ZIndex = 4,
+
+					create("UIGradient")({
+						Transparency = NumberSequence.new({
+							NumberSequenceKeypoint.new(0, 1),
+							NumberSequenceKeypoint.new(0.18, 0.25),
+							NumberSequenceKeypoint.new(0.5, 0),
+							NumberSequenceKeypoint.new(0.82, 0.25),
+							NumberSequenceKeypoint.new(1, 1),
+						}),
+					}),
+				}),
+			}),
 		}),
 
 		create("TextLabel")({
@@ -149,16 +287,15 @@ return function(props: Props)
 
 			TextColor3 = Color3.fromRGB(255, 170, 0),
 			TextScaled = true,
-			ZIndex = 2,
+			ZIndex = 5,
 			create("UIStroke")({ Thickness = 2 }),
 		}),
 
 		create("UIGradient")({
-			Color = ColorSequence.new({
-				ColorSequenceKeypoint.new(0, Color3.new(1, 1, 1)),
-				ColorSequenceKeypoint.new(1, Color3.fromRGB(136, 136, 136)),
-			}),
-			Rotation = 90,
+			Name = "RarityGradient",
+			Rotation = 45,
+
+			useColorSequenceCycle(backgroundGradient, gradientTransitionTime, hasTower),
 		}),
 
 		useButtonEffect(nil, 1),
