@@ -50,7 +50,50 @@ return TableUtils.DeepFreeze({
 		},
 	},
 
-	--/Units
+	--/Towers
+	["TowerShared"] = {
+		Place_Common = {
+			Steps.Emit("Towers/Shared/CommonPlace", { At = "Source.@Ground" }),
+		},
+		Place_Rare = {
+			Steps.Emit("Towers/Shared/RarePlace", { At = "Source.@Ground" }),
+		},
+		Place_Epic = {
+			Steps.Emit("Towers/Shared/EpicPlace", { At = "Source.@Ground" }),
+		},
+		Place_Legendary = {
+			Steps.Emit("Towers/Shared/LegendaryPlace", { At = "Source.@Ground" }),
+		},
+		Place_Mythic = {
+			Steps.Emit("Towers/Shared/MythicPlace", { At = "Source.@Ground" }),
+		},
+		Place_Absolute = {
+			Steps.Emit("Towers/Shared/AbsolutePlace", { At = "Source.@Ground" }),
+		},
+
+		Upgrade_Common = {
+			Steps.Emit("Towers/Shared/CommonUpgrade", { At = "Source.@Ground" }),
+		},
+		Upgrade_Rare = {
+			Steps.Emit("Towers/Shared/RareUpgrade", { At = "Source.@Ground" }),
+		},
+		Upgrade_Epic = {
+			Steps.Emit("Towers/Shared/EpicUpgrade", { At = "Source.@Ground" }),
+		},
+		Upgrade_Legendary = {
+			Steps.Emit("Towers/Shared/LegendaryUpgrade", { At = "Source.@Ground" }),
+		},
+		Upgrade_Mythic = {
+			Steps.Emit("Towers/Shared/MythicUpgrade", { At = "Source.@Ground" }),
+		},
+		Upgrade_Absolute = {
+			Steps.Emit("Towers/Shared/AbsoluteUpgrade", { At = "Source.@Ground" }),
+		},
+
+		Sell = {
+			Steps.Emit("Towers/Shared/Sell", { At = "Source.@Ground" }),
+		},
+	},
 
 	--/Towers
 	["Fighter"] = {
@@ -116,6 +159,23 @@ return TableUtils.DeepFreeze({
 				Steps.Emit("Towers/Galahad/1", { Lifetime = 3, Delay = 0.55, LockToSource = true, At = "Source" }),
 				Steps.Emit("Towers/Galahad/2", { Lifetime = 3, Delay = 0.966, LockToSource = true, At = "Source" }),
 				Steps.Emit("Towers/Galahad/3", { Lifetime = 3, Delay = 1.733, LockToSource = true, At = "Source" }),
+			},
+		},
+	},
+	["Kitsune Samurai"] = {
+		AttackHit1 = {
+			[0] = {
+				Steps.Emit("Towers/Kitsune Samurai/E1", { Lifetime = 3, At = "Source" }),
+			},
+		},
+		AttackHit2 = {
+			[0] = {
+				Steps.Emit("Towers/Kitsune Samurai/E2", { Lifetime = 3, At = "Source" }),
+			},
+		},
+		AttackHit3 = {
+			[0] = {
+				Steps.Emit("Towers/Kitsune Samurai/E3", { Lifetime = 3, At = "Source" }),
 			},
 		},
 	},
