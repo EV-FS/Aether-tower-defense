@@ -21,7 +21,7 @@ local DEFAULT_DURATION = 3
 local RawEmojiData: { [string]: RawEmojiConfig } = {
 	Wave = {
 		Index = 1,
-		DisplayName = "Kisune",
+		DisplayName = "Kitsune",
 		Image = "rbxassetid://85986637320725",
 	},
 	Laugh = {
