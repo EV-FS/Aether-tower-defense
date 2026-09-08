@@ -78,6 +78,29 @@ local function GetMaxCombo(renderData, towerModel, attackVariant: string?, stats
 	return maxCombo
 end
 
+local function ResolveHitRangeStats(stats, hit)
+	return {
+		AttackType = hit.AttackType or stats.AttackType,
+		Range = hit.Range or stats.Range,
+		SplashRange = hit.SplashRange or stats.SplashRange,
+		Angle = hit.Angle or stats.Angle,
+		Width = hit.Width or stats.Width,
+	}
+end
+
+local function HasSameRangeShape(previous, current): boolean
+	if not previous or not current then
+		return previous == current
+	end
+
+	return previous.AttackType == current.AttackType
+		and previous.Range == current.Range
+		and previous.SplashRange == current.SplashRange
+		and previous.Angle == current.Angle
+		and previous.Width == current.Width
+		and HasSameRangeShape(previous.Secondary, current.Secondary)
+end
+
 -------------------------------------------------
 --// TowerRenderer
 -------------------------------------------------
@@ -87,6 +110,8 @@ TowerRenderer.PlacedBorders = {}
 TowerRenderer.TrackingTowers = {}
 TowerRenderer.SelectionHighlight = nil
 TowerRenderer.CurrentRange = nil
+TowerRenderer.CurrentRangeTowerId = nil
+TowerRenderer.CurrentRangeStats = nil
 
 function TowerRenderer.Init(services)
 	AnimationService = services:GetService("AnimationService")
@@ -207,6 +232,7 @@ function TowerRenderer.ApplyAppearence(towerLevel: number, towerId: number)
 	end
 
 	targetTower.Level = towerLevel
+	targetTower.AttackRangeStats = {}
 
 	for key in pairs(targetTower) do
 		if string.match(key, "^MaxCombo_") or string.match(key, "^ComboIndex_") then
@@ -246,14 +272,15 @@ function TowerRenderer.ToggleRangeIndicator(action: boolean, towerId: number?, t
 	if TowerRenderer.CurrentRange then
 		TowerRenderer.CurrentRange:Destroy()
 		TowerRenderer.CurrentRange = nil
-		TowerRenderer.CurrentRangeTowerId = nil
 	end
+	TowerRenderer.CurrentRangeTowerId = nil
+	TowerRenderer.CurrentRangeStats = nil
 
 	if TowerRenderer.SelectionHighlight then
 		TowerRenderer.SelectionHighlight.Adornee = nil
 	end
 
-	if action == false then
+	if action == false or not targetTower or not towerData then
 		return
 	end
 
@@ -272,17 +299,50 @@ function TowerRenderer.ToggleRangeIndicator(action: boolean, towerId: number?, t
 		TowerRenderer.SelectionHighlight.Adornee = targetTower.Model
 	end
 
-	local offset = CharacterUtils.GetHipHeight(targetTower.Model)
-	TowerRenderer.CurrentRange = CreateRangeIndicator.newRange(
-		towerData.Stats.Range,
-		targetTower.Model:GetPivot() - Vector3.new(0, offset, 0),
-		towerData.Stats,
-		targetTower.Model:GetPivot().Position
-	)
 	TowerRenderer.CurrentRangeTowerId = towerId
+	TowerRenderer.CurrentRangeStats = towerData.Stats
+	TowerRenderer.RefreshRangeIndicator()
+end
 
-	if TowerRenderer.CurrentRange then
-		TowerRenderer.CurrentRange:SetColor(Color3.new(1, 1, 1))
+function TowerRenderer.RefreshRangeIndicator()
+	local towerId = TowerRenderer.CurrentRangeTowerId
+	local targetTower = TowerRenderer.RenderStates[towerId]
+	local baseStats = TowerRenderer.CurrentRangeStats
+	if not targetTower or not baseStats then
+		return
+	end
+
+	local attackRangeStats = targetTower.AttackRangeStats
+	local stats = table.clone(attackRangeStats.Default or baseStats)
+	stats.Secondary = attackRangeStats.Secondary or baseStats.Secondary
+
+	local previousRange = TowerRenderer.CurrentRange
+	if previousRange and HasSameRangeShape(previousRange.TowerStats, stats) then
+		return
+	end
+
+	local lastSplashPosition = previousRange and previousRange.LastSplashPosition
+	local previousSecondary = previousRange and previousRange.SecondaryIndicator
+	local lastSecondarySplashPosition = previousSecondary and previousSecondary.LastSplashPosition
+	if previousRange then
+		previousRange:Destroy()
+	end
+
+	local pivot = targetTower.Model:GetPivot()
+	local offset = CharacterUtils.GetHipHeight(targetTower.Model)
+	local groundPivot = pivot - Vector3.new(0, offset, 0)
+	local range = CreateRangeIndicator.newRange(stats.Range, groundPivot, stats, pivot.Position)
+	TowerRenderer.CurrentRange = range
+	if range then
+		range.LastSplashPosition = lastSplashPosition
+		if range.SecondaryIndicator then
+			range.SecondaryIndicator.LastSplashPosition = lastSecondarySplashPosition
+		end
+
+		local trackingData = TowerRenderer.TrackingTowers[towerId]
+		local targetPos = trackingData and trackingData.TargetPart and trackingData.TargetPart.Position
+		range:SetColor(Color3.new(1, 1, 1))
+		range:UpdateRange(groundPivot, targetPos, pivot.Position)
 	end
 end
 
@@ -355,6 +415,27 @@ function TowerRenderer.OnAttack(towerId: number, enemyModel: Model, stats, attac
 	end
 
 	local variant = attackVariant or ""
+	local rangeKey = attackVariant or "Default"
+	local attackRangeStats = renderData.AttackRangeStats
+	local function updateAttackRange(rangeStats)
+		-- Ignore hits queued before an upgrade or removal; selection changes keep the current hit.
+		if
+			TowerRenderer.RenderStates[towerId] ~= renderData
+			or renderData.AttackRangeStats ~= attackRangeStats
+			or not towerModel.Parent
+		then
+			return
+		end
+
+		attackRangeStats[rangeKey] = rangeStats
+		if TowerRenderer.CurrentRangeTowerId == towerId then
+			TowerRenderer.RefreshRangeIndicator()
+		end
+	end
+
+	-- Keep the last hit visible during cooldown, then restore the base shape for the next windup.
+	updateAttackRange(stats)
+
 	local usesCombo, comboLevel = ResolveAttackSet(towerModel, attackVariant, renderData.Level)
 	local animName = `{variant}Attack`
 	local comboIndex: number?
@@ -398,6 +479,14 @@ function TowerRenderer.OnAttack(towerId: number, enemyModel: Model, stats, attac
 			local hitDelay = hit.Delay or 0
 			local visualDelay = if hitDelay > 0 then hitDelay else nil
 			local hitRange = hit.Range or stats.Range
+			local hitRangeStats = ResolveHitRangeStats(stats, hit)
+			if hitDelay > 0 then
+				TimeService.DeltaDelay(hitDelay):andThen(function()
+					updateAttackRange(hitRangeStats)
+				end)
+			else
+				updateAttackRange(hitRangeStats)
+			end
 
 			playAttackVisual("Hit", hitRange, visualDelay)
 			playAttackVisual(`Hit{hitIndex}`, hitRange, visualDelay)
@@ -428,11 +517,9 @@ function TowerRenderer.Cleanup(towerId: number)
 		TowerRenderer.PlacedBorders[towerId]:Destroy()
 		TowerRenderer.PlacedBorders[towerId] = nil
 	end
-	if TowerRenderer.CurrentRange then
-		TowerRenderer.CurrentRange:Destroy()
-		TowerRenderer.CurrentRange = nil
+	if TowerRenderer.CurrentRangeTowerId == towerId then
+		TowerRenderer.ToggleRangeIndicator(false)
 	end
-	TowerRenderer.CurrentRangeTowerId = nil
 
 	TowerRenderer.RenderStates[towerId] = nil
 	TowerRenderer.TrackingTowers[towerId] = nil
