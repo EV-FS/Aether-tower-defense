@@ -45,6 +45,9 @@ local selectedCooldown = source(0)
 local selectedRange = source(0)
 local selectedMaxTower = source(0)
 
+-------------------------------------------------
+--// Local Functions
+-------------------------------------------------
 local function storageCount(): number
 	local count = 0
 
@@ -147,9 +150,12 @@ local function formatAnimatedStat(animatedValue: number, statValue: number): str
 	return NumberUtils.FormatComma(roundedValue)
 end
 
+-------------------------------------------------
+--// InventoryUI
+-------------------------------------------------
 local InventoryUI = {}
 
-function InventoryUI.OnSelected(towerName: string, towerKey: string, _towerProfile)
+function InventoryUI.SelectTower(towerName: string, towerKey: string, _towerProfile)
 	selectedName(towerName)
 	selectedKey(towerKey)
 
@@ -462,38 +468,41 @@ function InventoryUI.RenderUI()
 										and (showAllTowers() or layoutOrder() <= INITIAL_MOUNTED_TOWERS)
 								end)
 
-								table.insert(buttons, show(shouldMount, function()
-									local isInView, bind = useIsInScrollWindow()
-									local button = TowerButton({
-										Bind = bind,
-										TowerName = towerName(),
-										TowerKey = towerKey,
-										TowerData = towerData,
-										IsInWindow = isInView,
-										IsSelected = function()
-											return if selectedName() == towerName()
-													and selectedKey() == towerKey
-												then true
-												else false
-										end,
-										IsEquipped = function()
-											return InventoryClient.IsEquipped(towerName(), towerKey)
-										end,
-										LayoutOrder = layoutOrder,
-										OnActivated = function()
-											InventoryUI.OnSelected(towerName(), towerKey, towerData)
-										end,
-									})
+								table.insert(
+									buttons,
+									show(shouldMount, function()
+										local isInView, bind = useIsInScrollWindow()
+										local button = TowerButton({
+											Bind = bind,
+											TowerName = towerName(),
+											TowerKey = towerKey,
+											TowerData = towerData,
+											IsInWindow = isInView,
+											IsSelected = function()
+												return if selectedName() == towerName()
+														and selectedKey() == towerKey
+													then true
+													else false
+											end,
+											IsEquipped = function()
+												return InventoryClient.IsEquipped(towerName(), towerKey)
+											end,
+											LayoutOrder = layoutOrder,
+											OnActivated = function()
+												InventoryUI.SelectTower(towerName(), towerKey, towerData)
+											end,
+										})
 
-									cleanup(function()
-										-- Let Vide detach the child before Destroy locks its Parent.
-										task.defer(function()
-											button:Destroy()
+										cleanup(function()
+											-- Let Vide detach the child before Destroy locks its Parent.
+											task.defer(function()
+												button:Destroy()
+											end)
 										end)
-									end)
 
-									return button
-								end))
+										return button
+									end)
+								)
 							end
 
 							return buttons

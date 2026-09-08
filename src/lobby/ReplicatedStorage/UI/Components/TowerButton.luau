@@ -54,6 +54,22 @@ return function(props)
 		}),
 
 		create("ImageLabel")({
+			Name = "TowerImage",
+			AnchorPoint = Vector2.new(0.5, 0.5),
+			BackgroundTransparency = 1,
+
+			Position = spring(function()
+				return if props.IsInWindow() then UDim2.fromScale(0.5, 0.5) else UDim2.fromScale(0.5, 0.7)
+			end, 0.3, 0.9),
+			Size = UDim2.fromScale(1, 1),
+
+			Image = towerInfo.TowerImage or "",
+			ImageTransparency = spring(function()
+				return if props.IsInWindow() then 0 else 1
+			end, 0.5, 1),
+		}),
+
+		create("ImageLabel")({
 			Name = "BG",
 			AnchorPoint = Vector2.new(0.5, 0.5),
 			BackgroundTransparency = 1,
