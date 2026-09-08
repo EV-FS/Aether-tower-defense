@@ -1,3 +1,4 @@
+local Lighting = game:GetService("Lighting")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local GetPath = require(ReplicatedStorage.Shared.Modules.Core.GetPath)
 local AudioService
@@ -34,7 +35,15 @@ function MapService:LoadMapAsync(mapName: string, difficulty: string?)
 		inst.Parent = mapFolder
 	end
 
-	local bgmFolder = workspace:WaitForChild("Map"):WaitForChild("BGM")
+	local environmentFolder = mapFolder:WaitForChild("Environment")
+	if environmentFolder then
+		local terrainRegion = environmentFolder:FindFirstChildOfClass("TerrainRegion")
+		if terrainRegion then
+			workspace.Terrain:PasteRegion(terrainRegion, workspace.Terrain.MaxExtents.Min, true)
+		end
+	end
+
+	local bgmFolder = mapFolder:WaitForChild("BGM")
 	--AudioService.SetBGMState(nil, nil, bgmFolder:WaitForChild("0").SoundId)
 
 	GetPath.Init()
