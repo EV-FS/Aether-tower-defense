@@ -1464,78 +1464,84 @@ return TableUtils.DeepFreeze({
 	},
 
 	-- Mythic
-	["어린용사(진화)"] = {
+	["Poseidon"] = {
 		[0] = {
 			Cost = 800,
-			Damage = 8,
-			Cooldown = 1.2,
-			Range = 0,
-			SuggestedMaxTowers = 6,
+			Damage = 5,
+			Cooldown = 1.5,
+			Range = 13,
 			Passives = {
-				{ Type = "CashOnHit", Amount = 18 },
+				{ Type = "Slow", Amount = 10, Duration = 0.5 },
 			},
-			AttackDelay = 0,
-			AttackType = "Single",
+
+			Width = 5,
+			AttackDelay = 0.24,
+			AttackType = "Line",
 		},
 		[1] = {
-			Cost = 450,
-			Damage = 10,
-			Cooldown = 1,
-			Range = 0,
-			SuggestedMaxTowers = 6,
+			Cost = 1200,
+			Damage = 12,
+			Cooldown = 1.5,
+			Range = 13,
 			Passives = {
-				{ Type = "CashOnHit", Amount = 18 },
+				{ Type = "Slow", Amount = 10, Duration = 0.5 },
 			},
-			AttackDelay = 0,
-			AttackType = "Single",
+
+			Width = 5,
+			AttackDelay = 0.24,
+			AttackType = "Line",
 		},
 		[2] = {
-			Cost = 1000,
-			Damage = 17,
-			Cooldown = 1,
-			Range = 0,
-			SuggestedMaxTowers = 6,
+			Cost = 3550,
+			Damage = 30,
+			Cooldown = 1.5,
+			Range = 13,
 			Passives = {
-				{ Type = "CashOnHit", Amount = 20 },
+				{ Type = "Slow", Amount = 15, Duration = 0.5 },
 			},
-			AttackDelay = 0,
-			AttackType = "Single",
+
+			Width = 5,
+			AttackDelay = 0.24,
+			AttackType = "Line",
 		},
 		[3] = {
-			Cost = 2150,
-			Damage = 30,
-			Cooldown = 0.9,
-			Range = 0,
-			SuggestedMaxTowers = 6,
+			Cost = 5650,
+			Damage = 56,
+			Cooldown = 1.5,
+			Range = 16,
 			Passives = {
-				{ Type = "CashOnHit", Amount = 20 },
+				{ Type = "Slow", Amount = 15, Duration = 0.5 },
 			},
-			AttackDelay = 0,
-			AttackType = "Single",
+
+			Width = 6,
+			AttackDelay = 0.24,
+			AttackType = "Line",
 		},
 		[4] = {
-			Cost = 4600,
-			Damage = 30,
-			Cooldown = 0.5,
-			Range = 0,
-			SuggestedMaxTowers = 6,
+			Cost = 6800,
+			Damage = 70,
+			Cooldown = 1.2,
+			Range = 16,
 			Passives = {
-				{ Type = "CashOnHit", Amount = 30 },
+				{ Type = "Slow", Amount = 15, Duration = 0.5 },
 			},
-			AttackDelay = 0,
-			AttackType = "Single",
+
+			Width = 6,
+			AttackDelay = 0.24,
+			AttackType = "Line",
 		},
 		[5] = {
-			Cost = 10500,
-			Damage = 60,
-			Cooldown = 0.5,
-			Range = 0,
-			SuggestedMaxTowers = 6,
+			Cost = 9500,
+			Damage = 100,
+			Cooldown = 1.2,
+			Range = 16,
 			Passives = {
-				{ Type = "CashOnHit", Amount = 45 },
+				{ Type = "Slow", Amount = 20, Duration = 0.5 },
 			},
-			AttackDelay = 0,
-			AttackType = "Single",
+
+			Width = 6,
+			AttackDelay = 0.24,
+			AttackType = "Line",
 		},
 	},
 	["Emperor"] = {
@@ -1916,63 +1922,174 @@ return TableUtils.DeepFreeze({
 	},
 
 	-- Absolute
-	["Kisune Samurai"] = {
+	["Kitsune Samurai"] = {
 		[0] = {
 			Cost = 2000,
-			Damage = 21,
-			Cooldown = 1.5,
-			Range = 0,
-			Angle = 180,
-			AttackDelay = 0,
+			Damage = 14,
+			Cooldown = 3,
+			Range = 20,
+
+			Hits = {
+				{
+					Delay = 0.45,
+					AttackType = "Angle",
+					Angle = 180,
+				},
+				{
+					Delay = 0.717,
+					AttackType = "Angle",
+					Angle = 180,
+				},
+				{
+					Delay = 1.417,
+					AttackType = "Line",
+					Width = 15,
+				},
+			},
+
+			AttackDelay = 0.45,
 			AttackType = "Angle",
+			Angle = 180,
 		},
 		[1] = {
 			Cost = 2350,
-			Damage = 45,
-			Cooldown = 1.5,
-			Range = 0,
-			Angle = 180,
-			AttackDelay = 0,
+			Damage = 30,
+			Cooldown = 3,
+			Range = 20,
+
+			Hits = {
+				{
+					Delay = 0.45,
+					AttackType = "Angle",
+					Angle = 180,
+				},
+				{
+					Delay = 0.717,
+					AttackType = "Angle",
+					Angle = 180,
+				},
+				{
+					Delay = 1.417,
+					AttackType = "Line",
+					Width = 15,
+				},
+			},
+
+			AttackDelay = 0.45,
 			AttackType = "Angle",
+			Angle = 180,
 		},
 		[2] = {
 			Cost = 6000,
-			Damage = 85,
-			Cooldown = 1.2,
-			Range = 0,
-			Angle = 180,
-			AttackDelay = 0,
+			Damage = 57,
+			Cooldown = 2.4,
+			Range = 20,
+
+			Hits = {
+				{
+					Delay = 0.45,
+					AttackType = "Angle",
+					Angle = 180,
+				},
+				{
+					Delay = 0.717,
+					AttackType = "Angle",
+					Angle = 180,
+				},
+				{
+					Delay = 1.417,
+					AttackType = "Line",
+					Width = 15,
+				},
+			},
+
+			AttackDelay = 0.45,
 			AttackType = "Angle",
+			Angle = 180,
 		},
 		[3] = {
 			Cost = 15000,
-			Damage = 170,
-			Cooldown = 1.1,
-			Range = 0,
-			Angle = 180,
-			FoxFire = { Damage = 15, TickRate = 0.5, Duration = 3, Cooldown = 5 },
-			AttackDelay = 0,
+			Damage = 113,
+			Cooldown = 2.2,
+			Range = 20,
+
+			Hits = {
+				{
+					Delay = 0.45,
+					AttackType = "Angle",
+					Angle = 180,
+				},
+				{
+					Delay = 0.717,
+					AttackType = "Angle",
+					Angle = 180,
+				},
+				{
+					Delay = 1.417,
+					AttackType = "Line",
+					Width = 15,
+				},
+			},
+
+			AttackDelay = 0.45,
 			AttackType = "Angle",
+			Angle = 180,
 		},
 		[4] = {
 			Cost = 21000,
-			Damage = 280,
-			Cooldown = 1,
-			Range = 0,
-			Angle = 180,
-			FoxFire = { Damage = 15, TickRate = 0.5, Duration = 3, Cooldown = 5 },
-			AttackDelay = 0,
+			Damage = 185,
+			Cooldown = 2,
+			Range = 20,
+
+			Hits = {
+				{
+					Delay = 0.45,
+					AttackType = "Angle",
+					Angle = 180,
+				},
+				{
+					Delay = 0.717,
+					AttackType = "Angle",
+					Angle = 180,
+				},
+				{
+					Delay = 1.417,
+					AttackType = "Line",
+					Width = 15,
+				},
+			},
+
+			AttackDelay = 0.45,
 			AttackType = "Angle",
+			Angle = 180,
 		},
 		[5] = {
 			Cost = 30500,
-			Damage = 450,
-			Cooldown = 1,
-			Range = 0,
-			Angle = 180,
-			FoxFire = { Damage = 30, TickRate = 0.5, Duration = 3, Cooldown = 5 },
-			AttackDelay = 0,
+			Damage = 300,
+			Cooldown = 2,
+			Range = 20,
+
+			Hits = {
+				{
+					Delay = 0.45,
+					AttackType = "Angle",
+					Angle = 180,
+				},
+				{
+					Delay = 0.717,
+					AttackType = "Angle",
+					Angle = 180,
+				},
+				{
+					Delay = 1.417,
+					AttackType = "Line",
+					Width = 15,
+				},
+			},
+
+			AttackDelay = 0.45,
 			AttackType = "Angle",
+			Angle = 180,
 		},
 	},
 	["Galahad"] = {

@@ -109,7 +109,13 @@ local RawTowerData: {
 			TowerImage = "rbxassetid://126863079208433",
 			MaxTowers = 5,
 		},
-		["어린용사(진화)"] = {
+		--[[["어린용사(진화)"] = {
+			Index = 10,
+			Rarity = "Mythic",
+			TowerImage = "rbxassetid://126863079208433",
+			MaxTowers = 5,
+		},--]]
+		["Poseidon"] = {
 			Index = 10,
 			Rarity = "Mythic",
 			TowerImage = "rbxassetid://126863079208433",
@@ -133,7 +139,7 @@ local RawTowerData: {
 			TowerImage = "rbxassetid://127595189045553",
 			MaxTowers = 2,
 		},
-		["Kisune Samurai"] = {
+		["Kitsune Samurai"] = {
 			Index = 14,
 			Rarity = "Absolute",
 			TowerImage = "rbxassetid://127595189045553",
@@ -143,13 +149,13 @@ local RawTowerData: {
 			Index = 15,
 			Rarity = "Absolute",
 			TowerImage = "rbxassetid://127595189045553",
-			MaxTowers = 4,
+			MaxTowers = 3,
 		},
 		["Dragon Slayer"] = {
 			Index = 16,
 			Rarity = "Absolute",
 			TowerImage = "rbxassetid://127595189045553",
-			MaxTowers = 2,
+			MaxTowers = 1,
 		},
 		["Ranger Super Tower"] = {
 			Index = 31,
