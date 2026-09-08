@@ -12,7 +12,8 @@ scope EnemyService {
             enemyIndex: u8,
             sendTimeMs: u16,
             isBoss: boolean?,
-            startPathAlpha: f32?
+            startPathAlpha: f32?,
+            pathId: u8,
         }
     }
     event DestroyEnemy {

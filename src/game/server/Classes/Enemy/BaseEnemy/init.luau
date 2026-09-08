@@ -23,6 +23,7 @@ export type Enemy = {
 	Name: string,
 	MoveDirection: number,
 	PathAlpha: number,
+	PathId: number,
 
 	Position: Vector3,
 
@@ -73,16 +74,17 @@ end
 local BaseEnemy = {}
 BaseEnemy.__index = BaseEnemy
 
-function BaseEnemy.new(id, name, isBoss): Enemy
+function BaseEnemy.new(id, name, isBoss, pathId: number?, pathAlpha: number?): Enemy
 	local self = setmetatable({}, BaseEnemy)
 
 	self.Id = id
 	self.Name = name
 	self.MoveDirection = 1
-	self.PathAlpha = 0
+	self.PathId = isBoss and 1 or (pathId or 1)
+	self.PathAlpha = pathAlpha or 0
 	self.IsBoss = isBoss
 
-	self.Position = GetPath:Get():CalculateUniformPosition(self.PathAlpha)
+	self.Position = GetPath:Get(self.PathId):CalculateUniformPosition(self.PathAlpha)
 
 	self.ActiveDebuffs = {}
 	self.DotValues = {}
@@ -161,7 +163,7 @@ function BaseEnemy:TakeKnockback(studs: number)
 
 	studs = math.floor(studs * 10) / 10
 
-	local pathLength = GetPath:Get():GetPathLength()
+	local pathLength = GetPath:Get(self.PathId):GetPathLength()
 	local knockbackAlpha = studs / pathLength
 
 	local duration = 0.2

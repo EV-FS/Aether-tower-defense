@@ -9,8 +9,8 @@ local TimeService
 local NecromancerGoblin = setmetatable({}, BaseEnemy)
 NecromancerGoblin.__index = NecromancerGoblin
 
-function NecromancerGoblin.new(id: number, name: string, isBoss: boolean?)
-	local self = BaseEnemy.new(id, name, isBoss)
+function NecromancerGoblin.new(id: number, name: string, isBoss: boolean?, pathId: number?, pathAlpha: number?)
+	local self = BaseEnemy.new(id, name, isBoss, pathId, pathAlpha)
 	setmetatable(self, NecromancerGoblin)
 
 	local EnemyData = require(ReplicatedStorage.Settings.Data.EnemyData)
@@ -47,7 +47,7 @@ function NecromancerGoblin:Summon()
 				break
 			end
 
-			EnemyService.SetupNewEnemy(self.MinionName, false, self.PathAlpha)
+			EnemyService.SetupNewEnemy(self.MinionName, false, self.PathAlpha, self.PathId)
 			TimeService.DeltaWait(0.4)
 		end
 	end)

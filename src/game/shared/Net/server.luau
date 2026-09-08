@@ -176,9 +176,9 @@ Queue.Reliable[36] = table.create(256)
 Queue.Reliable[42] = table.create(256)
 Queue.Reliable[43] = table.create(256)
 Queue.Reliable[45] = table.create(256)
-function SerdesFunctions.EnemyService_WriteEVENT_ReplicatedEnemy(Value: { enemyId: number, enemyIndex: number, sendTimeMs: number, isBoss: boolean?, startPathAlpha: number? }): ()
-	-- Allocate BLOCK: 8 bytes
-	local BLOCK_START = Allocate(8)
+function SerdesFunctions.EnemyService_WriteEVENT_ReplicatedEnemy(Value: { enemyId: number, enemyIndex: number, sendTimeMs: number, isBoss: boolean?, startPathAlpha: number?, pathId: number }): ()
+	-- Allocate BLOCK: 9 bytes
+	local BLOCK_START = Allocate(9)
 	buffer.writeu8(SendBuffer, BLOCK_START + 0, 0)
 	buffer.writeu16(SendBuffer, BLOCK_START + 1, Value.enemyId)
 	buffer.writeu8(SendBuffer, BLOCK_START + 3, Value.enemyIndex)
@@ -195,6 +195,7 @@ function SerdesFunctions.EnemyService_WriteEVENT_ReplicatedEnemy(Value: { enemyI
 		local BLOCK_START = Allocate(4)
 		buffer.writef32(SendBuffer, BLOCK_START + 0, Value.startPathAlpha)
 	end
+	buffer.writeu8(SendBuffer, BLOCK_START + 8, Value.pathId)
 end
 
 function SerdesFunctions.EnemyService_WriteEVENT_DestroyEnemy(Value: number): ()
@@ -1237,12 +1238,12 @@ local Returns = table.freeze({
 
 	EnemyService = {
 		ReplicatedEnemy = {
-			Fire = function(Player: Player, Value: { enemyId: number, enemyIndex: number, sendTimeMs: number, isBoss: boolean?, startPathAlpha: number? }): ()
+			Fire = function(Player: Player, Value: { enemyId: number, enemyIndex: number, sendTimeMs: number, isBoss: boolean?, startPathAlpha: number?, pathId: number }): ()
 				Load(PlayersMap[Player])
 				SerdesFunctions.EnemyService_WriteEVENT_ReplicatedEnemy(Value)
 				PlayersMap[Player] = Save()
 			end,
-			FireAll = function(Value: { enemyId: number, enemyIndex: number, sendTimeMs: number, isBoss: boolean?, startPathAlpha: number? }): ()
+			FireAll = function(Value: { enemyId: number, enemyIndex: number, sendTimeMs: number, isBoss: boolean?, startPathAlpha: number?, pathId: number }): ()
 				Load()
 				SerdesFunctions.EnemyService_WriteEVENT_ReplicatedEnemy(Value)
 				local Buffer, Size, Instances = SendBuffer, SendCursor, SendInstances
@@ -1254,7 +1255,7 @@ local Returns = table.freeze({
 					PlayersMap[Player] = Save()
 				end
 			end,
-			FireList = function(List: {Player}, Value: { enemyId: number, enemyIndex: number, sendTimeMs: number, isBoss: boolean?, startPathAlpha: number? }): ()
+			FireList = function(List: {Player}, Value: { enemyId: number, enemyIndex: number, sendTimeMs: number, isBoss: boolean?, startPathAlpha: number?, pathId: number }): ()
 				Load()
 				SerdesFunctions.EnemyService_WriteEVENT_ReplicatedEnemy(Value)
 				local Buffer, Size, Instances = SendBuffer, SendCursor, SendInstances
@@ -1266,7 +1267,7 @@ local Returns = table.freeze({
 					PlayersMap[Player] = Save()
 				end
 			end,
-			FireExcept = function(Except: Player, Value: { enemyId: number, enemyIndex: number, sendTimeMs: number, isBoss: boolean?, startPathAlpha: number? }): ()
+			FireExcept = function(Except: Player, Value: { enemyId: number, enemyIndex: number, sendTimeMs: number, isBoss: boolean?, startPathAlpha: number?, pathId: number }): ()
 				Load()
 				SerdesFunctions.EnemyService_WriteEVENT_ReplicatedEnemy(Value)
 				local Buffer, Size, Instances = SendBuffer, SendCursor, SendInstances

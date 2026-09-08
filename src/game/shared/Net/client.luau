@@ -207,9 +207,9 @@ Queue.Reliable[43] = table.create(256)
 Queue.Reliable[44] = table.create(256)
 Queue.Reliable[45] = table.create(256)
 Queue.Reliable[46] = table.create(256)
-function SerdesFunctions.EnemyService_ReadEVENT_ReplicatedEnemy(): ({ enemyId: number, enemyIndex: number, sendTimeMs: number, isBoss: boolean?, startPathAlpha: number? })
-	-- Read BLOCK: 7 bytes
-	local BLOCK_START = Read(7)
+function SerdesFunctions.EnemyService_ReadEVENT_ReplicatedEnemy(): ({ enemyId: number, enemyIndex: number, sendTimeMs: number, isBoss: boolean?, startPathAlpha: number?, pathId: number })
+	-- Read BLOCK: 8 bytes
+	local BLOCK_START = Read(8)
 	local Value = {} :: any
 	Value.enemyId = buffer.readu16(RecieveBuffer, BLOCK_START + 0)
 	Value.enemyIndex = buffer.readu8(RecieveBuffer, BLOCK_START + 2)
@@ -224,6 +224,7 @@ function SerdesFunctions.EnemyService_ReadEVENT_ReplicatedEnemy(): ({ enemyId: n
 		local BLOCK_START = Read(4)
 		Value.startPathAlpha = buffer.readf32(RecieveBuffer, BLOCK_START + 0)
 	end
+	Value.pathId = buffer.readu8(RecieveBuffer, BLOCK_START + 7)
 	return Value
 end
 
@@ -993,7 +994,7 @@ Reliable.OnClientEvent:Connect(function(Buffer: buffer, Instances: {Instance})
 		local BLOCK_START = Read(1)
 		local Index = buffer.readu8(RecieveBuffer, BLOCK_START + 0)
 		if Index == 0 then
-			local Value: { enemyId: number, enemyIndex: number, sendTimeMs: number, isBoss: boolean?, startPathAlpha: number? } = SerdesFunctions.EnemyService_ReadEVENT_ReplicatedEnemy()
+			local Value: { enemyId: number, enemyIndex: number, sendTimeMs: number, isBoss: boolean?, startPathAlpha: number?, pathId: number } = SerdesFunctions.EnemyService_ReadEVENT_ReplicatedEnemy()
 			if Events.Reliable[0] ~= nil then
 				SerdesEvent = "ReplicatedEnemy"
 				Events.Reliable[0](Value)
@@ -1498,7 +1499,7 @@ local Returns = table.freeze({
 
 	EnemyService = {
 		ReplicatedEnemy = {
-			On = function(Listener: (Value: { enemyId: number, enemyIndex: number, sendTimeMs: number, isBoss: boolean?, startPathAlpha: number? }) -> ()): () -> ()
+			On = function(Listener: (Value: { enemyId: number, enemyIndex: number, sendTimeMs: number, isBoss: boolean?, startPathAlpha: number?, pathId: number }) -> ()): () -> ()
 				Events.Reliable[0] = Listener
 				for Index, Arguments in Queue.Reliable[0] do
 					Listener(table.unpack(Arguments))

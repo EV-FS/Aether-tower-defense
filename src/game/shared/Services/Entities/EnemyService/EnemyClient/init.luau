@@ -46,9 +46,9 @@ local function removeStunVisuals(enemy)
 	end
 end
 
-local function getEnemyCFrame(model: Model, pathAlpha: number, offset: number, moveDirection: number?): CFrame
+local function getEnemyCFrame(model: Model, pathAlpha: number, offset: number, moveDirection: number?, pathId: number): CFrame
 	local Height = CharacterUtils.GetHipHeight(model)
-	local targetCFrame = GetPath:Get():CalculateUniformCFrame(pathAlpha) + Vector3.new(0, Height, 0)
+	local targetCFrame = GetPath:Get(pathId):CalculateUniformCFrame(pathAlpha) + Vector3.new(0, Height, 0)
 	local cframeOffset = targetCFrame.RightVector * offset
 	local finalCFrame = targetCFrame + cframeOffset
 
@@ -163,6 +163,7 @@ function EnemyClient.newEnemy(data: {
 	sendTimeMs: number,
 	isBoss: boolean?,
 	startPathAlpha: number?,
+	pathId: number,
 })
 	local enemyData = EnemyData.ByIndex[data.enemyIndex]
 	if not enemyData then
@@ -178,7 +179,7 @@ function EnemyClient.newEnemy(data: {
 	clonedModel.Name = `Enemy_{data.enemyId}`
 	clonedModel.PrimaryPart.Anchored = true
 
-	local pathLength = GetPath:Get():GetPathLength()
+	local pathLength = GetPath:Get(data.pathId):GetPathLength()
 	local pingTime = getPingTime(data.sendTimeMs)
 
 	local offsetVal = RANDOM:NextNumber(-0.5, 0.5)
@@ -187,7 +188,7 @@ function EnemyClient.newEnemy(data: {
 	local pathAlphaVal = baseAlpha + ((enemyData.WalkSpeed * pingTime * TimeService:GetGameSpeed()) / pathLength)
 	pathAlphaVal = math.clamp(pathAlphaVal, 0, 1)
 
-	local finalCFrame = getEnemyCFrame(clonedModel, pathAlphaVal, offsetVal, 1)
+	local finalCFrame = getEnemyCFrame(clonedModel, pathAlphaVal, offsetVal, 1, data.pathId)
 	clonedModel:PivotTo(finalCFrame)
 
 	clonedModel.Parent = workspace.Enemies
@@ -212,6 +213,7 @@ function EnemyClient.newEnemy(data: {
 		BaseSpeed = enemyData.WalkSpeed,
 		WalkSpeed = enemyData.WalkSpeed,
 		PathAlpha = pathAlphaVal,
+		PathId = data.pathId,
 		Offset = offsetVal,
 		MoveDirection = 1,
 
@@ -300,7 +302,7 @@ function EnemyClient.MoveAllEnemies(dt)
 			continue
 		end
 
-		local pathLength = GetPath:Get():GetPathLength()
+		local pathLength = GetPath:Get(enemy.PathId):GetPathLength()
 
 		enemy.PathAlpha += ((enemy.WalkSpeed * dt * TimeService:GetGameSpeed()) / pathLength) * enemy.MoveDirection
 		enemy.PathAlpha = math.clamp(enemy.PathAlpha, 0, 1)
@@ -310,7 +312,7 @@ function EnemyClient.MoveAllEnemies(dt)
 			continue
 		end
 
-		local finalCFrame = getEnemyCFrame(enemy.Model, enemy.PathAlpha, enemy.Offset, enemy.MoveDirection)
+		local finalCFrame = getEnemyCFrame(enemy.Model, enemy.PathAlpha, enemy.Offset, enemy.MoveDirection, enemy.PathId)
 
 		table.insert(partsToMove, rootPart)
 		table.insert(cframesToMove, finalCFrame)
@@ -334,9 +336,8 @@ function EnemyClient.DisappearModel(model)
 end
 
 function EnemyClient._OnGameSpeedChanged(newSpeed: number, oldSpeed: number, pingTime: number)
-	local pathLength = GetPath:Get():GetPathLength()
-
 	for _, enemy in pairs(ActivedEnemies) do
+		local pathLength = GetPath:Get(enemy.PathId):GetPathLength()
 		local pingOffset = (enemy.WalkSpeed * pingTime * (newSpeed - oldSpeed)) / pathLength
 
 		enemy.PathAlpha += pingOffset
@@ -352,7 +353,7 @@ function EnemyClient._OnUpdateSpeed(data: { enemyId: number, WalkSpeed: number, 
 	local pingTime = getPingTime(data.sendTimeMs)
 
 	local CalWalkSpeed = data.WalkSpeed / 100
-	local pathLength = GetPath:Get():GetPathLength()
+	local pathLength = GetPath:Get(updatedEnemy.PathId):GetPathLength()
 
 	local gameSpeed = TimeService:GetGameSpeed()
 	local pingOffset = (updatedEnemy.WalkSpeed * pingTime * gameSpeed) / pathLength
@@ -379,11 +380,14 @@ end
 
 function EnemyClient._OnUpdateDirection(data: { enemyId: number, MoveDirection: boolean, sendTimeMs: number })
 	local updatedEnemy = ActivedEnemies[data.enemyId]
+	if not updatedEnemy then
+		return
+	end
 
 	local pingTime = getPingTime(data.sendTimeMs)
 
 	local convertDirection = data.MoveDirection and 1 or -1
-	local pathLength = GetPath:Get():GetPathLength()
+	local pathLength = GetPath:Get(updatedEnemy.PathId):GetPathLength()
 
 	local pingOffset = (updatedEnemy.WalkSpeed * pingTime * TimeService:GetGameSpeed()) / pathLength
 
@@ -397,7 +401,7 @@ function EnemyClient._TakeKnockback(data: { enemyId: number, studs: number })
 		return
 	end
 
-	local pathLength = GetPath:Get():GetPathLength()
+	local pathLength = GetPath:Get(updatedEnemy.PathId):GetPathLength()
 	local converknockback = (data.studs / 10) / pathLength
 
 	local duration = 0.2
