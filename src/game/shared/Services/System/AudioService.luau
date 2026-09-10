@@ -1,5 +1,6 @@
 --/Service
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local RunService = game:GetService("RunService")
 local SoundService = game:GetService("SoundService")
 
 --/Modules
@@ -26,6 +27,7 @@ local PlayerStorage
 local EmitterStorage
 local WireStorage
 local FaderStorage
+local ActivePlayers: { [AudioPlayer]: boolean } = {}
 
 export type Recipes = { SFXRecipes.Step }
 
@@ -192,9 +194,8 @@ function AudioService.PlayOn2D(soundId, volume: number?)
 	wire.TargetInstance = fader or DeviceOutput
 	wire.Parent = SoundService
 
-	audioPlayer:Play()
-
 	audioPlayer.Ended:Once(function()
+		ActivePlayers[audioPlayer] = nil
 		PlayerStorage:ReturnInstance(audioPlayer)
 		WireStorage:ReturnInstance(wire)
 
@@ -205,6 +206,10 @@ function AudioService.PlayOn2D(soundId, volume: number?)
 			WireStorage:ReturnInstance(faderWire)
 		end
 	end)
+
+	audioPlayer.PlaybackSpeed = TimeService:GetGameSpeed()
+	ActivePlayers[audioPlayer] = true
+	audioPlayer:Play()
 
 	return audioPlayer
 end
@@ -257,9 +262,8 @@ function AudioService.PlayOn3D(soundId, volume: number?, distance: number?, pare
 	wire.TargetInstance = fader or emitter
 	wire.Parent = parentInst
 
-	audioPlayer:Play()
-
 	audioPlayer.Ended:Once(function()
+		ActivePlayers[audioPlayer] = nil
 		if isVector3 and parentInst then
 			parentInst:Destroy()
 		end
@@ -275,6 +279,10 @@ function AudioService.PlayOn3D(soundId, volume: number?, distance: number?, pare
 			WireStorage:ReturnInstance(faderWire)
 		end
 	end)
+
+	audioPlayer.PlaybackSpeed = TimeService:GetGameSpeed()
+	ActivePlayers[audioPlayer] = true
+	audioPlayer:Play()
 
 	return audioPlayer
 end
@@ -309,6 +317,17 @@ function AudioService.Init(services)
 end
 
 function AudioService.Start()
+	if RunService:IsClient() then
+		local StarterPlayer = game:GetService("StarterPlayer")
+		local ClientSignals = require(StarterPlayer.StarterPlayerScripts.Client.ClientSignals)
+
+		ClientSignals.GameSpeedChanged:Connect(function(newSpeed)
+			for audioPlayer in ActivePlayers do
+				audioPlayer.PlaybackSpeed = newSpeed
+			end
+		end)
+	end
+
 	AudioService.SetBGMState(true, DEFAULT_VOLUME)
 end
 
