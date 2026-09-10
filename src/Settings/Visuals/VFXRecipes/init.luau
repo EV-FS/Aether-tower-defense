@@ -163,19 +163,40 @@ return TableUtils.DeepFreeze({
 		},
 	},
 	["Kitsune Samurai"] = {
-		AttackHit1 = {
+		AttackCombo1End = {
 			[0] = {
-				Steps.Emit("Towers/Kitsune Samurai/E1", { Lifetime = 3, At = "Source" }),
+				Steps.Emit("Towers/Galahad/S1", { Lifetime = 3, At = "Source" }),
 			},
 		},
-		AttackHit2 = {
+		AttackCombo2End = {
 			[0] = {
-				Steps.Emit("Towers/Kitsune Samurai/E2", { Lifetime = 3, At = "Source" }),
+				Steps.Emit("Towers/Galahad/S2", { Lifetime = 3, At = "Source" }),
 			},
 		},
-		AttackHit3 = {
+		AttackCombo3End = {
 			[0] = {
-				Steps.Emit("Towers/Kitsune Samurai/E3", { Lifetime = 3, At = "Source" }),
+				Steps.Emit("Towers/Galahad/S3", { Lifetime = 3, At = "Source" }),
+			},
+		},
+		AttackCombo4End = {
+			[0] = {
+				Steps.Emit("Towers/Galahad/S4", { Lifetime = 3, At = "Source" }),
+			},
+		},
+		AttackStart = {
+			[2] = {
+				Steps.Emit("Towers/Kitsune Samurai/E1", { Lifetime = 3, Delay = 0.45, At = "Source" }),
+				Steps.Emit("Towers/Kitsune Samurai/E2", { Lifetime = 3, Delay = 0.717, At = "Source" }),
+				Steps.Emit("Towers/Kitsune Samurai/E3", { Lifetime = 3, Delay = 1.417, At = "Source" }),
+			},
+			[4] = {
+				Steps.Custom("KitsuneCloneAttack", { Lifetime = 3, At = "Source" }),
+				Steps.Emit("Towers/Kitsune Samurai/CATK1", { Lifetime = 3, Delay = 0.283, At = "Source" }),
+				Steps.Emit("Towers/Kitsune Samurai/CATK2", { Lifetime = 3, Delay = 0.75, At = "Source" }),
+				Steps.Emit("Towers/Kitsune Samurai/CATK3", { Lifetime = 3, Delay = 0.816, At = "Source" }),
+				Steps.Emit("Towers/Kitsune Samurai/CATK4", { Lifetime = 3, Delay = 0.983, At = "Source" }),
+				Steps.Emit("Towers/Kitsune Samurai/CATK5", { Lifetime = 3, Delay = 2.166, At = "Source" }),
+				Steps.Emit("Towers/Kitsune Samurai/CATK6", { Lifetime = 3, Delay = 2.35, At = "Source" }),
 			},
 		},
 	},
