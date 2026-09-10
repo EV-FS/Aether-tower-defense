@@ -1925,57 +1925,21 @@ return TableUtils.DeepFreeze({
 	["Kitsune Samurai"] = {
 		[0] = {
 			Cost = 2000,
-			Damage = 14,
-			Cooldown = 3,
-			Range = 20,
+			Damage = 21,
+			Cooldown = 1.5,
+			Range = 13,
 
-			Hits = {
-				{
-					Delay = 0.45,
-					AttackType = "Angle",
-					Angle = 180,
-				},
-				{
-					Delay = 0.717,
-					AttackType = "Angle",
-					Angle = 180,
-				},
-				{
-					Delay = 1.417,
-					AttackType = "Line",
-					Width = 15,
-				},
-			},
-
-			AttackDelay = 0.45,
+			AttackDelay = 0.333,
 			AttackType = "Angle",
 			Angle = 180,
 		},
 		[1] = {
 			Cost = 2350,
-			Damage = 30,
-			Cooldown = 3,
-			Range = 20,
+			Damage = 45,
+			Cooldown = 1.5,
+			Range = 13,
 
-			Hits = {
-				{
-					Delay = 0.45,
-					AttackType = "Angle",
-					Angle = 180,
-				},
-				{
-					Delay = 0.717,
-					AttackType = "Angle",
-					Angle = 180,
-				},
-				{
-					Delay = 1.417,
-					AttackType = "Line",
-					Width = 15,
-				},
-			},
-
-			AttackDelay = 0.45,
+			AttackDelay = 0.333,
 			AttackType = "Angle",
 			Angle = 180,
 		},
@@ -1983,7 +1947,7 @@ return TableUtils.DeepFreeze({
 			Cost = 6000,
 			Damage = 57,
 			Cooldown = 2.4,
-			Range = 20,
+			Range = 15,
 
 			Hits = {
 				{
@@ -2011,7 +1975,7 @@ return TableUtils.DeepFreeze({
 			Cost = 15000,
 			Damage = 113,
 			Cooldown = 2.2,
-			Range = 20,
+			Range = 15,
 
 			Hits = {
 				{
@@ -2037,59 +2001,53 @@ return TableUtils.DeepFreeze({
 		},
 		[4] = {
 			Cost = 21000,
-			Damage = 185,
-			Cooldown = 2,
+			Damage = 280,
+			Cooldown = 4,
 			Range = 20,
 
 			Hits = {
 				{
-					Delay = 0.45,
-					AttackType = "Angle",
-					Angle = 180,
+					Delay = 0.75,
 				},
 				{
-					Delay = 0.717,
-					AttackType = "Angle",
-					Angle = 180,
+					Delay = 0.85,
 				},
 				{
-					Delay = 1.417,
-					AttackType = "Line",
-					Width = 15,
+					Delay = 1.05,
+				},
+				{
+					Delay = 2.166,
 				},
 			},
 
-			AttackDelay = 0.45,
-			AttackType = "Angle",
-			Angle = 180,
+			AttackDelay = 0,
+			AttackType = "Line",
+			Width = 18,
 		},
 		[5] = {
 			Cost = 30500,
-			Damage = 300,
-			Cooldown = 2,
+			Damage = 400,
+			Cooldown = 3.5,
 			Range = 20,
 
 			Hits = {
 				{
-					Delay = 0.45,
-					AttackType = "Angle",
-					Angle = 180,
+					Delay = 0.75,
 				},
 				{
-					Delay = 0.717,
-					AttackType = "Angle",
-					Angle = 180,
+					Delay = 0.85,
 				},
 				{
-					Delay = 1.417,
-					AttackType = "Line",
-					Width = 15,
+					Delay = 1.05,
+				},
+				{
+					Delay = 2.166,
 				},
 			},
 
-			AttackDelay = 0.45,
-			AttackType = "Angle",
-			Angle = 180,
+			AttackDelay = 0,
+			AttackType = "Line",
+			Width = 18,
 		},
 	},
 	["Galahad"] = {
