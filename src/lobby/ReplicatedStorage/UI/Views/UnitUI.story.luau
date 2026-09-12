@@ -124,7 +124,7 @@ return function(target: Instance)
 						FontFace = Font.new("rbxasset://fonts/families/FredokaOne.json"),
 						Position = UDim2.fromScale(0.265238, 0.435573),
 						Size = UDim2.fromScale(0.283423, 0.290134),
-						Text = "INVENTORY",
+					Text = "UNITS",
 						TextColor3 = Color3.new(1, 1, 1),
 						TextScaled = true,
 						TextTransparency = spring(function()
@@ -1233,7 +1233,7 @@ return function(target: Instance)
 							),
 							Position = UDim2.fromScale(0.0363427, 0),
 							Size = UDim2.fromScale(0.963657, 1),
-							PlaceholderText = "TOWER NAME",
+							PlaceholderText = "UNIT NAME, RARITY, LEVEL",
 							TextColor3 = Color3.new(1, 1, 1),
 							TextSize = 22,
 							TextXAlignment = Enum.TextXAlignment.Left,
@@ -1255,7 +1255,7 @@ return function(target: Instance)
 					}),
 
 					create("ImageLabel")({
-						Name = "InventoryLimit",
+					Name = "UnitLimit",
 						BackgroundTransparency = 1,
 						Image = "rbxassetid://92189379920788",
 						Position = UDim2.fromScale(0.844985, 0.0172543),

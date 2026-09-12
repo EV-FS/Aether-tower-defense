@@ -14,6 +14,7 @@ export type RewardDetail = {
 
 export type MapInfo = {
 	MapImage: string,
+	IntroCutscene: string?,
 	Difficulties: { Difficulty },
 	DifficultyWaves: { [Difficulty]: number },
 	Rewards: { [Difficulty]: RewardDetail },
@@ -76,6 +77,7 @@ return TableUtils.DeepFreeze({
 		},
 	},
 	["Kitsune Raid"] = {
+		IntroCutscene = "RaidIntro",
 		MapImage = "rbxassetid://139254798620970",
 		Difficulties = DEFAULT_DIFFICULTIES,
 		DifficultyWaves = {

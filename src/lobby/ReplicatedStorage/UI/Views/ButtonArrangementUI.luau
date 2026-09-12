@@ -5,7 +5,6 @@ local ServiceRegistry = require(ReplicatedStorage.Shared.Modules.Core.ServiceReg
 local useButtonEffect = require(ReplicatedStorage.Shared.Modules.UI.Hooks.useButtonEffect)
 
 local create = Vide.create
-local source = Vide.source
 local spring = Vide.spring
 
 local ButtonArrangementUI = {}
@@ -16,51 +15,89 @@ type MenuButtonConfig = {
 	Name: string,
 	Label: string,
 	Image: string,
+	Icon: string,
+	IconPosition: UDim2,
+	IconSize: UDim2,
+	IconAspectRatio: number,
+	ShadowColor: Color3,
 	LayoutOrder: number,
 	Activated: (() -> ())?,
-	Icon: string?,
 }
 
 local MENU_BUTTONS: { MenuButtonConfig } = {
 	{
 		Name = "InventoryButton",
 		Label = "인벤토리",
-		Image = "rbxassetid://78824365403347",
+		Image = "rbxassetid://93619515456928",
+		Icon = "rbxassetid://117877885546585",
+		IconPosition = UDim2.fromScale(0.486774, 0.5),
+		IconSize = UDim2.fromScale(0.927412, 0.84234),
+		IconAspectRatio = 1.06,
+		ShadowColor = Color3.fromRGB(191, 82, 49),
 		LayoutOrder = 1,
 	},
 	{
 		Name = "TradeButton",
 		Label = "거래",
-		Image = "rbxassetid://101920175927849",
+		Image = "rbxassetid://89053099166022",
+		Icon = "rbxassetid://113361253033520",
+		IconPosition = UDim2.fromScale(0.5, 0.5),
+		IconSize = UDim2.fromScale(0.927412, 0.84234),
+		IconAspectRatio = 0.99,
+		ShadowColor = Color3.fromRGB(49, 191, 41),
 		LayoutOrder = 2,
 	},
 	{
 		Name = "ShopButton",
 		Label = "상점",
-		Image = "rbxassetid://81803440554186",
+		Image = "rbxassetid://120719208845179",
+		Icon = "rbxassetid://111956663454997",
+		IconPosition = UDim2.fromScale(0.45, 0.53),
+		IconSize = UDim2.fromScale(0.810117, 0.726431),
+		IconAspectRatio = 1.1,
+		ShadowColor = Color3.fromRGB(191, 37, 37),
 		LayoutOrder = 3,
 	},
 	{
 		Name = "IndexButton",
 		Label = "인덱스",
-		Image = "rbxassetid://135162687505077",
+		Image = "rbxassetid://86848984512006",
+		Icon = "rbxassetid://138577084954436",
+		IconPosition = UDim2.fromScale(0.5, 0.5),
+		IconSize = UDim2.fromScale(0.927412, 0.84234),
+		IconAspectRatio = 1.28,
+		ShadowColor = Color3.fromRGB(49, 63, 191),
 		LayoutOrder = 4,
 	},
 	{
 		Name = "QuestButton",
 		Label = "퀘스트",
-		Image = "rbxassetid://83257230376880",
+		Image = "rbxassetid://81544195469564",
+		Icon = "rbxassetid://75286969875681",
+		IconPosition = UDim2.fromScale(0.489078, 0.516645),
+		IconSize = UDim2.fromScale(0.810117, 0.726431),
+		IconAspectRatio = 1,
+		ShadowColor = Color3.fromRGB(191, 163, 50),
 		LayoutOrder = 5,
+		Activated = function()
+			if UIController then
+				UIController:Toggle("Quest")
+			end
+		end,
 	},
 	{
 		Name = "UnitButton",
 		Label = "유닛",
-		Image = "rbxassetid://76150462384511",
-		Icon = "rbxassetid://96662802265325",
+		Image = "rbxassetid://100432247888014",
+		Icon = "rbxassetid://122013500873045",
+		IconPosition = UDim2.fromScale(0.488069, 0.515225),
+		IconSize = UDim2.fromScale(0.759346, 0.821046),
+		IconAspectRatio = 0.91,
+		ShadowColor = Color3.fromRGB(174, 43, 191),
 		LayoutOrder = 6,
 		Activated = function()
 			if UIController then
-				UIController:Toggle("Inventory")
+				UIController:Toggle("Units")
 			end
 		end,
 	},
@@ -68,10 +105,6 @@ local MENU_BUTTONS: { MenuButtonConfig } = {
 
 local function createMenuButton(config: MenuButtonConfig)
 	local isInteractive = config.Activated ~= nil
-	local isHovered = source(false)
-	local hoverGlow = spring(function()
-		return if isHovered() then 0.8 else 1
-	end, 0.16, 0.82)
 
 	return create("ImageButton")({
 		Name = config.Name,
@@ -84,36 +117,30 @@ local function createMenuButton(config: MenuButtonConfig)
 		Size = UDim2.fromScale(0.509, 0.173),
 
 		Activated = config.Activated,
-		MouseEnter = function()
-			if isInteractive then
-				isHovered(true)
-			end
-		end,
-		MouseLeave = function()
-			isHovered(false)
-		end,
 
 		useButtonEffect(0.93, 1.055),
 
-		create("ImageLabel")({
-			Name = "HoverGlow",
-			BackgroundTransparency = 1,
-			Image = config.Image,
-			ImageColor3 = Color3.fromRGB(255, 255, 255),
-			ImageTransparency = hoverGlow,
-			Size = UDim2.fromScale(1, 1),
-			ZIndex = 9,
+		create("UIShadow")({
+			Name = "UIShadow",
+			BlurRadius = UDim.new(0, 20),
+			Color = config.ShadowColor,
+			Transparency = 0.5,
 		}),
 
-		if config.Icon then create("ImageLabel")({
+		create("ImageLabel")({
 			Name = "ICON",
 			AnchorPoint = Vector2.new(0.5, 0.5),
 			BackgroundTransparency = 1,
 			Image = config.Icon,
-			Position = UDim2.fromScale(0.498196, 0.5),
-			Size = UDim2.fromScale(0.825, 0.580307),
+			Position = config.IconPosition,
+			Size = config.IconSize,
 			ZIndex = 9,
-		}) else nil,
+
+			create("UIAspectRatioConstraint")({
+				Name = "UIAspectRatioConstraint",
+				AspectRatio = config.IconAspectRatio,
+			}),
+		}),
 
 		create("TextLabel")({
 			Name = "Name",
@@ -123,8 +150,8 @@ local function createMenuButton(config: MenuButtonConfig)
 				Enum.FontWeight.Bold,
 				Enum.FontStyle.Normal
 			),
-			Position = UDim2.fromScale(0.189005, 0.757618),
-			Size = UDim2.fromScale(0.61743, 0.172688),
+			Position = UDim2.fromScale(0.0978223, 0.757618),
+			Size = UDim2.fromScale(0.8, 0.242),
 			Text = config.Label,
 			TextColor3 = Color3.new(1, 1, 1),
 			TextScaled = true,
@@ -182,8 +209,8 @@ function ButtonArrangementUI.RenderUI()
 
 		create("UIGridLayout")({
 			Name = "UIGridLayout",
-			CellPadding = UDim2.fromScale(-0.04, -0.015),
-			CellSize = UDim2.fromScale(0.392, 0.133),
+			CellPadding = UDim2.fromScale(0.03, 0.006),
+			CellSize = UDim2.fromScale(0.392, 0.13),
 			SortOrder = Enum.SortOrder.LayoutOrder,
 			VerticalAlignment = Enum.VerticalAlignment.Center,
 		}),

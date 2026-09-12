@@ -1,6 +1,8 @@
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Vide = require(ReplicatedStorage.Packages.Vide)
 local TowerData = require(ReplicatedStorage.Settings.Data.TowerData)
+local UnitCatalog = require(ReplicatedStorage.Settings.Data.UnitCatalog)
+local NumberUtils = require(ReplicatedStorage.Shared.Modules.Utils.NumberUtils)
 local RarityGradient = require(ReplicatedStorage.Settings.Visuals.RarityGradient)
 local useButtonEffect = require(ReplicatedStorage.Shared.Modules.UI.Hooks.useButtonEffect)
 local useColorSequenceCycle = require(ReplicatedStorage.Shared.Modules.UI.Hooks.useColorSequenceCycle)
@@ -10,7 +12,9 @@ local spring = Vide.spring
 
 return function(props)
 	local towerInfo = TowerData.ByName[props.TowerName]
-	local rarity = if towerInfo and towerInfo.Rarity then towerInfo.Rarity else "Common"
+	local rarity = UnitCatalog.GetRarity(props.TowerName)
+	local unitImage = UnitCatalog.GetImage(props.TowerName)
+	local isInWindow = props.IsInWindow or function() return true end
 	local cost = if towerInfo
 			and towerInfo.Stats
 			and towerInfo.Stats[0]
@@ -23,7 +27,7 @@ return function(props)
 			and towerInfo.Stats[1].Cost
 		then towerInfo.Stats[1].Cost
 		else 0
-	local level = if props.TowerData and props.TowerData.Lv then props.TowerData.Lv else 1
+	local level = if props.TowerData and typeof(props.TowerData.Lv) == "number" then props.TowerData.Lv else 0
 	local gradient = RarityGradient.Gradients[rarity] or RarityGradient.Gradients.Common
 	local shimmerSpeed = RarityGradient.ShimmerSpeed[rarity] or 0.75
 
@@ -59,13 +63,15 @@ return function(props)
 			BackgroundTransparency = 1,
 
 			Position = spring(function()
-				return if props.IsInWindow() then UDim2.fromScale(0.5, 0.5) else UDim2.fromScale(0.5, 0.7)
+				return if isInWindow() then UDim2.fromScale(0.5, 0.5) else UDim2.fromScale(0.5, 0.7)
 			end, 0.3, 0.9),
 			Size = UDim2.fromScale(1, 1),
 
-			Image = towerInfo.TowerImage or "",
+			Image = unitImage,
+			ScaleType = Enum.ScaleType.Fit,
+			ZIndex = 5,
 			ImageTransparency = spring(function()
-				return if props.IsInWindow() then 0 else 1
+				return if isInWindow() then 0 else 1
 			end, 0.5, 1),
 		}),
 
@@ -74,17 +80,17 @@ return function(props)
 			AnchorPoint = Vector2.new(0.5, 0.5),
 			BackgroundTransparency = 1,
 			Rotation = spring(function()
-				return if props.IsInWindow() then 0 else -10
+				return if isInWindow() then 0 else -10
 			end, 0.5, 1),
 
 			Size = spring(function()
-				return if props.IsInWindow() then UDim2.fromScale(1, 1) else UDim2.fromScale(0.8, 0.8)
+				return if isInWindow() then UDim2.fromScale(1, 1) else UDim2.fromScale(0.8, 0.8)
 			end, 0.5, 1),
 
 			Position = UDim2.fromScale(0.5, 0.5),
 			Image = "rbxassetid://87496848270095",
 			ImageTransparency = spring(function()
-				return if props.IsInWindow() then 0 else 1
+				return if isInWindow() then 0 else 1
 			end, 0.5, 1),
 			ZIndex = -1,
 
@@ -92,7 +98,7 @@ return function(props)
 				Name = "UIGradient",
 				Rotation = 45,
 
-				useColorSequenceCycle(gradient, shimmerSpeed, props.IsInWindow),
+				useColorSequenceCycle(gradient, shimmerSpeed, isInWindow),
 			}),
 
 			create("UIShadow")({
@@ -126,6 +132,31 @@ return function(props)
 						return if props.IsSelected() or props.IsEquipped() then 0 else 1
 					end, 0.2, 1),
 				}),
+			}),
+		}),
+
+		create("TextLabel")({
+			Name = "Rarity",
+			BackgroundTransparency = 1,
+			FontFace = Font.new(
+				"rbxasset://fonts/families/SourceSansPro.json",
+				Enum.FontWeight.Bold,
+				Enum.FontStyle.Normal
+			),
+			Position = UDim2.fromScale(0.108, 0.535),
+			Size = UDim2.fromScale(0.7, 0.105),
+			Text = string.upper(rarity),
+			TextColor3 = Color3.new(1, 1, 1),
+			TextScaled = true,
+			TextXAlignment = Enum.TextXAlignment.Left,
+			ZIndex = 10,
+
+			create("UIGradient")({
+				Color = gradient,
+			}),
+
+			create("UIStroke")({
+				Thickness = 1.5,
 			}),
 		}),
 
@@ -205,6 +236,7 @@ return function(props)
 			Image = "rbxassetid://100463457721493",
 			Position = UDim2.fromScale(0.64, 0.03),
 			Size = UDim2.fromScale(0.359565, 0.31687),
+			Visible = false,
 
 			create("UIAspectRatioConstraint")({
 				Name = "UIAspectRatioConstraint",
@@ -221,7 +253,7 @@ return function(props)
 			),
 			Position = UDim2.fromScale(0.108, 0.782623),
 			Size = UDim2.fromScale(0.641, 0.2),
-			Text = `₩{cost}`,
+			Text = `₩{NumberUtils.FormatComma(cost)}`,
 			TextColor3 = Color3.new(1, 1, 1),
 			TextScaled = true,
 			TextXAlignment = Enum.TextXAlignment.Left,
@@ -241,5 +273,36 @@ return function(props)
 				Rotation = 90,
 			}),
 		}),
+		create("TextLabel")({
+			Name = "EquippedSlot",
+			AnchorPoint = Vector2.new(1, 0),
+			BackgroundColor3 = Color3.fromRGB(34, 177, 76),
+			BackgroundTransparency = 0.08,
+			FontFace = Font.new(
+				"rbxasset://fonts/families/SourceSansPro.json",
+				Enum.FontWeight.Bold,
+				Enum.FontStyle.Normal
+			),
+			Position = UDim2.fromScale(0.95, 0.055),
+			Size = UDim2.fromScale(0.3, 0.13),
+			Text = function()
+				local slot = props.EquippedSlot and props.EquippedSlot()
+				return if slot then `SLOT {slot}` else ""
+			end,
+			TextColor3 = Color3.new(1, 1, 1),
+			TextScaled = true,
+			Visible = props.IsEquipped,
+			ZIndex = 11,
+
+			create("UICorner")({
+				CornerRadius = UDim.new(0.25, 0),
+			}),
+
+			create("UIStroke")({
+				Color = Color3.fromRGB(14, 72, 32),
+				Thickness = 1.5,
+			}),
+		}),
+
 	})
 end

@@ -1,4 +1,5 @@
 local Players = game:GetService("Players")
+local ProximityPromptService = game:GetService("ProximityPromptService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
 local TeleportService = game:GetService("TeleportService")
@@ -76,8 +77,8 @@ attemptTeleport = function(player: Player)
 	queueRetry(player, state)
 end
 
-requestEvent.OnServerEvent:Connect(function(player: Player)
-	if RunService:IsStudio() or pending[player] then
+local function requestTeleport(player: Player)
+	if pending[player] then
 		return
 	end
 
@@ -87,13 +88,44 @@ requestEvent.OnServerEvent:Connect(function(player: Player)
 	end
 
 	lastRequest[player] = now
+	if RunService:IsStudio() then
+		warn(`[AFK] {player.Name}: AFK 이동 요청 확인. 실제 이동은 게시된 게임에서 가능합니다.`)
+		return
+	end
 	pending[player] = { Attempts = 0, RetryQueued = false }
 	attemptTeleport(player)
+end
+
+requestEvent.OnServerEvent:Connect(requestTeleport)
+
+-- Resolve the exact map target when triggered, including prompts under Attachments.
+-- This also supports the part/prompt being inserted after this script starts.
+ProximityPromptService.PromptTriggered:Connect(function(prompt: ProximityPrompt, player: Player)
+	local folder = workspace:FindFirstChild("ProximityPrompts")
+	local part = folder and folder:FindFirstChild("Part")
+	if not part or not part:IsA("BasePart") or not prompt:IsDescendantOf(part) or not prompt.Enabled then
+		return
+	end
+
+	local character = player.Character
+	local root = character and character:FindFirstChild("HumanoidRootPart")
+	local humanoid = character and character:FindFirstChildOfClass("Humanoid")
+	if not root or not root:IsA("BasePart") or not humanoid or humanoid.Health <= 0 then
+		return
+	end
+
+	local parent = prompt.Parent
+	local position = if parent and parent:IsA("Attachment") then parent.WorldPosition
+		elseif parent and parent:IsA("BasePart") then parent.Position else part.Position
+	if (root.Position - position).Magnitude > prompt.MaxActivationDistance + 3 then
+		return
+	end
+	requestTeleport(player)
 end)
 
-TeleportService.TeleportInitFailed:Connect(function(player, result, errorMessage)
+TeleportService.TeleportInitFailed:Connect(function(player, result, errorMessage, placeId)
 	local state = pending[player]
-	if not state then
+	if not state or placeId ~= Config.AFKPlaceId then
 		return
 	end
 

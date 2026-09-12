@@ -1,6 +1,7 @@
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local SummonConfig = require(ReplicatedStorage.Settings.Data.SummonConfig)
+local TowerData = require(ReplicatedStorage.Settings.Data.TowerData)
 
 local Banner = {}
 
@@ -25,8 +26,21 @@ function Banner.GetActiveBanner()
 			continue
 		end
 
+		local validPool = {}
+		for _, unitName in pool do
+			local unitInfo = TowerData.ByName[unitName]
+			if unitInfo and unitInfo.Rarity == rateData.Rarity then
+				table.insert(validPool, unitName)
+			else
+				warn(`[SummonBanner] Ignoring invalid {rateData.Rarity} unit: {unitName}`)
+			end
+		end
+		if #validPool == 0 then
+			continue
+		end
+
 		local rng = Random.new(SECRET_SERVER_SALT + (i * 9999))
-		local selectedUnit = pool[rng:NextInteger(1, #pool)]
+		local selectedUnit = validPool[rng:NextInteger(1, #validPool)]
 
 		table.insert(activeLineup, {
 			Unit = selectedUnit,

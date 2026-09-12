@@ -1,5 +1,4 @@
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
-local RunService = game:GetService("RunService")
 
 local Vide = require(ReplicatedStorage.Packages.Vide)
 local ViewportModel = require(ReplicatedStorage.Shared.Modules.Utils.ViewportModel)
@@ -260,13 +259,15 @@ return function(props: Props)
 	local camera = create("Camera")({ Name = "TowerCamera" })
 	local worldModel = create("WorldModel")({ Name = "TowerWorld" })
 	local modelState = source(nil :: ModelState?)
-local activeTrack = source(nil :: AnimationTrack?)
+	local activeTrack = source(nil :: AnimationTrack?)
 	local viewportFrame = source(nil :: ViewportFrame?)
 	local viewportFitter = source(nil)
 	local viewportFitterRevision = source(0)
 	local fittedCamera: CFrame?
 	local fittedCameraFitter = nil
 	local fittedCameraRevision = -1
+	local fittedFieldOfView: number?
+	local fittedDirection: Vector3?
 
 	-- Model ownership: clone once per tower and keep each viewport fully isolated.
 	effect(function()
@@ -310,60 +311,23 @@ local activeTrack = source(nil :: AnimationTrack?)
 			return
 		end
 		local useCharacterBounds = read(props.UseCharacterBounds) == true
+		-- Fit the final orientation immediately; do not show sphere bounds first
+		-- and then reframe the animated pose half a second later.
+		state.Instance:PivotTo(getModelCFrame(read(props.ModelRotation) or 0))
+		local fitter = ViewportModel.new(frame, camera)
+		fitter:SetModel(state.Instance, useCharacterBounds)
+		viewportFitter(fitter)
 
-		local cancelled = false
-		local fitter = nil
-		local sizeConnection = nil
-		local setupThread = task.spawn(function()
-			-- A freshly mounted ViewportFrame can report 0x0 for one or two frames.
-			-- Waiting here prevents an invalid aspect ratio from poisoning the first fit.
-			while
-				not cancelled
-				and frame.Parent
-				and state.Instance.Parent
-				and (frame.AbsoluteSize.X <= 0 or frame.AbsoluteSize.Y <= 0)
-			do
-				RunService.Heartbeat:Wait()
-			end
-
-			if cancelled or not frame.Parent or not state.Instance.Parent then
+		local sizeConnection = frame:GetPropertyChangedSignal("AbsoluteSize"):Connect(function()
+			if frame.AbsoluteSize.X <= 0 or frame.AbsoluteSize.Y <= 0 or viewportFitter() ~= fitter then
 				return
 			end
-
-			fitter = ViewportModel.new(frame, camera)
-			fitter:SetModel(state.Instance, useCharacterBounds)
-			viewportFitter(fitter)
-
-			sizeConnection = frame:GetPropertyChangedSignal("AbsoluteSize"):Connect(function()
-				if frame.AbsoluteSize.X <= 0 or frame.AbsoluteSize.Y <= 0 or viewportFitter() ~= fitter then
-					return
-				end
-
-				fitter:Calibrate()
-				viewportFitterRevision(viewportFitterRevision() + 1)
-			end)
-
-			-- The entry rotation settles over a few frames. Rebuild its point cloud once
-			-- at rest instead of doing the expensive work on every spring update.
-			task.delay(0.55, function()
-				if cancelled or viewportFitter() ~= fitter or not state.Instance.Parent then
-					return
-				end
-
-				fitter:SetModel(state.Instance, useCharacterBounds)
-				fitter:Calibrate()
-				viewportFitterRevision(viewportFitterRevision() + 1)
-			end)
+			fitter:Calibrate()
+			viewportFitterRevision(viewportFitterRevision() + 1)
 		end)
 
 		cleanup(function()
-			cancelled = true
-			if sizeConnection then
-				sizeConnection:Disconnect()
-			end
-			if coroutine.status(setupThread) ~= "dead" then
-				task.cancel(setupThread)
-			end
+			sizeConnection:Disconnect()
 			if viewportFitter() == fitter then
 				viewportFitter(nil)
 			end
@@ -384,16 +348,19 @@ local activeTrack = source(nil :: AnimationTrack?)
 		if fitter then
 			local fitterRevision = viewportFitterRevision()
 			camera.FieldOfView = math.clamp(read(props.FieldOfView) or DEFAULT_FIELD_OF_VIEW, 1, 120)
-			if fittedCameraFitter ~= fitter or fittedCameraRevision ~= fitterRevision then
+			local direction = read(props.CameraDirection) or DEFAULT_CAMERA_DIRECTION
+			direction = if direction.Magnitude > 0 then direction.Unit else DEFAULT_CAMERA_DIRECTION
+			if fittedCameraFitter ~= fitter or fittedCameraRevision ~= fitterRevision
+				or fittedFieldOfView ~= camera.FieldOfView or fittedDirection ~= direction then
 				fitter:Calibrate()
-				local direction = read(props.CameraDirection) or DEFAULT_CAMERA_DIRECTION
-				direction = if direction.Magnitude > 0 then direction.Unit else DEFAULT_CAMERA_DIRECTION
 				-- Use the model's part-level bounds instead of its bounding sphere. This
 				-- avoids excessive empty space on tall or wide units.
 				local orientation = CFrame.lookAt(Vector3.zero, -direction)
 				fittedCamera = fitter:GetMinimumFitCFrame(orientation)
 				fittedCameraFitter = fitter
 				fittedCameraRevision = fitterRevision
+				fittedFieldOfView = camera.FieldOfView
+				fittedDirection = direction
 			end
 
 			local paddingDistance = fitter:GetFitDistance() * (fitPadding - 1)

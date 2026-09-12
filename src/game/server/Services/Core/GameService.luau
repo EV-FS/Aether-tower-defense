@@ -8,6 +8,8 @@ local RunService = game:GetService("RunService")
 local Promise = require(ReplicatedStorage.Packages.Promise)
 local GameSettings = require(ReplicatedStorage.Settings.Game.GameSettings)
 local MapData = require(ReplicatedStorage.Settings.Data.MapData)
+local ServerCutscene = require(script.Parent.ServerCutscene)
+local CharacterGuard = require(script.Parent.Parent.Parent.CharacterGuard)
 local SafeTeleport = require(ReplicatedStorage.Shared.Modules.Core.SafeTeleport)
 local Net = require(ReplicatedStorage.Shared.Net)
 
@@ -20,6 +22,7 @@ local DataService
 local TowerService
 local EnemyService
 local UnitService
+
 
 -------------------------------------------------
 --// GameService
@@ -95,7 +98,7 @@ function GameService:PrepareMap()
 	self.IsMapLoading = true
 
 	if RunService:IsStudio() then
-		self.SelectedMap = "Chapter 1"
+		self.SelectedMap = "Kitsune Raid"
 		self.SelectedDifficulty = "Normal"
 	end
 
@@ -106,7 +109,26 @@ function GameService:PrepareMap()
 		self.SelectedDifficulty = "Normal"
 	end
 
+	ReplicatedStorage:SetAttribute("SelectedMap", self.SelectedMap)
+	ReplicatedStorage:SetAttribute("SelectedDifficulty", self.SelectedDifficulty or "Normal")
+
+	local mapInfo = MapData[self.SelectedMap]
+	local introCutscene = mapInfo and mapInfo.IntroCutscene
+	if introCutscene then
+		local played, err = pcall(ServerCutscene.Play, introCutscene)
+		if not played then
+			self.IsMapLoading = false
+			warn("[GameService] Map intro failed: " .. tostring(err))
+			return
+		end
+	end
+
+	local mapFolder = workspace:WaitForChild("Map")
+	mapFolder:SetAttribute("SelectedMap", self.SelectedMap)
+	mapFolder:SetAttribute("SelectedDifficulty", self.SelectedDifficulty or "Normal")
+
 	MapService:LoadMapAsync(self.SelectedMap, self.SelectedDifficulty)
+	CharacterGuard.Release(mapFolder)
 
 	self.IsMapLoaded = true
 	self.IsMapLoading = false
@@ -125,6 +147,10 @@ function GameService:StartGame()
 	})
 
 	self:PrepareMap()
+	if not self.IsMapLoaded then
+		self.IsGameRunning = false
+		return
+	end
 
 	BaseService:Reset()
 

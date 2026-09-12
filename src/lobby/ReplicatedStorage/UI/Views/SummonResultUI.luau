@@ -6,7 +6,7 @@ local TweenService = game:GetService("TweenService")
 local Vide = require(ReplicatedStorage.Packages.Vide)
 local RarityData = require(ReplicatedStorage.Settings.Data.RarityData)
 local ServiceRegistry = require(ReplicatedStorage.Shared.Modules.Core.ServiceRegistry)
-local WorldTowerDisplay = require(ReplicatedStorage.UI.Components.WorldTowerDisplay)
+local TowerViewport = require(ReplicatedStorage.UI.Components.TowerViewport)
 
 local create = Vide.create
 local cleanup = Vide.cleanup
@@ -477,42 +477,34 @@ function SummonResultUI.RenderUI()
 			Activated = SummonResultUI.Advance,
 		}),
 
-		WorldTowerDisplay({
+		TowerViewport({
+			Name = "ResultUnitViewport",
 			TowerName = function()
+				if not UIController:IsOpen(VIEW_ID) then
+					return ""
+				end
 				local unit = getCurrentUnit()
 				return unit and unit.UnitName or ""
 			end,
-			Rarity = function()
-				local unit = getCurrentUnit()
-				return unit and unit.Rarity or nil
-			end,
-			RevealKey = currentIndex,
 			AnimationName = "Idle",
-			ScreenPosition = Vector2.new(0.5, 0.39),
-			ScreenHeight = 0.44,
-			ScreenWidth = 0.4,
+			AnchorPoint = Vector2.new(0.5, 0.5),
+			Position = UDim2.fromScale(0.5, 0.39),
+			BackgroundTransparency = 1,
+			UseViewportModel = true,
 			UseCharacterBounds = true,
-			Depth = SUMMON_MODEL_DEPTH,
+			FitPadding = 1.1,
+			ZIndex = 52,
 			Visible = function()
 				return UIController:IsOpen(VIEW_ID)
 			end,
-			Transparency = spring(function()
+			ImageTransparency = spring(function()
 				return if isRevealed() then 0 else 1
 			end, 0.45, 0.85),
-			DisplayScale = spring(function()
-				if isRevealed() then
-					return 1
-				end
-
-				return if isClosing() then 0.88 else 0.94
+			Size = spring(function()
+				local scale = if isRevealed() then 1 elseif isClosing() then 0.88 else 0.94
+				return UDim2.fromScale(0.4 * scale, 0.44 * scale)
 			end, if isClosing() then 0.3 else 0.38, 0.68),
-			ModelRotation = spring(function()
-				if isRevealed() then
-					return 0
-				end
-
-				return if isClosing() then 35 else slideSign() * 95
-			end, if isClosing() then 0.38 else 0.45, 0.58),
+			ModelRotation = 0,
 		}),
 
 		create("Frame")({

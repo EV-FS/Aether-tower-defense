@@ -13,11 +13,11 @@ local untrack = Vide.untrack
 
 local ENTER_DURATION = 0.24
 local EXIT_DURATION = 0.98
-local CLOUD_ENTER_DURATION = 0.38
-local TITLE_ENTER_DELAY = 0.5
-local TITLE_ENTER_DURATION = 0.44
-local STAR_SPIN_DELAY = 0.82
-local STAR_SPIN_DURATION = 0.84
+local CLOUD_ENTER_DURATION = 1.08
+local TITLE_ENTER_DELAY = 0.08
+local TITLE_ENTER_DURATION = 1
+local STAR_SPIN_DELAY = TITLE_ENTER_DELAY + TITLE_ENTER_DURATION - 0.18
+local STAR_SPIN_DURATION = 0.72
 local STAR_SPIN_DEGREES = 1080
 local CLOUD_SPIN_SPEED = 145
 local SPOTLIGHT_FOCUS_DURATION = 0.92
@@ -38,16 +38,21 @@ end
 
 local function animateTitleEntrance(instance: ImageLabel, visible: () -> boolean)
 	local motionScale = instance:FindFirstChild("MotionScale")
+	local subtitle = instance:FindFirstChild("TowerDefense")
 	local elapsed = 0
 	local wasVisible = false
 	local isPlaying = false
 	local connection: RBXScriptConnection
 
 	local function reset()
-		instance.Position = UDim2.fromScale(0.5, -0.18)
-		instance.ImageTransparency = 0
+		instance.Position = UDim2.fromScale(0.5, 0.392)
+		instance.ImageTransparency = 1
+		instance.Rotation = -1.8
+		if subtitle and subtitle:IsA("ImageLabel") then
+			subtitle.ImageTransparency = 1
+		end
 		if motionScale and motionScale:IsA("UIScale") then
-			motionScale.Scale = 0.92
+			motionScale.Scale = 0.76
 		end
 	end
 
@@ -79,20 +84,41 @@ local function animateTitleEntrance(instance: ImageLabel, visible: () -> boolean
 		end
 
 		local progress = math.clamp(elapsed / TITLE_ENTER_DURATION, 0, 1)
-		local eased = TweenService:GetValue(progress, Enum.EasingStyle.Back, Enum.EasingDirection.Out)
-		instance.Position = UDim2.fromScale(0.5, -0.18 + 0.545 * eased)
+		local reveal = TweenService:GetValue(progress, Enum.EasingStyle.Quint, Enum.EasingDirection.Out)
+		instance.Position = UDim2.fromScale(0.5, 0.392 - 0.027 * reveal)
+		instance.ImageTransparency = 1 - TweenService:GetValue(
+			math.clamp(progress / 0.42, 0, 1),
+			Enum.EasingStyle.Quad,
+			Enum.EasingDirection.Out
+		)
+		if subtitle and subtitle:IsA("ImageLabel") then
+			subtitle.ImageTransparency = 1 - TweenService:GetValue(
+				math.clamp((progress - 0.14) / 0.42, 0, 1),
+				Enum.EasingStyle.Quad,
+				Enum.EasingDirection.Out
+			)
+		end
+		instance.Rotation = -1.8 * (1 - reveal)
+
 		if motionScale and motionScale:IsA("UIScale") then
-			motionScale.Scale = 0.92 + 0.08 * eased
+			local damping = math.exp(-4.8 * progress)
+			motionScale.Scale = 1 - 0.24 * damping * math.cos(progress * math.pi * 2.15)
 		end
 
 		if progress >= 1 then
 			instance.Position = UDim2.fromScale(0.5, 0.365)
+			instance.ImageTransparency = 0
+			instance.Rotation = 0
+			if subtitle and subtitle:IsA("ImageLabel") then
+				subtitle.ImageTransparency = 0
+			end
 			if motionScale and motionScale:IsA("UIScale") then
 				motionScale.Scale = 1
 			end
 			isPlaying = false
 		end
 	end)
+	cleanup(connection)
 end
 
 local function animateCloudEntrance(
@@ -100,9 +126,11 @@ local function animateCloudEntrance(
 	visible: () -> boolean,
 	delayTime: number,
 	startPosition: Vector2,
+	controlPosition: Vector2,
 	targetPosition: Vector2,
 	idlePhase: number
 )
+	local motionScale = instance:FindFirstChild("MotionScale")
 	local elapsed = 0
 	local idleElapsed = 0
 	local wasVisible = false
@@ -110,7 +138,11 @@ local function animateCloudEntrance(
 
 	local function reset()
 		instance.Position = UDim2.fromScale(startPosition.X, startPosition.Y)
-		instance.ImageTransparency = 0.08
+		instance.ImageTransparency = 1
+		instance.Rotation = 0
+		if motionScale and motionScale:IsA("UIScale") then
+			motionScale.Scale = 0.8
+		end
 		idleElapsed = 0
 	end
 
@@ -141,17 +173,92 @@ local function animateCloudEntrance(
 
 		local progress = math.clamp(elapsed / CLOUD_ENTER_DURATION, 0, 1)
 		if progress < 1 then
-			local eased = TweenService:GetValue(progress, Enum.EasingStyle.Back, Enum.EasingDirection.Out)
-			local position = startPosition:Lerp(targetPosition, eased)
+			local pathProgress = TweenService:GetValue(progress, Enum.EasingStyle.Quart, Enum.EasingDirection.Out)
+			local inverse = 1 - pathProgress
+			local position = startPosition * (inverse * inverse)
+				+ controlPosition * (2 * inverse * pathProgress)
+				+ targetPosition * (pathProgress * pathProgress)
 			instance.Position = UDim2.fromScale(position.X, position.Y)
+			instance.ImageTransparency = 1 - 0.92 * TweenService:GetValue(
+				math.clamp(progress / 0.34, 0, 1),
+				Enum.EasingStyle.Quad,
+				Enum.EasingDirection.Out
+			)
+			instance.Rotation = 0
+			if motionScale and motionScale:IsA("UIScale") then
+				local scaleProgress = TweenService:GetValue(progress, Enum.EasingStyle.Quint, Enum.EasingDirection.Out)
+				motionScale.Scale = 0.8 + 0.2 * scaleProgress
+			end
 			return
 		end
 
-		idleElapsed += deltaTime
-		local idleOffset = math.sin(idleElapsed * 1.5 + idlePhase) * 0.006
-		instance.Position = UDim2.fromScale(targetPosition.X, targetPosition.Y + idleOffset)
+		local idleBlend = TweenService:GetValue(
+			math.clamp(idleElapsed / 0.65, 0, 1),
+			Enum.EasingStyle.Sine,
+			Enum.EasingDirection.Out
+		)
+		local drift = math.sin(idleElapsed * 0.72 + idlePhase)
+		local verticalDrift = math.cos(idleElapsed * 0.58 + idlePhase) * 0.005
+		instance.Position = UDim2.fromScale(
+			targetPosition.X + drift * 0.004 * idleBlend,
+			targetPosition.Y + verticalDrift * idleBlend
+		)
 		instance.ImageTransparency = 0.08
+		instance.Rotation = drift * 0.55 * idleBlend
+		if motionScale and motionScale:IsA("UIScale") then
+			motionScale.Scale = 1 + math.sin(idleElapsed * 0.66 + idlePhase) * 0.012 * idleBlend
+		end
+		idleElapsed += deltaTime
 	end)
+	cleanup(connection)
+end
+
+local function animateTitleGleam(instance: ImageLabel, visible: () -> boolean)
+	local gradient = instance:FindFirstChildOfClass("UIGradient")
+	if not gradient then
+		return
+	end
+
+	local elapsed = 0
+	local wasVisible = false
+	local connection: RBXScriptConnection
+	connection = RunService.RenderStepped:Connect(function(deltaTime)
+		if not instance.Parent then
+			connection:Disconnect()
+			return
+		end
+
+		local isVisible = visible()
+		if isVisible and not wasVisible then
+			elapsed = -(TITLE_ENTER_DELAY + TITLE_ENTER_DURATION * 0.48)
+			instance.ImageTransparency = 1
+			gradient.Offset = Vector2.new(-1.2, 0)
+		elseif not isVisible then
+			instance.ImageTransparency = 1
+			gradient.Offset = Vector2.new(-1.2, 0)
+		end
+		wasVisible = isVisible
+
+		if not isVisible then
+			return
+		end
+
+		elapsed += deltaTime
+		if elapsed < 0 then
+			return
+		end
+
+		local cycle = elapsed % 3.8
+		local sweepProgress = math.clamp(cycle / 1.25, 0, 1)
+		if cycle <= 1.25 then
+			local eased = TweenService:GetValue(sweepProgress, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut)
+			gradient.Offset = Vector2.new(-1.2 + 2.4 * eased, 0)
+			instance.ImageTransparency = 0.14
+		else
+			instance.ImageTransparency = 1
+		end
+	end)
+	cleanup(connection)
 end
 
 local function animateSpotlightFocus(
@@ -805,9 +912,6 @@ return function(props: Props)
 
 					create("UIAspectRatioConstraint")({ AspectRatio = 5 }),
 					create("UIScale")({ Name = "MotionScale", Scale = 0.92 }),
-					action(function(instance)
-						animateTitleEntrance(instance, visible)
-					end),
 					create("ImageLabel")({
 						Name = "TowerDefense",
 						AnchorPoint = Vector2.new(0.5, 0.5),
@@ -816,6 +920,31 @@ return function(props: Props)
 						Position = UDim2.fromScale(0.5, 1.1),
 						Size = UDim2.fromScale(0.607542, 0.181463),
 						create("UIAspectRatioConstraint")({ AspectRatio = 12 }),
+					}),
+					create("ImageLabel")({
+						Name = "TitleGleam",
+						AnchorPoint = Vector2.new(0.5, 0.5),
+						BackgroundTransparency = 1,
+						Image = "rbxassetid://86974214352692",
+						ImageColor3 = Color3.fromRGB(223, 205, 255),
+						ImageTransparency = 1,
+						Position = UDim2.fromScale(0.5, 0.5),
+						Size = UDim2.fromScale(1, 1),
+						ZIndex = 111,
+						create("UIGradient")({
+							Offset = Vector2.new(-1.2, 0),
+							Rotation = -20,
+							Transparency = NumberSequence.new({
+								NumberSequenceKeypoint.new(0, 1),
+								NumberSequenceKeypoint.new(0.38, 1),
+								NumberSequenceKeypoint.new(0.5, 0.08),
+								NumberSequenceKeypoint.new(0.62, 1),
+								NumberSequenceKeypoint.new(1, 1),
+							}),
+						}),
+						action(function(instance)
+							animateTitleGleam(instance, visible)
+						end),
 					}),
 					create("ImageLabel")({
 						Name = "Star",
@@ -841,6 +970,9 @@ return function(props: Props)
 							settleStar(instance, visible)
 						end),
 					}),
+					action(function(instance)
+						animateTitleEntrance(instance, visible)
+					end),
 				}),
 
 				create("Folder")({
@@ -943,6 +1075,7 @@ return function(props: Props)
 						Position = UDim2.fromScale(0.218, -0.18),
 						Size = UDim2.fromScale(0.188911, 0.138111),
 						create("UIAspectRatioConstraint")({ AspectRatio = 2.81 }),
+						create("UIScale")({ Name = "MotionScale", Scale = 0.8 }),
 						create("UIGradient")({
 							Color = ColorSequence.new({
 								ColorSequenceKeypoint.new(0, Color3.fromRGB(255, 46, 255)),
@@ -954,8 +1087,9 @@ return function(props: Props)
 							animateCloudEntrance(
 								instance,
 								visible,
-								0.07,
-								Vector2.new(0.218, -0.18),
+								0,
+								Vector2.new(-0.14, 0.49),
+								Vector2.new(0.075, 0.355),
 								Vector2.new(0.2417, 0.403934),
 								0
 							)
@@ -970,6 +1104,7 @@ return function(props: Props)
 						Position = UDim2.fromScale(0.768, -0.18),
 						Size = UDim2.fromScale(0.188911, 0.138111),
 						create("UIAspectRatioConstraint")({ AspectRatio = 2.81 }),
+						create("UIScale")({ Name = "MotionScale", Scale = 0.8 }),
 						create("UIGradient")({
 							Color = ColorSequence.new({
 								ColorSequenceKeypoint.new(0, Color3.fromRGB(255, 46, 255)),
@@ -980,8 +1115,9 @@ return function(props: Props)
 							animateCloudEntrance(
 								instance,
 								visible,
-								0.1,
-								Vector2.new(0.768, -0.18),
+								0,
+								Vector2.new(1.14, 0.49),
+								Vector2.new(0.925, 0.355),
 								Vector2.new(0.743509, 0.403934),
 								math.pi
 							)

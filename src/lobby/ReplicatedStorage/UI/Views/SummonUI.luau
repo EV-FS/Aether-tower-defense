@@ -21,6 +21,7 @@ local untrack = Vide.untrack
 
 local UIController
 local DataClient
+local InventoryClient
 local summonZone
 
 local VIEW_ID = "Summon"
@@ -157,18 +158,16 @@ local function createUnitCard(rarity: string, layoutOrder: number, reveal: () ->
 		}),
 
 		TowerViewport({
-			TowerName = function()
-				return getUnitInfo(rarity).Name
-			end,
-			Name = "ViewportFrame",
-			AnimationName = "Idle",
+			Name = "UnitViewport",
 			AnchorPoint = Vector2.new(0, 0),
 			BackgroundTransparency = 1,
-			Ambient = Color3.fromRGB(190, 190, 190),
-			LightColor = Color3.new(1, 1, 1),
-			LightDirection = Vector3.new(-1, -0.8, -0.65),
-			FieldOfView = 32,
-			FitPadding = 1.08,
+			TowerName = function()
+				return if isOpen() then getUnitInfo(rarity).Name else ""
+			end,
+			AnimationName = "Idle",
+			UseViewportModel = true,
+			UseCharacterBounds = true,
+			FitPadding = 1.1,
 			Position = function()
 				return UDim2.fromScale((layoutOrder - 2) * 0.08 * (1 - reveal()), 0.1 * (1 - reveal()))
 			end,
@@ -176,9 +175,6 @@ local function createUnitCard(rarity: string, layoutOrder: number, reveal: () ->
 				return 1 - reveal()
 			end,
 			Size = UDim2.fromScale(1, 1),
-			UseCharacterBounds = true,
-			UseViewportModel = true,
-			ModelRotation = 0,
 			ZIndex = 1,
 		}),
 
@@ -563,6 +559,12 @@ function SummonUI.Summon(number: number)
 		if not success or not result or not result.Success then
 			return
 		end
+
+		-- The server also pushes OwnedTowersAdded, but a refresh here makes the
+		-- inventory deterministic even if that event arrives before UI startup.
+		InventoryClient.RefreshTowers():catch(function(err)
+			warn(`[SummonUI] Failed to refresh units after summon: {err}`)
+		end)
 
 		local pulledUnits = result.PulledUnits
 		if type(pulledUnits) == "table" and #pulledUnits > 0 then
@@ -977,6 +979,7 @@ end
 function SummonUI.Init()
 	UIController = ServiceRegistry:GetService("UIController")
 	DataClient = ServiceRegistry:GetService("DataClient")
+	InventoryClient = ServiceRegistry:GetService("InventoryClient")
 end
 
 function SummonUI.Start()

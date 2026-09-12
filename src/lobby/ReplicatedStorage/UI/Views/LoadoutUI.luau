@@ -7,7 +7,7 @@ local LoadoutSlot = require(ReplicatedStorage.UI.Components.LoadoutSlot)
 local create = Vide.create
 
 local MAX_LOADOUT_SIZE = 5
-local INVENTORY_VIEW_ID = "Inventory"
+local UNIT_VIEW_ID = "Units"
 
 local InventoryClient
 local DataClient
@@ -23,8 +23,9 @@ function LoadoutUI.RenderUI()
 		slots[index] = LoadoutSlot({
 			slotNumber = index,
 			loadout = InventoryClient.Loadout,
+			units = InventoryClient.Towers,
 			Activated = function()
-				UIController:Open(INVENTORY_VIEW_ID)
+				UIController:Open(UNIT_VIEW_ID)
 			end,
 		})
 	end
@@ -473,6 +474,9 @@ end
 
 function LoadoutUI.Start()
 	if InventoryClient then
+		if InventoryClient.FetchTowers then
+			InventoryClient.FetchTowers()
+		end
 		if InventoryClient.FetchLoadout then
 			InventoryClient.FetchLoadout()
 		elseif InventoryClient.RefreshLoadout then

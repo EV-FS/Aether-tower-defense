@@ -21,7 +21,7 @@ local emoteSlots = {
 	Emote1 = source(EmoteData.ByIndex[1]),
 	Emote2 = source(EmoteData.ByIndex[2]),
 	Emote3 = source(EmoteData.ByIndex[3]),
-	Emote4 = source(nil),
+	Emote4 = source(EmoteData.ByIndex[4]),
 }
 
 local EmoteUI = {}

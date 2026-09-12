@@ -4,6 +4,7 @@ local SoundService = game:GetService("SoundService")
 local Vide = require(ReplicatedStorage.Packages.Vide)
 local ServiceRegistry = require(ReplicatedStorage.Shared.Modules.Core.ServiceRegistry)
 local QuestData = require(ReplicatedStorage.Settings.Data.QuestData)
+local QuestMenuUI = require(script.Parent.QuestMenuUI)
 
 local create = Vide.create
 local derive = Vide.derive
@@ -34,8 +35,19 @@ end
 
 function QuestUI.RenderUI()
 	local targetAmount = 1500
+	local pinnedQuest = derive(function()
+		local quest = QuestMenuUI.GetPinnedQuest()
+		return quest
+	end)
+	local pinnedCategory = derive(function()
+		local _, category = QuestMenuUI.GetPinnedQuest()
+		return category
+	end)
 
 	local isAccepted = derive(function()
+		if pinnedQuest() then
+			return true
+		end
 		local quests = DataClient and DataClient.Quests() or {}
 		local q = quests["BlossomCollector"]
 		return q and (q.Active or q.Completed) and not q.Claimed or false
@@ -101,6 +113,10 @@ function QuestUI.RenderUI()
 	local animatedBlossom = spring(targetBlossom, 0.45, 0.85)
 
 	local targetRatio = derive(function()
+		local pinned = pinnedQuest()
+		if pinned then
+			return math.clamp(pinned.Current / math.max(pinned.Target, 1), 0, 1)
+		end
 		local blossom = targetBlossom()
 		return math.clamp(blossom / targetAmount, 0, 1)
 	end)
@@ -109,6 +125,10 @@ function QuestUI.RenderUI()
 	local animatedRatio = spring(targetRatio, 0.32, 0.70)
 
 	local descText = function()
+		local pinned = pinnedQuest()
+		if pinned then
+			return `{pinned.Description} {pinned.Progress}`
+		end
 		local rawCur = targetBlossom()
 		local animCur = math.clamp(math.round(animatedBlossom()), 0, targetAmount)
 		if rawCur >= targetAmount then
@@ -128,6 +148,9 @@ function QuestUI.RenderUI()
 		ZIndex = 5,
 		Visible = function()
 			if UIController and UIController:IsExclusive() then
+				return false
+			end
+			if UIController and UIController:IsOpen("Quest") then
 				return false
 			end
 			if DialogueClient and DialogueClient.IsOpen() then
@@ -265,7 +288,9 @@ function QuestUI.RenderUI()
 						FontFace = Font.new("rbxasset://fonts/families/FredokaOne.json"),
 						Position = UDim2.fromScale(0.0501823, 0.144756),
 						Size = UDim2.fromScale(0.20, 0.232207),
-						Text = "EVENT",
+						Text = function()
+							return pinnedCategory() or "EVENT"
+						end,
 						TextColor3 = Color3.new(1, 1, 1),
 						TextScaled = true,
 						TextTransparency = entranceAlpha,
@@ -293,7 +318,10 @@ function QuestUI.RenderUI()
 						FontFace = Font.new("rbxasset://fonts/families/FredokaOne.json"),
 						Position = UDim2.fromScale(0.280, 0.135084),
 						Size = UDim2.fromScale(0.66, 0.232207),
-						Text = "벚꽃 수집가",
+						Text = function()
+							local pinned = pinnedQuest()
+							return if pinned then pinned.Title else "벚꽃 수집가"
+						end,
 						TextColor3 = Color3.new(1, 1, 1),
 						TextScaled = true,
 						TextTransparency = entranceAlpha,

@@ -4,7 +4,12 @@ local TouchZone = require(ReplicatedStorage.Shared.Modules.Utils.TouchZone)
 local Net = require(ReplicatedStorage.Shared.Net)
 local NotificationService
 
-local touchPart = workspace:WaitForChild("TouchZone"):WaitForChild("GroupTouch")
+local touchZoneFolder = workspace:WaitForChild("TouchZone", 10)
+local touchPart = touchZoneFolder and touchZoneFolder:WaitForChild("GroupTouch", 10)
+if not touchPart or not touchPart:IsA("BasePart") then
+	warn("[GroupReward] Workspace.TouchZone.GroupTouch BasePart가 없어 그룹 보상 터치 존을 비활성화합니다.")
+	return
+end
 
 local GROUP_ID = 492293332
 

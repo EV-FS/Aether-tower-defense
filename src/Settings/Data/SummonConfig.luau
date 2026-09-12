@@ -22,12 +22,52 @@ return TableUtils.DeepFreeze({
 	},
 
 	UnitPool = {
-		Common = { "Bacon", "Dummy", "Noob", "Batter Bacon", "Boxer Noob", "Scyther Dummy" },
-		Rare = { "Gunner Dummy", "Katana Noob" },
-		Epic = { "Lancer Dummy", "Poor Bacon" },
-		Legendary = { "Minigunner Dummy", "King Noob" },
-		Mythic = { "Cyborg Dummy", "Poseidon Noob" },
-		Absolute = { "Hacker" },
+		Common = { "Fighter", "Harvester" },
+		Rare = { "YoungkkYongSa" },
+		Epic = { "Cowboy", "Elder Wizard", "Lancer", "Ganet" },
+		Legendary = { "장애인해적", "Knight" },
+		Mythic = { "어린용사(진화)", "Emperor", "Chronos" },
+		Absolute = { "Wizard", "Kisune Samurai", "Galahad", "Dragon Slayer", "Ranger Super Tower" },
+	},
+
+	-- Kept for profiles created while the summon banner still used the old roster.
+	-- New summons always use UnitPool above.
+	LegacyUnitRarities = {
+		Bacon = "Common",
+		Dummy = "Common",
+		Noob = "Common",
+		["Batter Bacon"] = "Common",
+		["Boxer Noob"] = "Common",
+		["Fighter Noob"] = "Common",
+		["Scyther Dummy"] = "Common",
+		["Gunner Dummy"] = "Rare",
+		["Katana Noob"] = "Rare",
+		["Lancer Dummy"] = "Epic",
+		["Poor Bacon"] = "Epic",
+		["Minigunner Dummy"] = "Legendary",
+		["King Noob"] = "Legendary",
+		["Cyborg Dummy"] = "Mythic",
+		["Poseidon Noob"] = "Mythic",
+		Hacker = "Absolute",
+	},
+
+	LegacyUnitImages = {
+		Bacon = "rbxassetid://120964210405701",
+		Dummy = "rbxassetid://100475259212197",
+		Noob = "rbxassetid://82308800052558",
+		["Batter Bacon"] = "rbxassetid://101722065001660",
+		["Boxer Noob"] = "rbxassetid://96421319964530",
+		["Fighter Noob"] = "rbxassetid://96421319964530",
+		["Scyther Dummy"] = "rbxassetid://82740074755423",
+		["Gunner Dummy"] = "rbxassetid://122275683628692",
+		["Katana Noob"] = "rbxassetid://111309604603969",
+		["Lancer Dummy"] = "rbxassetid://123924919401262",
+		["Poor Bacon"] = "rbxassetid://91237371309389",
+		["Minigunner Dummy"] = "rbxassetid://136315237541072",
+		["King Noob"] = "rbxassetid://82013737431746",
+		["Cyborg Dummy"] = "rbxassetid://139911403374399",
+		["Poseidon Noob"] = "rbxassetid://82847297421685",
+		Hacker = "rbxassetid://76888510287982",
 	},
 
 	RarityRates = {

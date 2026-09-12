@@ -10,7 +10,6 @@ local MIN_VISIBLE_DURATION = 2.1
 local visible = Vide.source(false)
 local loadingUnmount: (() -> ())? = nil
 local transitionToken = 0
-local isBootHeld = true
 local shownAt = 0
 
 local LoadingController = {}
@@ -33,7 +32,6 @@ function LoadingController.Prepare()
 end
 
 function LoadingController.ReleaseBoot()
-	isBootHeld = false
 	transitionToken += 1
 	mountLoadingScreen()
 	shownAt = os.clock()
@@ -43,10 +41,6 @@ end
 function LoadingController.Show()
 	transitionToken += 1
 	mountLoadingScreen()
-
-	if isBootHeld then
-		return
-	end
 
 	if not visible() then
 		shownAt = os.clock()

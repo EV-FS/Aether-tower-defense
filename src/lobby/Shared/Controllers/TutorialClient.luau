@@ -14,9 +14,9 @@ export type TutorialStep = {
 
 local STEPS: { TutorialStep } = {
 	{
-		Target = "InventoryButton",
+		Target = "UnitButton",
 		Title = "YOUR COLLECTION",
-		Description = "Open your inventory to view, equip, and manage the units you own.",
+		Description = "Open Units to view, equip, and manage the units you own.",
 	},
 	{
 		Target = "ShopButton",
