@@ -338,4 +338,14 @@ return TableUtils.DeepFreeze({
 			newEnemy("Necromancer Goblin", 2),
 		},
 	},
+	["Kitsune Raid"] = {
+		[1] = {
+			newEnemy("Goblin", 3),
+		},
+	},
+	["Raid"] = {
+		[1] = {
+			newEnemy("Goblin", 3, 0.5, false, "BossPath"),
+		},
+	},
 })
