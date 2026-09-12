@@ -1,12 +1,15 @@
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local TableUtils = require(ReplicatedStorage.Shared.Modules.Utils.TableUtils)
 
-local function newEnemy(name: string, count: number?, delay: number?, isBoss: boolean?)
+-- Path omitted: normal enemies use every numbered route; bosses use route 1.
+-- Fifth argument selects a single route, e.g. newEnemy("Goblin", 3, nil, false, "SpecialPath").
+local function newEnemy(name: string, count: number?, delay: number?, isBoss: boolean?, path: (string | number)?)
 	return {
 		Name = name,
 		Count = count,
 		Delay = delay,
 		IsBoss = isBoss,
+		Path = path,
 	}
 end
 

@@ -62,12 +62,21 @@ function EnemyService.SetupNewEnemy(name: string, isBoss: boolean?, pathAlpha: n
 		enemyIndex = EnemyData.ByName[self.Name].Index,
 		sendTimeMs = self.SendTimeMs,
 		isBoss = self.IsBoss,
-		startPathAlpha = self.PathAlpha,
+		-- Omit the optional f32 for the usual start-at-zero spawn (saves 4 bytes).
+		startPathAlpha = if self.PathAlpha == 0 then nil else self.PathAlpha,
 		pathId = self.PathId,
 	})
 end
 
-function EnemyService.Spawn(name: string, spawnCount: number | nil, spawnDelay: number | nil, isBoss: boolean | nil)
+function EnemyService.Spawn(
+	name: string,
+	spawnCount: number?,
+	spawnDelay: number?,
+	isBoss: boolean?,
+	path: (string | number)?
+)
+	-- Resolve names once per group, before starting the asynchronous spawn loop.
+	local pathIds = GetPath:GetSpawnPathIds(isBoss, path)
 	return Promise.new(function(resolve, _, onCancel)
 		local isCancelled = false
 
@@ -79,14 +88,13 @@ function EnemyService.Spawn(name: string, spawnCount: number | nil, spawnDelay: 
 			local timeOffset = 0
 			local count = spawnCount or 1
 			local targetDelay = spawnDelay or GameSettings.SpawnDelay
-			local pathCount = isBoss and 1 or GetPath:GetCount()
 			for _ = 1, count or 1 do
 				if isCancelled then
 					return
 				end
 
-				-- Spawn one enemy per path each tick; bosses only use path 1.
-				for pathId = 1, pathCount do
+				-- Explicit routes override defaults; unnamed spawns only use numbered paths.
+				for _, pathId in ipairs(pathIds) do
 					if isCancelled then
 						return
 					end
@@ -164,7 +172,7 @@ function EnemyService.PlayerAdded(player: Player)
 			enemyIndex = EnemyData.ByName[enemy.Name].Index,
 			sendTimeMs = math.floor(workspace:GetServerTimeNow() * 1000) % 65536,
 			isBoss = enemy.IsBoss,
-			startPathAlpha = enemy.PathAlpha,
+			startPathAlpha = if enemy.PathAlpha == 0 then nil else enemy.PathAlpha,
 			pathId = enemy.PathId,
 		})
 	end

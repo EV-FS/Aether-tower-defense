@@ -80,7 +80,7 @@ function BaseEnemy.new(id, name, isBoss, pathId: number?, pathAlpha: number?): E
 	self.Id = id
 	self.Name = name
 	self.MoveDirection = 1
-	self.PathId = isBoss and 1 or (pathId or 1)
+	self.PathId = pathId or 1
 	self.PathAlpha = pathAlpha or 0
 	self.IsBoss = isBoss
 

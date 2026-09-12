@@ -28,7 +28,7 @@ local visualsFolder = assetsFolder and assetsFolder:WaitForChild("Visuals", 5)
 local arrowTemplate = visualsFolder and visualsFolder:WaitForChild("Arrow", 5)
 
 if not arrowTemplate then
-	warn("[PathGuide] Arrow template not found in ReplicatedStorage.Assets.Visuals.Arrow.")
+	warn("[경로 안내] 화살표 템플릿을 찾을 수 없습니다: ReplicatedStorage.Assets.Visuals.Arrow")
 end
 
 -------------------------------------------------
@@ -96,7 +96,7 @@ function Guide.Start()
 	isShowing = true
 
 	if not GetPathModule:Get() then
-		warn("[PathGuide] Path not loaded yet.")
+		warn("[경로 안내] 경로가 아직 로드되지 않았습니다.")
 		isShowing = false
 		return
 	end
@@ -108,7 +108,7 @@ function Guide.Start()
 	table.clear(activeArrows)
 
 	local pathGroups = {}
-	for pathId = 1, GetPathModule:GetCount() do
+	for _, pathId in ipairs(GetPathModule:GetSpawnPathIds()) do
 		local path = GetPathModule:Get(pathId)
 		local pathLength = path:GetPathLength()
 		local arrows = {}
