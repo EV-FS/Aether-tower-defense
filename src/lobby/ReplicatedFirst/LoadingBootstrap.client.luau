@@ -38,9 +38,17 @@ LoadingController.Prepare()
 RunService.RenderStepped:Wait()
 local loadingGui = playerGui:FindFirstChild("LoadingScreen")
 if loadingGui then
-	pcall(function()
-		ContentProvider:PreloadAsync({ loadingGui })
+	local finished = false
+	local preload = task.spawn(function()
+		pcall(function() ContentProvider:PreloadAsync({ loadingGui }) end)
+		finished = true
 	end)
+	local deadline = os.clock() + 3
+	while not finished and os.clock() < deadline do RunService.Heartbeat:Wait() end
+	if not finished then
+		pcall(task.cancel, preload)
+		warn("[LoadingBootstrap] Loading art preload timed out; continuing with the cover")
+	end
 end
 
 LoadingController.ReleaseBoot()

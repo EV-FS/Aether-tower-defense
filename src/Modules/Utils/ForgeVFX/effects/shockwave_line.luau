@@ -114,7 +114,7 @@ function line.emit(origin: Attachment, ref: Part, scope: types.scope)
 		direction = -Vector3.zAxis
 	end
 
-	utility.gameWait(emitDelay)
+	if emitDelay > 0 then utility.gameWait(emitDelay) end
 
 	local promises = {}
 

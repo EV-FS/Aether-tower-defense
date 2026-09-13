@@ -6,4 +6,6 @@ return {
 	FOVTrack = Matter.component("CutsceneFOVTrack"),
 	VFXTrack = Matter.component("CutsceneVFXTrack"),
 	AudioTrack = Matter.component("CutsceneAudioTrack"),
+	ImpactTrack = Matter.component("CutsceneImpactTrack"),
+	ScreenEffectTrack = Matter.component("CutsceneScreenEffectTrack"),
 }

@@ -1,4 +1,5 @@
 local Players = game:GetService("Players")
+local SceneLifecycle = require(script.Parent.Services.Core.SceneLifecycle)
 local Guard = {}
 local autoLoads = Players.CharacterAutoLoads
 Players.CharacterAutoLoads = false
@@ -31,20 +32,21 @@ function Guard.Release(map)
 	if released then return end
 	-- Resolve a real standing surface before allowing character physics.
 	local surface = nil
-	for _, instance in workspace:GetDescendants() do
+	local fallback = nil
+	SceneLifecycle.Visit({ map }, function(instance)
 		if instance:IsA("SpawnLocation") and instance.Enabled then
 			surface = instance
-			if instance:IsDescendantOf(map) then break end
-		end
-	end
-	if not surface then
-		for _, instance in map:GetDescendants() do
-			if instance:IsA("BasePart") and instance.Anchored and instance.CanCollide then
-				if not surface or instance.Size.X * instance.Size.Z > surface.Size.X * surface.Size.Z then
-					surface = instance
-				end
+		elseif instance:IsA("BasePart") and instance.Anchored and instance.CanCollide then
+			if not fallback or instance.Size.X * instance.Size.Z > fallback.Size.X * fallback.Size.Z then
+				fallback = instance
 			end
 		end
+	end)
+	surface = surface or fallback
+	if not surface then
+		SceneLifecycle.Visit({ workspace }, function(instance)
+			if instance:IsA("SpawnLocation") and instance.Enabled then surface = instance end
+		end)
 	end
 	assert(surface, "Map has no spawn or solid standing surface; characters remain protected")
 	local destination = surface.CFrame * CFrame.new(0, surface.Size.Y / 2 + 5, 0)

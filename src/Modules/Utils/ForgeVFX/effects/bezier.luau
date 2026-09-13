@@ -63,7 +63,7 @@ function bezier.emit(ref: Attachment, refObj: Part, scope: types.scope, mustEmit
 
 	local useDuration = common.emitDuration > 0
 
-	utility.gameWait(common.emitDelay)
+	if common.emitDelay > 0 then utility.gameWait(common.emitDelay) end
 
 	if useDuration and not mustEmit then
 		utility.forceEmit(ref, true)

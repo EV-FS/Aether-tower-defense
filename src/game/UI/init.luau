@@ -25,7 +25,7 @@ function UI.ShowLoading()
 end
 
 function UI.HideLoading()
-	LoadingController.Hide()
+	LoadingController.Hide(true) -- don't hold a ready game for the minimum intro duration
 end
 
 local function GetViews()

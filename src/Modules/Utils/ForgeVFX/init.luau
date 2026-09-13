@@ -217,7 +217,7 @@ local function fullEmit(scale: number, depth: number, ...: Instance)
     logger.error("not initialized")
   end
 
-  return effects.emit(depth, ...)
+  return effects.emitScaled(scale, depth, ...)
 end
 
 function api.emit(vfxOrScale: number | Instance, ...: Instance)

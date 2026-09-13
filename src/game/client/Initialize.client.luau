@@ -1,11 +1,9 @@
-local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local GetPath = require(ReplicatedStorage.Shared.Modules.Core.GetPath)
 local ServiceRegistry = require(ReplicatedStorage.Shared.Modules.Core.ServiceRegistry)
 local UI = require(ReplicatedStorage.UI)
 
 local SharedServices = ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Services")
-local playerGui = Players.LocalPlayer:WaitForChild("PlayerGui")
 
 local function finishLoading()
 	UI.HideLoading()
@@ -40,22 +38,18 @@ ServiceRegistry:RegisterServices({
 })
 
 local mapFolder = workspace:WaitForChild("Map")
-while not mapFolder:GetAttribute("SelectedMap") do
-	mapFolder:GetAttributeChangedSignal("SelectedMap"):Wait()
+while mapFolder:GetAttribute("MapReady") ~= true do
+	assert(not mapFolder:GetAttribute("LoadError"), "Map load failed: " .. tostring(mapFolder:GetAttribute("LoadError")))
+	task.wait(0.1)
 end
 
 GetPath.Init()
 
 ServiceRegistry:Start():andThen(function()
 	UI.Init()
-
-	task.spawn(function()
-		local ContentProvider = game:GetService("ContentProvider")
-		pcall(function()
-			ContentProvider:PreloadAsync({ ReplicatedStorage, workspace, playerGui })
-		end)
-		finishLoading()
-	end)
+	-- Map/path/services are ready. Do not wait for every unused map/unit asset.
+	-- Cutscene-critical audio/images still use their own readiness preloads.
+	finishLoading()
 end):catch(function(err)
 	warn(`Client initialization failed: {err}`)
 	finishLoading()

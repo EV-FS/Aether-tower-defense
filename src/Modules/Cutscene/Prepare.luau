@@ -19,4 +19,20 @@ function Prepare.Try(label, timeout, callback)
 	return success, result
 end
 
+-- Independent bounded jobs share the preparation window instead of stacking it.
+function Prepare.All(jobs)
+	local results = {}
+	local pending = 0
+	for _ in jobs do pending += 1 end
+	for name, job in jobs do
+		task.spawn(function()
+			local ok, value = Prepare.Try(name, job.Timeout, job.Run)
+			results[name] = { Success = ok, Value = value }
+			pending -= 1
+		end)
+	end
+	while pending > 0 do RunService.Heartbeat:Wait() end
+	return results
+end
+
 return Prepare

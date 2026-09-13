@@ -117,7 +117,7 @@ function mesh.emit(ref: Model, obj: BasePart, scope: types.scope, scale: number,
 		rng:NextNumber(minInitRot.z, maxInitRot.z)
 	) * utility.DEG_TO_RAD
 
-	utility.gameWait(emitDelay)
+	if emitDelay > 0 then utility.gameWait(emitDelay) end
 
 	if useEmitDuration and not mustEmit then
 		utility.forceEmit(ref, true)

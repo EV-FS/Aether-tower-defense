@@ -16,7 +16,7 @@ function particle.emit(ref: ParticleEmitter, obj: ParticleEmitter, scope: types.
 
   local useDuration = duration > 0
 
-  utility.gameWait(delay)
+  if delay > 0 then utility.gameWait(delay) end
 
   if useDuration then
     obj.Enabled = true

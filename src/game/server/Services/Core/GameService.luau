@@ -124,11 +124,15 @@ function GameService:PrepareMap()
 	end
 
 	local mapFolder = workspace:WaitForChild("Map")
-	mapFolder:SetAttribute("SelectedMap", self.SelectedMap)
-	mapFolder:SetAttribute("SelectedDifficulty", self.SelectedDifficulty or "Normal")
-
-	MapService:LoadMapAsync(self.SelectedMap, self.SelectedDifficulty)
-	CharacterGuard.Release(mapFolder)
+	local loaded, loadError = pcall(function()
+		MapService:LoadMapAsync(self.SelectedMap, self.SelectedDifficulty)
+		CharacterGuard.Release(mapFolder)
+	end)
+	if not loaded then
+		self.IsMapLoading = false
+		warn("[GameService] Map preparation failed: " .. tostring(loadError))
+		return
+	end
 
 	self.IsMapLoaded = true
 	self.IsMapLoading = false

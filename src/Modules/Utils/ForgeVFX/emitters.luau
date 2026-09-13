@@ -52,7 +52,9 @@ function emitters.particle(
 	sharedRefMap: { [Instance]: Instance },
 	legacyScale: number
 )
-	local count = attr.get(obj, "EmitCount", utility.PLUGIN_CONTEXT and 1 or nil)
+	-- EmitModule compatibility: an unannotated emitter emits one particle.
+	-- An explicit zero still disables the burst (EmitDuration may run alone).
+	local count = attr.get(obj, "EmitCount", 1)
 	local duration = attr.get(obj, "EmitDuration", 0, true)
 
 	if not count or (count <= 0 and duration <= 0) then
@@ -249,7 +251,7 @@ function emitters.attribute_tweener(obj: RayValue, scope: types.scope)
 		return
 	end
 
-	utility.try(`failed to emit attribute tweener with error: %s`, Tweener.emit, obj.Parent, obj, scope, true)
+	utility.try(`failed to emit attribute tweener with error: %s`, Tweener.emit, obj, scope, true)
 	utility.unlock(obj)
 end
 

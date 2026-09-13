@@ -72,7 +72,7 @@ function beam.emit(ref: Beam, obj: Beam, scope: types.scope, scale: number)
 
 	local baseTexSpeed = obj.TextureSpeed
 
-	utility.gameWait(emitDelay)
+	if emitDelay > 0 then utility.gameWait(emitDelay) end
 
 	obj.Enabled = true
 

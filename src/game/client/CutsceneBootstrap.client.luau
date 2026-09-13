@@ -1,9 +1,7 @@
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
-local ContentProvider = game:GetService("ContentProvider")
 local CameraRuntime = require(ReplicatedStorage.Shared.Modules.Cutscene.ECS.CameraRuntime)
-local Prepare = require(ReplicatedStorage.Shared.Modules.Cutscene.Prepare)
 local playerGui = Players.LocalPlayer:WaitForChild("PlayerGui")
 local active = nil
 
@@ -17,18 +15,8 @@ local function attach(state)
 	while state.Parent and not reference.Value do RunService.Heartbeat:Wait() end
 	if not state.Parent then active = nil; return end
 	local config = require(ReplicatedStorage.Settings.Data.CutsceneData)[state:GetAttribute("CutsceneName")]
-	local animations = {}
-	ready:FireServer("Stage", "Animation asset preload")
-	if config then
-		for _, id in config.Animations do
-			local animation = Instance.new("Animation")
-			animation.AnimationId = "rbxassetid://" .. id
-			table.insert(animations, animation)
-		end
-		Prepare.Try("Animation preload", 8, function() ContentProvider:PreloadAsync(animations) end)
-		for _, animation in animations do animation:Destroy() end
-	end
-	if not state.Parent then active = nil; return end
+	-- Wait for the actual server-created tracks below, not duplicate Animation assets.
+	ready:FireServer("Stage", "Waiting for loaded animation tracks")
 	local rigTracks = state:WaitForChild("RigTracks", 10)
 	if not rigTracks then active = nil; return end
 	local tracks = {}
@@ -67,7 +55,7 @@ local function attach(state)
 	local savedType, savedSubject = camera.CameraType, camera.CameraSubject
 	local savedCFrame, savedFocus = camera.CFrame, camera.Focus
 	local savedFOV = camera.FieldOfView
-	ready:FireServer("Stage", "Audio/VFX initialization")
+	ready:FireServer("Stage", "Audio/VFX/impact/screen effect initialization")
 	local runtime = CameraRuntime.new(state, reference, config, tracks)
 	if not state.Parent then runtime:Destroy(); active = nil; return end
 	local playbackConnection = RunService.PreAnimation:Connect(function()

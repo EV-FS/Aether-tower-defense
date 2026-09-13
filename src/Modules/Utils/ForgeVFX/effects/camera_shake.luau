@@ -153,7 +153,7 @@ function camera_shake.emit(ref: RayValue, scope: types.scope)
 		rot = vector.zero,
 	}
 
-	utility.gameWait(emitDelay)
+  if emitDelay > 0 then utility.gameWait(emitDelay) end
 
 	table.insert(activeShakes, obj)
 

@@ -269,7 +269,7 @@ function sound.emit(ref: Sound, scope: types.scope)
 	local repeatCount = attr.get(ref, "RepeatCount", 1)
 	local repeatInterval = attr.getRange(ref, "RepeatInterval", NumberRange.new(0, 0))
 
-	utility.gameWait(emitDelay)
+	if emitDelay > 0 then utility.gameWait(emitDelay) end
 
 	local promises = {}
 

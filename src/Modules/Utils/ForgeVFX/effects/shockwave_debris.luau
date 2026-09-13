@@ -131,7 +131,7 @@ function debris.emit(origin: Attachment, ref: Part, scope: types.scope)
 		end
 	end
 
-	utility.gameWait(emitDelay)
+	if emitDelay > 0 then utility.gameWait(emitDelay) end
 
 	for _ = 1, count do
 		local iref = #partData ~= 0 and partData[rng:NextInteger(1, #partData)]

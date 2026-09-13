@@ -3,16 +3,16 @@
 return {
 	[0] = { Emit = { { "FX" }, { "FX2" } } },
 	[21] = {
-		Emit = { { "Explode" }, { "dA", "bowlight2" } },
+		Emit = { { "Explode" }, { "PlayerRig", "bowlight2" } },
 		AbsoluteEmit = { { "LightningParticle" } },
 	},
 	[105] = {
-		Emit = { { "Part2" }, { "raidbossda", "bowlight2" } },
+		Emit = { { "Part2" }, { "RaidBoss", "bowlight2" } },
 		AbsoluteEmit = { { "LightningParticle" } },
 	},
-	[174] = { Emit = { { "raidbossda", "bowlight2" }, { "Meshes2" } } },
+	[174] = { Emit = { { "RaidBoss", "bowlight2" }, { "Meshes2" } } },
 	[213] = { Emit = { { "Dash" } } },
-	[238] = { Emit = { { "FX1" }, { "raidbossda", "bowlight2" }, { "ScreenEffect" } } },
+	[238] = { Emit = { { "FX1" }, { "RaidBoss", "bowlight2" }, { "ScreenEffect" } } },
 	[302] = { Emit = { { "Explosion" }, { "startup" } } },
 	[313] = { Emit = { { "emit 1" }, { "ScreenEffect2" } } },
 	[321] = { Emit = { { "emit 2" } } },

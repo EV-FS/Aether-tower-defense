@@ -12,12 +12,31 @@ export type CameraConfig = {
 	}?,
 }
 
+export type ScreenKey = {
+	Frame: number,
+	Value: number | boolean | Color3,
+	Ease: { Type: string?, Params: { [string]: string | number }? }?,
+}
+
+export type ScreenTrack = { ScreenKey } | { Default: (number | boolean | Color3)?, Sequence: { ScreenKey } }
+
 export type CutsceneInfo = {
 	ScenePath: { string },
 	Animations: { [string]: number },
 	Camera: CameraConfig,
 	MaxDuration: number?,
 	Audio: { SoundId: number, Volume: number? }?,
+	ScreenEffects: {
+		Tracks: { [string]: ScreenTrack },
+		EndFrame: number,
+		FPS: number?,
+	}?,
+	ImpactFrames: {
+		Events: { [number]: number | boolean },
+		EndFrame: number,
+		FPS: number?,
+		PersistentImage: { ImageId: number, ImageTransparency: number? }?,
+	}?,
 	VFX: {
 		Events: { [number]: { Emit: { { string } }?, AbsoluteEmit: { { string } }? } },
 		EndFrame: number,
@@ -47,6 +66,16 @@ return TableUtils.DeepFreeze({
 		},
 		MaxDuration = 60,
 		Audio = { SoundId = 102459673372986, Volume = 1 },
+		ScreenEffects = {
+			Tracks = require(script.Parent.CutsceneTracks.RaidIntroScreen),
+			EndFrame = 840,
+			-- Match FOV/VFX/impact timing. Set FPS = 60 only for fixed-rate playback.
+		},
+		ImpactFrames = {
+			Events = require(script.Parent.CutsceneTracks.RaidIntroImpact),
+			EndFrame = 840,
+			PersistentImage = { ImageId = 228322184, ImageTransparency = 0.12 },
+		},
 		VFX = {
 			Events = require(script.Parent.CutsceneTracks.RaidIntroVFX),
 			EndFrame = 840,

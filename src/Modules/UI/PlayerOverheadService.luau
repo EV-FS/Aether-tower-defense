@@ -48,6 +48,7 @@ local function createLabel(name: string, heightScale: number): TextLabel
 	label.Size = UDim2.fromScale(1, heightScale)
 	label.FontFace = DISPLAY_FONT
 	label.TextScaled = true
+	label.RichText = true
 	label.TextWrapped = false
 	label.TextXAlignment = Enum.TextXAlignment.Center
 	label.TextYAlignment = Enum.TextYAlignment.Center
@@ -182,7 +183,7 @@ local function createOverhead(player: Player, character: Model)
 
 	local nameLabel = createLabel("PlayerName", 0.37)
 	nameLabel.LayoutOrder = 2
-	nameLabel.Text = player.DisplayName
+	nameLabel.Text = player.DisplayName:gsub("&", "&amp;"):gsub("<", "&lt;"):gsub(">", "&gt;")
 	nameLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
 	addTextStroke(nameLabel, 0.14)
 	nameLabel.Parent = container

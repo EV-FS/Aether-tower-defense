@@ -53,7 +53,12 @@ function effects.deinit()
 	api_ref = nil
 end
 
-local function emitWithContext(depth: number, context: { _promises: { any } }?, ...: Instance): types.EmitEnv
+local function isScreenEffect(obj: Instance): boolean
+	return obj:IsA("BasePart") and obj:GetAttribute("Enabled") == true
+		and not utility.findFirstClassWithTag(obj, "Attachment", utility.SHOCKWAVE_TAG)
+end
+
+local function emitWithContext(depth: number, context: { _promises: { any }, Scale: number? }?, ...: Instance): types.EmitEnv
 	if not api_ref or not api_ref.setup then
 		logger.error("effects service not initialized")
 		return EMPTY_ENV
@@ -62,7 +67,7 @@ local function emitWithContext(depth: number, context: { _promises: { any } }?, 
 	local sharedUncMap: { [Instance]: number } = {}
 	local sharedRefMap: { [Instance]: Instance } = {}
 
-	local legacyScale = 1
+	local legacyScale = (context and context.Scale) or 1
 
 	local list = { ... }
 	local rootPromises = {}
@@ -84,14 +89,16 @@ local function emitWithContext(depth: number, context: { _promises: { any } }?, 
 		depthCache[obj] = baseDepth
 
 		for _, desc in allDesc do
+			if desc:HasTag(utility.EMIT_EXCLUDE_TAG) then continue end
 			local ancestors = {}
 			local current = desc.Parent
 
-			while depthCache[current] == nil do
+			while current and depthCache[current] == nil do
 				table.insert(ancestors, current)
 				current = current.Parent
 			end
 
+			if not current then continue end -- removed/reparented during dispatch
 			local shouldSkip = skipCache[current]
 			local currentDepth = depthCache[current]
 
@@ -103,12 +110,19 @@ local function emitWithContext(depth: number, context: { _promises: { any } }?, 
 
 				if not shouldSkip then
 					shouldSkip = utility.shouldSkipNested(ancestor) or ancestor:HasTag(utility.EMIT_EXCLUDE_TAG)
+						or isScreenEffect(ancestor)
 				end
 
 				skipCache[ancestor] = shouldSkip
 			end
 
 			if not shouldSkip then
+				-- Preserve recursive screen effects within folders/models, exactly once.
+				if isScreenEffect(desc) then
+					local nested = emitWithContext(depthCache[desc.Parent], context, desc)
+					table.insert(promises, nested.Finished)
+					continue
+				end
 				table.insert(
 					promises,
 					utility.createEmitPromise(effects, desc, depthCache[desc.Parent], function(scope)
@@ -129,12 +143,9 @@ local function emitWithContext(depth: number, context: { _promises: { any } }?, 
 	end
 
 	for _, obj in list do
+		if obj:HasTag(utility.EMIT_EXCLUDE_TAG) then continue end
 		-- screen effects
-		if
-			obj:IsA("BasePart")
-			and obj:GetAttribute("Enabled")
-			and not utility.findFirstClassWithTag(obj, "Attachment", utility.SHOCKWAVE_TAG)
-		then
+		if isScreenEffect(obj) then
 			if utility.lock(obj) then
 				continue
 			end
@@ -142,6 +153,7 @@ local function emitWithContext(depth: number, context: { _promises: { any } }?, 
 			local anc = obj:FindFirstAncestorOfClass("Model")
 
 			if anc and not utility.isSpinModelStatic(anc) then
+				utility.unlock(obj)
 				continue
 			end
 
@@ -169,6 +181,9 @@ local function emitWithContext(depth: number, context: { _promises: { any } }?, 
 					utility.unlock(obj, lockThread)
 					utility.cleanupScope(scope)
 				end
+			else
+				utility.unlock(obj, lockThread)
+				utility.cleanupScope(scope)
 			end
 		-- other effects
 		else
@@ -206,6 +221,12 @@ end
 
 function effects.emit(depth: number, ...: Instance): types.EmitEnv
 	local context = { _promises = {} }
+	return emitWithContext(depth, context, ...)
+end
+
+function effects.emitScaled(scale: number, depth: number, ...: Instance): types.EmitEnv
+	assert(scale > 0 and scale < math.huge, "Emit scale must be finite and positive")
+	local context = { _promises = {}, Scale = scale }
 	return emitWithContext(depth, context, ...)
 end
 
