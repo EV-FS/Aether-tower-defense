@@ -25,7 +25,18 @@ function UI.ShowLoading()
 end
 
 function UI.HideLoading()
-	LoadingController.Hide(true) -- don't hold a ready game for the minimum intro duration
+	-- Gameplay is already safe/ready here. Fully unmount instead of relying on
+	-- transition state: a cancelled Vide transition must never leave a dark cover.
+	LoadingController.Destroy()
+	local playerGui = Players.LocalPlayer:FindFirstChildOfClass("PlayerGui")
+	if playerGui then
+		for _, gui in playerGui:GetChildren() do
+			if gui:IsA("ScreenGui") and (gui.Name == "LoadingScreen" or gui.Name == "LoadingBootstrap") then
+				gui.Enabled = false
+				gui:Destroy()
+			end
+		end
+	end
 end
 
 local function GetViews()

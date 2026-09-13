@@ -11,9 +11,25 @@ MapService.LoadedMap = nil
 MapService.LoadedRoots = {}
 local waveConnection = nil
 
-function MapService:LoadMapAsync(mapName: string, difficulty: string?)
+function MapService:PrepareMap(mapName: string)
+	local started = os.clock()
+	local source = assert(ReplicatedStorage.Assets.Maps:WaitForChild(mapName, 30), "Missing map: " .. mapName)
+	local prepared = SceneLifecycle.Prepare(SceneLifecycle.Clone(source))
+	prepared.MapName = mapName
+	prepared.PrepareSeconds = os.clock() - started
+	return prepared
+end
+
+function MapService:DiscardPrepared(prepared)
+	SceneLifecycle.Discard(prepared)
+end
+
+function MapService:LoadMapAsync(mapName: string, difficulty: string?, prepared)
 	while not WaveService or self.IsLoading do task.wait() end
-	if self.IsLoaded and self.LoadedMap == mapName then return end
+	if self.IsLoaded and self.LoadedMap == mapName then
+		self:DiscardPrepared(prepared)
+		return
+	end
 	self.IsLoading = true
 	local loadStarted = os.clock()
 	self.IsLoaded = false
@@ -21,16 +37,17 @@ function MapService:LoadMapAsync(mapName: string, difficulty: string?)
 	mapFolder:SetAttribute("MapReady", false)
 	mapFolder:SetAttribute("LoadError", nil)
 	mapFolder:SetAttribute("MapLoadSeconds", nil)
-	local staging = nil
+	local staging = prepared
 	local ok, err = xpcall(function()
 		if waveConnection then waveConnection:Disconnect(); waveConnection = nil end
 		-- Delete only instances this service loaded, never unrelated Workspace objects.
 		SceneLifecycle.Destroy(self.LoadedRoots)
 		self.LoadedRoots = {}
 		self.LoadedMap = nil
-		local source = assert(ReplicatedStorage.Assets.Maps:WaitForChild(mapName, 30), "Missing map: " .. mapName)
-		staging = SceneLifecycle.Clone(source)
-		self.LoadedRoots = SceneLifecycle.Mount(staging, mapFolder)
+		staging = staging or self:PrepareMap(mapName)
+		assert(staging.MapName == mapName, "Prepared map does not match selected map")
+		mapFolder:SetAttribute("MapPrepareSeconds", staging.PrepareSeconds)
+		self.LoadedRoots = SceneLifecycle.MountPrepared(staging, mapFolder)
 		staging = nil
 
 		local environmentFolder = mapFolder:FindFirstChild("Environment")
@@ -62,7 +79,7 @@ function MapService:LoadMapAsync(mapName: string, difficulty: string?)
 	if not ok then
 		SceneLifecycle.Destroy(self.LoadedRoots)
 		self.LoadedRoots = {}
-		if staging then SceneLifecycle.Destroy({ staging }) end
+		self:DiscardPrepared(staging)
 		self.IsLoaded = false
 		self.LoadedMap = nil
 		mapFolder:SetAttribute("LoadError", string.sub(tostring(err), 1, 500))

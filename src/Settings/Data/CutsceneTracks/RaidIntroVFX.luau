@@ -3,7 +3,7 @@
 return {
 	[0] = { Emit = { { "FX" }, { "FX2" } } },
 	[21] = {
-		Emit = { { "Explode" }, { "PlayerRig", "bowlight2" } },
+		Emit = { { "Explode" }, { "PlayerFriendRig", "bowlight2" } },
 		AbsoluteEmit = { { "LightningParticle" } },
 	},
 	[105] = {

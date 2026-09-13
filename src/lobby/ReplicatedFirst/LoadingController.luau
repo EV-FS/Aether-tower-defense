@@ -48,7 +48,7 @@ function LoadingController.Show()
 	visible(true)
 end
 
-function LoadingController.Hide(skipMinimum: boolean?)
+function LoadingController.Hide(skipMinimum: boolean?, skipExit: boolean?)
 	if not loadingUnmount then
 		return
 	end
@@ -57,6 +57,12 @@ function LoadingController.Hide(skipMinimum: boolean?)
 	local token = transitionToken
 	local currentUnmount = loadingUnmount
 	local remainingIntro = if skipMinimum then 0 else math.max(MIN_VISIBLE_DURATION - (os.clock() - shownAt), 0)
+	if skipExit then
+		visible(false)
+		currentUnmount()
+		if loadingUnmount == currentUnmount then loadingUnmount = nil end
+		return
+	end
 
 	task.delay(remainingIntro, function()
 		if transitionToken ~= token or loadingUnmount ~= currentUnmount then

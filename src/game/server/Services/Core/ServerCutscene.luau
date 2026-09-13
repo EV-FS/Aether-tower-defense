@@ -5,18 +5,34 @@ local Data = require(ReplicatedStorage.Settings.Data.CutsceneData)
 local PlaybackClock = require(ReplicatedStorage.Shared.Modules.Cutscene.PlaybackClock)
 local ScenePaths = require(ReplicatedStorage.Shared.Modules.Cutscene.ScenePaths)
 local SceneLifecycle = require(script.Parent.SceneLifecycle)
+local CutsceneProfiles = require(script.Parent.CutsceneProfiles)
+local Cleanup = require(ReplicatedStorage.Shared.Modules.Cutscene.Cleanup)
 local ServerCutscene = {}
 
-function ServerCutscene.Play(name: string)
+function ServerCutscene.Play(name: string, prepareNext)
 	local config = assert(Data[name], "Unknown cutscene: " .. name)
+	local fastMount = config.Lifecycle and config.Lifecycle.FastMount
+	local fastCleanup = config.Lifecycle and config.Lifecycle.FastCleanup
 	local roots, tracks, animations = {}, {}, {}
+	local playbackTracks = {}
 	local playbackConnection = nil
 	local streamingContainer = nil
 	local staging = nil
+	local stopProfiles = nil
 	local state = Instance.new("Folder")
 	state.Name = "ActiveCutscene"
 	state:SetAttribute("CutsceneName", name)
-	local cameraValue = Instance.new("ObjectValue")
+	local currentPhase = "Scene setup"
+	local phaseStarted = os.clock()
+	local function phase(value)
+		print(string.format("[ServerCutscene] %s: %s -> %s (%.2fs)", name, currentPhase, value, os.clock() - phaseStarted))
+		phaseStarted = os.clock()
+		currentPhase = value
+		state:SetAttribute("Phase", value)
+		ReplicatedStorage:SetAttribute("CutscenePhase", value)
+	end
+	ReplicatedStorage:SetAttribute("CutsceneError", nil)
+		local cameraValue = Instance.new("ObjectValue")
 	cameraValue.Name = "CameraPart"
 	cameraValue.Parent = state
 	local ready = Instance.new("RemoteEvent")
@@ -39,6 +55,8 @@ function ServerCutscene.Play(name: string)
 		end
 	end)
 	local success, err = xpcall(function()
+		phase("Scene setup")
+		if config.Actors then stopProfiles = CutsceneProfiles.Begin(state, config.Actors) end
 		local source = ReplicatedStorage:WaitForChild("Assets"):WaitForChild("Cutscenes")
 		for _, segment in config.ScenePath do
 			source = assert(source:WaitForChild(segment, 10), "Missing cutscene folder: " .. segment)
@@ -46,19 +64,40 @@ function ServerCutscene.Play(name: string)
 		-- Clone together to preserve references between sibling rigs and objects.
 		local clone = SceneLifecycle.Clone(source)
 		staging = clone
+		local function visit(targets, callback)
+			if not fastMount then
+				SceneLifecycle.Visit(targets, callback)
+				return
+			end
+			-- Fast lifecycle explicitly trades a short spike for removing seconds of
+			-- frame-budget waits before the intro can begin.
+			for _, target in targets do
+				callback(target)
+				for _, descendant in target:GetDescendants() do callback(descendant) end
+			end
+		end
+		-- Never guess which duplicate PlayerRig is the newly authored actor.
+		local modelCounts = {}
+		visit({ clone }, function(instance)
+			if instance:IsA("Model") then modelCounts[instance.Name] = (modelCounts[instance.Name] or 0) + 1 end
+		end)
+		for targetName in config.Animations do
+			local matches = modelCounts[targetName] or 0
+			assert(matches == 1, "Expected exactly one cutscene model named " .. targetName .. "; found " .. matches)
+		end
 		local rigParts = {}
 		local atomicRoots = {}
 		for targetName in config.Animations do
 			local rig = clone:FindFirstChild(targetName, true)
 			if rig then
 				atomicRoots[rig] = true
-				SceneLifecycle.Visit({ rig }, function(instance)
+				visit({ rig }, function(instance)
 					if instance:IsA("BasePart") then rigParts[instance] = true end
 				end)
 			end
 		end
 		-- Cutscene assets are scenery, not gameplay actors or spawn points.
-		SceneLifecycle.Visit({ clone }, function(instance)
+		visit({ clone }, function(instance)
 			if instance:IsA("BaseScript") then instance.Enabled = false end
 			if instance:IsA("SpawnLocation") then instance.Enabled = false end
 			if instance:IsA("BasePart") then
@@ -81,17 +120,26 @@ function ServerCutscene.Play(name: string)
 				root.Anchored = true
 			end
 		end
-		if workspace.StreamingEnabled then
+		phase("Scene mount")
+		if workspace.StreamingEnabled or fastMount then
 			streamingContainer = Instance.new("Model")
 			streamingContainer.Name = "CutsceneScene_" .. name
 			streamingContainer.ModelStreamingMode = Enum.ModelStreamingMode.Persistent
-			streamingContainer.Parent = workspace -- mount into an empty container incrementally
+			if not fastMount then streamingContainer.Parent = workspace end
 		end
 		roots = clone:GetChildren()
 		for _, root in roots do
 			if root:IsA("Model") then root.ModelStreamingMode = Enum.ModelStreamingMode.Persistent end
 		end
-		SceneLifecycle.Mount(clone, streamingContainer or workspace, atomicRoots)
+		if fastMount then
+			-- Preserve complete rig/model trees; no leaf detachment or per-part waits.
+			-- Requested tradeoff: one replication/physics spike instead of a long mount.
+			for _, root in roots do root.Parent = streamingContainer end
+			clone:Destroy() -- now-empty wrapper, not source assets
+			streamingContainer.Parent = workspace
+		else
+			SceneLifecycle.Mount(clone, streamingContainer or workspace, atomicRoots)
+		end
 		staging = nil
 		for _, root in roots do
 			local sceneReference = Instance.new("ObjectValue")
@@ -137,6 +185,8 @@ function ServerCutscene.Play(name: string)
 		local part = assert(cameraModel:FindFirstChild(config.Camera.Part, true), "Missing CamPart")
 		assert(part:IsA("BasePart"), "CamPart must be a BasePart")
 		cameraValue.Value = part
+		local trackLabels, optionalTracks = {}, {}
+		phase("Server animations")
 		for targetName, id in config.Animations do
 			local model = assert(find(targetName), "Missing rig: " .. targetName)
 			local host = model:FindFirstChildWhichIsA("Humanoid", true)
@@ -151,11 +201,18 @@ function ServerCutscene.Play(name: string)
 			animatorReference.Name = targetName
 			animatorReference.Value = animator
 			animatorReference:SetAttribute("AnimationId", tostring(id))
+			animatorReference:SetAttribute("Optional", config.Actors and config.Actors[targetName] ~= nil)
+			local modelReference = Instance.new("ObjectValue")
+			modelReference.Name = "Model"
+			modelReference.Value = model
+			modelReference.Parent = animatorReference
 			animatorReference.Parent = rigTracks
 			local animation = Instance.new("Animation")
 			animation.AnimationId = "rbxassetid://" .. id
 			table.insert(animations, animation)
 			local track = animator:LoadAnimation(animation)
+			trackLabels[track] = targetName .. " (" .. tostring(id) .. ")"
+			optionalTracks[track] = config.Actors and config.Actors[targetName] ~= nil or false
 			if targetName == config.Camera.Model then
 				track.Name = "CutsceneCameraTrack"
 			end
@@ -166,25 +223,44 @@ function ServerCutscene.Play(name: string)
 		assert(#tracks > 0, "Cutscene has no animations")
 		local deadline = os.clock() + 20
 		repeat
-			local loaded = true
-			for _, track in tracks do loaded = loaded and track.Length > 0 end
-			if loaded then break end
-			assert(os.clock() < deadline, "Animation load timed out; check animation permissions")
+			local pending = {}
+			for _, track in tracks do
+				if track.Length <= 0 and not optionalTracks[track] then table.insert(pending, trackLabels[track]) end
+			end
+			if #pending == 0 then break end
+			assert(os.clock() < deadline, "Animation load timed out; check asset permissions: " .. table.concat(pending, ", "))
 			RunService.Heartbeat:Wait()
 		until false
-		local duration = 0
 		for _, track in tracks do
-			duration = math.max(duration, track.Length)
+			if track.Length <= 0 then
+				warn("[ServerCutscene] Optional animation unavailable; using static authored actor: " .. trackLabels[track])
+				continue
+			end
 			if track.Name == "CutsceneCameraTrack" then
 				state:SetAttribute("CameraDuration", track.Length)
 			end
 			-- Replicate every paused track before clients acknowledge readiness.
 			track:Play(0, 1, 0)
 			track.TimePosition = 0
+			table.insert(playbackTracks, track)
 		end
-		state:SetAttribute("TrackCount", #tracks)
+		-- The camera defines the shot, not a longer character animation's idle tail.
+		local duration = PlaybackClock.Duration(state:GetAttribute("CameraDuration"), config.MaxDuration)
+		state:SetAttribute("Duration", duration)
+		local requiredTrackCount = 0
+		for _, reference in rigTracks:GetChildren() do
+			if not reference:GetAttribute("Optional") then requiredTrackCount += 1 end
+		end
+		state:SetAttribute("TrackCount", requiredTrackCount)
 		state.Parent = ReplicatedStorage
+		-- Clients can preload the intro concurrently with off-world map preparation.
+		-- Do not start the animation clock until preparation has finished (no Clone
+		-- spike mid-animation). The next map is still NOT mounted into Workspace.
+		phase("Off-world map preparation")
+		if prepareNext then prepareNext() end
+		phase("Client preparation")
 		deadline = os.clock() + 60
+		local nextReport = os.clock() + 5
 		repeat
 			local audience = Players:GetPlayers()
 			local allReady = #audience > 0
@@ -197,30 +273,66 @@ function ServerCutscene.Play(name: string)
 				end
 			end
 			if allReady then break end
+			if os.clock() >= nextReport then
+				warn("[ServerCutscene] Waiting for clients: " .. table.concat(pending, "; "))
+				nextReport = os.clock() + 5
+			end
 			assert(os.clock() < deadline, "Cutscene preparation timed out: " .. table.concat(pending, "; "))
 			RunService.Heartbeat:Wait()
 		until false
 		-- Give the shared start timestamp time to reach the prepared clients.
 		state:SetAttribute("StartedAt", workspace:GetServerTimeNow() + 0.5)
+		phase("Playing")
+		local playbackError = nil
 		playbackConnection = RunService.PreAnimation:Connect(function()
-			PlaybackClock.Apply(tracks, PlaybackClock.Elapsed(state, workspace:GetServerTimeNow()))
+			if playbackError then return end
+			local ok, failure = pcall(PlaybackClock.Apply, playbackTracks, PlaybackClock.Elapsed(state, workspace:GetServerTimeNow()))
+			if not ok then playbackError = failure end
 		end)
 		while PlaybackClock.Elapsed(state, workspace:GetServerTimeNow()) < duration do
+			assert(not playbackError, tostring(playbackError))
+			for player, failure in failures do
+				if player.Parent == Players then error(player.Name .. ": " .. failure) end
+			end
 			RunService.Heartbeat:Wait()
 		end
+		ReplicatedStorage:SetAttribute("CutsceneEndedAt", workspace:GetServerTimeNow())
 	end, debug.traceback)
-	connection:Disconnect()
-	if playbackConnection then playbackConnection:Disconnect() end
-	state:Destroy()
+	local failedPhase = currentPhase
+	local cleanupStarted = os.clock()
+	phase("Cleanup")
+	Cleanup.Try("Ready listener", function() connection:Disconnect() end)
+	if stopProfiles then Cleanup.Try("Profiles", stopProfiles) end
+	if playbackConnection then Cleanup.Try("Playback listener", function() playbackConnection:Disconnect() end) end
+	Cleanup.Try("Replicated session", function() state:Destroy() end)
 	for _, track in tracks do
-		track:Stop(0)
-		track:Destroy()
+		Cleanup.Try("Stop rig animation", function() track:Stop(0) end)
+		Cleanup.Try("Destroy rig animation", function() track:Destroy() end)
 	end
-	for _, animation in animations do animation:Destroy() end
-	SceneLifecycle.Destroy(roots)
-	if staging then SceneLifecycle.Destroy({ staging }) end
-	if streamingContainer then streamingContainer:Destroy() end
-	if not success then error(err, 0) end
+	for _, animation in animations do Cleanup.Try("Animation asset", function() animation:Destroy() end) end
+	if fastCleanup then
+		-- Delete the owned container as a unit, including Models/Folders, not leaves
+		-- spread over many frames. Never search/delete similarly named source assets.
+		if streamingContainer then Cleanup.Try("Fast scene container", function() streamingContainer:Destroy() end) end
+		for _, root in roots do Cleanup.Try("Fast owned root", function() root:Destroy() end) end
+		if staging then Cleanup.Try("Fast staging scene", function() staging:Destroy() end); staging = nil end
+	elseif not Cleanup.Try("Scene roots", function() SceneLifecycle.Destroy(roots, true) end) then
+		for _, root in roots do
+			if not Cleanup.Try("Retry scene root " .. root.Name, function() SceneLifecycle.Destroy({ root }, true) end) then
+				-- Emergency path only: owned clone, never source assets or arbitrary Workspace models.
+				Cleanup.Try("Remove failed owned root", function() root:Destroy() end)
+			end
+		end
+	end
+	if staging then Cleanup.Try("Staging scene", function() SceneLifecycle.Destroy({ staging }) end) end
+	if streamingContainer then Cleanup.Try("Streaming container", function() streamingContainer:Destroy() end) end
+	ReplicatedStorage:SetAttribute("CutsceneCleanupSeconds", os.clock() - cleanupStarted)
+	ReplicatedStorage:SetAttribute("CutscenePhase", if success then "Finished" else "Failed: " .. failedPhase)
+	if not success then
+		local detail = "[" .. failedPhase .. "] " .. tostring(err)
+		ReplicatedStorage:SetAttribute("CutsceneError", string.sub(detail, 1, 1000))
+		error(detail, 0)
+	end
 end
 
 return ServerCutscene

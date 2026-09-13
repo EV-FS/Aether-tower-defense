@@ -35,16 +35,20 @@ function SceneLifecycle.Clone(source)
 	return clone
 end
 
-function SceneLifecycle.Destroy(roots)
+function SceneLifecycle.Destroy(roots, scriptsDisabled)
 	local step, scanStep = budget()
-	InstanceBatch.Visit(roots, function(instance)
-		if instance:IsA("BaseScript") then instance.Enabled = false end
-	end, scanStep)
+	if not scriptsDisabled then
+		InstanceBatch.Visit(roots, function(instance)
+			if instance:IsA("BaseScript") then instance.Enabled = false end
+		end, scanStep)
+	end
 	InstanceBatch.Destroy(roots, step, scanStep)
 end
 
-function SceneLifecycle.Mount(clone, destination, atomicRoots)
-	local step, prepareStep = budget()
+-- This phase never parents anything to Workspace. It can run while clients prepare
+-- the intro, before its synchronized clock starts.
+function SceneLifecycle.Prepare(clone, atomicRoots)
+	local _, prepareStep = budget()
 	local roots = clone:GetChildren()
 	local heldParts, heldScripts = {}, {}
 	local entries = InstanceBatch.Plan(clone, function(instance)
@@ -61,9 +65,7 @@ function SceneLifecycle.Mount(clone, destination, atomicRoots)
 				instance.Enabled = false
 			end
 		end, prepareStep)
-		InstanceBatch.Mount(clone, destination, entries, step, prepareStep)
-		for _, part in heldParts do part.Anchored = false; step() end
-		for _, scriptInstance in heldScripts do scriptInstance.Enabled = true; step() end
+		InstanceBatch.Detach(entries, prepareStep)
 	end, debug.traceback)
 	if not ok then
 		local owned = {}
@@ -72,8 +74,34 @@ function SceneLifecycle.Mount(clone, destination, atomicRoots)
 		clone:Destroy()
 		error(err, 0)
 	end
-	clone:Destroy() -- empty wrapper only
-	return roots
+	return { Clone = clone, Roots = roots, Entries = entries, Parts = heldParts, Scripts = heldScripts }
+end
+
+function SceneLifecycle.Discard(prepared)
+	if not prepared or prepared.Consumed then return end
+	prepared.Consumed = true
+	local owned = {}
+	for _, entry in prepared.Entries do table.insert(owned, entry.Instance) end
+	SceneLifecycle.Destroy(owned)
+	prepared.Clone:Destroy()
+end
+
+function SceneLifecycle.MountPrepared(prepared, destination)
+	assert(not prepared.Consumed, "Prepared scene already consumed")
+	local step, prepareStep = budget()
+	local ok, err = xpcall(function()
+		InstanceBatch.Mount(prepared.Clone, destination, prepared.Entries, step, prepareStep, true)
+		for _, part in prepared.Parts do part.Anchored = false; step() end
+		for _, scriptInstance in prepared.Scripts do scriptInstance.Enabled = true; step() end
+	end, debug.traceback)
+	if not ok then SceneLifecycle.Discard(prepared); error(err, 0) end
+	prepared.Consumed = true
+	prepared.Clone:Destroy() -- empty wrapper only
+	return prepared.Roots
+end
+
+function SceneLifecycle.Mount(clone, destination, atomicRoots)
+	return SceneLifecycle.MountPrepared(SceneLifecycle.Prepare(clone, atomicRoots), destination)
 end
 
 return SceneLifecycle

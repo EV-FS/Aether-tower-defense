@@ -39,14 +39,18 @@ function InstanceBatch.Plan(root, isAtomic, step)
 	return entries
 end
 
-function InstanceBatch.Mount(root, destination, entries, step, prepareStep)
+function InstanceBatch.Detach(entries, step)
+	for index = #entries, 1, -1 do
+		entries[index].Instance.Parent = nil
+		step()
+	end
+end
+
+function InstanceBatch.Mount(root, destination, entries, step, prepareStep, detached)
 	prepareStep = prepareStep or step
 	-- Off-world child-first detach, then parent-first mount in small batches.
 	-- Each entry is the SAME clone, so ObjectValues/joints retain their references.
-	for index = #entries, 1, -1 do
-		entries[index].Instance.Parent = nil
-		prepareStep()
-	end
+	if not detached then InstanceBatch.Detach(entries, prepareStep) end
 	for _, entry in entries do
 		entry.Instance.Parent = if entry.Parent == root then destination else entry.Parent
 		step()

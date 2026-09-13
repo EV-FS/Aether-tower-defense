@@ -23,6 +23,8 @@ export type ScreenTrack = { ScreenKey } | { Default: (number | boolean | Color3)
 export type CutsceneInfo = {
 	ScenePath: { string },
 	Animations: { [string]: number },
+	Actors: { [string]: "Self" | "Friend" }?,
+	Lifecycle: { FastMount: boolean?, FastCleanup: boolean? }?,
 	Camera: CameraConfig,
 	MaxDuration: number?,
 	Audio: { SoundId: number, Volume: number? }?,
@@ -50,12 +52,15 @@ export type CutsceneData = {
 
 return TableUtils.DeepFreeze({
 	RaidIntro = {
+		Lifecycle = { FastMount = true, FastCleanup = true },
 		ScenePath = { "Raid", "Intro", "Workspace" },
 		Animations = {
-			PlayerRig = 117994110297108,
+			PlayerRig = 123376886571527,
+			PlayerFriendRig = 117994110297108,
 			RaidBoss = 116563833173937,
 			Cam = 92652239085170,
 		},
+		Actors = { PlayerRig = "Self", PlayerFriendRig = "Friend" },
 		Camera = {
 			Model = "Cam",
 			Part = "CamPart",

@@ -38,10 +38,23 @@ ServiceRegistry:RegisterServices({
 })
 
 local mapFolder = workspace:WaitForChild("Map")
-while mapFolder:GetAttribute("MapReady") ~= true do
-	assert(not mapFolder:GetAttribute("LoadError"), "Map load failed: " .. tostring(mapFolder:GetAttribute("LoadError")))
-	task.wait(0.1)
+-- Map geometry alone is not enough: don't reveal the world before protected
+-- characters have been placed on its standing surface.
+local mapReady, mapError = pcall(function()
+	while mapFolder:GetAttribute("MapReady") ~= true or mapFolder:GetAttribute("GameplayReady") ~= true do
+		assert(not mapFolder:GetAttribute("LoadError"), "Map load failed: " .. tostring(mapFolder:GetAttribute("LoadError")))
+		task.wait(0.1)
+	end
+end)
+if not mapReady then
+	warn("[Initialize] " .. tostring(mapError))
+	finishLoading() -- never strand the player behind an unresponsive cover
+	return
 end
+
+-- The server has mounted the map and safely placed every character. Client
+-- service startup may continue in the visible world and cannot hold loading open.
+finishLoading()
 
 GetPath.Init()
 
@@ -49,8 +62,6 @@ ServiceRegistry:Start():andThen(function()
 	UI.Init()
 	-- Map/path/services are ready. Do not wait for every unused map/unit asset.
 	-- Cutscene-critical audio/images still use their own readiness preloads.
-	finishLoading()
 end):catch(function(err)
 	warn(`Client initialization failed: {err}`)
-	finishLoading()
 end)

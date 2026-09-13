@@ -11,6 +11,8 @@ local ImpactFrames = require(script.Parent.Parent.ImpactFrames)
 local VFXContext = require(script.Parent.Parent.VFXContext)
 local PlaybackClock = require(script.Parent.Parent.PlaybackClock)
 local Prepare = require(script.Parent.Parent.Prepare)
+local ActorView = require(script.Parent.Parent.ActorView)
+local Cleanup = require(script.Parent.Parent.Cleanup)
 
 local CameraRuntime = {}
 CameraRuntime.__index = CameraRuntime
@@ -21,6 +23,8 @@ function CameraRuntime.new(state, reference, config, tracks)
 		Components.Session({ State = state, Elapsed = 0 }),
 		Components.CameraTarget({ Reference = reference })
 	)
+	local self = setmetatable({ World = world, Entity = entity, State = state, Tracks = tracks }, CameraRuntime)
+	local ok, err = xpcall(function()
 	local fov = config and config.Camera.FOV
 	local vfx = config and config.VFX
 	if fov then
@@ -30,9 +34,17 @@ function CameraRuntime.new(state, reference, config, tracks)
 		}))
 	end
 	local jobs = {}
+	local actorView = nil
+	if config and config.Actors then
+		jobs.Actors = { Timeout = 15,
+			Run = function() return ActorView.new(state, config, tracks, function(view) actorView = view; self.ActorView = view end) end,
+			Cancel = function() if actorView then actorView:Destroy() end end,
+		}
+	end
 	local sound = nil
 	if config and config.Audio then
 		sound = Instance.new("Sound")
+		self.Sound = sound
 		sound.Name = "CutsceneAudio"
 		sound.SoundId = "rbxassetid://" .. config.Audio.SoundId
 		sound.Volume = config.Audio.Volume or 1
@@ -54,6 +66,9 @@ function CameraRuntime.new(state, reference, config, tracks)
 	end
 	local prepared = Prepare.All(jobs)
 	local context = prepared.VFX and prepared.VFX.Success and prepared.VFX.Value or nil
+	self.VFXContext = context
+	self.ImpactView = prepared.Impact and prepared.Impact.Success and prepared.Impact.Value or nil
+	self.ScreenView = prepared.Screen and prepared.Screen.Success and prepared.Screen.Value or nil
 	if context then
 		local keys = {}
 		for frame in vfx.Events do table.insert(keys, frame) end
@@ -77,14 +92,15 @@ function CameraRuntime.new(state, reference, config, tracks)
 			Events = impact.Events, EndFrame = impact.EndFrame, FPS = impact.FPS, View = impactView,
 		}))
 	end
-	return setmetatable({
-		World = world, Entity = entity, State = state, Tracks = tracks,
-		Sound = sound, ImpactView = impactView, VFXContext = context, ScreenView = screenView,
-	}, CameraRuntime)
+	end, debug.traceback)
+	if not ok then self:Destroy(); error(err, 0) end
+	return self
 end
 
 -- Called before Animator evaluates poses. Rendering uses this exact sample.
 function CameraRuntime:PreAnimation()
+	if self.Destroyed or not self.State.Parent then return end
+	if self.ActorView then self.ActorView:PreAnimation() end
 	local elapsed = PlaybackClock.Elapsed(self.State, workspace:GetServerTimeNow())
 	PlaybackClock.Apply(self.Tracks, elapsed)
 	self.World:insert(self.Entity, Components.Session({ State = self.State, Elapsed = elapsed }))
@@ -99,24 +115,27 @@ function CameraRuntime:Step()
 end
 
 function CameraRuntime:Destroy()
+	if self.Destroyed then return end
+	self.Destroyed = true
+	if self.ActorView then Cleanup.Try("Actors", function() self.ActorView:Destroy() end); self.ActorView = nil end
 	if self.ScreenView then
-		self.ScreenView:Destroy()
+		Cleanup.Try("Screen effects", function() self.ScreenView:Destroy() end)
 		self.ScreenView = nil
 	end
 	if self.VFXContext then
-		self.VFXContext:Destroy()
+		Cleanup.Try("VFX", function() self.VFXContext:Destroy() end)
 		self.VFXContext = nil
 	end
 	if self.ImpactView then
-		self.ImpactView:Destroy()
+		Cleanup.Try("Impact images", function() self.ImpactView:Destroy() end)
 		self.ImpactView = nil
 	end
 	if self.Sound then
-		self.Sound:Stop()
-		self.Sound:Destroy()
+		Cleanup.Try("Stop audio", function() self.Sound:Stop() end)
+		Cleanup.Try("Destroy audio", function() self.Sound:Destroy() end)
 		self.Sound = nil
 	end
-	self.World:despawn(self.Entity)
+	Cleanup.Try("ECS session", function() self.World:despawn(self.Entity) end)
 end
 
 return CameraRuntime

@@ -13,7 +13,9 @@ local DISPLAY_FONT = Font.new("rbxasset://fonts/families/FredokaOne.json")
 
 type PlayerState = {
 	billboard: BillboardGui?,
+	titleLabel: TextLabel?,
 	levelLabel: TextLabel?,
+	titleConnection: RBXScriptConnection?,
 	levelConnection: RBXScriptConnection?,
 	leaderstatsConnection: RBXScriptConnection?,
 	playerChildConnection: RBXScriptConnection?,
@@ -54,6 +56,19 @@ local function createLabel(name: string, heightScale: number): TextLabel
 	label.TextYAlignment = Enum.TextYAlignment.Center
 
 	return label
+end
+
+local function escapeRichText(value: string): string
+	return value:gsub("&", "&amp;"):gsub("<", "&lt;"):gsub(">", "&gt;")
+end
+
+local function refreshTitle(player: Player)
+	local state = playerStates[player]
+	if not state or not state.titleLabel then return end
+	local title = player:GetAttribute("ChatRoleTag")
+	local visible = type(title) == "string" and title ~= ""
+	state.titleLabel.Text = if visible then escapeRichText(title) else ""
+	state.titleLabel.Visible = visible
 end
 
 local function currentLevel(player: Player): number
@@ -165,6 +180,21 @@ local function createOverhead(player: Player, character: Model)
 	layout.Padding = UDim.new(-0.02, 0)
 	layout.Parent = container
 
+	local titleLabel = createLabel("Title", 0.26)
+	titleLabel.LayoutOrder = 0
+	-- These belong to the actual title, not only the shared name/level labels.
+	titleLabel.TextScaled = true
+	titleLabel.RichText = true
+	titleLabel.TextColor3 = Color3.fromRGB(207, 139, 255)
+	addTextStroke(titleLabel, 0.15)
+	local titleGradient = Instance.new("UIGradient")
+	titleGradient.Color = ColorSequence.new({
+		ColorSequenceKeypoint.new(0, Color3.fromRGB(255, 191, 255)),
+		ColorSequenceKeypoint.new(1, Color3.fromRGB(156, 104, 255)),
+	})
+	titleGradient.Parent = titleLabel
+	titleLabel.Parent = container
+
 	local levelLabel = createLabel("Level", 0.3)
 	levelLabel.LayoutOrder = 1
 	levelLabel.Text = `Level {currentLevel(player)}`
@@ -183,13 +213,15 @@ local function createOverhead(player: Player, character: Model)
 
 	local nameLabel = createLabel("PlayerName", 0.37)
 	nameLabel.LayoutOrder = 2
-	nameLabel.Text = player.DisplayName:gsub("&", "&amp;"):gsub("<", "&lt;"):gsub(">", "&gt;")
+	nameLabel.Text = escapeRichText(player.DisplayName)
 	nameLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
 	addTextStroke(nameLabel, 0.14)
 	nameLabel.Parent = container
 
 	state.billboard = billboard
+	state.titleLabel = titleLabel
 	state.levelLabel = levelLabel
+	refreshTitle(player)
 end
 
 local function resolveDeveloperRole(player: Player)
@@ -206,6 +238,7 @@ local function resolveDeveloperRole(player: Player)
 	else
 		player:SetAttribute("ChatRoleTag", nil)
 	end
+	refreshTitle(player)
 
 end
 
@@ -221,6 +254,9 @@ local function playerAdded(player: Player)
 		if child.Name == "leaderstats" then
 			bindLeaderstats(player, child)
 		end
+	end)
+	state.titleConnection = player:GetAttributeChangedSignal("ChatRoleTag"):Connect(function()
+		refreshTitle(player)
 	end)
 
 	state.characterConnection = player.CharacterAdded:Connect(function(character)
@@ -242,6 +278,7 @@ local function playerRemoving(player: Player)
 	end
 
 	disconnect(state.levelConnection)
+	disconnect(state.titleConnection)
 	disconnect(state.leaderstatsConnection)
 	disconnect(state.playerChildConnection)
 	disconnect(state.characterConnection)

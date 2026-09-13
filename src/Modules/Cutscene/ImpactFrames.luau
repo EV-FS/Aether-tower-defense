@@ -81,6 +81,7 @@ function ImpactFrames:Show(imageId, isPlaying)
 end
 
 function ImpactFrames:Destroy()
+	self.Gui.Enabled = false
 	self.Gui:Destroy()
 end
 

@@ -68,6 +68,12 @@ function ScreenEffects:ApplyFrame(frame, playing)
 end
 
 function ScreenEffects:Destroy()
+	-- Neutralize before removal so a delayed render cannot show the last dark key.
+	self.Effect.Enabled = false
+	self.Effect.Brightness = 0
+	self.Effect.Contrast = 0
+	self.Effect.Saturation = 0
+	self.Effect.TintColor = Color3.new(1, 1, 1)
 	self.Effect:Destroy()
 end
 

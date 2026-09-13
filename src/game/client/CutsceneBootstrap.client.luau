@@ -2,8 +2,11 @@ local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
 local CameraRuntime = require(ReplicatedStorage.Shared.Modules.Cutscene.ECS.CameraRuntime)
+local ClientRigTracks = require(ReplicatedStorage.Shared.Modules.Cutscene.ClientRigTracks)
+local Cleanup = require(ReplicatedStorage.Shared.Modules.Cutscene.Cleanup)
 local playerGui = Players.LocalPlayer:WaitForChild("PlayerGui")
 local active = nil
+local activeCleanup = nil
 
 local function attach(state)
 	if state.Name ~= "ActiveCutscene" or active == state then return end
@@ -12,43 +15,21 @@ local function attach(state)
 	local ready = state:WaitForChild("CameraReady", 10)
 	if not reference or not ready then active = nil; return end
 	ready:FireServer("Stage", "Waiting for CamPart replication")
-	while state.Parent and not reference.Value do RunService.Heartbeat:Wait() end
-	if not state.Parent then active = nil; return end
-	local config = require(ReplicatedStorage.Settings.Data.CutsceneData)[state:GetAttribute("CutsceneName")]
-	-- Wait for the actual server-created tracks below, not duplicate Animation assets.
-	ready:FireServer("Stage", "Waiting for loaded animation tracks")
-	local rigTracks = state:WaitForChild("RigTracks", 10)
-	if not rigTracks then active = nil; return end
-	local tracks = {}
-	local trackDeadline = os.clock() + 30
-	local lastCount = -1
-	-- Content download alone does not mean replicated Animator tracks are ready.
-	while state.Parent do
-		table.clear(tracks)
-		for _, referenceValue in rigTracks:GetChildren() do
-			local animator = referenceValue.Value
-			local expectedId = referenceValue:GetAttribute("AnimationId")
-			if animator then
-				for _, track in animator:GetPlayingAnimationTracks() do
-					local animation = track.Animation
-					if animation and animation.AnimationId:match("%d+") == expectedId and track.Length > 0 then
-						table.insert(tracks, track)
-						break
-					end
-				end
-			end
-		end
-		if #tracks > 0 and #tracks == state:GetAttribute("TrackCount") then break end
-		if lastCount ~= #tracks then
-			lastCount = #tracks
-			ready:FireServer("Stage", "Replicated animation tracks " .. #tracks .. "/" .. tostring(state:GetAttribute("TrackCount")))
-		end
-		assert(os.clock() < trackDeadline, "Replicated animation tracks missing: " .. #tracks .. "/" .. tostring(state:GetAttribute("TrackCount")))
+	local cameraDeadline = os.clock() + 30
+	while state.Parent and not reference.Value do
+		assert(os.clock() < cameraDeadline, "CamPart replication timed out")
 		RunService.Heartbeat:Wait()
 	end
 	if not state.Parent then active = nil; return end
+	local config = require(ReplicatedStorage.Settings.Data.CutsceneData)[state:GetAttribute("CutsceneName")]
+	ready:FireServer("Stage", "Waiting for loaded animation tracks")
+	local rigTracks = ClientRigTracks.new(state)
+	activeCleanup = function() rigTracks:Destroy() end
+	local tracks = rigTracks:Prepare(ready)
+	if not state.Parent then rigTracks:Destroy(); active = nil; activeCleanup = nil; return end
 	local camera = workspace.CurrentCamera
 	while not camera do
+		assert(state.Parent and os.clock() < cameraDeadline, "CurrentCamera unavailable")
 		RunService.Heartbeat:Wait()
 		camera = workspace.CurrentCamera
 	end
@@ -57,40 +38,62 @@ local function attach(state)
 	local savedFOV = camera.FieldOfView
 	ready:FireServer("Stage", "Audio/VFX/impact/screen effect initialization")
 	local runtime = CameraRuntime.new(state, reference, config, tracks)
-	if not state.Parent then runtime:Destroy(); active = nil; return end
-	local playbackConnection = RunService.PreAnimation:Connect(function()
-		runtime:PreAnimation()
-	end)
+	if not state.Parent then runtime:Destroy(); rigTracks:Destroy(); active = nil; activeCleanup = nil; return end
+	local playbackConnection = nil
 	local covers = {}
-	RunService:BindToRenderStep("ServerCutsceneCamera", Enum.RenderPriority.Camera.Value + 1, function()
-		runtime:Step()
-		for _, gui in playerGui:GetChildren() do
-			if gui:IsA("ScreenGui") and (gui.Name == "LoadingScreen" or gui.Name == "LoadingBootstrap") then
-				if covers[gui] == nil then covers[gui] = gui.Enabled end
-				gui.Enabled = false
+	local cleaned = false
+	local function cleanup()
+		if cleaned then return end
+		cleaned = true
+		if playbackConnection then playbackConnection:Disconnect() end
+		RunService:UnbindFromRenderStep("ServerCutsceneCamera")
+		Cleanup.Try("Client runtime", function() runtime:Destroy() end)
+		Cleanup.Try("Client rig tracks", function() rigTracks:Destroy() end)
+		Cleanup.Try("Camera restore", function()
+			if workspace.CurrentCamera then
+				workspace.CurrentCamera.CameraType = savedType
+				workspace.CurrentCamera.CameraSubject = savedSubject
+				workspace.CurrentCamera.CFrame = savedCFrame
+				workspace.CurrentCamera.Focus = savedFocus
+				workspace.CurrentCamera.FieldOfView = savedFOV
 			end
-		end
+		end)
+		for gui, enabled in covers do if gui.Parent then gui.Enabled = enabled end end
+		if active == state then active = nil; activeCleanup = nil end
+	end
+	activeCleanup = cleanup
+	local callbackError = nil
+	local function guard(callback)
+		if cleaned or callbackError then return end
+		local ok, err = xpcall(callback, debug.traceback)
+		if not ok then callbackError = err end
+	end
+	playbackConnection = RunService.PreAnimation:Connect(function()
+		guard(function() runtime:PreAnimation() end)
+	end)
+	RunService:BindToRenderStep("ServerCutsceneCamera", Enum.RenderPriority.Camera.Value + 1, function()
+		guard(function()
+			runtime:Step()
+			for _, gui in playerGui:GetChildren() do
+				if gui:IsA("ScreenGui") and (gui.Name == "LoadingScreen" or gui.Name == "LoadingBootstrap") then
+					if covers[gui] == nil then covers[gui] = gui.Enabled end
+					gui.Enabled = false
+				end
+			end
+		end)
 	end)
 	RunService.RenderStepped:Wait()
+	assert(not callbackError, tostring(callbackError))
 	ready:FireServer()
-	while state.Parent do RunService.Heartbeat:Wait() end
-	playbackConnection:Disconnect()
-	RunService:UnbindFromRenderStep("ServerCutsceneCamera")
-	runtime:Destroy()
-	if workspace.CurrentCamera then
-		workspace.CurrentCamera.CameraType = savedType
-		workspace.CurrentCamera.CameraSubject = savedSubject
-		workspace.CurrentCamera.CFrame = savedCFrame
-		workspace.CurrentCamera.Focus = savedFocus
-		workspace.CurrentCamera.FieldOfView = savedFOV
-	end
-	for gui, enabled in covers do if gui.Parent then gui.Enabled = enabled end end
-	active = nil
+	while state.Parent and not callbackError do RunService.Heartbeat:Wait() end
+	assert(not callbackError, tostring(callbackError))
+	cleanup()
 end
 
 local function start(child)
 	local ok, err = xpcall(attach, debug.traceback, child)
 	if not ok then
+		if active == child and activeCleanup then Cleanup.Try("Bootstrap failure", activeCleanup) end
 		warn("[CutsceneBootstrap] " .. tostring(err))
 		local ready = child:FindFirstChild("CameraReady")
 		if ready then ready:FireServer("Failed", tostring(err)) end
