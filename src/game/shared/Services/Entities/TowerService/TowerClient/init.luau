@@ -308,6 +308,7 @@ function TowerClient.RequestSpawn()
 	local validationData = {
 		["TowerName"] = towerName,
 		["SpawnPosition"] = spawnPosition,
+		["SurfaceHit"] = placementData.SurfaceHit,
 		["BorderRadius"] = placementData.BorderRadius,
 		["CurrentCash"] = EconomyService.GetCash(PLAYER),
 		["CurrentCount"] = TowerClient.GetTowerCount(towerName),
