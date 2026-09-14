@@ -6,6 +6,7 @@ local SoundService = game:GetService("SoundService")
 --/Modules
 local SFXRecipes = require(ReplicatedStorage.Settings.Visuals.SFXRecipes)
 local InstanceCache = require(ReplicatedStorage.Shared.Modules.Core.InstanceCache)
+local ResolveSoundAsset = require(ReplicatedStorage.Shared.Modules.Utils.ResolveSoundAsset)
 local TimeService
 
 --/Variables
@@ -20,8 +21,6 @@ AudioFolder.Parent = SoundService
 local DEFAULT_DISTANCE = 1000
 local DEFAULT_VOLUME = 1
 
-local SFX_FOLDER = ReplicatedStorage:WaitForChild("Assets"):WaitForChild("SFX")
-
 --/Pools
 local PlayerStorage
 local EmitterStorage
@@ -34,35 +33,30 @@ export type Recipes = { SFXRecipes.Step }
 -------------------------------------------------
 --// Local Functions
 -------------------------------------------------
-local function GetInverseAttenuation(minDist, maxDist)
+local function GetInverseAttenuation(minDist: number, maxDist: number): { [number]: number }
+	local rollOffMin = math.max(minDist, 10)
+	local rollOffMax = math.max(maxDist, rollOffMin + 1)
 	local attenuation = {}
 	attenuation[0] = 1
-	attenuation[minDist] = 1
+	attenuation[rollOffMin] = 1
 
 	local steps = 5
 	for i = 1, steps do
-		local distance = minDist + (maxDist - minDist) * (i / steps)
-		local volume = minDist / distance
+		local distance = rollOffMin + (rollOffMax - rollOffMin) * (i / steps)
+		local volume = rollOffMin / distance
 		attenuation[distance] = math.clamp(volume, 0, 1)
 	end
 
-	attenuation[maxDist] = 0
+	attenuation[rollOffMax] = 0
 	return attenuation
 end
 
 local function getSound(soundPath: string)
-	local current: Instance? = SFX_FOLDER
-
-	for name in string.gmatch(soundPath, "[^/]+") do
-		current = current and current:FindFirstChild(name)
-
-		if not current then
-			warn(`Sound 에셋을 찾을 수 없음: {soundPath}`)
-			return nil
-		end
+	local sound = ResolveSoundAsset(soundPath)
+	if not sound then
+		warn(`Sound 에셋을 찾을 수 없음: {soundPath}`)
 	end
-
-	return current
+	return sound
 end
 
 local function resolveInstance(value: any, sourceModel: Model, targetModel: Model)
@@ -123,6 +117,12 @@ function AudioService.GetRecipes(sourceName: string, audioType: string, sourceLe
 	local audioRecipes = sourceRecipes[audioType]
 	if not audioRecipes then
 		return nil
+	end
+
+	-- Shared events contain steps directly; tower attacks can select steps by level.
+	local firstStep = audioRecipes[1]
+	if type(firstStep) == "table" and type(firstStep.Sound) == "string" then
+		return audioRecipes
 	end
 
 	local level = sourceLevel or 0
