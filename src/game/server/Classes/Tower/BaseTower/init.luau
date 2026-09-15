@@ -147,6 +147,7 @@ function BaseTower:_AddTowerExp()
 end
 
 <<<<<<< HEAD
+<<<<<<< HEAD
 function BaseTower:_RecalculateStats()
 	self.Stats = TableUtils.DeepCopy(TowerData.ByName[self.Name].Stats[self.Level])
 
@@ -165,6 +166,8 @@ function BaseTower:_RecalculateStats()
 	end
 end
 
+=======
+>>>>>>> parent of b55c1aa (어드민타워 적용 딩딩과 18키로)
 =======
 >>>>>>> parent of b55c1aa (어드민타워 적용 딩딩과 18키로)
 function BaseTower:_ApplyNewStats()

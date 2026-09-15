@@ -3,4 +3,9 @@
 
 # To add a new tool, add an entry to this table.
 [tools]
+<<<<<<< HEAD
 rojo = "rojo-rbx/rojo@7.6.1"
+=======
+rojo = "rojo-rbx/rojo@7.7.0-rc.1"
+# rojo = "rojo-rbx/rojo@6.2.0"
+>>>>>>> parent of b55c1aa (어드민타워 적용 딩딩과 18키로)

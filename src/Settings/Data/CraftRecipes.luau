@@ -52,6 +52,21 @@ local CraftRecipes: { [string]: Recipe } = {
 			{ Type = "Currency", Name = "Coins", Amount = 7500 },
 		},
 	},
+<<<<<<< HEAD
+=======
+	["Cowboy"] = {
+		ResultType = "Tower",
+		ResultName = "Mecha Demian",
+		ResultAmount = 1,
+
+		Ingredients = {
+			{ Type = "Item", Name = "Blaster Gun", Amount = 1 },
+			{ Type = "Tower", Name = "Mecha Fist", Amount = 1 },
+			{ Type = "Tower", Name = "Mecha", Amount = 10 },
+			{ Type = "Currency", Name = "Coins", Amount = 7500 },
+		},
+	},
+>>>>>>> parent of b55c1aa (어드민타워 적용 딩딩과 18키로)
 	["Emperor Noob"] = {
 		ResultType = "Tower",
 		ResultName = "Mecha Demian",
@@ -67,17 +82,26 @@ local CraftRecipes: { [string]: Recipe } = {
 	["Mecha Demian"] = {
 		ResultType = "Tower",
 		ResultName = "Mecha Demian",
+<<<<<<< HEAD
+>>>>>>> parent of b55c1aa (어드민타워 적용 딩딩과 18키로)
+=======
 >>>>>>> parent of b55c1aa (어드민타워 적용 딩딩과 18키로)
 		ResultAmount = 1,
 		Ingredients = {
 <<<<<<< HEAD
+<<<<<<< HEAD
 			{ Name = "Blaster Gun", Amount = 1 },
 			{ Name = "Warrior's helmet", Amount = 1 },
 =======
+=======
+>>>>>>> parent of b55c1aa (어드민타워 적용 딩딩과 18키로)
 			{ Type = "Item", Name = "Blaster Gun", Amount = 1 },
 			{ Type = "Tower", Name = "Mecha Fist", Amount = 1 },
 			{ Type = "Tower", Name = "Mecha", Amount = 10 },
 			{ Type = "Currency", Name = "Coins", Amount = 7500 },
+<<<<<<< HEAD
+>>>>>>> parent of b55c1aa (어드민타워 적용 딩딩과 18키로)
+=======
 >>>>>>> parent of b55c1aa (어드민타워 적용 딩딩과 18키로)
 		},
 	},

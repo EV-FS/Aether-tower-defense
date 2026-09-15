@@ -87,7 +87,11 @@ function GameService:PrepareMap()
 	if RunService:IsStudio() then
 		self.SelectedMap = "Chapter 1"
 <<<<<<< HEAD
+<<<<<<< HEAD
 		self.SelectedDifficulty = "Hard"
+=======
+		self.SelectedDifficulty = "Eternal"
+>>>>>>> parent of b55c1aa (어드민타워 적용 딩딩과 18키로)
 =======
 		self.SelectedDifficulty = "Eternal"
 >>>>>>> parent of b55c1aa (어드민타워 적용 딩딩과 18키로)

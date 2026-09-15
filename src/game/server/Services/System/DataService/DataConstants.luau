@@ -16,6 +16,7 @@ return TableUtils.DeepFreeze({
 		Inventory = {
 			Crates = {},
 			Items = {},
+<<<<<<< HEAD
 <<<<<<< HEAD:src/Settings/Data/DataConstants.luau
 			Skins = {},
 			Emotes = {},
@@ -25,6 +26,8 @@ return TableUtils.DeepFreeze({
 		Collection = {
 			Units = {},
 			Items = {},
+=======
+>>>>>>> parent of b55c1aa (어드민타워 적용 딩딩과 18키로)
 		},
 		GamePasses = {},
 		DevProducts = {},
@@ -42,7 +45,10 @@ return TableUtils.DeepFreeze({
 		Exp = true,
 		OwnedTowers = true,
 		Inventory = true,
+<<<<<<< HEAD
 		Collection = true,
+=======
+>>>>>>> parent of b55c1aa (어드민타워 적용 딩딩과 18키로)
 		GamePass = true,
 		DevProducts = true,
 		Loadout = true,
@@ -58,6 +64,9 @@ return TableUtils.DeepFreeze({
 	TOWER_TEMPLATE = {
 		Lv = 0,
 		Exp = 0,
+<<<<<<< HEAD
 		Locked = false,
+=======
+>>>>>>> parent of b55c1aa (어드민타워 적용 딩딩과 18키로)
 	},
 })

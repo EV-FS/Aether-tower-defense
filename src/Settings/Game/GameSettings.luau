@@ -5,7 +5,11 @@ return TableUtils.DeepFreeze({
 	--GameService
 	LobbyPlaceId = 82472147389912,
 <<<<<<< HEAD
+<<<<<<< HEAD
 	StartMoney = 100000000,
+=======
+	StartMoney = 10000000000,
+>>>>>>> parent of b55c1aa (어드민타워 적용 딩딩과 18키로)
 =======
 	StartMoney = 10000000000,
 >>>>>>> parent of b55c1aa (어드민타워 적용 딩딩과 18키로)

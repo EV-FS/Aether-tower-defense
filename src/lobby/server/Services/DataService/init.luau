@@ -232,6 +232,7 @@ function DataService.Start()
 		end)
 	end
 
+<<<<<<< HEAD
 <<<<<<< HEAD:src/lobby/ServerScriptService/Server/Services/DataService/init.luau
 	DataService:GetChangedSignal("Quests"):Connect(function(player, value)
 		Net.DataService.CurrencyChanged.Fire(player, { CurrencyName = "Quests", CurrencyValue = 0 })
@@ -248,6 +249,9 @@ function DataService.Start()
 =======
 	DataSignals:GetChangedSignal("OwnedTowersAdded"):Connect(function(player, data)
 >>>>>>> parent of b55c1aa (어드민타워 적용 딩딩과 18키로):src/lobby/server/Services/DataService/init.luau
+=======
+	DataSignals:GetChangedSignal("OwnedTowersAdded"):Connect(function(player, data)
+>>>>>>> parent of b55c1aa (어드민타워 적용 딩딩과 18키로)
 		local towerInfo = TowerData.ByName[data.towerName]
 		if not towerInfo then
 			return
@@ -369,6 +373,7 @@ function DataService:AddData(player: Player, mainKey: string, amount: number, ..
 			HasLevelUp = hasLevelUp,
 		})
 		return towerData.Exp
+<<<<<<< HEAD
 	end
 
 	-- Discovery is monotonic: spending or trading an item never removes it from the index.
@@ -376,6 +381,8 @@ function DataService:AddData(player: Player, mainKey: string, amount: number, ..
 		playerData.Collection = playerData.Collection or { Units = {}, Items = {} }
 		playerData.Collection.Items = playerData.Collection.Items or {}
 		playerData.Collection.Items[subKeys[2]] = true
+=======
+>>>>>>> parent of b55c1aa (어드민타워 적용 딩딩과 18키로)
 	end
 
 	UpdateLeaderstats(player, playerData)
@@ -682,7 +689,10 @@ function DataService:_MigrateData(profile, player: Player)
 	end
 
 	patchTowerRenames(playerData)
+<<<<<<< HEAD
 	reconcileCollection(playerData)
+=======
+>>>>>>> parent of b55c1aa (어드민타워 적용 딩딩과 18키로)
 end
 
 function DataService._PlayerAdded(player: Player)
