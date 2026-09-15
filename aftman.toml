@@ -3,5 +3,10 @@
 
 # To add a new tool, add an entry to this table.
 [tools]
+<<<<<<< HEAD
 rojo = "rojo-rbx/rojo@7.7.0-rc.1"
+=======
+rojo = "rojo-rbx/rojo@7.7.0"
+wally = "UpliftGames/wally@0.3.2"
+>>>>>>> e39fe9f2014e9526e8e2313cb3547d99142b2e82
 # rojo = "rojo-rbx/rojo@6.2.0"

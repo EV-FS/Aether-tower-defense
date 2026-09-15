@@ -24,64 +24,97 @@ local function newStep(sound: string, options: Options): Step
 		Type = options.Type,
 
 		Delay = options.Delay,
+		Volume = options.Volume,
 		At = options.At,
 	})
 end
 
 return TableUtils.DeepFreeze({
-	["Bacon"] = {
-		AttackEnd = {
+	["Knight"] = {
+		AttackCombo1End = {
 			[0] = {
-				newStep("Towers/Shared/Punch", { Type = "3D", At = "Target" }),
+				newStep("Towers/Knight/KnightA1", { Type = "3D", At = "Source" }),
+			},
+		},
+		AttackCombo2End = {
+			[0] = {
+				newStep("Towers/Knight/KnightA2", { Type = "3D", At = "Source" }),
+			},
+		},
+		AttackCombo3End = {
+			[0] = {
+				newStep("Towers/Knight/KnightA3", { Type = "3D", At = "Source" }),
+			},
+		},
+		AttackCombo4End = {
+			[0] = {
+				newStep("Towers/Knight/KnightA4", { Type = "3D", At = "Source" }),
 			},
 		},
 	},
-	["Dummy"] = {
-		AttackEnd = {
+	["Galahad"] = {
+		AttackCombo1Start = {
 			[0] = {
-				newStep("Towers/Shared/Punch", { Type = "3D", At = "Target" }),
+				newStep("Towers/Galahad/GalahadA1", { Type = "3D", At = "Source" }),
+			},
+		},
+		AttackCombo2Start = {
+			[0] = {
+				newStep("Towers/Galahad/GalahadA2", { Type = "3D", At = "Source" }),
+			},
+		},
+		AttackCombo3Start = {
+			[0] = {
+				newStep("Towers/Galahad/GalahadA3", { Type = "3D", At = "Source" }),
+			},
+		},
+		AttackCombo4Start = {
+			[0] = {
+				newStep("Towers/Galahad/GalahadA4", { Type = "3D", At = "Source" }),
 			},
 		},
 	},
-	["Noob"] = {
-		AttackEnd = {
+	["Kitsune Samurai"] = {
+		AttackCombo1Start = {
 			[0] = {
-				newStep("Towers/Shared/Punch", { Type = "3D", At = "Target" }),
+				newStep("Towers/Kitsune Samurai/KitsuneA1", { Type = "3D", At = "Source" }),
+			},
+		},
+		AttackCombo2Start = {
+			[0] = {
+				newStep("Towers/Kitsune Samurai/KitsuneA2", { Type = "3D", At = "Source" }),
+			},
+		},
+		AttackCombo3Start = {
+			[0] = {
+				newStep("Towers/Kitsune Samurai/KitsuneA3", { Type = "3D", At = "Source" }),
+			},
+		},
+		AttackCombo4Start = {
+			[0] = {
+				newStep("Towers/Kitsune Samurai/KitsuneA4", { Type = "3D", At = "Source" }),
+			},
+		},
+		AttackStart = {
+			[2] = {
+				newStep("Towers/Kitsune Samurai/KitsuneLv2", { Type = "3D", At = "Source" }),
+			},
+			[4] = {
+				newStep("Towers/Kitsune Samurai/CloneAttack", { Type = "3D", At = "Source" }),
 			},
 		},
 	},
-
-	["Minigunner Dummy"] = {
+	["Dragon Slayer"] = {
 		AttackStart = {
 			[0] = {
-				newStep("Towers/Minigunner Dummy/Fire", { Type = "3D", At = "Source" }),
+				newStep("Towers/Dragon Slayer/DragonSlayerA1", { Type = "3D", At = "Source" }),
 			},
 		},
 	},
-	["Hacker"] = {
+	["Ranger Super Tower"] = {
 		AttackStart = {
 			[0] = {
-				newStep("Towers/Hacker/Slash", { Type = "3D", At = "Source" }),
-			},
-		},
-		Summon = {
-			[0] = {
-				newStep("Towers/Hacker/Hacked", { Type = "3D", At = "Target" }),
-			},
-		},
-	},
-	["Mecha Demian"] = {
-		AttackStart = {
-			[0] = {
-				newStep("Towers/Mecha Demian/Lunge", { Type = "3D", At = "Source" }),
-			},
-			[3] = {
-				newStep("Towers/Mecha Demian/Charge", { Type = "3D", At = "Source" }),
-			},
-		},
-		AttackEnd = {
-			[3] = {
-				newStep("Towers/Mecha Demian/Explosion", { Type = "3D", At = "Target" }),
+				newStep("Towers/Ranger Super Tower/A1", { Type = "3D", At = "Source" }),
 			},
 		},
 	},

@@ -43,21 +43,60 @@ local TableUtils = require(ReplicatedStorage.Shared.Modules.Utils.TableUtils)
 --]]
 
 return TableUtils.DeepFreeze({
-	["Bacon"] = {
-		AttackEnd = {
-			[0] = {
-				Steps.Emit("Towers/Shared/Hit", { At = "Target" }),
-			},
+	--/Emotes
+	["CameraFlash"] = {
+		Emote = {
+			Steps.Emit("Emote/CameraFlash", { At = "Source.EmoteProps.Camera" }),
 		},
 	},
-	["Dummy"] = {
-		AttackEnd = {
-			[0] = {
-				Steps.Emit("Towers/Shared/Hit", { At = "Target" }),
-			},
+
+	--/Towers
+	["TowerShared"] = {
+		Place_Common = {
+			Steps.Emit("Towers/Shared/CommonPlace", { At = "Source.@Ground" }),
+		},
+		Place_Rare = {
+			Steps.Emit("Towers/Shared/RarePlace", { At = "Source.@Ground" }),
+		},
+		Place_Epic = {
+			Steps.Emit("Towers/Shared/EpicPlace", { At = "Source.@Ground" }),
+		},
+		Place_Legendary = {
+			Steps.Emit("Towers/Shared/LegendaryPlace", { At = "Source.@Ground" }),
+		},
+		Place_Mythic = {
+			Steps.Emit("Towers/Shared/MythicPlace", { At = "Source.@Ground" }),
+		},
+		Place_Absolute = {
+			Steps.Emit("Towers/Shared/AbsolutePlace", { At = "Source.@Ground" }),
+		},
+
+		Upgrade_Common = {
+			Steps.Emit("Towers/Shared/CommonUpgrade", { At = "Source.@Ground" }),
+		},
+		Upgrade_Rare = {
+			Steps.Emit("Towers/Shared/RareUpgrade", { At = "Source.@Ground" }),
+		},
+		Upgrade_Epic = {
+			Steps.Emit("Towers/Shared/EpicUpgrade", { At = "Source.@Ground" }),
+		},
+		Upgrade_Legendary = {
+			Steps.Emit("Towers/Shared/LegendaryUpgrade", { At = "Source.@Ground" }),
+		},
+		Upgrade_Mythic = {
+			Steps.Emit("Towers/Shared/MythicUpgrade", { At = "Source.@Ground" }),
+		},
+		Upgrade_Absolute = {
+			Steps.Emit("Towers/Shared/AbsoluteUpgrade", { At = "Source.@Ground" }),
+		},
+
+		Sell = {
+			Steps.Emit("Towers/Shared/Sell", { At = "Source.@Ground" }),
 		},
 	},
-	["Fighter Noob"] = {
+
+	--/Towers
+	["Fighter"] = {
 		AttackEnd = {
 			[0] = {
 				Steps.Emit("Towers/Shared/Hit2", { At = "Target" }),
@@ -67,199 +106,114 @@ return TableUtils.DeepFreeze({
 			},
 		},
 	},
-	["Noob"] = {
-		AttackEnd = {
+	["Knight"] = {
+		AttackCombo1End = {
 			[0] = {
-				Steps.Emit("Towers/Shared/Hit", { At = "Target" }),
+				Steps.Emit("Towers/Knight/gisa1", { Lifetime = 3, At = "Source" }),
+			},
+		},
+		AttackCombo2End = {
+			[0] = {
+				Steps.Emit("Towers/Knight/gisa2", { Lifetime = 3, At = "Source" }),
+			},
+		},
+		AttackCombo3End = {
+			[0] = {
+				Steps.Emit("Towers/Knight/gisa3", { Lifetime = 3, At = "Source" }),
+			},
+		},
+		AttackCombo4End = {
+			[0] = {
+				Steps.Emit("Towers/Knight/gisa4", { Lifetime = 3, At = "Source" }),
+			},
+		},
+		AttackCombo5End = {
+			[0] = {
+				Steps.Emit("Towers/Knight/gisa5", { Lifetime = 3, At = "Source" }),
 			},
 		},
 	},
-	["Batter Bacon"] = {
-		AttackEnd = {
+	["Galahad"] = {
+		AttackCombo1End = {
 			[0] = {
-				Steps.Emit("Towers/Shared/Hit", { At = "Target" }),
+				Steps.Emit("Towers/Galahad/S1", { Lifetime = 3, At = "Source" }),
 			},
 		},
-	},
-	["Gunner Dummy"] = {
-		AttackEnd = {
+		AttackCombo2End = {
 			[0] = {
-				Steps.Emit("Towers/Shared/MuzzleFlash", { Lifetime = 1, LockToSource = true, At = "Source.Muzzle" }),
-				Steps.Projectile("Towers/Shared/Bullet", {
-					From = "Source.Muzzle",
-					To = "Target",
-
-					Lifetime = 0.3,
-
-					Speed = 400,
-				}),
+				Steps.Emit("Towers/Galahad/S2", { Lifetime = 3, At = "Source" }),
 			},
 		},
-	},
-	["Minigunner Dummy"] = {
-		AttackEnd = {
+		AttackCombo3End = {
 			[0] = {
-				Steps.Emit("Towers/Shared/MuzzleFlash", { Lifetime = 0.1, LockToSource = true, At = "Source.Muzzle" }),
-				Steps.Projectile("Towers/Shared/Bullet", {
-					From = "Source.Muzzle",
-					To = "Target",
-
-					Delay = 0.02,
-					Lifetime = 0.08,
-
-					Speed = 800,
-				}),
+				Steps.Emit("Towers/Galahad/S3", { Lifetime = 3, At = "Source" }),
 			},
 		},
-	},
-	["Lancer Dummy"] = {
-		AttackEnd = {
+		AttackCombo4End = {
 			[0] = {
-				Steps.Emit("Towers/Lancer Dummy/Lance", { At = "Source" }),
-			},
-		},
-	},
-	["Mecha Demian"] = {
-		OnSpawn = {
-			[0] = {
-				Steps.Emit("Towers/Mecha Demian/demianSpawnVFX", { At = "Source.demianSpawnVFX" }),
-			},
-		},
-		AttackEnd = {
-			[0] = {
-				Steps.Emit("Towers/Mecha Demian/Mecha Lunge", { Lifetime = 3, At = "Source" }),
-			},
-			[3] = {
-				Steps.Emit("Towers/Mecha Demian/Impact", { Lifetime = 3, At = "Target.@Ground" }),
-			},
-		},
-	},
-	["Mecha Fist"] = {
-		AttackEnd = {
-			[0] = {
-				Steps.Emit("Towers/Mecha Fist/ZoomPunch", { Lifetime = 3, At = "Source.EffectStart" }),
-			},
-		},
-	},
-	["Cyborg Dummy"] = {
-		OnSpawn = {
-			[0] = {
-				Steps.Emit("Towers/Cyborg Dummy/SpawnVFX", { At = "Source.SpawnVFX" }),
+				Steps.Emit("Towers/Galahad/S4", { Lifetime = 3, At = "Source" }),
 			},
 		},
 		AttackStart = {
-			[0] = {
-				Steps.Projectile("Towers/Cyborg Dummy/Projectile", {
-					From = "Source.EffectStart",
-					To = "Target",
-
-					Delay = 0.166,
-
-					CurveHeight = 2,
-					CurveOffset = 1,
-					TravelTime = 0.15,
-
-					OnHit = Steps.Emit("Towers/Cyborg Dummy/OnHit", { At = "Target.@Ground" }),
-				}),
-			},
 			[3] = {
-				Steps.Beam("Towers/Cyborg Dummy/Beam", {
-					From = "Source.EffectStart",
-					To = "Target",
-				}),
-			},
-		},
-		SecondaryAttackStart = {
-			[3] = {
-				Steps.Projectile("Towers/Cyborg Dummy/Projectile", {
-					From = "Source.EffectStart",
-					To = "Target",
-
-					Delay = 0.25,
-
-					CurveHeight = 5,
-					CurveOffset = 5,
-					TravelTime = 0.2,
-
-					OnHit = Steps.Emit("Towers/Cyborg Dummy/OnHit", { At = "Target.@Ground" }),
-				}),
+				Steps.Emit("Towers/Galahad/1", { Lifetime = 3, Delay = 0.55, LockToSource = true, At = "Source" }),
+				Steps.Emit("Towers/Galahad/2", { Lifetime = 3, Delay = 0.966, LockToSource = true, At = "Source" }),
+				Steps.Emit("Towers/Galahad/3", { Lifetime = 3, Delay = 1.733, LockToSource = true, At = "Source" }),
 			},
 		},
 	},
-	["Cowboy Dummy"] = {
-		AttackEnd = {
+	["Kitsune Samurai"] = {
+		AttackCombo1End = {
 			[0] = {
-				Steps.Emit("Towers/Cowboy Dummy/Shot1", { Lifetime = 5, At = "Source" }),
+				Steps.Emit("Towers/Galahad/S1", { Lifetime = 3, At = "Source" }),
+			},
+		},
+		AttackCombo2End = {
+			[0] = {
+				Steps.Emit("Towers/Galahad/S2", { Lifetime = 3, At = "Source" }),
+			},
+		},
+		AttackCombo3End = {
+			[0] = {
+				Steps.Emit("Towers/Galahad/S3", { Lifetime = 3, At = "Source" }),
+			},
+		},
+		AttackCombo4End = {
+			[0] = {
+				Steps.Emit("Towers/Galahad/S4", { Lifetime = 3, At = "Source" }),
+			},
+		},
+		AttackStart = {
+			[2] = {
+				Steps.Emit("Towers/Kitsune Samurai/E1", { Lifetime = 3, Delay = 0.45, At = "Source" }),
+				Steps.Emit("Towers/Kitsune Samurai/E2", { Lifetime = 3, Delay = 0.717, At = "Source" }),
+				Steps.Emit("Towers/Kitsune Samurai/E3", { Lifetime = 3, Delay = 1.417, At = "Source" }),
+			},
+			[4] = {
+				Steps.Custom("KitsuneCloneAttack", { Lifetime = 3, At = "Source" }),
+				Steps.Emit("Towers/Kitsune Samurai/CATK1", { Lifetime = 3, Delay = 0.283, At = "Source" }),
+				Steps.Emit("Towers/Kitsune Samurai/CATK2", { Lifetime = 3, Delay = 0.75, At = "Source" }),
+				Steps.Emit("Towers/Kitsune Samurai/CATK3", { Lifetime = 3, Delay = 0.816, At = "Source" }),
+				Steps.Emit("Towers/Kitsune Samurai/CATK4", { Lifetime = 3, Delay = 0.983, At = "Source" }),
+				Steps.Emit("Towers/Kitsune Samurai/CATK5", { Lifetime = 3, Delay = 2.166, At = "Source" }),
+				Steps.Emit("Towers/Kitsune Samurai/CATK6", { Lifetime = 3, Delay = 2.35, At = "Source" }),
 			},
 		},
 	},
-	["Hacker"] = {
-		AttackEnd = {
-			[0] = {
-				Steps.Emit("Towers/Hacker/Slash", { Lifetime = 3, At = "Source" }),
-			},
-		},
-		Summon = {
-			[0] = {
-				Steps.Custom("Hacked", { At = "Target" }),
-			},
-		},
-	},
-	["Bomb"] = {
+	["Dragon Slayer"] = {
 		AttackStart = {
 			[0] = {
-				Steps.Projectile("Towers/Bomb/BombProjectile", {
-					From = "Source.Muzzle",
-					To = "Target",
-
-					Lifetime = 0,
-
-					Delay = 0.866,
-					CurveHeight = 3,
-					TravelTime = 0.334,
-
-					OnHit = Steps.Emit("Towers/Bomb/Explosion", {
-						Lifetime = 3,
-
-						At = "Target.@Ground",
-					}),
-				}),
+				Steps.Emit("Towers/Dragon Slayer/0", { Lifetime = 3, Delay = 0.3, At = "Source" }),
 			},
 		},
-	},
-	["Poseidon Noob"] = {
-		AttackEnd = {
+		AttackHit1 = {
 			[0] = {
-				Steps.Emit("Towers/Poseidon Noob/Lunge", { Lifetime = 2, At = "Source.Fork" }),
+				Steps.Emit("Towers/Dragon Slayer/SlashzERO", { Lifetime = 3, At = "Source" }),
 			},
 		},
-	},
-	["Wizard Noob"] = {
-		AttackStart = {
+		AttackHit2 = {
 			[0] = {
-				Steps.Emit("Towers/Wizard Noob/A1", { Lifetime = 3, Delay = 0.45, LockToSource = true, At = "Source" }),
-			},
-			[3] = {
-				Steps.Emit(
-					"Towers/Wizard Noob/A2",
-					{ Lifetime = 3, Delay = 0.036, LockToSource = true, At = "Source" }
-				),
-			},
-		},
-	},
-	["Archer Noob"] = {
-		AttackStart = {
-			[0] = {
-				Steps.Projectile("Units/Archer Noob/Arrow", {
-					From = "Source.EffectStart",
-					To = "Target",
-
-					Delay = 0.25,
-
-					CurveHeight = 4,
-					CurveOffset = 0,
-					TravelTime = 0.2,
-				}),
+				Steps.Emit("Towers/Dragon Slayer/bbb1", { Lifetime = 3, At = "Source" }),
 			},
 		},
 	},

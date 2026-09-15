@@ -33,16 +33,12 @@ EnemyService.EnemyGrid = SpatialHashGrid.new(10)
 EnemyService.Get = EnemyRegistry.get
 EnemyService.GetAll = EnemyRegistry.getAll
 
-function EnemyService.SetupNewEnemy(name: string, isBoss: boolean?, pathAlpha: number?)
+function EnemyService.SetupNewEnemy(name: string, isBoss: boolean?, pathAlpha: number?, pathId: number?)
 	local self
 	if enemyClasses[name] then
-		self = enemyClasses[name].new(EnemyRegistry.generateId(), name, isBoss)
+		self = enemyClasses[name].new(EnemyRegistry.generateId(), name, isBoss, pathId, pathAlpha)
 	else
-		self = BaseEnemy.new(EnemyRegistry.generateId(), name, isBoss)
-	end
-
-	if pathAlpha then
-		self.PathAlpha = pathAlpha
+		self = BaseEnemy.new(EnemyRegistry.generateId(), name, isBoss, pathId, pathAlpha)
 	end
 
 	self.Destroyed:Connect(function(forcing: boolean?)
@@ -53,7 +49,7 @@ function EnemyService.SetupNewEnemy(name: string, isBoss: boolean?, pathAlpha: n
 		end
 
 		EnemyRegistry.remove(self.Id)
-		EnemyService.EnemyDefeated:Fire()
+		EnemyService.EnemyDefeated:Fire(self)
 	end)
 
 	EnemyRegistry.add(self)
@@ -66,11 +62,21 @@ function EnemyService.SetupNewEnemy(name: string, isBoss: boolean?, pathAlpha: n
 		enemyIndex = EnemyData.ByName[self.Name].Index,
 		sendTimeMs = self.SendTimeMs,
 		isBoss = self.IsBoss,
-		startPathAlpha = self.PathAlpha,
+		-- Omit the optional f32 for the usual start-at-zero spawn (saves 4 bytes).
+		startPathAlpha = if self.PathAlpha == 0 then nil else self.PathAlpha,
+		pathId = self.PathId,
 	})
 end
 
-function EnemyService.Spawn(name: string, spawnCount: number | nil, spawnDelay: number | nil, isBoss: boolean | nil)
+function EnemyService.Spawn(
+	name: string,
+	spawnCount: number?,
+	spawnDelay: number?,
+	isBoss: boolean?,
+	path: (string | number)?
+)
+	-- Resolve names once per group, before starting the asynchronous spawn loop.
+	local pathIds = GetPath:GetSpawnPathIds(isBoss, path)
 	return Promise.new(function(resolve, _, onCancel)
 		local isCancelled = false
 
@@ -87,7 +93,13 @@ function EnemyService.Spawn(name: string, spawnCount: number | nil, spawnDelay: 
 					return
 				end
 
-				EnemyService.SetupNewEnemy(name, isBoss)
+				-- Explicit routes override defaults; unnamed spawns only use numbered paths.
+				for _, pathId in ipairs(pathIds) do
+					if isCancelled then
+						return
+					end
+					EnemyService.SetupNewEnemy(name, isBoss, nil, pathId)
+				end
 
 				local waitTime = targetDelay - timeOffset
 				if waitTime > 0 then
@@ -124,13 +136,14 @@ function EnemyService:StartMoveEnemies()
 			return
 		end
 
-		local pathLength = GetPath:Get():GetPathLength()
 		local gameSpeed = TimeService:GetGameSpeed()
 		for _, enemy in pairs(toMoveEnemies) do
+			local path = GetPath:Get(enemy.PathId)
+			local pathLength = path:GetPathLength()
 			enemy.PathAlpha += ((enemy.WalkSpeed * dt * gameSpeed) / pathLength) * enemy.MoveDirection
 			enemy.PathAlpha = math.clamp(enemy.PathAlpha, 0, 1)
 
-			enemy.Position = GetPath:Get():CalculateUniformPosition(enemy.PathAlpha)
+			enemy.Position = path:CalculateUniformPosition(enemy.PathAlpha)
 			self.EnemyGrid:Update(enemy, enemy.Position)
 
 			if enemy.PathAlpha >= 1 then
@@ -157,8 +170,10 @@ function EnemyService.PlayerAdded(player: Player)
 		Net.EnemyService.ReplicatedEnemy.Fire(player, {
 			enemyId = enemy.Id,
 			enemyIndex = EnemyData.ByName[enemy.Name].Index,
-			sendTimeMs = enemy.SendTimeMs or math.floor(workspace:GetServerTimeNow() * 1000) % 65536,
+			sendTimeMs = math.floor(workspace:GetServerTimeNow() * 1000) % 65536,
 			isBoss = enemy.IsBoss,
+			startPathAlpha = if enemy.PathAlpha == 0 then nil else enemy.PathAlpha,
+			pathId = enemy.PathId,
 		})
 	end
 end

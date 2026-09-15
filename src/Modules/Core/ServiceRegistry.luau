@@ -8,6 +8,7 @@ local Promise = require(ReplicatedStorage.Packages.Promise)
 type Service = {
 	Init: (registry: any) -> ()?,
 	Start: () -> ()?,
+	Dependencies: { string }?,
 	[string]: any,
 }
 
@@ -44,6 +45,36 @@ function ServiceRegistry:GetService(serviceName: string): any
 	return service
 end
 
+local function sortServices(services: { [string]: Service }): { string }
+	local sorted = {}
+	local visited = {}
+	local temp = {}
+
+	local function visit(name: string)
+		if temp[name] then
+		end
+		if not visited[name] then
+			temp[name] = true
+			local service = services[name]
+			if service.Dependencies then
+				for _, depName in ipairs(service.Dependencies) do
+					if services[depName] then
+						visit(depName)
+					end
+				end
+			end
+			temp[name] = nil
+			visited[name] = true
+			table.insert(sorted, name)
+		end
+	end
+
+	for name in pairs(services) do
+		visit(name)
+	end
+	return sorted
+end
+
 function ServiceRegistry:Start()
 	assert(not self._isStarted, "프레임워크가 이미 가동 중임.")
 	self._isStarted = true
@@ -66,8 +97,11 @@ function ServiceRegistry:Start()
 			end
 		end
 
+		local sortedServiceNames = sortServices(self._services)
+
 		--/2. Init
-		for serviceName, service in pairs(self._services) do
+		for _, serviceName in ipairs(sortedServiceNames) do
+			local service = self._services[serviceName]
 			if type(service.Init) == "function" then
 				local success, err = Promise.try(service.Init, self):await()
 
@@ -79,7 +113,8 @@ function ServiceRegistry:Start()
 		end
 
 		--/3. Start
-		for serviceName, service in pairs(self._services) do
+		for _, serviceName in ipairs(sortedServiceNames) do
+			local service = self._services[serviceName]
 			if type(service.Start) == "function" then
 				task.spawn(function()
 					Promise.try(service.Start):catch(function(err)

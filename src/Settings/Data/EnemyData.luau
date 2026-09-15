@@ -4,61 +4,70 @@ local TableUtils = require(ReplicatedStorage.Shared.Modules.Utils.TableUtils)
 local RawEnemyData = {
 	["Goblin"] = {
 		Index = 1,
-		MaxHealth = 40,
-		WalkSpeed = 3.5,
+		MaxHealth = 4,
+		WalkSpeed = 6,
 	},
 	["Red Goblin"] = {
 		Index = 2,
-		MaxHealth = 30,
-		WalkSpeed = 7,
+		MaxHealth = 4,
+		WalkSpeed = 10,
 	},
 	["Golden Goblin"] = {
 		Index = 3,
-		MaxHealth = 70,
-		WalkSpeed = 6,
+		MaxHealth = 8,
+		WalkSpeed = 8,
 	},
 	["Big Goblin"] = {
 		Index = 4,
+<<<<<<< HEAD
 		MaxHealth = 350,
+=======
+		MaxHealth = 30,
+		WalkSpeed = 5,
+	},
+	["Goblin Warrior"] = {
+		Index = 5,
+		MaxHealth = 400,
+>>>>>>> e39fe9f2014e9526e8e2313cb3547d99142b2e82
 		WalkSpeed = 3,
 	},
 	["Necromancer Goblin"] = {
-		Index = 5,
-		MaxHealth = 5_000,
-		WalkSpeed = 2,
-		SummonCooldown = 7,
-		SummonCount = 3,
-		MinionName = "Big Goblin",
-	},
-	["Goblin Warrior"] = {
 		Index = 6,
-		MaxHealth = 4_500,
+		MaxHealth = 500,
 		WalkSpeed = 2.5,
+		SummonCooldown = 5,
+		SummonCount = 2,
+		MinionName = "Skeleton",
 	},
 	["Smith Goblin"] = {
 		Index = 7,
-		MaxHealth = 5_500,
-		WalkSpeed = 2.5,
+		MaxHealth = 750,
+		WalkSpeed = 3.5,
 	},
 	["Elite Goblin"] = {
 		Index = 8,
-		MaxHealth = 30_000,
-		WalkSpeed = 2,
+		MaxHealth = 1_500,
+		WalkSpeed = 2.5,
 	},
 	["King Goblin"] = {
 		Index = 9,
-		MaxHealth = 55_000,
+		MaxHealth = 4_000,
 		WalkSpeed = 2,
 	},
 	["Elite Tanker Goblin"] = {
 		Index = 10,
-		MaxHealth = 60_000,
+		MaxHealth = 8_500,
 		WalkSpeed = 3.5,
 	},
 	["Ogre Goblin"] = {
 		Index = 11,
-		MaxHealth = 400_000,
+		MaxHealth = 50_000,
 		WalkSpeed = 1.5,
+	},
+	["Skeleton"] = {
+		Index = 12,
+		MaxHealth = 50,
+		WalkSpeed = 3,
 	},
 }
 

@@ -4,7 +4,6 @@ local RunService = game:GetService("RunService")
 
 --/Modules
 local Debuffs = require(script.Debuffs)
-local Promise = require(ReplicatedStorage.Packages.Promise)
 local Signal = require(ReplicatedStorage.Packages.Signal)
 local EnemyData = require(ReplicatedStorage.Settings.Data.EnemyData)
 local GetPath = require(ReplicatedStorage.Shared.Modules.Core.GetPath)
@@ -16,12 +15,15 @@ local TimeService
 local EconomyService
 local GameService
 
+local DOT_TICK_INTERVAL = 0.5
+
 --/Types
 export type Enemy = {
 	Id: number,
 	Name: string,
 	MoveDirection: number,
 	PathAlpha: number,
+	PathId: number,
 
 	Position: Vector3,
 
@@ -56,12 +58,8 @@ local function GetHealthMultiplier(): number
 	local playerCount = GameService and GameService.StartPlayerCount or 1
 
 	local diffMultiplier = 1
-	if difficulty == "Normal" then
-		diffMultiplier = 1.5
-	elseif difficulty == "Hard" then
+	if difficulty == "Hard" then
 		diffMultiplier = 2
-	elseif difficulty == "Extreme" then
-		diffMultiplier = 2.5
 	elseif difficulty == "Eternal" then
 		diffMultiplier = 3
 	end
@@ -76,19 +74,21 @@ end
 local BaseEnemy = {}
 BaseEnemy.__index = BaseEnemy
 
-function BaseEnemy.new(id, name, isBoss): Enemy
+function BaseEnemy.new(id, name, isBoss, pathId: number?, pathAlpha: number?): Enemy
 	local self = setmetatable({}, BaseEnemy)
 
 	self.Id = id
 	self.Name = name
 	self.MoveDirection = 1
-	self.PathAlpha = 0
+	self.PathId = pathId or 1
+	self.PathAlpha = pathAlpha or 0
 	self.IsBoss = isBoss
 
-	self.Position = GetPath:Get():CalculateUniformPosition(self.PathAlpha)
+	self.Position = GetPath:Get(self.PathId):CalculateUniformPosition(self.PathAlpha)
 
 	self.ActiveDebuffs = {}
 	self.DotValues = {}
+	self._DebuffTime = 0
 
 	self.IsDead = false
 	self._connections = {}
@@ -107,6 +107,10 @@ function BaseEnemy.new(id, name, isBoss): Enemy
 end
 
 function BaseEnemy:ApplyDebuff(name: string, duration: number, power: number?, source: any?)
+	if self.IsDead or self.IsDestroyed or not self.ActiveDebuffs then
+		return
+	end
+
 	local debuffData = Debuffs[name]
 	if not debuffData then
 		return
@@ -115,15 +119,25 @@ function BaseEnemy:ApplyDebuff(name: string, duration: number, power: number?, s
 		return
 	end
 
-	local currentEndTime = os.clock() + duration
+	TimeService = TimeService or ServiceRegistry:GetService("TimeService")
+
+	local currentTime = self._DebuffTime
+	local currentEndTime = currentTime + duration
 	local existing = self.ActiveDebuffs[name]
 
-	if existing then
-		if existing.EndTime >= currentEndTime and existing.Power >= power then
+	if name == "Stun" then
+		if self._StunImmune and currentTime < self._StunImmune then
 			return
+		else
+			self._StunImmune = currentTime + duration * 1.5
 		end
-		if existing.TimerPromise then
-			existing.TimerPromise:cancel()
+	end
+
+	if existing then
+		local existingPower = existing.Power or 0
+		local newPower = power or 0
+		if existing.EndTime >= currentEndTime and existingPower >= newPower then
+			return
 		end
 
 		existing.EndTime = currentEndTime
@@ -132,28 +146,14 @@ function BaseEnemy:ApplyDebuff(name: string, duration: number, power: number?, s
 	else
 		self.ActiveDebuffs[name] = {
 			EndTime = currentEndTime,
+			NextTickAt = currentTime + DOT_TICK_INTERVAL,
 			Power = power,
 			Source = source,
-			TimerPromise = nil,
 		}
 	end
 
 	self:_RecalculateStats()
-
-	TimeService = TimeService or ServiceRegistry:GetService("TimeService")
-
-	local newPromise = TimeService.DeltaDelay(duration):andThen(function()
-		if not self.ActiveDebuffs then
-			return
-		end
-
-		if self.ActiveDebuffs[name] then
-			self.ActiveDebuffs[name] = nil
-			self:_RecalculateStats()
-		end
-	end)
-
-	self.ActiveDebuffs[name].TimerPromise = newPromise
+	self:_StartDebuffLoop()
 end
 
 function BaseEnemy:TakeKnockback(studs: number)
@@ -163,7 +163,7 @@ function BaseEnemy:TakeKnockback(studs: number)
 
 	studs = math.floor(studs * 10) / 10
 
-	local pathLength = GetPath:Get():GetPathLength()
+	local pathLength = GetPath:Get(self.PathId):GetPathLength()
 	local knockbackAlpha = studs / pathLength
 
 	local duration = 0.2
@@ -219,20 +219,13 @@ function BaseEnemy:TakeDamage(amount: number)
 end
 
 function BaseEnemy:Destroy(forcing: boolean?)
-	self:_StopDotLoop()
+	self:_StopDebuffLoop()
 
 	for _, conn in ipairs(self._connections) do
 		conn:Disconnect()
 	end
-	self._connections = {}
 
-	if self.ActiveDebuffs then
-		for _, debuff in pairs(self.ActiveDebuffs) do
-			if debuff.TimerPromise then
-				debuff.TimerPromise:cancel()
-			end
-		end
-	end
+	self._connections = {}
 	self.ActiveDebuffs = nil
 
 	self.Destroyed:Fire(forcing)
@@ -275,51 +268,63 @@ function BaseEnemy:_RecalculateStats()
 	end
 
 	self.DotValues = newDotValues
-
-	if next(self.DotValues) then
-		self:_StartDotLoop()
-	else
-		self:_StopDotLoop()
-	end
 end
 
-function BaseEnemy:_StartDotLoop()
-	if self._DotConnection then
+function BaseEnemy:_StartDebuffLoop()
+	if self._DebuffConnection then
 		return
 	end
 
-	self._DotConnection = RunService.Heartbeat:Connect(function(dt)
-		self._dotTimer = (self._dotTimer or 0) + dt * TimeService:GetGameSpeed()
-		if self._dotTimer >= 1 then
-			self._dotTimer = 0
-			self:_ProcessDotDamage()
-		end
+	self._DebuffConnection = RunService.Heartbeat:Connect(function(dt)
+		self._DebuffTime += dt * TimeService:GetGameSpeed()
+		self:_UpdateDebuffs(self._DebuffTime)
 	end)
 end
 
-function BaseEnemy:_StopDotLoop()
-	if self._DotConnection then
-		self._DotConnection:Disconnect()
-		self._DotConnection = nil
+function BaseEnemy:_StopDebuffLoop()
+	if self._DebuffConnection then
+		self._DebuffConnection:Disconnect()
+		self._DebuffConnection = nil
 	end
 end
 
-function BaseEnemy:_ProcessDotDamage()
-	for dotType, damage in pairs(self.DotValues) do
-		if damage <= 0 then
-			continue
-		end
+function BaseEnemy:_UpdateDebuffs(currentTime: number)
+	if self.IsDead or not self.ActiveDebuffs then
+		return
+	end
 
-		local activeInfo = self.ActiveDebuffs[dotType]
-		local source = activeInfo and activeInfo.Source
-		local _, isKilled = self:TakeDamage(damage)
+	local requiresStatRecalculation = false
 
-		if isKilled then
-			if source then
-				source:GetEvent("Killed"):Fire(self)
+	for name, activeInfo in pairs(self.ActiveDebuffs) do
+		local damage = self.DotValues[name]
+		local finalTickTime = math.min(currentTime, activeInfo.EndTime)
+
+		while damage and damage > 0 and activeInfo.NextTickAt <= finalTickTime do
+			activeInfo.NextTickAt += DOT_TICK_INTERVAL
+
+			local source = activeInfo.Source
+			local _, isKilled = self:TakeDamage(damage)
+			if isKilled then
+				if source then
+					source:GetEvent("Killed"):Fire(self)
+				end
+				return
 			end
-			break
 		end
+
+		if currentTime >= activeInfo.EndTime then
+			self.ActiveDebuffs[name] = nil
+			requiresStatRecalculation = true
+		end
+	end
+
+	if requiresStatRecalculation and self.ActiveDebuffs then
+		self:_RecalculateStats()
+	end
+
+	if not self.ActiveDebuffs or not next(self.ActiveDebuffs) then
+		self:_StopDebuffLoop()
+		self._DebuffTime = 0
 	end
 end
 

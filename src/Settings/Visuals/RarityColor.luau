@@ -3,7 +3,6 @@ local TableUtils = require(ReplicatedStorage.Shared.Modules.Utils.TableUtils)
 
 return TableUtils.DeepFreeze({
 	Common = Color3.new(1, 1, 1),
-	Uncommon = Color3.new(0, 1, 0),
 	Rare = Color3.new(0, 1, 1),
 	Epic = Color3.new(0.5, 0, 1),
 	Legendary = Color3.new(1, 1, 0),
