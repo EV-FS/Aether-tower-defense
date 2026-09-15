@@ -1,0 +1,55 @@
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local TableUtils = require(ReplicatedStorage.Shared.Modules.Utils.TableUtils)
+
+return TableUtils.DeepFreeze({
+	Gradients = {
+		Common = ColorSequence.new({
+			ColorSequenceKeypoint.new(0, Color3.fromRGB(199, 199, 199)),
+			ColorSequenceKeypoint.new(1, Color3.fromRGB(160, 160, 160)),
+		}),
+		Rare = ColorSequence.new({
+			ColorSequenceKeypoint.new(0, Color3.fromRGB(42, 106, 255)),
+			ColorSequenceKeypoint.new(1, Color3.fromRGB(30, 34, 255)),
+		}),
+		Epic = ColorSequence.new({
+			ColorSequenceKeypoint.new(0, Color3.fromRGB(235, 85, 255)),
+			ColorSequenceKeypoint.new(1, Color3.fromRGB(255, 32, 170)),
+		}),
+		Legendary = ColorSequence.new({
+			ColorSequenceKeypoint.new(0, Color3.fromRGB(255, 194, 52)),
+			ColorSequenceKeypoint.new(1, Color3.fromRGB(255, 126, 61)),
+		}),
+		Mythic = ColorSequence.new({
+			ColorSequenceKeypoint.new(0, Color3.fromRGB(255, 14, 18)),
+			ColorSequenceKeypoint.new(1, Color3.fromRGB(189, 0, 3)),
+		}),
+		Exclusive = ColorSequence.new({
+			ColorSequenceKeypoint.new(0, Color3.fromRGB(255, 38, 154)),
+			ColorSequenceKeypoint.new(1, Color3.fromRGB(139, 32, 255)),
+		}),
+		Absolute = ColorSequence.new({
+			ColorSequenceKeypoint.new(0, Color3.fromRGB(185, 255, 255)),
+			ColorSequenceKeypoint.new(1, Color3.fromRGB(239, 189, 255)),
+		}),
+	},
+
+	Glow = {
+		Common = Color3.fromRGB(180, 180, 180),
+		Rare = Color3.fromRGB(70, 120, 255),
+		Epic = Color3.fromRGB(210, 80, 255),
+		Legendary = Color3.fromRGB(255, 190, 70),
+		Mythic = Color3.fromRGB(255, 60, 60),
+		Exclusive = Color3.fromRGB(255, 64, 190),
+		Absolute = Color3.fromRGB(180, 220, 255),
+	},
+
+	ShimmerSpeed = {
+		Common = 0.75,
+		Rare = 1,
+		Epic = 1.15,
+		Legendary = 1.3,
+		Mythic = 1.45,
+		Exclusive = 1.5,
+		Absolute = 1.6,
+	},
+})

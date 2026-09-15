@@ -1,0 +1,52 @@
+{
+  "name": "TowerDefense",
+  "tree": {
+    "$className": "DataModel",
+
+    "ReplicatedFirst": {
+      "$path": "src/lobby/ReplicatedFirst"
+    },
+
+    "ReplicatedStorage": {
+      "$path": "src/lobby/ReplicatedStorage",
+      "$ignoreUnknownInstances": true,
+      "Packages": {
+        "$path": "Packages"
+      },
+      "Shared": {
+        "$path": "src/lobby/shared",
+        "Modules": {
+          "$path": "src/Modules"
+        }
+      },
+      "Settings": {
+        "$path": "src/Settings"
+      }
+    },
+
+    "ServerScriptService": {
+      "$path": "src/lobby/ServerScriptService",
+      "ServerPackages": {
+        "$path": "ServerPackages"
+      }
+    },
+    "StarterPlayer": {
+      "StarterPlayerScripts": {
+        "$path": "src/lobby/StarterPlayer/StarterPlayerScripts"
+      },
+      "StarterCharacterScripts": {
+        "$path": "src/lobby/StarterPlayer/StarterCharacterScripts"
+      }
+    },
+    "Workspace": {
+      "$properties": {
+        "FilteringEnabled": true
+      }
+    },
+    "SoundService": {
+      "$properties": {
+        "RespectFilteringEnabled": true
+      }
+    }
+  }
+}

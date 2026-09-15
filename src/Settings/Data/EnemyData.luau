@@ -1,0 +1,81 @@
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local TableUtils = require(ReplicatedStorage.Shared.Modules.Utils.TableUtils)
+
+local RawEnemyData = {
+	["Goblin"] = {
+		Index = 1,
+		MaxHealth = 4,
+		WalkSpeed = 6,
+	},
+	["Red Goblin"] = {
+		Index = 2,
+		MaxHealth = 4,
+		WalkSpeed = 10,
+	},
+	["Golden Goblin"] = {
+		Index = 3,
+		MaxHealth = 8,
+		WalkSpeed = 8,
+	},
+	["Big Goblin"] = {
+		Index = 4,
+		MaxHealth = 30,
+		WalkSpeed = 5,
+	},
+	["Goblin Warrior"] = {
+		Index = 5,
+		MaxHealth = 400,
+		WalkSpeed = 3,
+	},
+	["Necromancer Goblin"] = {
+		Index = 6,
+		MaxHealth = 500,
+		WalkSpeed = 2.5,
+		SummonCooldown = 5,
+		SummonCount = 2,
+		MinionName = "Skeleton",
+	},
+	["Smith Goblin"] = {
+		Index = 7,
+		MaxHealth = 750,
+		WalkSpeed = 3.5,
+	},
+	["Elite Goblin"] = {
+		Index = 8,
+		MaxHealth = 1_500,
+		WalkSpeed = 2.5,
+	},
+	["King Goblin"] = {
+		Index = 9,
+		MaxHealth = 4_000,
+		WalkSpeed = 2,
+	},
+	["Elite Tanker Goblin"] = {
+		Index = 10,
+		MaxHealth = 8_500,
+		WalkSpeed = 3.5,
+	},
+	["Ogre Goblin"] = {
+		Index = 11,
+		MaxHealth = 50_000,
+		WalkSpeed = 1.5,
+	},
+	["Skeleton"] = {
+		Index = 12,
+		MaxHealth = 50,
+		WalkSpeed = 3,
+	},
+}
+
+local EnemyData = {
+	ByName = RawEnemyData,
+	ByIndex = {},
+}
+
+for name, data in pairs(RawEnemyData) do
+	data.Name = name
+
+	EnemyData.ByIndex[data.Index] = data
+end
+
+return TableUtils.DeepFreeze(EnemyData)

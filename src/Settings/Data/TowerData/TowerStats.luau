@@ -1,0 +1,2202 @@
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local TableUtils = require(ReplicatedStorage.Shared.Modules.Utils.TableUtils)
+--[[return {
+	["Bacon"] = {
+		[0] = {
+			Damage = 8,
+			Cooldown = 1.5,
+			Range = 6,
+			Cost = 150,
+			AttackDelay = 0.15,
+			AttackType = "Single",
+		},
+		[1] = {
+			Damage = 15,
+			Cooldown = 1,
+			Range = 7,
+			Cost = 400,
+			AttackDelay = 0.15,
+			AttackType = "Single",
+		},
+		[2] = {
+			Damage = 25,
+			Cooldown = 0.7,
+			Range = 10,
+			Cost = 650,
+			AttackDelay = 0.15,
+			AttackType = "Single",
+		},
+	},
+	["Batter Bacon"] = {
+		[0] = {
+			Damage = 50,
+			Cooldown = 2,
+			Range = 7,
+			Cost = 500,
+			AttackDelay = 0.52,
+			AttackType = "Single",
+		},
+		[1] = {
+			Damage = 90,
+			Cooldown = 1.5,
+			Range = 9,
+			Cost = 800,
+			AttackDelay = 0.52,
+			AttackType = "Single",
+		},
+		[2] = {
+			Damage = 140,
+			Cooldown = 1.5,
+			Range = 9,
+			Cost = 1400,
+			AttackDelay = 0.52,
+			AttackType = "Single",
+		},
+	},
+	["Fighter"] = {
+		[0] = {
+			Damage = 2,
+			Cooldown = 1,
+			Range = 9,
+			Cost = 300,
+			AttackDelay = 0.2,
+			AttackType = "Single",
+		},
+		[1] = {
+			Damage = 2,
+			Cooldown = 0.75,
+			Range = 9,
+			Cost = 100,
+			AttackDelay = 0.2,
+			AttackType = "Single",
+		},
+		[2] = {
+			Damage = 4,
+			Cooldown = 0.75,
+			Range = 9,
+			Cost = 410,
+			AttackDelay = 0.2,
+			AttackType = "Single",
+		},
+		[3] = {
+			Damage = 6,
+			Cooldown = 0.45,
+			Range = 11,
+			Cost = 1250,
+			AttackDelay = 0.2,
+			AttackType = "Single",
+		},
+		[4] = {
+			Damage = 13,
+			Cooldown = 0.45,
+			Range = 11,
+			Cost = 2440,
+			AttackDelay = 0.2,
+			AttackType = "Single",
+		},
+	},
+	["Cyborg Dummy"] = {
+		[0] = {
+			Damage = 150,
+			Cooldown = 2.5,
+			Range = 13,
+			Cost = 850,
+			SplashRange = 7.5,
+			AttackDelay = 0.316,
+			AttackType = "Splash",
+		},
+		[1] = {
+			Damage = 300,
+			Cooldown = 2.2,
+			Range = 15,
+			Cost = 1200,
+			SplashRange = 7.5,
+			AttackDelay = 0.316,
+			AttackType = "Splash",
+		},
+		[2] = {
+			Damage = 500,
+			Cooldown = 2,
+			Range = 18,
+			Cost = 2200,
+			SplashRange = 7.5,
+			AttackDelay = 0.316,
+			AttackType = "Splash",
+		},
+		[3] = {
+			Damage = 30,
+			Cooldown = 0.1,
+			Range = 20,
+			Cost = 3400,
+			AttackType = "Single",
+
+			Secondary = {
+				Damage = 1000,
+				Cooldown = 4,
+				Range = 30,
+				SplashRange = 7.5,
+				AttackDelay = 0.45,
+				AttackType = "Splash",
+			},
+		},
+		[4] = {
+			Damage = 55,
+			Cooldown = 0.1,
+			Range = 25,
+			Cost = 6500,
+			AttackType = "Single",
+
+			Secondary = {
+				Damage = 1000,
+				Cooldown = 4,
+				Range = 30,
+				SplashRange = 7.5,
+				AttackDelay = 0.45,
+				AttackType = "Splash",
+			},
+		},
+	},
+	["Dummy"] = {
+		[0] = {
+			Damage = 13,
+			Cooldown = 2,
+			Range = 7,
+			Cost = 200,
+			AttackDelay = 0.15,
+			AttackType = "Single",
+		},
+		[1] = {
+			Damage = 30,
+			Cooldown = 1.5,
+			Range = 9,
+			Cost = 550,
+			AttackDelay = 0.15,
+			AttackType = "Single",
+		},
+		[2] = {
+			Damage = 55,
+			Cooldown = 1.2,
+			Range = 12,
+			Cost = 900,
+			AttackDelay = 0.15,
+			AttackType = "Single",
+		},
+	},
+	["Hacker"] = {
+		[0] = {
+			Damage = 200,
+			Cooldown = 2.5,
+			Range = 13,
+			Cost = 900,
+			Angle = 180,
+			AttackDelay = 0.416,
+			AttackType = "Angle",
+
+			HackingChance = 20,
+		},
+		[1] = {
+			Damage = 320,
+			Cooldown = 2,
+			Range = 13,
+			Cost = 1050,
+			Angle = 180,
+			AttackDelay = 0.416,
+			AttackType = "Angle",
+
+			HackingChance = 20,
+		},
+		[2] = {
+			Damage = 600,
+			Cooldown = 2,
+			Range = 15,
+			Cost = 1800,
+			Angle = 180,
+			AttackDelay = 0.416,
+			AttackType = "Angle",
+
+			HackingChance = 20,
+		},
+		[3] = {
+			Damage = 1200,
+			Cooldown = 1.8,
+			Range = 15,
+			Cost = 4200,
+			Angle = 180,
+			AttackDelay = 0.416,
+			AttackType = "Angle",
+
+			HackingChance = 20,
+		},
+		[4] = {
+			Damage = 1400,
+			Cooldown = 1.5,
+			Range = 17,
+			Cost = 3000,
+			Angle = 180,
+			AttackDelay = 0.416,
+			AttackType = "Angle",
+
+			HackingChance = 25,
+		},
+	},
+	["Gunner Dummy"] = {
+		[0] = {
+			Damage = 20,
+			Cooldown = 1,
+			Range = 13,
+			Cost = 400,
+			AttackType = "Single",
+		},
+		[1] = {
+			Damage = 25,
+			Cooldown = 0.8,
+			Range = 15,
+			Cost = 300,
+			AttackType = "Single",
+		},
+		[2] = {
+			Damage = 40,
+			Cooldown = 0.6,
+			Range = 15,
+			Cost = 700,
+			AttackType = "Single",
+		},
+	},
+	["Katana Noob"] = {
+		[0] = {
+			Damage = 30,
+			Cooldown = 1.5,
+			Range = 8,
+			Cost = 500,
+			AttackDelay = 0.25,
+			AttackType = "Single",
+		},
+		[1] = {
+			Damage = 60,
+			Cooldown = 1.2,
+			Range = 10,
+			Cost = 600,
+			AttackDelay = 0.25,
+			AttackType = "Single",
+		},
+		[2] = {
+			Damage = 110,
+			Cooldown = 1,
+			Range = 10,
+			Cost = 1300,
+			AttackDelay = 0.25,
+			AttackType = "Single",
+		},
+	},
+	["King Noob"] = {
+		[0] = {
+			Damage = 50,
+			Cooldown = 15,
+			Range = 0,
+			Cost = 700,
+			AttackType = "Single",
+		},
+		[1] = {
+			Damage = 2000,
+			Cooldown = 14,
+			Range = 0,
+			Cost = 2000,
+			AttackType = "Single",
+		},
+		[2] = {
+			Damage = 3500,
+			Cooldown = 13,
+			Range = 0,
+			Cost = 7000,
+			AttackType = "Single",
+		},
+	},
+	["Minigunner Dummy"] = {
+		[0] = {
+			Damage = 9,
+			Cooldown = 0.12,
+			Range = 15,
+			Cost = 1500,
+			AttackType = "Single",
+		},
+		[1] = {
+			Damage = 13,
+			Cooldown = 0.1,
+			Range = 17,
+			Cost = 1000,
+			AttackType = "Single",
+		},
+		[2] = {
+			Damage = 35,
+			Cooldown = 0.1,
+			Range = 19,
+			Cost = 4000,
+			AttackType = "Single",
+		},
+		[3] = {
+			Damage = 45,
+			Cooldown = 0.08,
+			Range = 19,
+			Cost = 4500,
+			AttackType = "Single",
+		},
+	},
+	["Noob"] = {
+		[0] = {
+			Damage = 4,
+			Cooldown = 1,
+			Range = 6,
+			Cost = 100,
+			AttackDelay = 0.15,
+			AttackType = "Single",
+		},
+		[1] = {
+			Damage = 10,
+			Cooldown = 0.7,
+			Range = 8,
+			Cost = 250,
+			AttackDelay = 0.15,
+			AttackType = "Single",
+		},
+		[2] = {
+			Damage = 15,
+			Cooldown = 0.5,
+			Range = 9,
+			Cost = 400,
+			AttackDelay = 0.15,
+			AttackType = "Single",
+		},
+	},
+	["Poor Bacon"] = {
+		[0] = {
+			Income = 150,
+			Cost = 350,
+		},
+		[1] = {
+			Income = 200,
+			Cost = 250,
+		},
+		[2] = {
+			Income = 350,
+			Cost = 650,
+		},
+	},
+	["Poseidon Noob"] = {
+		[0] = {
+			Damage = 120,
+			Cooldown = 1.6,
+			Range = 14,
+			Cost = 1400,
+			Width = 4,
+			AttackDelay = 0.24,
+			AttackType = "Line",
+		},
+		[1] = {
+			Damage = 250,
+			Cooldown = 1.6,
+			Range = 14,
+			Cost = 2000,
+			Width = 5,
+			AttackDelay = 0.24,
+			AttackType = "Line",
+		},
+		[2] = {
+			Damage = 430,
+			Cooldown = 1.5,
+			Range = 15,
+			Cost = 3600,
+			Width = 5,
+			AttackDelay = 0.24,
+			AttackType = "Line",
+		},
+		[3] = {
+			Damage = 700,
+			Cooldown = 1.4,
+			Range = 16,
+			Cost = 4300,
+			Width = 5,
+			AttackDelay = 0.24,
+			AttackType = "Line",
+		},
+	},
+	["Laser Noob"] = {
+		[0] = {
+			Damage = 180,
+			Cooldown = 1.5,
+			Range = 17,
+			Cost = 1350,
+			AttackType = "Single",
+		},
+		[1] = {
+			Damage = 210,
+			Cooldown = 1.2,
+			Range = 17,
+			Cost = 850,
+			AttackType = "Single",
+		},
+		[2] = {
+			Damage = 320,
+			Cooldown = 1.2,
+			Range = 20,
+			Cost = 1300,
+			AttackType = "Single",
+		},
+		[3] = {
+			Damage = 320,
+			Cooldown = 0.8,
+			Range = 25,
+			Cost = 4200,
+			AttackType = "Single",
+		},
+		[4] = {
+			Damage = 400,
+			Cooldown = 0.8,
+			Range = 27,
+			Cost = 5500,
+			AttackType = "Single",
+		},
+	},
+	["RPG Noob"] = {
+		[0] = {
+			Damage = 150,
+			Cooldown = 3.5,
+			Range = 20,
+			Cost = 1100,
+			SplashRange = 8,
+			AttackType = "Splash",
+		},
+		[1] = {
+			Damage = 420,
+			Cooldown = 3,
+			Range = 22,
+			Cost = 2500,
+			SplashRange = 8,
+			AttackType = "Splash",
+		},
+		[2] = {
+			Damage = 900,
+			Cooldown = 3,
+			Range = 24,
+			Cost = 4500,
+			SplashRange = 8,
+			AttackType = "Splash",
+		},
+		[3] = {
+			Damage = 1100,
+			Cooldown = 3,
+			Range = 30,
+			Cost = 2500,
+			SplashRange = 8,
+			AttackType = "Splash",
+		},
+	},
+	["Scyther Dummy"] = {
+		[0] = {
+			Damage = 15,
+			Cooldown = 1,
+			Range = 10,
+			Cost = 400,
+			AttackDelay = 0.23,
+			AttackType = "Single",
+		},
+		[1] = {
+			Damage = 32,
+			Cooldown = 0.8,
+			Range = 12,
+			Cost = 600,
+			AttackDelay = 0.23,
+			AttackType = "Single",
+		},
+		[2] = {
+			Damage = 65,
+			Cooldown = 0.8,
+			Range = 14,
+			Cost = 1100,
+			AttackDelay = 0.23,
+			AttackType = "Single",
+		},
+	},
+	["Sword Master Dummy"] = {
+		[0] = {
+			Damage = 48,
+			Cooldown = 1.2,
+			Range = 10,
+			Cost = 1000,
+			AttackDelay = 0.2,
+			AttackType = "Single",
+		},
+		[1] = {
+			Damage = 80,
+			Cooldown = 0.9,
+			Range = 12,
+			Cost = 1200,
+			AttackDelay = 0.2,
+			AttackType = "Single",
+		},
+		[2] = {
+			Damage = 155,
+			Cooldown = 0.9,
+			Range = 12,
+			Cost = 2000,
+			AttackDelay = 0.2,
+			AttackType = "Single",
+		},
+	},
+	["Swordsman Dummy"] = {
+		[0] = {
+			Damage = 14,
+			Cooldown = 1,
+			Range = 8,
+			Cost = 400,
+			AttackDelay = 0.2,
+			AttackType = "Single",
+		},
+		[1] = {
+			Damage = 45,
+			Cooldown = 1,
+			Range = 10,
+			Cost = 850,
+			AttackDelay = 0.2,
+			AttackType = "Single",
+		},
+		[2] = {
+			Damage = 90,
+			Cooldown = 0.8,
+			Range = 11,
+			Cost = 1800,
+			AttackDelay = 0.2,
+			AttackType = "Single",
+		},
+	},
+	["Titan Bacon"] = {
+		[0] = {
+			Damage = 1000,
+			Cooldown = 2.3,
+			Range = 17,
+			Cost = 2000,
+			AttackType = "Single",
+		},
+	},
+	["Titan Dummy"] = {
+		[0] = {
+			Damage = 1050,
+			Cooldown = 2.5,
+			Range = 15,
+			Cost = 2000,
+			AttackType = "Single",
+		},
+	},
+	["Titan Glitch"] = {
+		[0] = {
+			Damage = 6,
+			Cooldown = 6,
+			Range = 6,
+			Cost = 4444,
+			AttackType = "Single",
+		},
+		[1] = {
+			Damage = 170,
+			Cooldown = 1,
+			Range = 40,
+			Cost = 6666,
+			AttackType = "Single",
+		},
+		[2] = {
+			Damage = 400,
+			Cooldown = 0.5,
+			Range = 65,
+			Cost = 9000,
+			AttackType = "Single",
+		},
+	},
+	["Titan Noob"] = {
+		[0] = {
+			Damage = 900,
+			Cooldown = 2,
+			Range = 15,
+			Cost = 2000,
+			AttackType = "Single",
+		},
+	},
+	["Lancer Dummy"] = {
+		[0] = {
+			Damage = 30,
+			Cooldown = 0.9,
+			Range = 10,
+			Cost = 450,
+			AttackDelay = 0.5,
+			AttackType = "Single",
+		},
+		[1] = {
+			Damage = 85,
+			Cooldown = 0.9,
+			Range = 12,
+			Cost = 750,
+			AttackDelay = 0.5,
+			AttackType = "Single",
+		},
+		[2] = {
+			Damage = 220,
+			Cooldown = 1.7,
+			Range = 15,
+			Cost = 2100,
+			Width = 5,
+			AttackDelay = 0.5,
+			AttackType = "Line",
+		},
+		[3] = {
+			Damage = 330,
+			Cooldown = 1.7,
+			Range = 19,
+			Cost = 1800,
+			Width = 5,
+			AttackDelay = 0.5,
+			AttackType = "Line",
+		},
+	},
+	["Mecha Demian"] = {
+		[0] = {
+			Damage = 750,
+			Cooldown = 3,
+			Range = 17,
+			Cost = 2700,
+			Width = 10,
+			AttackDelay = 0.866,
+			AttackType = "Line",
+		},
+		[1] = {
+			Damage = 1200,
+			Cooldown = 2.7,
+			Range = 19,
+			Cost = 3100,
+			Width = 10,
+			AttackDelay = 0.866,
+			AttackType = "Line",
+		},
+		[2] = {
+			Damage = 1900,
+			Cooldown = 2.5,
+			Range = 20,
+			Cost = 4600,
+			Width = 10,
+			AttackDelay = 0.866,
+			AttackType = "Line",
+		},
+		[3] = {
+			Damage = 3500,
+			Cooldown = 3,
+			Range = 25,
+			Cost = 5500,
+			SplashRange = 15,
+			AttackDelay = 0.866,
+			AttackType = "Splash",
+		},
+		[4] = {
+			Damage = 4500,
+			Cooldown = 2.5,
+			Range = 28,
+			Cost = 17_000,
+			SplashRange = 15,
+			AttackDelay = 0.866,
+			AttackType = "Splash",
+		},
+		[5] = {
+			Damage = 5500,
+			Cooldown = 2,
+			Range = 33,
+			Cost = 19_000,
+			SplashRange = 15,
+			AttackDelay = 0.866,
+			AttackType = "Splash",
+		},
+	},
+	["Mecha Fist"] = {
+		[0] = {
+			Damage = 750,
+			Cooldown = 2,
+			Range = 13,
+			Cost = 900,
+			Width = 7,
+			AttackDelay = 0.466,
+			AttackType = "Line",
+		},
+	},
+	["Cowboy Dummy"] = {
+		[0] = {
+			Damage = 250,
+			Cooldown = 3,
+			Range = 14,
+			Cost = 950,
+			Width = 7,
+			AttackDelay = 0.5,
+			AttackType = "Line",
+		},
+		[1] = {
+			Damage = 530,
+			Cooldown = 2.5,
+			Range = 17,
+			Cost = 1700,
+			Width = 7,
+			AttackDelay = 0.5,
+			AttackType = "Line",
+		},
+		[2] = {
+			Damage = 850,
+			Cooldown = 2.2,
+			Range = 22,
+			Cost = 2000,
+			Width = 7,
+			AttackDelay = 0.5,
+			AttackType = "Line",
+		},
+	},
+	["Emperor Noob"] = {
+		[0] = {
+			Cooldown = 20,
+			Cost = 1200,
+			Summons = {
+				{
+					SummonUnit = "Knight Noob",
+					SummonCooldown = 20,
+					UnitStats = {
+						MaxHealth = 400,
+						Damage = 50,
+						Cooldown = 1,
+						Range = 7,
+						StopWhenAttacking = true,
+						AttackDelay = 0.35,
+						AttackType = "Single",
+					},
+				},
+			},
+		},
+		[1] = {
+			Cooldown = 19,
+			Cost = 1300,
+			Summons = {
+				{
+					SummonUnit = "Knight Noob",
+					SummonCooldown = 19,
+					UnitStats = {
+						MaxHealth = 600,
+						Damage = 80,
+						Cooldown = 1,
+						Range = 7,
+						StopWhenAttacking = true,
+						AttackDelay = 0.35,
+						AttackType = "Single",
+					},
+				},
+			},
+		},
+		[2] = {
+			Cooldown = 18,
+			Cost = 2550,
+			Summons = {
+				{
+					SummonUnit = "Knight Noob",
+					SummonCooldown = 18,
+					UnitStats = {
+						MaxHealth = 800,
+						Damage = 120,
+						Cooldown = 0.8,
+						Range = 7,
+						StopWhenAttacking = true,
+						AttackDelay = 0.35,
+						AttackType = "Single",
+					},
+				},
+			},
+		},
+		[3] = {
+			Cooldown = 17,
+			Cost = 6500,
+			Summons = {
+				{
+					SummonUnit = "Knight Noob",
+					SummonCooldown = 17,
+					UnitStats = {
+						MaxHealth = 800,
+						Damage = 180,
+						Cooldown = 0.8,
+						Range = 7,
+						StopWhenAttacking = true,
+						AttackDelay = 0.35,
+						AttackType = "Single",
+					},
+				},
+				{
+					SummonUnit = "Archer Noob",
+					SummonCooldown = 17,
+					UnitStats = {
+						MaxHealth = 400,
+						Damage = 200,
+						Cooldown = 1.5,
+						Range = 17,
+						StopWhenAttacking = true,
+						AttackDelay = 0.45,
+						AttackType = "Single",
+					},
+				},
+			},
+		},
+		[4] = {
+			Cooldown = 15,
+			Cost = 3250,
+			Summons = {
+				{
+					SummonUnit = "Knight Noob",
+					SummonCooldown = 15,
+					UnitStats = {
+						MaxHealth = 1000,
+						Damage = 200,
+						Cooldown = 0.8,
+						Range = 7,
+						StopWhenAttacking = true,
+						AttackDelay = 0.35,
+						AttackType = "Single",
+					},
+				},
+				{
+					SummonUnit = "Archer Noob",
+					SummonCooldown = 15,
+					SummonDelay = 0.3,
+					UnitStats = {
+						MaxHealth = 700,
+						Damage = 230,
+						Cooldown = 1.5,
+						Range = 17,
+						StopWhenAttacking = true,
+						AttackDelay = 0.45,
+						AttackType = "Single",
+					},
+				},
+			},
+		},
+	},
+	["Bomb"] = {
+		[0] = {
+			Damage = 100,
+			Cooldown = 3,
+			Range = 12,
+			Cost = 450,
+			SplashRange = 6,
+			AttackDelay = 1.2,
+			AttackType = "Splash",
+		},
+	},
+	["Wizard"] = {
+		[0] = {
+			Damage = 18,
+			Cooldown = 2.5,
+			Range = 14,
+			Cost = 1850,
+			Width = 7,
+			Passives = {
+				{
+					Type = "Slow",
+					Amount = 20,
+					Duration = 1,
+				},
+			},
+
+			AttackDelay = 0.75,
+			AttackType = "Line",
+		},
+		[1] = {
+			Damage = 42,
+			Cooldown = 2.3,
+			Range = 16,
+			Cost = 3000,
+			Width = 7,
+			Passives = {
+				{
+					Type = "Slow",
+					Amount = 20,
+					Duration = 1,
+				},
+			},
+
+			AttackDelay = 0.75,
+			AttackType = "Line",
+		},
+		[2] = {
+			Damage = 80,
+			Cooldown = 2.2,
+			Range = 16,
+			Cost = 5500,
+			Width = 7,
+			Passives = {
+				{
+					Type = "Slow",
+					Amount = 25,
+					Duration = 1,
+				},
+			},
+
+			AttackDelay = 0.75,
+			AttackType = "Line",
+		},
+		[3] = {
+			Damage = 135,
+			Cooldown = 2.2,
+			Range = 18,
+			Cost = 8500,
+			Width = 7,
+			Passives = {
+				{
+					Type = "Slow",
+					Amount = 25,
+					Duration = 1,
+				},
+				{
+					Type = "Wizard",
+					StunDuration = 0.5,
+					StunChance = 20,
+				},
+			},
+
+			AttackDelay = 0.75,
+			AttackType = "Line",
+		},
+		[4] = {
+			Damage = 250,
+			Cooldown = 3.8,
+			Range = 25,
+			Cost = 11000,
+			Width = 12,
+			Passives = {
+				{
+					Type = "Slow",
+					Amount = 35,
+					Duration = 2,
+				},
+				{
+					Type = "Wizard",
+					StunDuration = 0.75,
+					StunChance = 20,
+				},
+			},
+
+			AttackDelay = 0.866,
+			AttackType = "Line",
+		},
+		[5] = {
+			Damage = 350,
+			Cooldown = 3.5,
+			Range = 25,
+			Cost = 18500,
+			Width = 12,
+			Passives = {
+				{
+					Type = "Slow",
+					Amount = 35,
+					Duration = 2,
+				},
+				{
+					Type = "Wizard",
+					StunDuration = 0.5,
+					StunChance = 25,
+					KnockbackAmount = 5,
+					KnockbackChance = 5,
+				},
+			},
+
+			AttackDelay = 0.866,
+			AttackType = "Line",
+		},
+	},
+	["Ranger Super Tower"] = {
+		[0] = {
+			Damage = 6974697469746974,
+			Cooldown = 3,
+			Range = 250,
+			Cost = 0,
+			SplashRange = 50,
+			AttackType = "Splash",
+		},
+	},
+}--]]
+
+return TableUtils.DeepFreeze({
+	-- Common
+	["Fighter"] = {
+		[0] = {
+			Cost = 300,
+			Damage = 2,
+			Cooldown = 1,
+			Range = 9,
+			AttackDelay = 0.2,
+			AttackType = "Single",
+		},
+		[1] = {
+			Cost = 100,
+			Damage = 2,
+			Cooldown = 0.75,
+			Range = 9,
+			AttackDelay = 0.2,
+			AttackType = "Single",
+		},
+		[2] = {
+			Cost = 410,
+			Damage = 4,
+			Cooldown = 0.75,
+			Range = 9,
+			AttackDelay = 0.2,
+			AttackType = "Single",
+		},
+		[3] = {
+			Cost = 1250,
+			Damage = 6,
+			Cooldown = 0.45,
+			Range = 10,
+			AttackDelay = 0.2,
+			AttackType = "Single",
+		},
+		[4] = {
+			Cost = 2440,
+			Damage = 13,
+			Cooldown = 0.45,
+			Range = 10,
+			AttackDelay = 0.2,
+			AttackType = "Single",
+		},
+	},
+	["Harvester"] = {
+		[0] = {
+			Cost = 550,
+			Damage = 4,
+			Cooldown = 1.1,
+			Range = 10,
+			AttackDelay = 0.23,
+			AttackType = "Single",
+		},
+		[1] = {
+			Cost = 250,
+			Damage = 5,
+			Cooldown = 0.95,
+			Range = 10,
+			AttackDelay = 0.23,
+			AttackType = "Single",
+		},
+		[2] = {
+			Cost = 800,
+			Damage = 10,
+			Cooldown = 0.95,
+			Range = 10,
+			AttackDelay = 0.23,
+			AttackType = "Single",
+		},
+		[3] = {
+			Cost = 1450,
+			Damage = 18,
+			Cooldown = 0.9,
+			Range = 11,
+			AttackDelay = 0.23,
+			AttackType = "Single",
+		},
+		[4] = {
+			Cost = 2350,
+			Damage = 30,
+			Cooldown = 0.85,
+			Range = 11,
+			AttackDelay = 0.23,
+			AttackType = "Single",
+		},
+	},
+
+	-- Rare
+	["Eolin-yongsa"] = {
+		[0] = {
+			Cost = 400,
+			Damage = 3,
+			Cooldown = 1.35,
+			Range = 0,
+			Passives = {
+				{ Type = "CashOnHit", Amount = 6 },
+			},
+			AttackDelay = 0,
+			AttackType = "Single",
+		},
+		[1] = {
+			Cost = 525,
+			Damage = 5,
+			Cooldown = 1,
+			Range = 0,
+			Passives = {
+				{ Type = "CashOnHit", Amount = 6 },
+			},
+			AttackDelay = 0,
+			AttackType = "Single",
+		},
+		[2] = {
+			Cost = 1800,
+			Damage = 14,
+			Cooldown = 1,
+			Range = 0,
+			Passives = {
+				{ Type = "CashOnHit", Amount = 10 },
+			},
+			AttackDelay = 0,
+			AttackType = "Single",
+		},
+		[3] = {
+			Cost = 2800,
+			Damage = 25,
+			Cooldown = 0.9,
+			Range = 0,
+			Passives = {
+				{ Type = "CashOnHit", Amount = 10 },
+			},
+			AttackDelay = 0,
+			AttackType = "Single",
+		},
+		[4] = {
+			Cost = 5500,
+			Damage = 25,
+			Cooldown = 0.5,
+			Range = 0,
+			Passives = {
+				{ Type = "CashOnHit", Amount = 10 },
+			},
+			AttackDelay = 0,
+			AttackType = "Single",
+		},
+	},
+
+	-- Epic
+	["Cowboy"] = {
+		[0] = {
+			Cost = 750,
+			Damage = 7,
+			Cooldown = 1.4,
+			Range = 0,
+			DoubleDamageEvery = 5,
+			AttackDelay = 0,
+			AttackType = "Single",
+		},
+		[1] = {
+			Cost = 350,
+			Damage = 7,
+			Cooldown = 1,
+			Range = 0,
+			DoubleDamageEvery = 5,
+			AttackDelay = 0,
+			AttackType = "Single",
+		},
+		[2] = {
+			Cost = 1750,
+			Damage = 18,
+			Cooldown = 1,
+			Range = 0,
+			DoubleDamageEvery = 5,
+			AttackDelay = 0,
+			AttackType = "Single",
+		},
+		[3] = {
+			Cost = 3500,
+			Damage = 20,
+			Cooldown = 0.5,
+			Range = 0,
+			DoubleDamageEvery = 5,
+			AttackDelay = 0,
+			AttackType = "Single",
+		},
+		[4] = {
+			Cost = 6750,
+			Damage = 40,
+			Cooldown = 0.5,
+			Range = 0,
+			DoubleDamageEvery = 5,
+			AttackDelay = 0,
+			AttackType = "Single",
+		},
+		[5] = {
+			Cost = 13000,
+			Damage = 70,
+			Cooldown = 0.45,
+			Range = 0,
+			DoubleDamageEvery = 5,
+			AttackDelay = 0,
+			AttackType = "Single",
+		},
+	},
+	["Elder Wizard"] = {
+		[0] = {
+			Cost = 1200,
+			Damage = 12,
+			Cooldown = 1.4,
+			Range = 0,
+			Passives = {
+				{ Type = "Slow", Amount = 8, Duration = 1 },
+			},
+			AttackDelay = 0,
+			AttackType = "Single",
+		},
+		[1] = {
+			Cost = 850,
+			Damage = 17,
+			Cooldown = 1.2,
+			Range = 0,
+			Passives = {
+				{ Type = "Slow", Amount = 15, Duration = 1 },
+			},
+			AttackDelay = 0,
+			AttackType = "Single",
+		},
+		[2] = {
+			Cost = 3000,
+			Damage = 40,
+			Cooldown = 1.2,
+			Range = 0,
+			Passives = {
+				{ Type = "Slow", Amount = 22, Duration = 1 },
+			},
+			AttackDelay = 0,
+			AttackType = "Single",
+		},
+		[3] = {
+			Cost = 8500,
+			Damage = 80,
+			Cooldown = 2,
+			Range = 0,
+			Passives = {
+				{ Type = "Slow", Amount = 25, Duration = 1 },
+			},
+			Width = 0,
+			AttackDelay = 0,
+			AttackType = "Line",
+		},
+		[4] = {
+			Cost = 13550,
+			Damage = 160,
+			Cooldown = 2,
+			Range = 0,
+			Passives = {
+				{ Type = "Slow", Amount = 25, Duration = 1 },
+			},
+			Width = 0,
+			AttackDelay = 0,
+			AttackType = "Line",
+		},
+	},
+	["Lancer"] = {
+		[0] = {
+			Cost = 800,
+			Damage = 5,
+			Cooldown = 1.6,
+			Range = 0,
+			Passives = {
+				{ Type = "Bleed", Amount = 1, Duration = 1, TickRate = 0.2 },
+			},
+			AttackDelay = 0,
+			AttackType = "Single",
+		},
+		[1] = {
+			Cost = 300,
+			Damage = 7,
+			Cooldown = 1.5,
+			Range = 0,
+			Passives = {
+				{ Type = "Bleed", Amount = 1, Duration = 1, TickRate = 0.2 },
+			},
+			AttackDelay = 0,
+			AttackType = "Single",
+		},
+		[2] = {
+			Cost = 950,
+			Damage = 12,
+			Cooldown = 1.5,
+			Range = 0,
+			Passives = {
+				{ Type = "Bleed", Amount = 2, Duration = 1, TickRate = 0.2 },
+			},
+			AttackDelay = 0,
+			AttackType = "Single",
+		},
+		[3] = {
+			Cost = 3200,
+			Damage = 15,
+			Cooldown = 1.7,
+			Range = 0,
+			Passives = {
+				{ Type = "Bleed", Amount = 2, Duration = 1, TickRate = 0.2 },
+			},
+			Width = 0,
+			AttackDelay = 0,
+			AttackType = "Line",
+		},
+		[4] = {
+			Cost = 4250,
+			Damage = 35,
+			Cooldown = 1.7,
+			Range = 0,
+			Passives = {
+				{ Type = "Bleed", Amount = 2, Duration = 1, TickRate = 0.2 },
+			},
+			Width = 0,
+			AttackDelay = 0,
+			AttackType = "Line",
+		},
+		[5] = {
+			Cost = 8000,
+			Damage = 60,
+			Cooldown = 1.7,
+			Range = 0,
+			Passives = {
+				{ Type = "Bleed", Amount = 3, Duration = 1.4, TickRate = 0.2 },
+			},
+			Width = 0,
+			AttackDelay = 0,
+			AttackType = "Line",
+		},
+	},
+	["Ganet"] = {
+		-- TODO: FarmComponent currently pays once per wave; connect Cooldown for timed payouts.
+		[0] = { Cost = 800, Income = 200, Cooldown = 8 },
+		[1] = { Cost = 600, Income = 325, Cooldown = 8 },
+		[2] = { Cost = 1850, Income = 600, Cooldown = 7.5 },
+		[3] = { Cost = 2850, Income = 800, Cooldown = 6 },
+		[4] = { Cost = 4750, Income = 1200, Cooldown = 6 },
+		[5] = { Cost = 7500, Income = 1500, Cooldown = 5 },
+	},
+
+	-- Legendary
+	["장애인해적"] = {
+		[0] = {
+			Cost = 950,
+			Damage = 10,
+			Cooldown = 2,
+			Range = 0,
+			SplashRange = 0,
+			AttackDelay = 0,
+			AttackType = "Splash",
+		},
+		[1] = {
+			Cost = 1150,
+			Damage = 22,
+			Cooldown = 2,
+			Range = 0,
+			SplashRange = 0,
+			AttackDelay = 0,
+			AttackType = "Splash",
+		},
+		[2] = {
+			Cost = 3250,
+			Damage = 50,
+			Cooldown = 1.8,
+			Range = 0,
+			SplashRange = 0,
+			AttackDelay = 0,
+			AttackType = "Splash",
+		},
+		[3] = {
+			Cost = 6500,
+			Damage = 110,
+			Cooldown = 2.5,
+			Range = 0,
+			SplashRange = 0,
+			AttackDelay = 0,
+			AttackType = "Splash",
+		},
+		[4] = {
+			Cost = 9750,
+			Damage = 200,
+			Cooldown = 2.5,
+			Range = 0,
+			SplashRange = 0,
+			AttackDelay = 0,
+			AttackType = "Splash",
+		},
+		[5] = {
+			Cost = 12500,
+			Damage = 310,
+			Cooldown = 2.5,
+			Range = 0,
+			SplashRange = 0,
+			AttackDelay = 0,
+			AttackType = "Splash",
+		},
+	},
+	["Knight"] = {
+		[0] = {
+			Cost = 750,
+			Damage = 9,
+			Cooldown = 1,
+			Range = 12,
+			AttackDelay = 0.333,
+			AttackType = "Single",
+		},
+		[1] = {
+			Cost = 1550,
+			Damage = 25,
+			Cooldown = 1,
+			Range = 12,
+			AttackDelay = 0.333,
+			AttackType = "Single",
+		},
+		[2] = {
+			Cost = 2850,
+			Damage = 55,
+			Cooldown = 1,
+			Range = 12,
+			AttackDelay = 0.333,
+			AttackType = "Single",
+		},
+		[3] = {
+			Cost = 7250,
+			Damage = 110,
+			Cooldown = 2,
+			Range = 12,
+			Angle = 120,
+			AttackDelay = 0.333,
+			AttackType = "Angle",
+		},
+		[4] = {
+			Cost = 9500,
+			Damage = 165,
+			Cooldown = 1.8,
+			Range = 12,
+			Angle = 120,
+			AttackDelay = 0.333,
+			AttackType = "Angle",
+		},
+	},
+
+	-- Mythic
+	["Poseidon"] = {
+		[0] = {
+			Cost = 800,
+			Damage = 5,
+			Cooldown = 1.5,
+			Range = 13,
+			Passives = {
+				{ Type = "Slow", Amount = 10, Duration = 0.5 },
+			},
+
+			Width = 5,
+			AttackDelay = 0.24,
+			AttackType = "Line",
+		},
+		[1] = {
+			Cost = 1200,
+			Damage = 12,
+			Cooldown = 1.5,
+			Range = 13,
+			Passives = {
+				{ Type = "Slow", Amount = 10, Duration = 0.5 },
+			},
+
+			Width = 5,
+			AttackDelay = 0.24,
+			AttackType = "Line",
+		},
+		[2] = {
+			Cost = 3550,
+			Damage = 30,
+			Cooldown = 1.5,
+			Range = 13,
+			Passives = {
+				{ Type = "Slow", Amount = 15, Duration = 0.5 },
+			},
+
+			Width = 5,
+			AttackDelay = 0.24,
+			AttackType = "Line",
+		},
+		[3] = {
+			Cost = 5650,
+			Damage = 56,
+			Cooldown = 1.5,
+			Range = 16,
+			Passives = {
+				{ Type = "Slow", Amount = 15, Duration = 0.5 },
+			},
+
+			Width = 6,
+			AttackDelay = 0.24,
+			AttackType = "Line",
+		},
+		[4] = {
+			Cost = 6800,
+			Damage = 70,
+			Cooldown = 1.2,
+			Range = 16,
+			Passives = {
+				{ Type = "Slow", Amount = 15, Duration = 0.5 },
+			},
+
+			Width = 6,
+			AttackDelay = 0.24,
+			AttackType = "Line",
+		},
+		[5] = {
+			Cost = 9500,
+			Damage = 100,
+			Cooldown = 1.2,
+			Range = 16,
+			Passives = {
+				{ Type = "Slow", Amount = 20, Duration = 0.5 },
+			},
+
+			Width = 6,
+			AttackDelay = 0.24,
+			AttackType = "Line",
+		},
+	},
+	["Emperor"] = {
+		[0] = {
+			Cost = 1850,
+			Damage = 18.33,
+			Cooldown = 1,
+			Range = 0,
+			AttackDelay = 0,
+			Summons = {
+				{
+					SummonUnit = "Knight Noob", -- Emperor's Knight
+					SummonCooldown = 30,
+					UnitStats = {
+						MaxHealth = 100,
+						Damage = 15,
+						Cooldown = 1,
+						Range = 7,
+						StopWhenAttacking = true,
+						AttackDelay = 0,
+						AttackType = "Single",
+					},
+				},
+			},
+		},
+		[1] = {
+			Cost = 1150,
+			Damage = 28,
+			Cooldown = 1,
+			Range = 0,
+			AttackDelay = 0,
+			Summons = {
+				{
+					SummonUnit = "Knight Noob", -- Emperor's Knight
+					SummonCooldown = 25,
+					UnitStats = {
+						MaxHealth = 200,
+						Damage = 20,
+						Cooldown = 1,
+						Range = 7,
+						StopWhenAttacking = true,
+						AttackDelay = 0,
+						AttackType = "Single",
+					},
+				},
+			},
+		},
+		[2] = {
+			Cost = 3550,
+			Damage = 58.9,
+			Cooldown = 1,
+			Range = 0,
+			AttackDelay = 0,
+			Summons = {
+				{
+					SummonUnit = "Knight Noob", -- Emperor's Knight
+					SummonCooldown = 25,
+					UnitStats = {
+						MaxHealth = 500,
+						Damage = 35,
+						Cooldown = 0.9,
+						Range = 7,
+						StopWhenAttacking = true,
+						AttackDelay = 0,
+						AttackType = "Single",
+					},
+				},
+			},
+		},
+		[3] = {
+			Cost = 7250,
+			Damage = 105.6,
+			Cooldown = 1,
+			Range = 0,
+			AttackDelay = 0,
+			Summons = {
+				{
+					SummonUnit = "Knight Noob", -- Emperor's Knight
+					SummonCooldown = 25,
+					UnitStats = {
+						MaxHealth = 500,
+						Damage = 35,
+						Cooldown = 0.9,
+						Range = 7,
+						StopWhenAttacking = true,
+						AttackDelay = 0,
+						AttackType = "Single",
+					},
+				},
+				{
+					SummonUnit = "Archer Noob", -- Emperor's Archer
+					SummonCooldown = 25,
+					UnitStats = {
+						MaxHealth = 250,
+						Damage = 55,
+						Cooldown = 1.5,
+						Range = 15,
+						StopWhenAttacking = true,
+						AttackDelay = 0,
+						AttackType = "Single",
+					},
+				},
+			},
+		},
+		[4] = {
+			Cost = 10500,
+			Damage = 153.58,
+			Cooldown = 1,
+			Range = 0,
+			AttackDelay = 0,
+			Summons = {
+				{
+					SummonUnit = "Knight Noob", -- Emperor's Knight
+					SummonCooldown = 25,
+					UnitStats = {
+						MaxHealth = 900,
+						Damage = 45,
+						Cooldown = 0.8,
+						Range = 7,
+						StopWhenAttacking = true,
+						AttackDelay = 0,
+						AttackType = "Single",
+					},
+				},
+				{
+					SummonUnit = "Archer Noob", -- Emperor's Archer
+					SummonCooldown = 25,
+					UnitStats = {
+						MaxHealth = 450,
+						Damage = 65,
+						Cooldown = 1.5,
+						Range = 15,
+						StopWhenAttacking = true,
+						AttackDelay = 0,
+						AttackType = "Single",
+					},
+				},
+			},
+		},
+		[5] = {
+			Cost = 16500,
+			Damage = 216.6,
+			Cooldown = 1,
+			Range = 0,
+			AttackDelay = 0,
+			Summons = {
+				{
+					SummonUnit = "Knight Noob", -- Emperor's Knight
+					SummonCooldown = 25,
+					UnitStats = {
+						MaxHealth = 1500,
+						Damage = 50,
+						Cooldown = 0.7,
+						Range = 7,
+						StopWhenAttacking = true,
+						AttackDelay = 0,
+						AttackType = "Single",
+					},
+				},
+				{
+					SummonUnit = "Archer Noob", -- Emperor's Archer
+					SummonCooldown = 25,
+					UnitStats = {
+						MaxHealth = 750,
+						Damage = 80,
+						Cooldown = 1.5,
+						Range = 15,
+						StopWhenAttacking = true,
+						AttackDelay = 0,
+						AttackType = "Single",
+					},
+				},
+			},
+		},
+	},
+	["Chronos"] = {
+		[0] = {
+			Cost = 1500,
+			Damage = 12,
+			Cooldown = 2.5,
+			Range = 0,
+			SplashRange = 0,
+			Passives = {
+				{ Type = "Slow", Amount = 65, Duration = 1 },
+			},
+			AttackDelay = 0,
+			AttackType = "Splash",
+		},
+		[1] = {
+			Cost = 2850,
+			Damage = 30,
+			Cooldown = 2.3,
+			Range = 0,
+			SplashRange = 0,
+			Passives = {
+				{ Type = "Slow", Amount = 65, Duration = 1 },
+			},
+			AttackDelay = 0,
+			AttackType = "Splash",
+		},
+		[2] = {
+			Cost = 4500,
+			Damage = 55,
+			Cooldown = 2.3,
+			Range = 0,
+			SplashRange = 0,
+			Passives = {
+				{ Type = "Slow", Amount = 70, Duration = 1 },
+			},
+			AttackDelay = 0,
+			AttackType = "Splash",
+		},
+		[3] = {
+			Cost = 10000,
+			Damage = 120,
+			Cooldown = 4,
+			Range = 0,
+			SplashRange = 0,
+			Passives = {
+				{ Type = "Wizard", StunChance = 100, StunDuration = 0 },
+			},
+			AttackDelay = 0,
+			AttackType = "Splash",
+		},
+		[4] = {
+			Cost = 13000,
+			Damage = 200,
+			Cooldown = 4,
+			Range = 0,
+			SplashRange = 0,
+			Passives = {
+				{ Type = "Wizard", StunChance = 100, StunDuration = 0 },
+			},
+			AttackDelay = 0,
+			AttackType = "Splash",
+		},
+		[5] = {
+			Cost = 18500,
+			Damage = 300,
+			Cooldown = 4,
+			Range = 0,
+			SplashRange = 0,
+			Passives = {
+				{ Type = "Wizard", StunChance = 100, StunDuration = 1.5 },
+			},
+			AttackDelay = 0,
+			AttackType = "Splash",
+		},
+	},
+
+	-- Premium (Robux)
+	["Wizard"] = {
+		[0] = {
+			Cost = 1850,
+			Damage = 18,
+			Cooldown = 2.5,
+			Range = 14,
+
+			Passives = {
+				{
+					Type = "Slow",
+					Amount = 20,
+					Duration = 1,
+				},
+			},
+
+			Width = 7,
+			AttackDelay = 0.75,
+			AttackType = "Line",
+		},
+		[1] = {
+			Cost = 3000,
+			Damage = 42,
+			Cooldown = 2.3,
+			Range = 16,
+
+			Passives = {
+				{
+					Type = "Slow",
+					Amount = 20,
+					Duration = 1,
+				},
+			},
+
+			Width = 7,
+			AttackDelay = 0.75,
+			AttackType = "Line",
+		},
+		[2] = {
+			Cost = 5500,
+			Damage = 80,
+			Cooldown = 2.2,
+			Range = 16,
+
+			Passives = {
+				{
+					Type = "Slow",
+					Amount = 25,
+					Duration = 1,
+				},
+			},
+
+			Width = 7,
+			AttackDelay = 0.75,
+			AttackType = "Line",
+		},
+		[3] = {
+			Cost = 8500,
+			Damage = 135,
+			Cooldown = 2.2,
+			Range = 18,
+
+			Passives = {
+				{
+					Type = "Slow",
+					Amount = 25,
+					Duration = 1,
+				},
+				{
+					Type = "Wizard",
+					StunDuration = 0.5,
+					StunChance = 20,
+				},
+			},
+
+			Width = 7,
+			AttackDelay = 0.75,
+			AttackType = "Line",
+		},
+		[4] = {
+			Cost = 11000,
+			Damage = 250,
+			Cooldown = 3.8,
+			Range = 25,
+
+			Passives = {
+				{
+					Type = "Slow",
+					Amount = 35,
+					Duration = 2,
+				},
+				{
+					Type = "Wizard",
+					StunDuration = 0.75,
+					StunChance = 20,
+				},
+			},
+
+			Width = 12,
+			AttackDelay = 0.866,
+			AttackType = "Line",
+		},
+		[5] = {
+			Cost = 18500,
+			Damage = 350,
+			Cooldown = 3.5,
+			Range = 25,
+
+			Passives = {
+				{
+					Type = "Slow",
+					Amount = 35,
+					Duration = 2,
+				},
+				{
+					Type = "Wizard",
+					StunDuration = 0.5,
+					StunChance = 25,
+					KnockbackAmount = 5,
+					KnockbackChance = 5,
+				},
+			},
+
+			Width = 12,
+			AttackDelay = 0.866,
+			AttackType = "Line",
+		},
+	},
+
+	-- Absolute
+	["Kitsune Samurai"] = {
+		[0] = {
+			Cost = 2000,
+			Damage = 21,
+			Cooldown = 1.5,
+			Range = 13,
+
+			AttackDelay = 0.333,
+			AttackType = "Angle",
+			Angle = 180,
+		},
+		[1] = {
+			Cost = 2350,
+			Damage = 45,
+			Cooldown = 1.5,
+			Range = 13,
+
+			AttackDelay = 0.333,
+			AttackType = "Angle",
+			Angle = 180,
+		},
+		[2] = {
+			Cost = 6000,
+			Damage = 57,
+			Cooldown = 2.4,
+			Range = 15,
+
+			Hits = {
+				{
+					Delay = 0.45,
+					AttackType = "Angle",
+					Angle = 180,
+				},
+				{
+					Delay = 0.717,
+					AttackType = "Angle",
+					Angle = 180,
+				},
+				{
+					Delay = 1.417,
+					AttackType = "Line",
+					Width = 15,
+				},
+			},
+
+			AttackDelay = 0.45,
+			AttackType = "Angle",
+			Angle = 180,
+		},
+		[3] = {
+			Cost = 15000,
+			Damage = 113,
+			Cooldown = 2.2,
+			Range = 15,
+
+			Hits = {
+				{
+					Delay = 0.45,
+					AttackType = "Angle",
+					Angle = 180,
+				},
+				{
+					Delay = 0.717,
+					AttackType = "Angle",
+					Angle = 180,
+				},
+				{
+					Delay = 1.417,
+					AttackType = "Line",
+					Width = 15,
+				},
+			},
+
+			AttackDelay = 0.45,
+			AttackType = "Angle",
+			Angle = 180,
+		},
+		[4] = {
+			Cost = 21000,
+			Damage = 280,
+			Cooldown = 4,
+			Range = 20,
+
+			Hits = {
+				{
+					Delay = 0.75,
+				},
+				{
+					Delay = 0.85,
+				},
+				{
+					Delay = 1.05,
+				},
+				{
+					Delay = 2.166,
+				},
+			},
+
+			AttackDelay = 0,
+			AttackType = "Line",
+			Width = 18,
+		},
+		[5] = {
+			Cost = 30500,
+			Damage = 400,
+			Cooldown = 3.5,
+			Range = 20,
+
+			Hits = {
+				{
+					Delay = 0.75,
+				},
+				{
+					Delay = 0.85,
+				},
+				{
+					Delay = 1.05,
+				},
+				{
+					Delay = 2.166,
+				},
+			},
+
+			AttackDelay = 0,
+			AttackType = "Line",
+			Width = 18,
+		},
+	},
+	["Galahad"] = {
+		[0] = {
+			Cost = 1200,
+			Damage = 15,
+			Cooldown = 1.25,
+			Range = 13,
+			Angle = 180,
+			Passives = {
+				{
+					Type = "KillBuff",
+					DamagePercent = 1,
+					RangePercent = 0.3,
+					MaxDamagePercent = 50,
+					MaxRangePercent = 15,
+				},
+			},
+
+			AttackDelay = 0.55,
+			AttackType = "Angle",
+		},
+		[1] = {
+			Cost = 2800,
+			Damage = 40,
+			Cooldown = 1.1,
+			Range = 13,
+			Angle = 180,
+			Passives = {
+				{
+					Type = "KillBuff",
+					DamagePercent = 1,
+					RangePercent = 0.3,
+					MaxDamagePercent = 50,
+					MaxRangePercent = 15,
+				},
+			},
+
+			AttackDelay = 0.55,
+			AttackType = "Angle",
+		},
+		[2] = {
+			Cost = 6500,
+			Damage = 90,
+			Cooldown = 1,
+			Range = 13,
+			Angle = 180,
+			Passives = {
+				{
+					Type = "KillBuff",
+					DamagePercent = 1,
+					RangePercent = 0.3,
+					MaxDamagePercent = 50,
+					MaxRangePercent = 15,
+				},
+			},
+
+			AttackDelay = 0.56,
+			AttackType = "Angle",
+		},
+		[3] = {
+			Cost = 10000,
+			Damage = 400,
+			Cooldown = 3,
+			Range = 17,
+			Width = 12,
+			Passives = {
+				{
+					Type = "KillBuff",
+					DamagePercent = 1,
+					RangePercent = 0.3,
+					MaxDamagePercent = 50,
+					MaxRangePercent = 15,
+				},
+			},
+
+			AttackDelay = 1.733,
+			AttackType = "Line",
+		},
+		[4] = {
+			Cost = 17000,
+			Damage = 600,
+			Cooldown = 2.5,
+			Range = 17,
+			Width = 12,
+			Passives = {
+				{
+					Type = "KillBuff",
+					DamagePercent = 1,
+					RangePercent = 0.3,
+					MaxDamagePercent = 50,
+					MaxRangePercent = 15,
+				},
+			},
+
+			AttackDelay = 1.733,
+			AttackType = "Line",
+		},
+		[5] = {
+			Cost = 28500,
+			Damage = 1000,
+			Cooldown = 2.3,
+			Range = 17,
+			Width = 12,
+			Passives = {
+				{
+					Type = "KillBuff",
+					DamagePercent = 1,
+					RangePercent = 0.3,
+					MaxDamagePercent = 50,
+					MaxRangePercent = 15,
+				},
+			},
+
+			AttackDelay = 1.733,
+			AttackType = "Line",
+		},
+	},
+	["Dragon Slayer"] = {
+		[0] = {
+			Cost = 0,
+			Damage = 6767,
+			Cooldown = 5,
+			Range = 25,
+
+			Hits = {
+				{
+					Delay = 1.416,
+					AttackType = "Line",
+					Width = 10,
+				},
+				{
+					Delay = 2.183,
+					AttackType = "Line",
+					Width = 20,
+				},
+			},
+
+			Passives = {
+				{
+					Type = "Burn",
+					Duration = 3,
+					Amount = 15,
+				},
+			},
+
+			AttackDelay = 1.416,
+			AttackType = "Line",
+			Width = 10,
+		},
+	},
+})
