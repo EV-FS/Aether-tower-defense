@@ -41,6 +41,7 @@ local ClientSignals = {
 
 	TowerUpdated = Signal.new(),
 	TowerDestroyed = Signal.new(),
+	TowerCountChanged = Signal.new(),
 
 	--/EnemyClient -> UI
 	BossSpawned = Signal.new(),

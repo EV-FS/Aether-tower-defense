@@ -12,7 +12,8 @@ scope EnemyService {
             enemyIndex: u8,
             sendTimeMs: u16,
             isBoss: boolean?,
-            startPathAlpha: f32?
+            startPathAlpha: f32?,
+            pathId: u8,
         }
     }
     event DestroyEnemy {
@@ -71,6 +72,37 @@ scope DataService {
         Data: string,
         Return: unknown,
     }
+
+    event CurrencyChanged {
+        from: Server,
+        type: Reliable,
+        call: ManySync,
+        data: struct {
+            CurrencyName: string,
+            CurrencyValue: u32,
+        }
+    }
+
+    event OwnedTowersAdded {
+        from: Server,
+        type: Reliable,
+        call: ManySync,
+        data: struct {
+            towerIndex: u8,
+            towerKeyId: u32,
+            towerData: unknown,
+        }
+    }
+
+    event OwnedTowersRemoved {
+        from: Server,
+        type: Reliable,
+        call: ManySync,
+        data: struct {
+            towerIndex: u8,
+            towerKeyId: u32,
+        }
+    }
 }
 
 scope TowerService {
@@ -118,6 +150,7 @@ scope TowerService {
         Yield: Promise,
         Data: struct {
             towerIndex: u8,
+            towerKey: string,
             spawnLocation: vector,
         },
         Return: u16?
@@ -151,6 +184,17 @@ scope TowerService {
         data: struct {
             towerId: u16,
             targetMode: string,
+        }
+    }
+
+    event PassiveTriggered {
+        from: Server,
+        type: Reliable,
+        call: SingleSync,
+        data: struct {
+            towerId: u16,
+            passiveType: string,
+            arg: unknown?,
         }
     }
 }
@@ -214,7 +258,20 @@ scope NotificationService {
         call: SingleSync,
         data: struct {
             Message: string,
+            LogType: string,
             DurationMs: u16,
+        }
+    }
+}
+
+scope LootService {
+    event ReplicateDrop {
+        from: Server,
+        type: Reliable,
+        call: SingleSync,
+        data: struct {
+            itemName: string,
+            amount: u8,
         }
     }
 }

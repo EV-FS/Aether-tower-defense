@@ -5,6 +5,8 @@ local StarterPlayer = game:GetService("StarterPlayer")
 local Promise = require(ReplicatedStorage.Packages.Promise)
 local Net = require(ReplicatedStorage.Shared.Net)
 
+local ALLOWED_SPEED = { 1, 1.5, 2 }
+
 local ClientSignals = nil
 
 local latestSpeedChangeTime = 0
@@ -170,6 +172,10 @@ function TimeService.Start()
 	elseif RunService:IsServer() then
 		Net.TimeService.ChangeGameSpeed.On(function(_: Player, newSpeed: number): boolean
 			local targetSpeed = newSpeed / 10
+			if not table.find(ALLOWED_SPEED, targetSpeed) then
+				return false
+			end
+
 			return TimeService:SetGameSpeed(targetSpeed)
 		end)
 	end

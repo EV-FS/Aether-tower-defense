@@ -4,9 +4,19 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 --/Modules
 local TowerData = require(ReplicatedStorage.Settings.Data.TowerData)
+local NumberUtils = require(ReplicatedStorage.Shared.Modules.Utils.NumberUtils)
 
 --/Constants
-local OFFSET = 0.01
+local SURFACE_TOLERANCE = 0.01
+local SURFACE_RAY_HEIGHT = 1
+local SURFACE_RAY_OFFSET = Vector3.new(0, SURFACE_RAY_HEIGHT, 0)
+local SURFACE_RAY_DIRECTION = Vector3.new(0, -(SURFACE_RAY_HEIGHT + SURFACE_TOLERANCE), 0)
+
+local SURFACE_RAY_PARAMS = RaycastParams.new()
+SURFACE_RAY_PARAMS.FilterType = Enum.RaycastFilterType.Exclude
+SURFACE_RAY_PARAMS.CollisionGroup = "HoldingTowerMouse"
+SURFACE_RAY_PARAMS.IgnoreWater = true
+SURFACE_RAY_PARAMS.RespectCanCollide = false
 
 --/Variables
 local borderCache = {}
@@ -19,40 +29,33 @@ export type requestData = {
 	CurrentCash: number?,
 	CurrentCount: number,
 	IgnoreId: any?,
+	SurfaceHit: RaycastResult?,
 }
 
 -------------------------------------------------
 --// Local Functions
 -------------------------------------------------
 
-local function isPointInPart(point: Vector3, part: BasePart?)
-	if not part then
+local function isTowerAreaSurface(result: RaycastResult): boolean
+	return result.Instance:IsA("BasePart")
+		and CollectionService:HasTag(result.Instance, "TowerArea")
+		and result.Normal.Y > 0
+end
+
+local function isPointOnTowerArea(point: Vector3)
+	if
+		typeof(point) ~= "Vector3"
+		or not (math.abs(point.X) < math.huge and math.abs(point.Y) < math.huge and math.abs(point.Z) < math.huge)
+	then
 		return false
 	end
 
-	local objectPoint = part.CFrame:PointToObjectSpace(point)
-	local halfSize = part.Size / 2
-
-	return math.abs(objectPoint.X) <= halfSize.X + OFFSET
-		and math.abs(objectPoint.Y) <= halfSize.Y + OFFSET
-		and math.abs(objectPoint.Z) <= halfSize.Z + OFFSET
-end
-
-local function isPointInTowerArea(point: Vector3)
-	for _, taggedInstance in CollectionService:GetTagged("TowerArea") do
-		if not taggedInstance:IsA("BasePart") then
-			continue
-		end
-
-		if not taggedInstance:IsDescendantOf(workspace) then
-			continue
-		end
-
-		if isPointInPart(point, taggedInstance) then
-			return true
-		end
+	local result = workspace:Raycast(point + SURFACE_RAY_OFFSET, SURFACE_RAY_DIRECTION, SURFACE_RAY_PARAMS)
+	if not result then
+		return false
 	end
-	return false
+
+	return isTowerAreaSurface(result) and (result.Position - point).Magnitude <= SURFACE_TOLERANCE
 end
 
 local function isBorderOverlap(currentPos, radius, ignoreId)
@@ -77,7 +80,11 @@ end
 local PlaceValidator = {}
 
 function PlaceValidator.CheckSpawn(data: requestData, isPlaceHolder: boolean?)
-	if not isPointInTowerArea(data.SpawnPosition) then
+	if data.SurfaceHit and not isTowerAreaSurface(data.SurfaceHit) then
+		return false, "You can't place here!"
+	end
+
+	if not isPointOnTowerArea(data.SpawnPosition) then
 		return false, "You can't place here!"
 	end
 
@@ -91,7 +98,7 @@ function PlaceValidator.CheckSpawn(data: requestData, isPlaceHolder: boolean?)
 	end
 
 	if not isPlaceHolder and data.CurrentCash < towerInfo.Stats[0].Cost then
-		return false, `You don't enough {towerInfo.Stats[0].Cost - data.CurrentCash} cash!`
+		return false, `You don't enough {NumberUtils.FormatComma(towerInfo.Stats[0].Cost - data.CurrentCash)} cash!`
 	end
 
 	if data.CurrentCount >= towerInfo.MaxTowers then

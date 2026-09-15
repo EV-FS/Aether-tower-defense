@@ -1,3 +1,0 @@
-local Notification = {}
-
-return Notification

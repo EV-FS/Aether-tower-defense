@@ -28,7 +28,7 @@ local visualsFolder = assetsFolder and assetsFolder:WaitForChild("Visuals", 5)
 local arrowTemplate = visualsFolder and visualsFolder:WaitForChild("Arrow", 5)
 
 if not arrowTemplate then
-	warn("[PathGuide] Arrow template not found in ReplicatedStorage.Assets.Visuals.Arrow.")
+	warn("[경로 안내] 화살표 템플릿을 찾을 수 없습니다: ReplicatedStorage.Assets.Visuals.Arrow")
 end
 
 -------------------------------------------------
@@ -95,15 +95,11 @@ function Guide.Start()
 	end
 	isShowing = true
 
-	local path = GetPathModule:Get()
-	if not path then
-		warn("[PathGuide] Path not loaded yet.")
+	if not GetPathModule:Get() then
+		warn("[경로 안내] 경로가 아직 로드되지 않았습니다.")
 		isShowing = false
 		return
 	end
-
-	local pathLength = path:GetPathLength()
-	local numGroups = math.max(3, math.floor(pathLength / SPACING))
 
 	for _, arrow in ipairs(activeArrows) do
 		cleanArrowTransparencies(arrow)
@@ -111,37 +107,50 @@ function Guide.Start()
 	end
 	table.clear(activeArrows)
 
-	for _ = 1, numGroups do
-		for _ = 0, 2 do
-			local arrow = arrowTemplate:Clone()
-			setupArrowForFade(arrow)
-			arrow.Parent = workspace.Visuals
-			table.insert(activeArrows, arrow)
-			fadeArrow(arrow, false, FADE_DURATION)
+	local pathGroups = {}
+	for _, pathId in ipairs(GetPathModule:GetSpawnPathIds()) do
+		local path = GetPathModule:Get(pathId)
+		local pathLength = path:GetPathLength()
+		local arrows = {}
+		table.insert(pathGroups, { Path = path, Length = pathLength, Arrows = arrows })
+		local numGroups = math.max(3, math.floor(pathLength / SPACING))
+		for _ = 1, numGroups do
+			for _ = 0, 2 do
+				local arrow = arrowTemplate:Clone()
+				setupArrowForFade(arrow)
+				arrow.Parent = workspace.Visuals
+				table.insert(activeArrows, arrow)
+				table.insert(arrows, arrow)
+				fadeArrow(arrow, false, FADE_DURATION)
+			end
 		end
 	end
 
 	TimeService = TimeService or ServiceRegistry:GetService("TimeService")
 
 	local distanceTravelled = 0
-	renderConnection = RunService.RenderStepped:Connect(function(dt)
+	renderConnection = RunService.PreRender:Connect(function(dt)
 		distanceTravelled += dt * SPEED * TimeService:GetGameSpeed()
 
-		for k, arrow in ipairs(activeArrows) do
-			local i = math.ceil(k / 3)
-			local j = (k - 1) % 3
+		for _, group in ipairs(pathGroups) do
+			local path = group.Path
+			local pathLength = group.Length
+			for k, arrow in ipairs(group.Arrows) do
+				local i = math.ceil(k / 3)
+				local j = (k - 1) % 3
 
-			local mainDistance = (i - 1) * SPACING + distanceTravelled
-			local arrowDistance = (mainDistance - j * CLUSTER_OFFSET) % pathLength
-			if arrowDistance < 0 then
-				arrowDistance += pathLength
+				local mainDistance = (i - 1) * SPACING + distanceTravelled
+				local arrowDistance = (mainDistance - j * CLUSTER_OFFSET) % pathLength
+				if arrowDistance < 0 then
+					arrowDistance += pathLength
+				end
+
+				local alpha = arrowDistance / pathLength
+				local targetCFrame = path:CalculateUniformCFrame(alpha)
+				local finalCFrame = (targetCFrame + Vector3.new(0, HEIGHT_OFFSET, 0)) * CFrame.Angles(0, math.rad(-90), 0)
+
+				positionArrow(arrow, finalCFrame)
 			end
-
-			local alpha = arrowDistance / pathLength
-			local targetCFrame = path:CalculateUniformCFrame(alpha)
-			local finalCFrame = (targetCFrame + Vector3.new(0, HEIGHT_OFFSET, 0)) * CFrame.Angles(0, math.rad(-90), 0)
-
-			positionArrow(arrow, finalCFrame)
 		end
 	end)
 end

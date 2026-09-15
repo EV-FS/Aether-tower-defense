@@ -413,10 +413,10 @@ function LoadoutUI.RenderUI()
 
 				create("ImageLabel")({
 					Name = "XpbarFill",
-					AnchorPoint = Vector2.new(0, 0.5),
+					AnchorPoint = Vector2.new(0.5, 0.5),
 					BackgroundTransparency = 1,
 					Image = "rbxassetid://87566142417575",
-					Position = UDim2.fromScale(0.137244, 0.978),
+					Position = UDim2.fromScale(0.501244, 0.978),
 					Size = function()
 						local exp = DataClient and DataClient.Exp() or 0
 						local maxExp = DataClient and DataClient.GetMaxExp() or 100

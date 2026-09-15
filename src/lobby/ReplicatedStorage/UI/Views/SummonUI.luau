@@ -9,8 +9,6 @@ local useButtonEffect = require(ReplicatedStorage.Shared.Modules.UI.Hooks.useBut
 local TouchZone = require(ReplicatedStorage.Shared.Modules.Utils.TouchZone)
 local Net = require(ReplicatedStorage.Shared.Net)
 local SummonConfig = require(ReplicatedStorage.Settings.Data.SummonConfig)
-local CutscenePlayer = require(ReplicatedStorage.Shared.Modules.Cutscene.CutscenePlayer)
-local EmitModule = require(ReplicatedStorage.Shared.Modules.Utils.EmitModule)
 local TowerViewport = require(ReplicatedStorage.UI.Components.TowerViewport)
 local SummonResultUI = require(script.Parent.SummonResultUI)
 
@@ -36,7 +34,6 @@ local MYTHIC_PITY_LIMIT = SummonConfig.Pity.Mythic.Limit
 local ABSOLUTE_PITY_LIMIT = SummonConfig.Pity.Absolute.Limit
 local MYTHIC_PITY_ATTRIBUTE = SummonConfig.Pity.Mythic.Attribute
 local ABSOLUTE_PITY_ATTRIBUTE = SummonConfig.Pity.Absolute.Attribute
-local RESULT_REVEAL_FRAMES = { 142, 158, 171, 183, 193, 203, 214, 223, 233, 243 }
 
 local DISPLAY_FONT = Font.new(
 	"rbxasset://fonts/families/FredokaOne.json",
@@ -60,7 +57,7 @@ local BANNER_IMAGE = "rbxassetid://98737132035258"
 local CARD_SHADOW_IMAGE = "rbxassetid://99201276937983"
 local NAME_PLATE_IMAGE = "rbxassetid://116700116064149"
 local PURCHASE_BUTTON_IMAGE = "rbxassetid://139274506988816"
-local CURRENCY_IMAGE = "rbxassetid://117112996963807"
+local CURRENCY_IMAGE = "rbxassetid://104268323693949"
 local PROBABILITY_BUTTON_IMAGE = "rbxassetid://120545788069786"
 
 local RARITY_GRADIENTS = SummonConfig.RarityGradients
@@ -96,7 +93,6 @@ local DEFAULT_UNITS_POOL: UnitsPool = {
 local currentUnitsPool = source(DEFAULT_UNITS_POOL)
 local isProbabilityOpen = source(false)
 local summonInProgress = source(false)
-local isCutscenePlaying = source(false)
 local nextBannerTimerResetAt = source(0)
 local bannerSecondsRemaining = source(BANNER_TIMER_DURATION)
 local mythicPity = source(0)
@@ -133,25 +129,6 @@ end
 
 local function canPurchase(cost: number): boolean
 	return DataClient ~= nil and not summonInProgress() and DataClient.Coins() >= cost
-end
-
-local function emitCutsceneVFX(targetName: string)
-	local target = workspace:FindFirstChild(targetName)
-	if not target then
-		warn(`[SummonUI] Cutscene VFX target "{targetName}" was not found in Workspace.`)
-		return
-	end
-
-	if not EmitModule.setup then
-		EmitModule.init()
-	end
-	local vfx = shared.vfx
-	if not vfx or type(vfx.emit) ~= "function" then
-		warn("[SummonUI] shared.vfx is unavailable for the summon cutscene.")
-		return
-	end
-
-	vfx.emit(target)
 end
 
 local function createRarityGradient(rarity: string)
@@ -592,66 +569,11 @@ function SummonUI.Summon(number: number)
 		local pulledUnits = result.PulledUnits
 		if type(pulledUnits) == "table" and #pulledUnits > 0 then
 			isProbabilityOpen(false)
-			local revealedResults = {}
-			local frameCallbacks = {
-				[19] = function()
-					emitCutsceneVFX("Book VFX")
-				end,
-				[34] = function()
-					emitCutsceneVFX("Book Catch")
-				end,
-				[85] = function()
-					emitCutsceneVFX("Shine")
-				end,
-			}
-			local pauseFrames = {}
-
-			for resultIndex = 1, math.min(#pulledUnits, #RESULT_REVEAL_FRAMES) do
-				local capturedIndex = resultIndex
-				local revealFrame = RESULT_REVEAL_FRAMES[capturedIndex]
-				pauseFrames[revealFrame] = true
-				frameCallbacks[revealFrame] = function()
-					emitCutsceneVFX("OpenBook")
-					local didOpen = SummonResultUI.ShowResults({ pulledUnits[capturedIndex] }, function()
-						-- Keep an exclusive view active while the cutscene is hidden so the
-						-- regular HUD cannot flash between consecutive results.
-						SummonUI.Open()
-						CutscenePlayer.Resume()
-					end, false)
-
-					if didOpen then
-						revealedResults[capturedIndex] = true
-					else
-						CutscenePlayer.Resume()
-					end
+			SummonResultUI.ShowResults(pulledUnits, function()
+				if summonZone and summonZone:IsTouching(Players.LocalPlayer) then
+					SummonUI.Open()
 				end
-			end
-
-			isCutscenePlaying(true)
-			local didPlay = CutscenePlayer.Play("Summon", {
-				FrameCallbacks = frameCallbacks,
-				PauseFrames = pauseFrames,
-			})
-			isCutscenePlaying(false)
-
-			local remainingUnits = {}
-			for resultIndex, unit in pulledUnits do
-				if not revealedResults[resultIndex] then
-					table.insert(remainingUnits, unit)
-				end
-			end
-
-			if not didPlay or #remainingUnits > 0 then
-				SummonResultUI.ShowResults(remainingUnits, function()
-					if summonZone and summonZone:IsTouching(Players.LocalPlayer) then
-						SummonUI.Open()
-					end
-				end, true)
-			elseif summonZone and summonZone:IsTouching(Players.LocalPlayer) then
-				SummonUI.Open()
-			elseif isOpen() then
-				UIController:Close(VIEW_ID)
-			end
+			end)
 		end
 	end)
 end
@@ -728,12 +650,8 @@ function SummonUI.RenderUI()
 		GroupTransparency = function()
 			return 1 - opacity()
 		end,
-		Interactable = function()
-			return isOpen() and not isCutscenePlaying()
-		end,
-		Visible = function()
-			return isMounted() and not isCutscenePlaying()
-		end,
+		Interactable = isOpen,
+		Visible = isMounted,
 
 		create("ImageLabel")({
 			Name = "Main",
@@ -1066,10 +984,6 @@ end
 
 function SummonUI.Start()
 	local player = Players.LocalPlayer
-	task.spawn(function()
-		CutscenePlayer.Preload("Summon")
-	end)
-
 	local function updatePitySources()
 		mythicPity(
 			math.clamp(

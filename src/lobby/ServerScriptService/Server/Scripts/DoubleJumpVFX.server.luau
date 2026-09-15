@@ -1,7 +1,6 @@
 local Debris = game:GetService("Debris")
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
-local RunService = game:GetService("RunService")
 local ServerStorage = game:GetService("ServerStorage")
 
 local remote = ReplicatedStorage:FindFirstChild("DoubleJumpVFX") or Instance.new("RemoteEvent")
@@ -19,13 +18,8 @@ local function playEffect(player: Player)
 	local character = player.Character
 	local rootPart = character and character:FindFirstChild("HumanoidRootPart")
 	local humanoid = character and character:FindFirstChildOfClass("Humanoid")
-	local effect = ServerStorage:FindFirstChild("Jump", true)
-	if not character or not rootPart or not rootPart:IsA("BasePart") or not humanoid then
-		warn(`[DoubleJumpVFX] Character was not ready for {player.Name}`)
-		return
-	end
-	if not effect then
-		warn("[DoubleJumpVFX] Missing ServerStorage descendant named Jump")
+	local effect = ServerStorage:FindFirstChild("Jump")
+	if not character or not rootPart or not rootPart:IsA("BasePart") or not humanoid or not effect then
 		return
 	end
 
@@ -43,7 +37,6 @@ local function playEffect(player: Player)
 		end
 		clone:PivotTo(rootPart.CFrame * offset)
 	else
-		warn(`[DoubleJumpVFX] Jump must be a BasePart or Model, got {clone.ClassName}`)
 		clone:Destroy()
 		return
 	end
@@ -74,12 +67,13 @@ local function playEffect(player: Player)
 	end
 	clone.Parent = workspace
 
-	-- Give the effect instance one replication frame before sending its reference.
-	-- ForgeVFX must run on each client because camera effects and its local caches
-	-- are intentionally unavailable in the server context.
-	RunService.Heartbeat:Wait()
-	remote:FireAllClients(clone)
-	Debris:AddItem(clone, 5)
+	for _, descendant in clone:GetDescendants() do
+		if descendant:IsA("ParticleEmitter") then
+			local emitCount = descendant:GetAttribute("EmitCount") or 1
+			descendant:Emit(emitCount)
+		end
+	end
+	Debris:AddItem(clone, 3)
 end
 
 remote.OnServerEvent:Connect(playEffect)

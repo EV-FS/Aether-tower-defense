@@ -2,8 +2,6 @@ local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local UserInputService = game:GetService("UserInputService")
 
-local EmitModule = require(ReplicatedStorage.Shared.Modules.Utils.EmitModule)
-
 local DEFAULT_JUMP_POWER = 50
 local DOBULE_JUMP_MULTIFLIER = 1.2
 
@@ -12,22 +10,6 @@ local doubleJumpVFX = ReplicatedStorage:WaitForChild("DoubleJumpVFX") :: RemoteE
 local humanoid = nil
 local canDoubleJump = false
 local hasDoubleJumped = false
-
-EmitModule.init()
-
-doubleJumpVFX.OnClientEvent:Connect(function(effect: Instance?)
-	if not effect or not effect:IsDescendantOf(workspace) then
-		warn("[DoubleJumpVFX] Replicated effect was not available on the client")
-		return
-	end
-
-	local success, result = pcall(function()
-		return EmitModule.emit(effect)
-	end)
-	if not success then
-		warn(`[DoubleJumpVFX] EmitModule failed: {result}`)
-	end
-end)
 
 local function setupCharacter(character: Model)
 	humanoid = character:WaitForChild("Humanoid") :: Humanoid

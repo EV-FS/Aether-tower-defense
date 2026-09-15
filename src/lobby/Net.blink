@@ -17,7 +17,62 @@ scope NotificationService {
         call: SingleSync,
         data: struct {
             Message: string,
+            LogType: string,
             DurationMs: u16,
+        }
+    }
+}
+
+scope EmoteService {
+    function RequestPlayEmote {
+        Yield: Promise,
+        Data: struct {
+            EmoteId: string,
+        },
+        Return: boolean,
+    }
+
+    function RequestStopEmote {
+        Yield: Promise,
+        Return: boolean,
+    }
+
+    event EmoteStarted {
+        from: Server,
+        type: Reliable,
+        call: ManySync,
+        data: struct {
+            Player: Instance,
+            EmoteId: string,
+        }
+    }
+
+    event EmoteStopped {
+        from: Server,
+        type: Reliable,
+        call: ManySync,
+        data: struct {
+            Player: Instance,
+        }
+    }
+}
+
+scope EmojiService {
+    function RequestShowEmoji {
+        Yield: Promise,
+        Data: struct {
+            EmojiId: string,
+        },
+        Return: boolean,
+    }
+
+    event EmojiShown {
+        from: Server,
+        type: Reliable,
+        call: ManySync,
+        data: struct {
+            Player: Instance,
+            EmojiId: string,
         }
     }
 }
@@ -28,7 +83,7 @@ scope RoomService {
         type: Reliable,
         call: SingleSync,
         data: map {
-            [u16]: unknown
+            [u16]: string
         },
     }
 
@@ -83,7 +138,14 @@ scope SummonService {
         from: Server,
         type: Reliable,
         call: SingleSync,
-        data: unknown
+        data: struct {
+            NextRerollTime: u32,
+            Units: struct {
+                Rarity: string,
+                Name: string,
+                RateText: string,
+            }[],
+        },
     }
 
     function DoSummon {
@@ -91,13 +153,23 @@ scope SummonService {
         Data: u8,
         Return: struct {
             Success: boolean,
-            PulledUnits: unknown
+            PulledUnits: struct {
+                UnitName: string,
+                Rarity: string,
+            }[],
         },
     }
 
     function GetBanner {
         Yield: Promise,
-        Return: unknown,
+        Return: struct {
+            NextRerollTime: u32,
+            Units: struct {
+                Rarity: string,
+                Name: string,
+                RateText: string,
+            }[],
+        },
     }
 }
 
@@ -220,3 +292,47 @@ scope GlobalExistService {
         }
     }
 }
+
+scope RaidService {
+    event RaidBossSpawned {
+        from: Server,
+        type: Reliable,
+        call: SingleSync,
+        data: struct {
+            BossName: string,
+        }
+    }
+}
+
+scope DialogueService {
+    event StartDialogue {
+        from: Server,
+        type: Reliable,
+        call: SingleSync,
+        data: string -- NpcId
+    }
+    event ChooseDialogue {
+        from: Client,
+        type: Reliable,
+        call: SingleSync,
+        data: struct {
+            NpcId: string,
+            ChoiceIndex: u8
+        }
+    }
+    event UpdateDialogueUI {
+        from: Server,
+        type: Reliable,
+        call: SingleSync,
+        data: struct {
+            NpcId: string,
+            DialogueId: string
+        }
+    }
+    event CloseDialogue {
+        from: Server,
+        type: Reliable,
+        call: SingleSync
+    }
+}
+

@@ -1,7 +1,6 @@
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Vide = require(ReplicatedStorage.Packages.Vide)
 local TowerData = require(ReplicatedStorage.Settings.Data.TowerData)
-local TraitData = require(ReplicatedStorage.Settings.Data.TraitData)
 local UnitCatalog = require(ReplicatedStorage.Settings.Data.UnitCatalog)
 local NumberUtils = require(ReplicatedStorage.Shared.Modules.Utils.NumberUtils)
 local RarityGradient = require(ReplicatedStorage.Settings.Visuals.RarityGradient)
@@ -29,8 +28,6 @@ return function(props)
 		then towerInfo.Stats[1].Cost
 		else 0
 	local level = if props.TowerData and typeof(props.TowerData.Lv) == "number" then props.TowerData.Lv else 0
-	local traitName = if props.TowerData then props.TowerData.Trait else nil
-	local traitInfo = if traitName then TraitData.ByName[traitName] else nil
 	local gradient = RarityGradient.Gradients[rarity] or RarityGradient.Gradients.Common
 	local shimmerSpeed = RarityGradient.ShimmerSpeed[rarity] or 0.75
 
@@ -236,11 +233,10 @@ return function(props)
 		create("ImageLabel")({
 			Name = "Trait",
 			BackgroundTransparency = 1,
-			Image = if traitInfo then traitInfo.Image else "",
+			Image = "rbxassetid://100463457721493",
 			Position = UDim2.fromScale(0.64, 0.03),
 			Size = UDim2.fromScale(0.359565, 0.31687),
-			Visible = traitInfo ~= nil,
-			ZIndex = 12,
+			Visible = false,
 
 			create("UIAspectRatioConstraint")({
 				Name = "UIAspectRatioConstraint",
@@ -306,18 +302,6 @@ return function(props)
 				Color = Color3.fromRGB(14, 72, 32),
 				Thickness = 1.5,
 			}),
-		}),
-
-		create("ImageLabel")({
-			Name = "Locked",
-			AnchorPoint = Vector2.new(1, 0),
-			BackgroundTransparency = 1,
-			Image = "rbxassetid://70564113534462",
-			Position = UDim2.fromScale(0.96, 0.04),
-			Size = UDim2.fromScale(0.25, 0.25),
-			Visible = props.IsLocked or false,
-			ZIndex = 12,
-			create("UIAspectRatioConstraint")({}),
 		}),
 
 	})

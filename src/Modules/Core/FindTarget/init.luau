@@ -101,7 +101,7 @@ function FindTarget.GetTargetInAngle(self, stats, startPosition: Vector3, target
 
 	local cosAngle = math.cos(math.rad(stats.Angle / 2))
 
-	for _, enemy in pairs(FindTarget.GetEnemiesInRange(self)) do
+	for _, enemy in pairs(FindTarget.GetEnemiesInRange(self, stats.Range)) do
 		if enemy.IsDead then
 			continue
 		end
@@ -126,7 +126,7 @@ function FindTarget.GetTargetInLine(self, stats, targetPosition: Vector3)
 	local flatTargetPos = Vector3.new(targetPos.X, originPos.Y, targetPos.Z)
 	local beamCFrame = CFrame.lookAt(originPos, flatTargetPos)
 
-	for _, enemy in pairs(FindTarget.GetEnemiesInRange(self)) do
+	for _, enemy in pairs(FindTarget.GetEnemiesInRange(self, stats.Range)) do
 		if enemy.IsDead then
 			continue
 		end

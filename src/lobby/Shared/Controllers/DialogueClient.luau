@@ -9,11 +9,9 @@ local NpcDialogueData = require(ReplicatedStorage.Settings.Data.NpcDialogueData)
 local AudioController = require(script.Parent.AudioController)
 local SoundLibrary = require(ReplicatedStorage.Settings.Data.NPCS.Sounds.SoundLibrary)
 local Vide = require(ReplicatedStorage.Packages.Vide)
-local ServiceRegistry = require(ReplicatedStorage.Shared.Modules.Core.ServiceRegistry)
 
 local DialogueClient = {}
 DialogueClient.IsOpen = Vide.source(false)
-local UIController
 
 local playerGui: PlayerGui?
 local dialogueGui: ScreenGui?
@@ -170,7 +168,7 @@ end
 -------------------------------------------------
 --// Choice Creation & Staggered Swipe-in (싹- 싹- 싹-)
 -------------------------------------------------
-local function createChoiceClone(choice: { Text: string, Next: string, Action: string? }, index: number)
+local function createChoiceClone(choice: { Text: string, Next: string }, index: number)
 	if not choiceTemplate or not choiceContainer then
 		return
 	end
@@ -203,7 +201,6 @@ local function createChoiceClone(choice: { Text: string, Next: string, Action: s
 
 	if textLabel then
 		textLabel.Text = choice.Text or ""
-		textLabel.RichText = true
 		textLabel.TextScaled = true
 		textLabel.TextTransparency = 0
 		textLabel.TextColor3 = Color3.new(1, 1, 1)
@@ -407,8 +404,7 @@ local function animateText(
 			soundId = sound
 		end
 
-		local plainText = string.gsub(fullText, "<[^>]->", "")
-		local utf8Len = utf8.len(plainText) or #plainText
+		local utf8Len = utf8.len(fullText) or #fullText
 		local triggerIndex = math.max(1, math.floor(utf8Len * 0.25))
 		local choicesTriggered = false
 
@@ -427,11 +423,11 @@ local function animateText(
 				end
 			end
 
-			local startByte = utf8.offset(plainText, i)
-			local nextByte = utf8.offset(plainText, i + 1)
+			local startByte = utf8.offset(fullText, i)
+			local nextByte = utf8.offset(fullText, i + 1)
 			local char = if startByte and nextByte
-				then string.sub(plainText, startByte, nextByte - 1)
-				elseif startByte then string.sub(plainText, startByte, #plainText)
+				then string.sub(fullText, startByte, nextByte - 1)
+				elseif startByte then string.sub(fullText, startByte, #fullText)
 				else ""
 
 			local typingSpeed: number
@@ -679,12 +675,10 @@ function DialogueClient.ChooseDialogue(choiceIndex: number)
 
 	local npcData = NpcDialogueData[CurrentNpcId]
 	local nextId: string?
-	local actionName: string?
 	if npcData and CurrentDialogueId then
 		local current = npcData.DialogueTree[CurrentDialogueId]
 		if current and current.Choices and current.Choices[choiceIndex] then
 			nextId = current.Choices[choiceIndex].Next
-			actionName = current.Choices[choiceIndex].Action
 		end
 	end
 
@@ -694,15 +688,6 @@ function DialogueClient.ChooseDialogue(choiceIndex: number)
 	})
 
 	if nextId then
-		if actionName == "OpenEventShop" then
-			DialogueClient.Close()
-			task.delay(0.28, function()
-				if UIController then
-					UIController:Open("EventShop")
-				end
-			end)
-			return
-		end
 		if nextId == "End" then
 			DialogueClient.Close()
 		else
@@ -858,7 +843,6 @@ function DialogueClient.Close()
 end
 
 function DialogueClient.Init()
-	UIController = ServiceRegistry:GetService("UIController")
 	local player = Players.LocalPlayer
 	if not player then
 		return

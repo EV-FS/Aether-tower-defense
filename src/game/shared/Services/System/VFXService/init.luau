@@ -5,7 +5,7 @@ local VFXCaches = require(script.VFXCaches)
 local VFXRecipes = require(ReplicatedStorage.Settings.Visuals.VFXRecipes)
 local Steps = require(ReplicatedStorage.Settings.Visuals.VFXRecipes.Steps)
 local CharacterUtils = require(ReplicatedStorage.Shared.Modules.Utils.CharacterUtils)
-local EmitParticles = require(ReplicatedStorage.Shared.Modules.Utils.EmitParticles)
+local ForgeVFX = require(ReplicatedStorage.Shared.Modules.Utils.ForgeVFX)
 local CustomHandlers = require(script.CustomHandlers)
 local TimeService
 
@@ -33,7 +33,7 @@ end
 --// Local Functions
 -------------------------------------------------
 local function resolveInstance(value: any, sourceModel: Model, targetModel: Model)
-	if typeof(value) == "BasePart" then
+	if typeof(value) == "Instance" then
 		return value
 	end
 
@@ -54,12 +54,12 @@ local function resolveInstance(value: any, sourceModel: Model, targetModel: Mode
 		return
 	end
 
-	if #parts == 1 then
-		if rootModel.PrimaryPart then
-			return rootModel.PrimaryPart
-		end
-
+	if not rootModel or not rootModel.Parent then
 		return
+	end
+
+	if #parts == 1 then
+		return rootModel.PrimaryPart
 	end
 
 	local current = rootModel
@@ -93,7 +93,7 @@ local function getAttachment(parentPart: BasePart)
 end
 
 local function isAlive(model): boolean
-	if not model or not model:IsDescendantOf(workspace) then
+	if not model or not model.PrimaryPart or not model:IsDescendantOf(workspace) then
 		return false
 	end
 
@@ -120,6 +120,10 @@ function VFXService.GetRecipes(sourceName: string, effectType: string, sourceLev
 		return nil
 	end
 
+	if effectRecipes[1] then
+		return effectRecipes
+	end
+
 	local level = sourceLevel or 0
 
 	for currentLevel = level, 0, -1 do
@@ -135,6 +139,9 @@ function VFXService.GetRecipes(sourceName: string, effectType: string, sourceLev
 end
 
 function VFXService.PlayVFX(vfxRecipes: Recipes, sourceModel: Model, targetModel: Model, range: number?, delay: number?)
+	if typeof(vfxRecipes) ~= "table" then
+		return
+	end
 	for _, recipe in vfxRecipes do
 		if (recipe.Delay and recipe.Delay > 0) or delay then
 			local delayedRecipe = table.clone(recipe)
@@ -213,7 +220,7 @@ function VFXService._PlayEmitType(recipe: Steps.EmitStep, sourceModel: Model, ta
 		end)
 	end
 
-	EmitParticles(effect)
+	ForgeVFX.emit(effect)
 	VFXCaches.ReturnAfter(
 		recipe.Effect,
 		effect,
@@ -223,12 +230,20 @@ function VFXService._PlayEmitType(recipe: Steps.EmitStep, sourceModel: Model, ta
 end
 
 function VFXService._PlayProjectileType(recipe: Steps.ProjectileStep, sourceModel: Model, targetModel: Model)
-	local sourceCFrame = resolveInstance(recipe.From, sourceModel, targetModel).CFrame
-	local targetCFrame = resolveInstance(recipe.To, sourceModel, targetModel).CFrame
-	if not sourceCFrame or not targetCFrame then
+	local sourceInstance = resolveInstance(recipe.From, sourceModel, targetModel)
+	local targetInstance = resolveInstance(recipe.To, sourceModel, targetModel)
+	if
+		not sourceInstance
+		or not sourceInstance:IsA("BasePart")
+		or not targetInstance
+		or not targetInstance:IsA("BasePart")
+	then
 		warn(`위치를 찾을 수 없음: {recipe.Effect}`)
 		return
 	end
+
+	local sourceCFrame = sourceInstance.CFrame
+	local targetCFrame = targetInstance.CFrame
 
 	local startPos = sourceCFrame.Position
 	local endPos = targetCFrame.Position
@@ -245,8 +260,8 @@ function VFXService._PlayProjectileType(recipe: Steps.ProjectileStep, sourceMode
 		return
 	end
 
-	if not effect:IsA("BasePart") then
-		warn(`Effect가 BasePart 타입이 아님: {recipe.Effect}`)
+	if not effect:IsA("BasePart") and not effect:IsA("Model") then
+		warn(`Projectile effect must be a BasePart or Model: {recipe.Effect}`)
 		VFXCaches.Return(recipe.Effect, effect)
 		return
 	end
@@ -264,7 +279,7 @@ function VFXService._PlayProjectileType(recipe: Steps.ProjectileStep, sourceMode
 		RANDOM:NextNumber(-PROJECTILE_OFFSET, PROJECTILE_OFFSET)
 	)
 	local goalCFrame = CFrame.lookAt(endPos, endPos + direction.Unit) + goalOffset
-	EmitParticles(effect)
+	ForgeVFX.emit(effect)
 
 	local isBezier = (recipe.CurveHeight and recipe.CurveHeight ~= 0)
 		or (recipe.CurveOffset and recipe.CurveOffset ~= 0)
@@ -309,9 +324,9 @@ function VFXService._PlayProjectileType(recipe: Steps.ProjectileStep, sourceMode
 				local tangent = getBezierTangent(t, startPos, controlPoint, endPos + goalOffset)
 
 				if tangent.Magnitude > 0 then
-					effect.CFrame = CFrame.lookAt(currentPos, currentPos + tangent.Unit)
+					VFXCaches.SetCFrame(effect, CFrame.lookAt(currentPos, currentPos + tangent.Unit))
 				else
-					effect.CFrame = CFrame.new(currentPos)
+					VFXCaches.SetCFrame(effect, CFrame.new(currentPos))
 				end
 
 				if elapsed >= travelTime then
@@ -327,13 +342,25 @@ function VFXService._PlayProjectileType(recipe: Steps.ProjectileStep, sourceMode
 			end)
 		end)
 	else
+		local tweenValue = Instance.new("CFrameValue")
+		tweenValue.Value = spawnCFrame
+
+		local tweenConnection = tweenValue:GetPropertyChangedSignal("Value"):Connect(function()
+			if effect:GetAttribute("VFXRunId") == runId then
+				VFXCaches.SetCFrame(effect, tweenValue.Value)
+			end
+		end)
+
 		local tween = TweenService:Create(
-			effect,
+			tweenValue,
 			TweenInfo.new(travelTime / TimeService:GetGameSpeed(), Enum.EasingStyle.Quad, Enum.EasingDirection.Out),
-			{ CFrame = goalCFrame }
+			{ Value = goalCFrame }
 		)
 
 		tween.Completed:Once(function()
+			tweenConnection:Disconnect()
+			tweenValue:Destroy()
+
 			if effect:GetAttribute("VFXRunId") ~= runId then
 				return
 			end
@@ -360,7 +387,7 @@ function VFXService._PlayBeamType(recipe: Steps.BeamStep, sourceModel: Model, ta
 	if ActiveBeams[sourceModel][beamKey] then
 		return
 	end
-	if not isAlive(sourceModel) or targetModel:GetAttribute("DeadByBeam") then
+	if not isAlive(sourceModel) or not isAlive(targetModel) or targetModel:GetAttribute("DeadByBeam") then
 		return
 	end
 
@@ -405,8 +432,13 @@ function VFXService._PlayBeamType(recipe: Steps.BeamStep, sourceModel: Model, ta
 		return instance
 	end
 
-	local startAttach = effect:FindFirstChild("Start")
-	local endAttach = effect:FindFirstChild("End")
+	local effectContents: Instance = effect
+	if effect:IsA("Model") and effect.PrimaryPart then
+		effectContents = effect.PrimaryPart
+	end
+
+	local startAttach = effectContents:FindFirstChild("Start")
+	local endAttach = effectContents:FindFirstChild("End")
 
 	if startAttach then
 		for _, eff in startAttach:GetChildren() do
@@ -436,7 +468,7 @@ function VFXService._PlayBeamType(recipe: Steps.BeamStep, sourceModel: Model, ta
 		end
 	end
 
-	for _, beam in effect:GetChildren() do
+	for _, beam in effectContents:GetChildren() do
 		if not beam:IsA("Beam") then
 			continue
 		end
@@ -451,8 +483,8 @@ function VFXService._PlayBeamType(recipe: Steps.BeamStep, sourceModel: Model, ta
 		clonedBeam.Parent = sourceAttachment
 	end
 
-	EmitParticles(sourceAttachment)
-	EmitParticles(targetAttachment)
+	ForgeVFX.emit(sourceAttachment)
+	ForgeVFX.emit(targetAttachment)
 
 	local function cleanup()
 		if state.Cleaned then
@@ -496,7 +528,9 @@ function VFXService._PlayBeamType(recipe: Steps.BeamStep, sourceModel: Model, ta
 
 		if not isAlive(sourceModel) or not isAlive(targetModel) then
 			RunService.PreRender:Wait()
-			targetModel:SetAttribute("DeadByBeam", true)
+			if targetModel and targetModel.Parent then
+				targetModel:SetAttribute("DeadByBeam", true)
+			end
 			cleanup()
 			return
 		end
@@ -522,6 +556,8 @@ function VFXService.Init(services)
 end
 
 function VFXService.Start()
+	ForgeVFX.init()
+
 	local ClientSignals = require(game:GetService("StarterPlayer").StarterPlayerScripts.Client.ClientSignals)
 	ClientSignals.GameSpeedChanged:Connect(function(newSpeed)
 		for _, sourceBeams in pairs(ActiveBeams) do

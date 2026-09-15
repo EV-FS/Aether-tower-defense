@@ -35,11 +35,6 @@ local MENU_BUTTONS: { MenuButtonConfig } = {
 		IconAspectRatio = 1.06,
 		ShadowColor = Color3.fromRGB(191, 82, 49),
 		LayoutOrder = 1,
-		Activated = function()
-			if UIController then
-				UIController:Toggle("Inventory")
-			end
-		end,
 	},
 	{
 		Name = "TradeButton",
@@ -62,11 +57,6 @@ local MENU_BUTTONS: { MenuButtonConfig } = {
 		IconAspectRatio = 1.1,
 		ShadowColor = Color3.fromRGB(191, 37, 37),
 		LayoutOrder = 3,
-		Activated = function()
-			if UIController then
-				UIController:Toggle("Shop")
-			end
-		end,
 	},
 	{
 		Name = "IndexButton",
@@ -78,11 +68,6 @@ local MENU_BUTTONS: { MenuButtonConfig } = {
 		IconAspectRatio = 1.28,
 		ShadowColor = Color3.fromRGB(49, 63, 191),
 		LayoutOrder = 4,
-		Activated = function()
-			if UIController then
-				UIController:Toggle("Index")
-			end
-		end,
 	},
 	{
 		Name = "QuestButton",
@@ -101,22 +86,6 @@ local MENU_BUTTONS: { MenuButtonConfig } = {
 		end,
 	},
 	{
-		Name = "CraftingButton",
-		Label = "크래프팅",
-		Image = "rbxassetid://93619515456928",
-		Icon = "rbxassetid://137141565690695",
-		IconPosition = UDim2.fromScale(0.5, 0.48),
-		IconSize = UDim2.fromScale(0.88, 0.78),
-		IconAspectRatio = 1.42,
-		ShadowColor = Color3.fromRGB(44, 191, 121),
-		LayoutOrder = 6,
-		Activated = function()
-			if UIController then
-				UIController:Toggle("Crafting")
-			end
-		end,
-	},
-	{
 		Name = "UnitButton",
 		Label = "유닛",
 		Image = "rbxassetid://100432247888014",
@@ -125,7 +94,7 @@ local MENU_BUTTONS: { MenuButtonConfig } = {
 		IconSize = UDim2.fromScale(0.759346, 0.821046),
 		IconAspectRatio = 0.91,
 		ShadowColor = Color3.fromRGB(174, 43, 191),
-		LayoutOrder = 7,
+		LayoutOrder = 6,
 		Activated = function()
 			if UIController then
 				UIController:Toggle("Units")
