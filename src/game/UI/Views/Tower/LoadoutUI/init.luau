@@ -64,34 +64,14 @@ function TowerLoadout.RenderUI()
 				Name = "UIListLayout",
 				FillDirection = Enum.FillDirection.Horizontal,
 				HorizontalAlignment = Enum.HorizontalAlignment.Center,
-				Padding = UDim.new(-0.005, 0),
+				Padding = UDim.new(0.008, 0),
+				SortOrder = Enum.SortOrder.LayoutOrder,
 				VerticalAlignment = Enum.VerticalAlignment.Center,
-				Wraps = true,
 			}),
 
 			unpack(slots),
 		}),
 
-		create("Frame")({
-			Name = "Background",
-			AnchorPoint = Vector2.new(0.5, 1),
-			BackgroundColor3 = Color3.new(),
-			BackgroundTransparency = 0.2,
-			BorderColor3 = Color3.new(),
-			BorderSizePixel = 0,
-			Position = UDim2.fromScale(0.5, 1),
-			Size = UDim2.fromScale(4.8, 0.4),
-			SizeConstraint = Enum.SizeConstraint.RelativeYY,
-
-			create("UIGradient")({
-				Name = "UIGradient",
-				Rotation = 90,
-				Transparency = NumberSequence.new({
-					NumberSequenceKeypoint.new(0, 1),
-					NumberSequenceKeypoint.new(1, 0),
-				}),
-			}),
-		}),
 	})
 end
 

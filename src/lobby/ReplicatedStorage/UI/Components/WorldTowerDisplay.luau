@@ -1,3 +1,4 @@
+local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
 
@@ -31,7 +32,11 @@ type ModelState = {
 	TransparencyTargets: { TransparencyTarget },
 	BurstEffect: BasePart?,
 	BurstEnvironment: any?,
+	ExtraBurstEffect: BasePart?,
+	ExtraBurstEnvironment: any?,
 	StaticEffect: BasePart?,
+	StaticOverlay: BasePart?,
+	StaticOverlayScale: number,
 	EffectsStarted: boolean,
 	StaticEnabled: boolean,
 }
@@ -62,6 +67,9 @@ local DEFAULT_SCREEN_WIDTH = 0.4
 local DEFAULT_DEPTH = 7
 local MINIMUM_HEIGHT = 0.01
 local SUMMON_EFFECT_SCALE = 0.5
+local STATIC_OVERLAY_BACK_OFFSET = 0.32
+local STATIC_OCCLUSION_MARGIN = 0.65
+local STATIC_OCCLUSION_AREA_SCALE = 1.35
 local MINIMUM_CAMERA_DISTANCE = 0.75
 local OCCLUSION_PADDING = 0.15
 local OCCLUSION_SAMPLE_OFFSETS = {
@@ -109,7 +117,7 @@ local CHARACTER_BODY_PART_NAMES = {
 }
 
 local function isEffectRarity(rarity: string?): boolean
-	return rarity ~= nil and rarity ~= "" and rarity ~= "Absolute"
+	return rarity ~= nil and rarity ~= ""
 end
 
 local function ensureForgeVFX()
@@ -207,8 +215,14 @@ end
 local function getSummonEffectTemplate(rarity: string, isStatic: boolean): BasePart?
 	local effectFolder = ReplicatedStorage:FindFirstChild("Effect")
 	local summonFolder = effectFolder and effectFolder:FindFirstChild("Summon")
-	local rarityFolder = if isStatic and summonFolder then summonFolder:FindFirstChild("Static") else summonFolder
-	local template = rarityFolder and rarityFolder:FindFirstChild(rarity)
+	local template
+	if rarity == "Absolute" and not isStatic then
+		local absoluteFolder = summonFolder and summonFolder:FindFirstChild("Absolute")
+		template = absoluteFolder and absoluteFolder:FindFirstChild("Absolute")
+	else
+		local rarityFolder = if isStatic and summonFolder then summonFolder:FindFirstChild("Static") else summonFolder
+		template = rarityFolder and rarityFolder:FindFirstChild(rarity)
+	end
 
 	if template and template:IsA("BasePart") then
 		return template
@@ -220,7 +234,21 @@ local function getSummonEffectTemplate(rarity: string, isStatic: boolean): BaseP
 	return nil
 end
 
-local function attachEffectPart(template: BasePart, model: Model, rootPart: BasePart, name: string): BasePart
+local function getAbsolutePlusTemplate(): BasePart?
+	local effectFolder = ReplicatedStorage:FindFirstChild("Effect")
+	local summonFolder = effectFolder and effectFolder:FindFirstChild("Summon")
+	local absoluteFolder = summonFolder and summonFolder:FindFirstChild("Absolute")
+	local template = absoluteFolder and absoluteFolder:FindFirstChild("AbsolutePlus")
+	return if template and template:IsA("BasePart") then template else nil
+end
+
+local function attachEffectPart(
+	template: BasePart,
+	model: Model,
+	rootPart: BasePart,
+	name: string,
+	worldCFrame: CFrame?
+): BasePart
 	local effectPart = template:Clone()
 	ForgeVFX.resize(SUMMON_EFFECT_SCALE, effectPart)
 	effectPart.Name = name
@@ -231,7 +259,7 @@ local function attachEffectPart(template: BasePart, model: Model, rootPart: Base
 	effectPart.CastShadow = false
 	effectPart.Massless = true
 	effectPart.Transparency = 1
-	effectPart.CFrame = rootPart.CFrame
+	effectPart.CFrame = worldCFrame or rootPart.CFrame
 	effectPart.Parent = model
 
 	local weld = Instance.new("WeldConstraint")
@@ -266,6 +294,22 @@ local function setStaticEffectEnabled(effectPart: BasePart, enabled: boolean)
 	end
 end
 
+local function createStaticOverlay(template: BasePart): BasePart
+	local overlay = template:Clone()
+	ForgeVFX.resize(SUMMON_EFFECT_SCALE, overlay)
+	overlay.Name = "SummonStaticOverlay"
+	overlay.Anchored = true
+	overlay.CanCollide = false
+	overlay.CanQuery = false
+	overlay.CanTouch = false
+	overlay.CastShadow = false
+	overlay.Massless = true
+	overlay.Transparency = 1
+	overlay.Parent = workspace.CurrentCamera or workspace
+	setStaticEffectEnabled(overlay, false)
+	return overlay
+end
+
 local function prepareSummonEffects(state: ModelState, rarity: string?)
 	local rootPart = state.EffectRootPart
 	if not rootPart or not isEffectRarity(rarity) then
@@ -278,11 +322,29 @@ local function prepareSummonEffects(state: ModelState, rarity: string?)
 	if burstTemplate then
 		state.BurstEffect = attachEffectPart(burstTemplate, state.Instance, rootPart, "SummonBurstEffect")
 	end
+	if rarity == "Absolute" then
+		local extraTemplate = getAbsolutePlusTemplate()
+		if extraTemplate then
+			local pivot = state.Instance:GetPivot()
+			local footPosition = pivot:PointToWorldSpace(
+				state.BaseLocalCenter - Vector3.new(0, state.BaseHeight * 0.5, 0)
+			)
+			local footCFrame = CFrame.new(footPosition) * rootPart.CFrame.Rotation
+			state.ExtraBurstEffect = attachEffectPart(
+				extraTemplate,
+				state.Instance,
+				rootPart,
+				"SummonAbsolutePlusEffect",
+				footCFrame
+			)
+		end
+	end
 
 	local staticTemplate = getSummonEffectTemplate(rarity :: string, true)
 	if staticTemplate then
 		state.StaticEffect = attachEffectPart(staticTemplate, state.Instance, rootPart, "SummonStaticEffect")
 		setStaticEffectEnabled(state.StaticEffect, false)
+		state.StaticOverlay = createStaticOverlay(staticTemplate)
 	end
 end
 
@@ -292,14 +354,22 @@ local function updateSummonEffects(state: ModelState, enabled: boolean)
 		if state.BurstEffect then
 			state.BurstEnvironment = ForgeVFX.emit(state.BurstEffect)
 		end
+		if state.ExtraBurstEffect then
+			state.ExtraBurstEnvironment = ForgeVFX.emit(state.ExtraBurstEffect)
+		end
 	end
 
-	if not state.StaticEffect or state.StaticEnabled == enabled then
+	if (not state.StaticEffect and not state.StaticOverlay) or state.StaticEnabled == enabled then
 		return
 	end
 
 	state.StaticEnabled = enabled
-	setStaticEffectEnabled(state.StaticEffect, enabled)
+	if state.StaticEffect then
+		setStaticEffectEnabled(state.StaticEffect, enabled)
+	end
+	if state.StaticOverlay then
+		setStaticEffectEnabled(state.StaticOverlay, enabled)
+	end
 end
 
 local function cleanupSummonEffects(state: ModelState)
@@ -307,9 +377,49 @@ local function cleanupSummonEffects(state: ModelState)
 		state.BurstEnvironment.Clear()
 		state.BurstEnvironment = nil
 	end
+	if state.ExtraBurstEnvironment then
+		state.ExtraBurstEnvironment.Clear()
+		state.ExtraBurstEnvironment = nil
+	end
 	if state.StaticEffect then
 		setStaticEffectEnabled(state.StaticEffect, false)
 	end
+	if state.StaticOverlay then
+		setStaticEffectEnabled(state.StaticOverlay, false)
+		state.StaticOverlay:Destroy()
+		state.StaticOverlay = nil
+	end
+end
+
+local function updateStaticOverlay(
+	state: ModelState,
+	camera: Camera,
+	targetCenter: Vector3,
+	viewDirection: Vector3,
+	displayScaleRatio: number,
+	backOffset: number
+)
+	local overlay = state.StaticOverlay
+	if not overlay or not overlay.Parent then
+		return
+	end
+	if overlay.Parent ~= camera then
+		overlay.Parent = camera
+	end
+
+	local clampedScale = math.max(displayScaleRatio, 0.01)
+	if math.abs(state.StaticOverlayScale - clampedScale) > 0.002 then
+		ForgeVFX.resize(clampedScale / state.StaticOverlayScale, overlay)
+		state.StaticOverlayScale = clampedScale
+	end
+
+	local anchorPosition = if state.EffectRootPart and state.EffectRootPart.Parent
+		then state.EffectRootPart.Position
+		else targetCenter
+	-- Keep the persistent aura behind the tower. Burst effects remain attached to
+	-- the HumanoidRootPart, while this duplicate supplies the readable backdrop.
+	local position = anchorPosition + viewDirection.Unit * backOffset
+	overlay.CFrame = CFrame.lookAt(position, position - viewDirection, camera.CFrame.UpVector)
 end
 
 local function transformSequence(sequence: NumberSequence, alpha: number): NumberSequence
@@ -415,12 +525,25 @@ local function restoreOccluders(occluders: { [BasePart]: number })
 	table.clear(occluders)
 end
 
+local function getIgnoreInstances(state: ModelState): { Instance }
+	local instances: { Instance } = { state.Instance }
+	if state.StaticOverlay then
+		table.insert(instances, state.StaticOverlay)
+	end
+	for _, player in Players:GetPlayers() do
+		if player.Character then
+			table.insert(instances, player.Character)
+		end
+	end
+	return instances
+end
+
 local function updateOccluders(
 	camera: Camera,
-	state: ModelState,
 	occluders: { [BasePart]: number },
 	targetPoints: { Vector3 },
-	active: boolean
+	active: boolean,
+	ignoreInstances: { Instance }
 )
 	if not active then
 		restoreOccluders(occluders)
@@ -429,7 +552,7 @@ local function updateOccluders(
 
 	local nextOccluders: { [BasePart]: boolean } = {}
 	local ok, obscuringParts = pcall(function()
-		return camera:GetPartsObscuringTarget(targetPoints, { state.Instance })
+		return camera:GetPartsObscuringTarget(targetPoints, ignoreInstances)
 	end)
 	if not ok then
 		return
@@ -512,7 +635,11 @@ local function prepareModel(model: Model, useCharacterBounds: boolean): ModelSta
 		TransparencyTargets = transparencyTargets,
 		BurstEffect = nil,
 		BurstEnvironment = nil,
+		ExtraBurstEffect = nil,
+		ExtraBurstEnvironment = nil,
 		StaticEffect = nil,
+		StaticOverlay = nil,
+		StaticOverlayScale = 1,
 		EffectsStarted = false,
 		StaticEnabled = false,
 	}
@@ -627,7 +754,6 @@ return function(props: Props)
 
 		local raycastParams = RaycastParams.new()
 		raycastParams.FilterType = Enum.RaycastFilterType.Exclude
-		raycastParams.FilterDescendantsInstances = { state.Instance }
 		raycastParams.IgnoreWater = true
 		local occluders: { [BasePart]: number } = {}
 
@@ -655,6 +781,8 @@ return function(props: Props)
 			local screenHeight = math.max(read(props.ScreenHeight) or DEFAULT_SCREEN_HEIGHT, 0.01)
 			local screenWidth = math.max(read(props.ScreenWidth) or DEFAULT_SCREEN_WIDTH, 0.01)
 			local requestedDepth = math.max(read(props.Depth) or DEFAULT_DEPTH, 2)
+			local ignoreInstances = getIgnoreInstances(state)
+			raycastParams.FilterDescendantsInstances = ignoreInstances
 			local displayScale = math.max(read(props.DisplayScale) or 1, 0.01)
 			local visibleWorldHeight = 2 * requestedDepth * math.tan(math.rad(camera.FieldOfView) * 0.5)
 			local visibleWorldWidth = visibleWorldHeight * viewportSize.X / viewportSize.Y
@@ -662,7 +790,12 @@ return function(props: Props)
 			local widthScale = visibleWorldWidth * screenWidth / state.BaseWidth
 			local requestedScale = state.BaseScale * math.min(heightScale, widthScale) * displayScale
 			local requestedScaleRatio = requestedScale / state.BaseScale
-			local halfDepthRatio = state.BaseDepth * requestedScaleRatio * 0.5 / requestedDepth
+			-- Reserve enough depth for the Static layer as well as the tower body.
+			-- Without this, Bookrig can sit between the body-only probe and the aura.
+			local requestedBackExtent = state.BaseDepth * requestedScaleRatio * 0.5
+				+ STATIC_OVERLAY_BACK_OFFSET
+				+ STATIC_OCCLUSION_MARGIN
+			local halfDepthRatio = requestedBackExtent / requestedDepth
 			local depth = getOcclusionSafeDepth(
 				camera,
 				viewportSize,
@@ -692,6 +825,9 @@ return function(props: Props)
 			local localCenter = state.BaseLocalCenter * scaleRatio
 			local pivotPosition = targetCenter - rotation:VectorToWorldSpace(localCenter)
 			state.Instance:PivotTo(CFrame.new(pivotPosition) * rotation)
+			local depthRatio = depth / requestedDepth
+			local staticBackOffset = STATIC_OVERLAY_BACK_OFFSET * depthRatio
+			updateStaticOverlay(state, camera, targetCenter, ray.Direction, scaleRatio, staticBackOffset)
 
 			local displayActive = visible and transparency < 0.9
 			local halfDepth = state.BaseDepth * scaleRatio * 0.5
@@ -699,11 +835,14 @@ return function(props: Props)
 				camera,
 				viewportSize,
 				screenPosition,
-				screenWidth,
-				screenHeight,
-				depth + halfDepth
+				screenWidth * STATIC_OCCLUSION_AREA_SCALE,
+				screenHeight * STATIC_OCCLUSION_AREA_SCALE,
+				depth
+					+ halfDepth
+					+ staticBackOffset
+					+ STATIC_OCCLUSION_MARGIN * depthRatio
 			)
-			updateOccluders(camera, state, occluders, targetPoints, displayActive)
+			updateOccluders(camera, occluders, targetPoints, displayActive, ignoreInstances)
 			updateSummonEffects(state, displayActive)
 		end)
 

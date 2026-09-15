@@ -101,8 +101,8 @@ function GameService:PrepareMap()
 	mapFolder:SetAttribute("LoadError", nil)
 
 	if RunService:IsStudio() then
-		self.SelectedMap = "Kitsune Raid"
-		self.SelectedDifficulty = "Normal"
+		self.SelectedMap = "Chapter 1"
+		self.SelectedDifficulty = "Hard"
 	end
 
 	local success = self:WaitForTeleportData():await()

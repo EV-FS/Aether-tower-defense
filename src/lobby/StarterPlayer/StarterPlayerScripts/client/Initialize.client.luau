@@ -25,6 +25,8 @@ ServiceRegistry:RegisterServices({
 	Controllers.SettingsClient,
 	Controllers.DataClient,
 	Controllers.InventoryClient,
+	Controllers.IndexClient,
+	Controllers.TraitClient,
 	Controllers.EmoteClient,
 	Controllers.EmojiClient,
 	Controllers.SprintClient,

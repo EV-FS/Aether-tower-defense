@@ -12,6 +12,9 @@ local ServiceRegistry = require(ReplicatedStorage.Shared.Modules.Core.ServiceReg
 ServiceRegistry:RegisterServices({
 	ServerServices.CmdrService,
 	ServerServices.DataService,
+	ServerServices.InventoryActionService,
+	ServerServices.EventShopService,
+	ServerServices.TraitService,
 	ServerServices.LoadoutService,
 	ServerServices.SettingsService,
 	ServerServices.CodeService,

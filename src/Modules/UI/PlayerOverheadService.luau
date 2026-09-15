@@ -197,6 +197,8 @@ local function createOverhead(player: Player, character: Model)
 
 	local levelLabel = createLabel("Level", 0.3)
 	levelLabel.LayoutOrder = 1
+	levelLabel.TextScaled = true
+	levelLabel.RichText = true
 	levelLabel.Text = `Level {currentLevel(player)}`
 	levelLabel.TextColor3 = Color3.fromRGB(255, 182, 43)
 	addTextStroke(levelLabel, 0.145)
@@ -213,6 +215,8 @@ local function createOverhead(player: Player, character: Model)
 
 	local nameLabel = createLabel("PlayerName", 0.37)
 	nameLabel.LayoutOrder = 2
+	nameLabel.TextScaled = true
+	nameLabel.RichText = true
 	nameLabel.Text = escapeRichText(player.DisplayName)
 	nameLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
 	addTextStroke(nameLabel, 0.14)
