@@ -9,18 +9,6 @@ local Net = require(ReplicatedStorage.Shared.Net)
 
 local TimeService
 
-local function resolveHitStats(stats, hit)
-	return {
-		AttackType = hit.AttackType or stats.AttackType,
-		Damage = math.max(0, math.floor(stats.Damage * (hit.DamageScale or 1))),
-
-		Range = hit.Range or stats.Range,
-		SplashRange = hit.SplashRange or stats.SplashRange,
-		Angle = hit.Angle or stats.Angle,
-		Width = hit.Width or stats.Width,
-	}
-end
-
 -------------------------------------------------
 --// AttackComponent
 -------------------------------------------------
@@ -76,80 +64,30 @@ function AttackComponent:Destroy()
 	end
 end
 
-function AttackComponent:_ApplyDamage(target, hitStats, hitIndex, hitCount)
-	if not target or target.IsDestroyed then
+function AttackComponent:_ExecuteAttack(attackType, target)
+	if not self.Tower or self.Tower.IsDestroyed then
 		return
 	end
-
-	local damageContext = {
-		Amount = hitStats.Damage,
-		Target = target,
-		HitIndex = hitIndex,
-		HitCount = hitCount,
-		AttackSlot = self.AttackSlot,
-	}
-
-	self.Tower:GetEvent("BeforeDamage"):Fire(damageContext)
-
-	local actualDamage, isKilled = target:TakeDamage(damageContext.Amount)
-	if actualDamage and actualDamage > 0 then
-		self.Tower:GetEvent("AfterDamaged"):Fire(target, actualDamage, damageContext)
-	end
-
-	if isKilled then
-		self.Tower:GetEvent("Killed"):Fire(target)
-	end
-end
-
-function AttackComponent:_DamageToEnemies(targetList, hitStats, hitIndex, hitCount)
-	if not targetList then
-		return
-	end
-
-	for _, enemy in targetList do
-		self:_ApplyDamage(enemy, hitStats, hitIndex, hitCount)
-	end
-end
-
-function AttackComponent:_ExecuteAttack(stats, hit, target, hitIndex, hitCount)
-	if not self.Tower or self.Tower.IsDestroyed or not target then
-		return
-	end
-
-	local hitStats = resolveHitStats(stats, hit)
-	local attackType = hitStats.AttackType
-	local targetPosition = target.Position
-	local targetList
 
 	if attackType == "Single" then
-		targetList = { target }
+		self:_ApplyDamage(target)
 	elseif attackType == "Splash" then
-		targetList = FindTarget.GetTargetInSplash(hitStats, targetPosition)
+		self:_SplashAOEAttack(target)
 	elseif attackType == "Angle" then
-		targetList = FindTarget.GetTargetInAngle(self.Tower, hitStats, self.Tower.Position, targetPosition)
+		self:_AngleAOEAttack(target)
 	elseif attackType == "Line" then
-		targetList = FindTarget.GetTargetInLine(self.Tower, hitStats, targetPosition)
-	else
-		warn(`Unknown AttackType: {tostring(attackType)}`)
-		return
+		self:_LineAOEAttack(target)
 	end
-
-	self:_DamageToEnemies(targetList, hitStats, hitIndex, hitCount)
 end
 
 function AttackComponent:_Attack(): boolean
-	local stats = table.clone(self.Stats)
-	local target = FindTarget.GetTarget(self.Tower, stats.Range)
+	local target = FindTarget.GetTarget(self.Tower, self.Stats.Range)
 	if not target then
 		return false
 	end
 
-	local hits = stats.Hits or {
-		{
-			Delay = stats.AttackDelay or 0,
-			AttackType = stats.AttackType,
-		},
-	}
+	local currentAttackType = self.Stats.AttackType
+	local attackDelay = self.Stats.AttackDelay or 0
 
 	Net.TowerService.OnAttackEnemy.FireAll({
 		towerId = self.Tower.Id,
@@ -157,23 +95,59 @@ function AttackComponent:_Attack(): boolean
 		attackSlot = self.AttackSlot,
 	})
 
-	for hitIndex, hit in hits do
-		local currentHit = hit
-		local currentHitIndex = hitIndex
-		local hitDelay = currentHit.Delay or 0
-
-		local function executeHit()
-			self:_ExecuteAttack(stats, currentHit, target, currentHitIndex, #hits)
-		end
-
-		if hitDelay > 0 then
-			TimeService.DeltaDelay(hitDelay):andThen(executeHit)
-		else
-			executeHit()
-		end
+	if attackDelay > 0 then
+		TimeService = TimeService or ServiceRegistry:GetService("TimeService")
+		TimeService.DeltaDelay(attackDelay):andThen(function()
+			self:_ExecuteAttack(currentAttackType, target)
+		end)
+	else
+		self:_ExecuteAttack(currentAttackType, target)
 	end
 
 	return true
+end
+
+function AttackComponent:_ApplyDamage(target)
+	if not target or target.IsDestroyed then
+		return
+	end
+
+	local damageContext = {
+		Amount = self.Stats.Damage,
+		Target = target,
+	}
+
+	self.Tower:GetEvent("BeforeDamage"):Fire(damageContext)
+
+	local actualDamage, isKilled = target:TakeDamage(damageContext.Amount)
+	if actualDamage and actualDamage > 0 then
+		self.Tower:GetEvent("AfterDamaged"):Fire(target, actualDamage)
+	end
+
+	if isKilled then
+		self.Tower:GetEvent("Killed"):Fire(target)
+	end
+end
+
+function AttackComponent:_SplashAOEAttack(target)
+	local targetList = FindTarget.GetTargetInSplash(self.Stats, target.Position)
+	self:_ApplyAOEDamage(targetList)
+end
+
+function AttackComponent:_AngleAOEAttack(target)
+	local targetList = FindTarget.GetTargetInAngle(self.Tower, self.Stats, self.Tower.Position, target.Position)
+	self:_ApplyAOEDamage(targetList)
+end
+
+function AttackComponent:_LineAOEAttack(target)
+	local targetList = FindTarget.GetTargetInLine(self.Tower, self.Stats, target.Position)
+	self:_ApplyAOEDamage(targetList)
+end
+
+function AttackComponent:_ApplyAOEDamage(targetList)
+	for _, enemy in targetList do
+		self:_ApplyDamage(enemy)
+	end
 end
 
 return AttackComponent

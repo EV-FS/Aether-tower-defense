@@ -113,7 +113,7 @@ function WaveService:PlayWave()
 
 	local spawnPromise
 	spawnPromise = Promise.each(waveData, function(enemy)
-		return EnemyService.Spawn(enemy.Name, enemy.Count, enemy.Delay, enemy.IsBoss, enemy.Path)
+		return EnemyService.Spawn(enemy.Name, enemy.Count, enemy.Delay, enemy.IsBoss)
 	end)
 
 	spawnPromise:andThen(function()

@@ -39,10 +39,6 @@ local function getTrack(tracks, name: string, level: number?): AnimationTrack?
 	return tracks[name]
 end
 
-local function getExactTrack(tracks, name: string, level: number?): AnimationTrack?
-	return tracks[if level ~= nil then `{name}_{level}` else name]
-end
-
 local function wrapTrack(realTrack: AnimationTrack, data)
 	local wrapper = {
 		_realTrack = realTrack,
@@ -146,15 +142,6 @@ function AnimationService.GetTrack(model: Model, name: string, level: number?): 
 	end
 
 	return getTrack(data.Tracks, name, level)
-end
-
-function AnimationService.GetExactTrack(model: Model, name: string, level: number?): AnimationTrack?
-	local data = Cache[model]
-	if not data then
-		return nil
-	end
-
-	return getExactTrack(data.Tracks, name, level)
 end
 
 function AnimationService.PlayOnce(model: Model, name: string, options)

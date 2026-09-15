@@ -7,7 +7,6 @@
 
 sourcemap.json
 .agents/
-.vscode/
 Packages/
 ServerPackages/
 wally.lock

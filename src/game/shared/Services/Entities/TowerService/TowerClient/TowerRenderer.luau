@@ -4,7 +4,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
 
 --/ Modules
-local TowerData = require(ReplicatedStorage.Settings.Data.TowerData)
+local ServiceRegistry = require(ReplicatedStorage.Shared.Modules.Core.ServiceRegistry)
 local CharacterUtils = require(ReplicatedStorage.Shared.Modules.Utils.CharacterUtils)
 local CreateRangeIndicator = require(ReplicatedStorage.Shared.Services.Entities.TowerService.Utils.CreateRangeIndicator)
 local TimeService
@@ -38,25 +38,7 @@ local function SetAccessoryVisible(accessory, visible: boolean)
 	end
 end
 
-local function ResolveAttackSet(towerModel: Model, attackVariant: string?, towerLevel: number): (boolean, number?)
-	local variant = attackVariant or ""
-	local comboName = `{variant}AttackCombo1`
-	local attackName = `{variant}Attack`
-
-	for level = towerLevel, 0, -1 do
-		if AnimationService.GetExactTrack(towerModel, comboName, level) then
-			return true, level
-		end
-
-		if AnimationService.GetExactTrack(towerModel, attackName, level) then
-			return false, level
-		end
-	end
-
-	return AnimationService.GetExactTrack(towerModel, comboName) ~= nil, nil
-end
-
-local function GetMaxCombo(renderData, towerModel, attackVariant: string?, stats, comboLevel: number?): number
+local function GetMaxCombo(renderData, towerModel, attackVariant: string?, stats): number
 	local maxComboKey = `MaxCombo_{attackVariant or "Default"}`
 	local maxCombo = renderData[maxComboKey]
 	if not maxCombo then
@@ -65,7 +47,7 @@ local function GetMaxCombo(renderData, towerModel, attackVariant: string?, stats
 			maxCombo = 0
 			while true do
 				local checkName = `{attackVariant or ""}AttackCombo{maxCombo + 1}`
-				if AnimationService.GetExactTrack(towerModel, checkName, comboLevel) then
+				if AnimationService.GetTrack(towerModel, checkName, renderData.Level) then
 					maxCombo += 1
 				else
 					break
@@ -78,29 +60,6 @@ local function GetMaxCombo(renderData, towerModel, attackVariant: string?, stats
 	return maxCombo
 end
 
-local function ResolveHitRangeStats(stats, hit)
-	return {
-		AttackType = hit.AttackType or stats.AttackType,
-		Range = hit.Range or stats.Range,
-		SplashRange = hit.SplashRange or stats.SplashRange,
-		Angle = hit.Angle or stats.Angle,
-		Width = hit.Width or stats.Width,
-	}
-end
-
-local function HasSameRangeShape(previous, current): boolean
-	if not previous or not current then
-		return previous == current
-	end
-
-	return previous.AttackType == current.AttackType
-		and previous.Range == current.Range
-		and previous.SplashRange == current.SplashRange
-		and previous.Angle == current.Angle
-		and previous.Width == current.Width
-		and HasSameRangeShape(previous.Secondary, current.Secondary)
-end
-
 -------------------------------------------------
 --// TowerRenderer
 -------------------------------------------------
@@ -110,26 +69,22 @@ TowerRenderer.PlacedBorders = {}
 TowerRenderer.TrackingTowers = {}
 TowerRenderer.SelectionHighlight = nil
 TowerRenderer.CurrentRange = nil
-TowerRenderer.CurrentRangeTowerId = nil
-TowerRenderer.CurrentRangeStats = nil
 
 function TowerRenderer.Init(services)
 	AnimationService = services:GetService("AnimationService")
 	VisualService = services:GetService("VisualService")
-	TimeService = services:GetService("TimeService")
 end
 
 function TowerRenderer.Start()
-	RunService.PreRender:Connect(function(dt)
+	RunService.PreRender:Connect(function()
 		if next(TowerRenderer.TrackingTowers) == nil and not TowerRenderer.CurrentRange then
 			return
 		end
 
+		local now = os.clock()
 		for towerId, data in pairs(TowerRenderer.TrackingTowers) do
-			data.RemainingTime -= dt * TimeService:GetGameSpeed()
-
 			if
-				data.RemainingTime <= 0
+				now > data.EndTime
 				or not data.TowerModel.Parent
 				or not data.TargetPart.Parent
 				or data.TargetPart:GetAttribute("Dead")
@@ -179,12 +134,6 @@ function TowerRenderer.Setup(towerId: number, towerModel: Model, towerName: stri
 		AnimationService.Play(towerModel, "Idle", 0, 0)
 	end
 
-	local towerInfo = TowerData.ByName[towerName]
-	local towerRarity = towerInfo and towerInfo.Rarity
-	if towerRarity then
-		VisualService.Play("TowerShared", `Place_{towerRarity}`, nil, towerModel)
-	end
-
 	TowerRenderer.RenderStates[towerId] = {
 		Accessories = {},
 		RangeIndicator = nil,
@@ -201,30 +150,6 @@ function TowerRenderer.Setup(towerId: number, towerModel: Model, towerName: stri
 	end
 end
 
-function TowerRenderer.UpgradeVisuals(towerLevel: number, towerId: number)
-	local targetTower = TowerRenderer.RenderStates[towerId]
-	if not targetTower then
-		return
-	end
-
-	local towerInfo = TowerData.ByName[targetTower.Name]
-	local towerRarity = towerInfo and towerInfo.Rarity
-	if towerRarity then
-		VisualService.Play("TowerShared", `Upgrade_{towerRarity}`, nil, targetTower.Model)
-	end
-
-	TowerRenderer.ApplyAppearence(towerLevel, towerId)
-end
-
-function TowerRenderer.SellVisuals(towerId: number)
-	local targetTower = TowerRenderer.RenderStates[towerId]
-	if not targetTower then
-		return
-	end
-
-	VisualService.Play("TowerShared", `Sell`, nil, targetTower.Model)
-end
-
 function TowerRenderer.ApplyAppearence(towerLevel: number, towerId: number)
 	local targetTower = TowerRenderer.RenderStates[towerId]
 	if not targetTower then
@@ -232,10 +157,9 @@ function TowerRenderer.ApplyAppearence(towerLevel: number, towerId: number)
 	end
 
 	targetTower.Level = towerLevel
-	targetTower.AttackRangeStats = {}
 
 	for key in pairs(targetTower) do
-		if string.match(key, "^MaxCombo_") or string.match(key, "^ComboIndex_") then
+		if string.match(key, "^MaxCombo_") then
 			targetTower[key] = nil
 		end
 	end
@@ -272,15 +196,14 @@ function TowerRenderer.ToggleRangeIndicator(action: boolean, towerId: number?, t
 	if TowerRenderer.CurrentRange then
 		TowerRenderer.CurrentRange:Destroy()
 		TowerRenderer.CurrentRange = nil
+		TowerRenderer.CurrentRangeTowerId = nil
 	end
-	TowerRenderer.CurrentRangeTowerId = nil
-	TowerRenderer.CurrentRangeStats = nil
 
 	if TowerRenderer.SelectionHighlight then
 		TowerRenderer.SelectionHighlight.Adornee = nil
 	end
 
-	if action == false or not targetTower or not towerData then
+	if action == false then
 		return
 	end
 
@@ -299,50 +222,17 @@ function TowerRenderer.ToggleRangeIndicator(action: boolean, towerId: number?, t
 		TowerRenderer.SelectionHighlight.Adornee = targetTower.Model
 	end
 
-	TowerRenderer.CurrentRangeTowerId = towerId
-	TowerRenderer.CurrentRangeStats = towerData.Stats
-	TowerRenderer.RefreshRangeIndicator()
-end
-
-function TowerRenderer.RefreshRangeIndicator()
-	local towerId = TowerRenderer.CurrentRangeTowerId
-	local targetTower = TowerRenderer.RenderStates[towerId]
-	local baseStats = TowerRenderer.CurrentRangeStats
-	if not targetTower or not baseStats then
-		return
-	end
-
-	local attackRangeStats = targetTower.AttackRangeStats
-	local stats = table.clone(attackRangeStats.Default or baseStats)
-	stats.Secondary = attackRangeStats.Secondary or baseStats.Secondary
-
-	local previousRange = TowerRenderer.CurrentRange
-	if previousRange and HasSameRangeShape(previousRange.TowerStats, stats) then
-		return
-	end
-
-	local lastSplashPosition = previousRange and previousRange.LastSplashPosition
-	local previousSecondary = previousRange and previousRange.SecondaryIndicator
-	local lastSecondarySplashPosition = previousSecondary and previousSecondary.LastSplashPosition
-	if previousRange then
-		previousRange:Destroy()
-	end
-
-	local pivot = targetTower.Model:GetPivot()
 	local offset = CharacterUtils.GetHipHeight(targetTower.Model)
-	local groundPivot = pivot - Vector3.new(0, offset, 0)
-	local range = CreateRangeIndicator.newRange(stats.Range, groundPivot, stats, pivot.Position)
-	TowerRenderer.CurrentRange = range
-	if range then
-		range.LastSplashPosition = lastSplashPosition
-		if range.SecondaryIndicator then
-			range.SecondaryIndicator.LastSplashPosition = lastSecondarySplashPosition
-		end
+	TowerRenderer.CurrentRange = CreateRangeIndicator.newRange(
+		towerData.Stats.Range,
+		targetTower.Model:GetPivot() - Vector3.new(0, offset, 0),
+		towerData.Stats,
+		targetTower.Model:GetPivot().Position
+	)
+	TowerRenderer.CurrentRangeTowerId = towerId
 
-		local trackingData = TowerRenderer.TrackingTowers[towerId]
-		local targetPos = trackingData and trackingData.TargetPart and trackingData.TargetPart.Position
-		range:SetColor(Color3.new(1, 1, 1))
-		range:UpdateRange(groundPivot, targetPos, pivot.Position)
+	if TowerRenderer.CurrentRange then
+		TowerRenderer.CurrentRange:SetColor(Color3.new(1, 1, 1))
 	end
 end
 
@@ -351,7 +241,7 @@ function TowerRenderer.AddBorder(towerId: number, borderData)
 
 	local border = ReplicatedStorage.Assets.Visuals.Border:Clone()
 	border.Name = "Border_" .. tostring(towerId)
-	border.Size = Vector3.new(0.001, borderData.r * 2.5, borderData.r * 2.5)
+	border.Size = Vector3.new(0.001, borderData.r * 2, borderData.r * 2)
 
 	local offset = CharacterUtils.GetHipHeight(targetTower.Model) - GROUND_VISUAL_OFFSET
 	border.Position = Vector3.new(borderData.x, targetTower.Model:GetPivot().Y - offset, borderData.z)
@@ -380,21 +270,6 @@ function TowerRenderer.LookAt(towerModel: Model, targetPosition: Vector3)
 	towerModel:PivotTo(CFrame.lookAt(towerPivot.Position, lookTarget))
 end
 
-function TowerRenderer.OnPassiveTriggered(towerId: number, passiveType: string, arg: { [string]: any }?)
-	local targetTower = TowerRenderer.RenderStates[towerId]
-	if not targetTower then
-		return
-	end
-
-	local towerModel = targetTower.Model
-	local eventName = `Passive{passiveType}`
-	local targetModel = if typeof(arg) == "table" and arg.EnemyId
-		then workspace.Enemies:FindFirstChild(`Enemy_{arg.EnemyId}`)
-		else nil
-
-	VisualService.Play(targetTower.Name, eventName, targetTower.Level, towerModel, targetModel)
-end
-
 function TowerRenderer.OnAttack(towerId: number, enemyModel: Model, stats, attackVariant: string?)
 	local renderData = TowerRenderer.RenderStates[towerId]
 	if not (renderData and enemyModel and enemyModel.PrimaryPart) then
@@ -403,104 +278,54 @@ function TowerRenderer.OnAttack(towerId: number, enemyModel: Model, stats, attac
 
 	local towerModel = renderData.Model
 	local targetPart = enemyModel.PrimaryPart
-	local hits = stats.Hits
-	local hasHitConfig = hits and #hits > 0
-	local attackEndDelay = stats.AttackDelay or 0
+	local attackDelay = stats.AttackDelay or 0
 
-	if hasHitConfig then
-		attackEndDelay = 0
-		for _, hit in hits do
-			attackEndDelay = math.max(attackEndDelay, hit.Delay or 0)
-		end
-	end
+	local maxCombo = GetMaxCombo(renderData, towerModel, attackVariant, stats)
+	local comboIndex = (renderData.ComboIndex or 0) % maxCombo + 1
+	renderData.ComboIndex = comboIndex
 
 	local variant = attackVariant or ""
-	local rangeKey = attackVariant or "Default"
-	local attackRangeStats = renderData.AttackRangeStats
-	local function updateAttackRange(rangeStats)
-		-- Ignore hits queued before an upgrade or removal; selection changes keep the current hit.
-		if
-			TowerRenderer.RenderStates[towerId] ~= renderData
-			or renderData.AttackRangeStats ~= attackRangeStats
-			or not towerModel.Parent
-		then
-			return
-		end
 
-		attackRangeStats[rangeKey] = rangeStats
-		if TowerRenderer.CurrentRangeTowerId == towerId then
-			TowerRenderer.RefreshRangeIndicator()
-		end
+	local animName = `{attackVariant or ""}AttackCombo{comboIndex}`
+	if not AnimationService.GetTrack(towerModel, animName, renderData.Level) then
+		animName = `{attackVariant or ""}Attack`
 	end
 
-	-- Keep the last hit visible during cooldown, then restore the base shape for the next windup.
-	updateAttackRange(stats)
-
-	local usesCombo, comboLevel = ResolveAttackSet(towerModel, attackVariant, renderData.Level)
-	local animName = `{variant}Attack`
-	local comboIndex: number?
-	local comboIndexKey = `ComboIndex_{attackVariant or "Default"}`
-
-	if usesCombo then
-		local maxCombo = GetMaxCombo(renderData, towerModel, attackVariant, stats, comboLevel)
-		comboIndex = (renderData[comboIndexKey] or 0) % maxCombo + 1
-		renderData[comboIndexKey] = comboIndex
-		animName = `{variant}AttackCombo{comboIndex}`
-	else
-		renderData[comboIndexKey] = nil
-	end
-
-	AnimationService.PlayOnce(towerModel, animName, {
+	local track = AnimationService.PlayOnce(towerModel, animName, {
 		Level = renderData.Level,
 		Resume = "Idle",
 	})
 
-	local comboEventPrefix = if comboIndex then `{variant}AttackCombo{comboIndex}` else nil
-	local function playAttackVisual(eventSuffix: string, range: number?, delay: number?)
-		local fallbackEventName = `{variant}Attack{eventSuffix}`
-		local eventName = if comboEventPrefix then `{comboEventPrefix}{eventSuffix}` else fallbackEventName
+	if track then
+		local myPlayOnceId = (renderData.ComboPlayId or 0) + 1
+		renderData.ComboPlayId = myPlayOnceId
 
-		VisualService.Play(
-			renderData.Name,
-			eventName,
-			renderData.Level,
-			towerModel,
-			enemyModel,
-			range,
-			delay,
-			if comboEventPrefix then fallbackEventName else nil
-		)
-	end
-
-	playAttackVisual("Start", stats.Range)
-
-	if hasHitConfig then
-		for hitIndex, hit in hits do
-			local hitDelay = hit.Delay or 0
-			local visualDelay = if hitDelay > 0 then hitDelay else nil
-			local hitRange = hit.Range or stats.Range
-			local hitRangeStats = ResolveHitRangeStats(stats, hit)
-			if hitDelay > 0 then
-				TimeService.DeltaDelay(hitDelay):andThen(function()
-					updateAttackRange(hitRangeStats)
-				end)
-			else
-				updateAttackRange(hitRangeStats)
+		track.Stopped:Once(function()
+			if renderData.ComboPlayId == myPlayOnceId then
+				renderData.ComboIndex = nil
 			end
-
-			playAttackVisual("Hit", hitRange, visualDelay)
-			playAttackVisual(`Hit{hitIndex}`, hitRange, visualDelay)
-		end
+		end)
 	end
 
-	playAttackVisual("End", stats.Range, if attackEndDelay > 0 then attackEndDelay else nil)
+	TimeService = TimeService or ServiceRegistry:GetService("TimeService")
+
+	VisualService.Play(renderData.Name, `{variant}AttackStart`, renderData.Level, towerModel, enemyModel, stats.Range)
+	VisualService.Play(
+		renderData.Name,
+		`{variant}AttackEnd`,
+		renderData.Level,
+		towerModel,
+		enemyModel,
+		stats.Range,
+		attackDelay
+	)
 
 	if not targetPart:GetAttribute("Dead") then
 		TowerRenderer.LookAt(towerModel, targetPart.Position)
 		TowerRenderer.TrackingTowers[towerId] = {
 			TowerModel = towerModel,
 			TargetPart = targetPart,
-			RemainingTime = attackEndDelay,
+			EndTime = os.clock() + (attackDelay / TimeService:GetGameSpeed()),
 		}
 	end
 end
@@ -517,9 +342,11 @@ function TowerRenderer.Cleanup(towerId: number)
 		TowerRenderer.PlacedBorders[towerId]:Destroy()
 		TowerRenderer.PlacedBorders[towerId] = nil
 	end
-	if TowerRenderer.CurrentRangeTowerId == towerId then
-		TowerRenderer.ToggleRangeIndicator(false)
+	if TowerRenderer.CurrentRange then
+		TowerRenderer.CurrentRange:Destroy()
+		TowerRenderer.CurrentRange = nil
 	end
+	TowerRenderer.CurrentRangeTowerId = nil
 
 	TowerRenderer.RenderStates[towerId] = nil
 	TowerRenderer.TrackingTowers[towerId] = nil

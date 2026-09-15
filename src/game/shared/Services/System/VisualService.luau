@@ -19,14 +19,9 @@ function VisualService.Play(
 	sourceModel: Model,
 	targetModel: Model?,
 	range: number?,
-	delay: number?,
-	fallbackEventName: string?
+	delay: number?
 )
 	local sfxRecipes = AudioService.GetRecipes(name, eventName, level)
-	if not sfxRecipes and fallbackEventName then
-		sfxRecipes = AudioService.GetRecipes(name, fallbackEventName, level)
-	end
-
 	if sfxRecipes then
 		if delay and delay > 0 then
 			TimeService.DeltaDelay(delay):andThen(function()
@@ -38,10 +33,6 @@ function VisualService.Play(
 	end
 
 	local vfxRecipes = VFXService.GetRecipes(name, eventName, level)
-	if not vfxRecipes and fallbackEventName then
-		vfxRecipes = VFXService.GetRecipes(name, fallbackEventName, level)
-	end
-
 	if vfxRecipes then
 		VFXService.PlayVFX(vfxRecipes, sourceModel, targetModel, range, delay)
 	end

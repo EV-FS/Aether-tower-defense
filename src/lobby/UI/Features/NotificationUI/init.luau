@@ -1,0 +1,3 @@
+local Notification = {}
+
+return Notification

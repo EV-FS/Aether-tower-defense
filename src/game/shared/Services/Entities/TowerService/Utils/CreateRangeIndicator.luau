@@ -13,7 +13,7 @@ local IndicatorPartTemplate =
 local SplashTemplate = ReplicatedStorage:WaitForChild("Assets"):WaitForChild("Visuals"):WaitForChild("Splash")
 
 local CONSTANTS = {
-	STORAGE_SIZE = 200,
+	STORAGE_SIZE = 100,
 	GROUND_OFFSET = 0.05,
 
 	LINE_WIDTH = 0.2,
@@ -185,12 +185,12 @@ function CreateRangeIndicator.newRange(
 
 		local lineHeight = IndicatorPartTemplate.Size.Y
 
-		if towerStats.AttackType == "Angle" and towerStats.Angle and towerStats.Angle > 0 then
+		if towerStats.Angle and towerStats.Angle > 0 then
 			local size = Vector3.new(CONSTANTS.LINE_WIDTH, lineHeight, radius)
 			local leftCF, rightCF = getAngleCFrames(projectedCenter, radius, towerStats.Angle)
 			spawnBoundaryPart(leftCF, size)
 			spawnBoundaryPart(rightCF, size)
-		elseif towerStats.AttackType == "Line" and towerStats.Width and towerStats.Width > 0 then
+		elseif towerStats.Width and towerStats.Width > 0 then
 			local halfWidth = towerStats.Width / 2
 			local correctedLength = getCorrectedWidthLength(radius, halfWidth)
 			local size = Vector3.new(CONSTANTS.LINE_WIDTH, lineHeight, correctedLength)
@@ -200,7 +200,7 @@ function CreateRangeIndicator.newRange(
 			spawnBoundaryPart(rightCF, size)
 		end
 
-		if towerStats.AttackType == "Splash" and towerStats.SplashRange and towerStats.SplashRange > 0 then
+		if towerStats.SplashRange and towerStats.SplashRange > 0 then
 			local splashRange = towerStats.SplashRange
 
 			local cylinder = SplashTemplate:Clone()
@@ -347,7 +347,7 @@ function CreateRangeIndicator:UpdateRange(
 	if towerStats and self.BoundaryParts and #self.BoundaryParts > 0 then
 		local lineHeight = IndicatorPartTemplate.Size.Y
 
-		if towerStats.AttackType == "Angle" and towerStats.Angle and towerStats.Angle > 0 then
+		if towerStats.Angle and towerStats.Angle > 0 then
 			local size = Vector3.new(CONSTANTS.LINE_WIDTH, lineHeight, radius)
 			local leftCF, rightCF = getAngleCFrames(projectedCenter, radius, towerStats.Angle)
 
@@ -359,7 +359,7 @@ function CreateRangeIndicator:UpdateRange(
 				self.BoundaryParts[2].Size = size
 				self.BoundaryParts[2].CFrame = rightCF
 			end
-		elseif towerStats.AttackType == "Line" and towerStats.Width and towerStats.Width > 0 then
+		elseif towerStats.Width and towerStats.Width > 0 then
 			local halfWidth = towerStats.Width / 2
 			local correctedLength = getCorrectedWidthLength(radius, halfWidth)
 			local size = Vector3.new(CONSTANTS.LINE_WIDTH, lineHeight, correctedLength)

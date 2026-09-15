@@ -1,11 +1,11 @@
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
-local InstanceCache = require(ReplicatedStorage.Shared.Modules.Core.InstanceCache)
+local ObjectCache = require(ReplicatedStorage.Packages.ObjectCache)
 
 local VFX_FOLDER = ReplicatedStorage:WaitForChild("Assets"):WaitForChild("VFX")
 local CACHE_FOLDER = workspace:WaitForChild("Caches")
 
-local DEFAULT_POOL_SIZE = 50
+local DEFAULT_POOL_SIZE = 10
 
 type PoolData = {
 	Storage: any,
@@ -109,7 +109,7 @@ function VFXCaches.Get(effectPath: string, cframe: CFrame?, poolSize: number?): 
 		local size = poolSize or DEFAULT_POOL_SIZE
 
 		pool = {
-			Storage = InstanceCache.new(template, size, CACHE_FOLDER),
+			Storage = ObjectCache.new(template, size, CACHE_FOLDER),
 			ActiveCount = 0,
 			Capacity = size,
 		}
@@ -124,7 +124,7 @@ function VFXCaches.Get(effectPath: string, cframe: CFrame?, poolSize: number?): 
 		pool.Capacity += 1
 	end
 
-	local effect = pool.Storage:GetInstance(cframe)
+	local effect = pool.Storage:GetPart(cframe)
 
 	if not effect then
 		return nil, nil
@@ -155,7 +155,7 @@ function VFXCaches.Return(effectPath: string, effect: Instance)
 
 	task.delay(0.5, function()
 		pool.ActiveCount = math.max(0, pool.ActiveCount - 1)
-		pool.Storage:ReturnInstance(effect)
+		pool.Storage:ReturnPart(effect)
 	end)
 end
 

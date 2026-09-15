@@ -1,4 +1,3 @@
-local CharacterGuard = require(script.Parent.CharacterGuard)
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local ServerScriptService = game:GetService("ServerScriptService")
 
@@ -13,7 +12,6 @@ ServiceRegistry:RegisterServices({
 	ServerServices.Core.GameService,
 	ServerServices.Core.MapService,
 	ServerServices.Core.WaveService,
-	ServerServices.Core.LootService,
 
 	--/System
 	SharedServices.System.EconomyService,
@@ -21,8 +19,6 @@ ServiceRegistry:RegisterServices({
 	ServerServices.System.DataService,
 	ServerServices.System.SettingsService,
 	ServerServices.System.GlobalExistService,
-	ServerServices.System.RoleTagService,
-	SharedServices.System.AudioService,
 
 	--/Entities
 	ServerServices.Entities.EnemyService,

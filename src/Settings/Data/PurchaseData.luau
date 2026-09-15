@@ -25,10 +25,10 @@ local RawPurchaseData = {
 		},
 	},
 	DevProducts = {
-		["Wizard"] = {
+		["Wizard Noob"] = {
 			Id = 3601842516,
 			Rewards = {
-				{ Type = "Tower", Target = "Wizard", Amount = 1 },
+				{ Type = "Tower", Target = "Wizard Noob", Amount = 1 },
 			},
 		},
 		--/Pack

@@ -21,7 +21,6 @@ local TowerData = require(ReplicatedStorage.Settings.Data.TowerData)
 local MouseRayCast = require(ReplicatedStorage.Shared.Modules.Utils.MouseRayCast)
 local TableUtils = require(ReplicatedStorage.Shared.Modules.Utils.TableUtils)
 local CharacterUtils = require(ReplicatedStorage.Shared.Modules.Utils.CharacterUtils)
-local NotificationService = require(ReplicatedStorage.Shared.Services.System.NotificationService)
 local CreateRangeIndicator = require(script.Parent.Utils.CreateRangeIndicator)
 
 --/Constants
@@ -85,9 +84,9 @@ function TowerClient.Start()
 	TowerRenderer.Start()
 
 	--/Input
-	local iScope = InputService.Scope
-	local iAction = InputService.Action
-	local iInfo = InputService.Info
+	local iScope = InputService.NewScope
+	local iAction = InputService.NewAction
+	local iInfo = InputService.NewInfo
 
 	PlacementScope = iScope("PlacementInput", {
 		iAction("Spawn", iInfo({ Enum.UserInputType.MouseButton1, "DoubleTap" })),
@@ -98,6 +97,30 @@ function TowerClient.Start()
 	SelectionScope = iScope("SelectionInput", {
 		iAction("Click", iInfo({ Enum.UserInputType.MouseButton1, "Touch" })),
 	}):Enable()
+
+	local test = iScope("TestInput", {
+		iAction("ABC1", iInfo({ Enum.KeyCode.One })),
+		iAction("ABC2", iInfo({ Enum.KeyCode.Two })),
+		iAction("ABC3", iInfo({ Enum.KeyCode.Three })),
+		iAction("ABC4", iInfo({ Enum.KeyCode.Four })),
+		iAction("ABC5", iInfo({ Enum.KeyCode.Five })),
+	}):Disable()
+
+	test.Actions.ABC1.Began:Connect(function()
+		TowerClient.StartPlacement("Mecha Demian")
+	end)
+	test.Actions.ABC2.Began:Connect(function()
+		TowerClient.StartPlacement("Cyborg Dummy")
+	end)
+	test.Actions.ABC3.Began:Connect(function()
+		TowerClient.StartPlacement("Poor Bacon")
+	end)
+	test.Actions.ABC4.Began:Connect(function()
+		TowerClient.StartPlacement("Wizard Noob")
+	end)
+	test.Actions.ABC5.Began:Connect(function()
+		TowerClient.StartPlacement("Hacker")
+	end)
 
 	--/Connect
 	RunService.PreRender:Connect(function()
@@ -111,8 +134,8 @@ function TowerClient.Start()
 	TowerClient._SetPlacementInput()
 	TowerClient._SetSelectionInput()
 
-	ClientSignals.SpawnRequested:Connect(function(towerName: string, towerKey: string)
-		TowerClient.StartPlacement(towerName, towerKey)
+	ClientSignals.SpawnRequested:Connect(function(towerName: string, _: string)
+		TowerClient.StartPlacement(towerName)
 	end)
 
 	ClientSignals.UpgradeRequested:Connect(TowerClient.RequestUpgrade)
@@ -124,7 +147,6 @@ function TowerClient.Start()
 	Net.TowerService.TowerDestroyed.On(TowerClient.RemoveTower)
 	Net.TowerService.TowerSpawned.On(TowerClient._TowerSpawned)
 	Net.TowerService.TowerTargetModeUpdated.On(TowerClient._TowerTargetModeUpdated)
-	Net.TowerService.PassiveTriggered.On(TowerClient._PassiveTriggered)
 end
 
 function TowerClient._SetPlacementInput()
@@ -168,7 +190,7 @@ function TowerClient.GetTowerCount(towerName)
 	return TowerClient.PlacedTowers[towerName] or 0
 end
 
-function TowerClient.StartPlacement(towerName: string, towerKey: string?)
+function TowerClient.StartPlacement(towerName)
 	if placementSession then
 		placementSession:Destroy()
 	end
@@ -179,7 +201,7 @@ function TowerClient.StartPlacement(towerName: string, towerKey: string?)
 		ClientSignals.TowerUnselected:Fire()
 	end
 
-	placementSession = TowerPlacement.new(towerName, towerKey)
+	placementSession = TowerPlacement.new(towerName)
 	placementSession:Start()
 
 	PlacementScope:Enable()
@@ -191,7 +213,6 @@ function TowerClient.RegisterTower(player: Player?, towerId: number, data)
 
 	if player == PLAYER then
 		TowerClient.PlacedTowers[data.towerName] = (TowerClient.PlacedTowers[data.towerName] or 0) + 1
-		ClientSignals.TowerCountChanged:Fire(data.towerName, TowerClient.PlacedTowers[data.towerName])
 	end
 
 	TowerClient.ActiveTowers[towerId] = {
@@ -267,10 +288,8 @@ function TowerClient.RemoveTower(towerId: number)
 
 	if TowerClient.PlacedTowers[towerData.Name] then
 		TowerClient.PlacedTowers[towerData.Name] = math.max(0, TowerClient.PlacedTowers[towerData.Name] - 1)
-		ClientSignals.TowerCountChanged:Fire(towerData.Name, TowerClient.PlacedTowers[towerData.Name])
 	end
 
-	TowerRenderer.SellVisuals(towerId)
 	TowerRenderer.Cleanup(towerId)
 	PlaceValidator.RemoveBorder(towerId)
 
@@ -298,17 +317,11 @@ function TowerClient.RequestSpawn()
 	end
 
 	local towerName = placementSession.TowerName
-	local towerKey = placementSession.TowerKey
 	local spawnPosition = placementData.Position
-	if typeof(towerKey) ~= "string" then
-		warn(`Cannot spawn tower "{towerName}" without a tower key.`)
-		return
-	end
 
 	local validationData = {
 		["TowerName"] = towerName,
 		["SpawnPosition"] = spawnPosition,
-		["SurfaceHit"] = placementData.SurfaceHit,
 		["BorderRadius"] = placementData.BorderRadius,
 		["CurrentCash"] = EconomyService.GetCash(PLAYER),
 		["CurrentCount"] = TowerClient.GetTowerCount(towerName),
@@ -316,14 +329,13 @@ function TowerClient.RequestSpawn()
 
 	local canSpawn, errorMsg = PlaceValidator.CheckSpawn(validationData)
 	if not canSpawn then
-		NotificationService:Pull(PLAYER, errorMsg, "Error", 3)
+		warn("[TowerClient] Spawn failed:", errorMsg)
 		return
 	end
 
 	local spawnRequestData = {
 		spawnLocation = spawnPosition,
 		towerIndex = TowerData.ByName[towerName].Index,
-		towerKey = towerKey,
 	}
 
 	local newTowerId = Net.TowerService.SpawnNewTower.Invoke(spawnRequestData):expect()
@@ -420,15 +432,6 @@ function TowerClient._TowerTargetModeUpdated(data: { towerId: number, targetMode
 	end
 end
 
-function TowerClient._PassiveTriggered(data: { towerId: number, passiveType: string, arg: { [string]: any }? })
-	local towerData = TowerClient.ActiveTowers[data.towerId]
-	if not towerData then
-		return
-	end
-
-	TowerRenderer.OnPassiveTriggered(data.towerId, data.passiveType, data.arg)
-end
-
 function TowerClient._OnAttackEnemy(data: { enemyId: number, towerId: number, attackSlot: number? })
 	local towerData = TowerClient.ActiveTowers[data.towerId]
 	local enemyModel = workspace.Enemies:FindFirstChild(`Enemy_{data.enemyId}`)
@@ -460,7 +463,7 @@ function TowerClient._TowerUpdated(data: { towerId: number, towerLevel: number }
 	towerData.Level = data.towerLevel
 	towerData.Stats = TableUtils.DeepCopy(TowerData.ByName[towerData.Name].Stats[data.towerLevel])
 
-	TowerRenderer.UpgradeVisuals(data.towerLevel, data.towerId)
+	TowerRenderer.ApplyAppearence(data.towerLevel, data.towerId)
 	if selectedTowerId == data.towerId then
 		TowerRenderer.ToggleRangeIndicator(true, data.towerId, towerData)
 	end

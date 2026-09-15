@@ -87,24 +87,4 @@ function CharacterUtils.SetCollisionGroup(targetInstance: Instance, groupName: s
 	end)
 end
 
-function CharacterUtils.RigInstance(part0: BasePart, part1: BasePart, offset: CFrame, isMotor: boolean?): Motor6D | Weld
-	local weld
-	if isMotor then
-		weld = Instance.new("Motor6D")
-	else
-		weld = Instance.new("Weld")
-	end
-	weld.Enabled = false
-
-	weld.Part0 = part0
-	weld.Part1 = part1
-	weld.C0 = offset
-
-	weld.Parent = part0
-
-	weld.Enabled = true
-
-	return weld
-end
-
 return CharacterUtils

@@ -111,7 +111,7 @@ function BuffComponent:_RemoveBuff(targetTower)
 end
 
 function BuffComponent:_SetTargetStats(tower)
-	local defaultStats = TowerData.ByName[tower.Name].Stats[tower.Level]
+	local defaultStats = TowerData[tower.Name].Stats[tower.Level]
 
 	local maxDamageBuff = 0
 	local maxRangeBuff = 0

@@ -38,11 +38,10 @@ function TowerPlacement.Init(services, getTowerCountFunc: (towerName: string) ->
 	TowerPlacement.GetCountTower = getTowerCountFunc
 end
 
-function TowerPlacement.new(towerName: string, towerKey: string?)
+function TowerPlacement.new(towerName)
 	local self = setmetatable({}, TowerPlacement)
 
 	self.TowerName = towerName
-	self.TowerKey = towerKey
 	self.Config = TowerData.ByName[towerName]
 	self.Stats = self.Config.Stats[0]
 	self.Model = nil
@@ -50,7 +49,7 @@ function TowerPlacement.new(towerName: string, towerKey: string?)
 	self.RangeIndicator = nil
 	self.IsActive = false
 	self.HeightOffset = 0
-	self.LastTargetHit = nil
+	self.LastTargetPosition = nil
 
 	return self
 end
@@ -94,7 +93,7 @@ function TowerPlacement:Update()
 	end
 
 	local targetPos = result.Position
-	self.LastTargetHit = result
+	self.LastTargetPosition = targetPos
 
 	local finalCFrame = CFrame.new(targetPos + Vector3.new(0, self.HeightOffset, 0))
 		* CFrame.Angles(0, math.rad(self.Rotation), 0)
@@ -112,7 +111,7 @@ function TowerPlacement:Update()
 		)
 	end
 
-	self:_CheckValidation(result)
+	self:_CheckValidation(targetPos)
 end
 
 function TowerPlacement:Rotate()
@@ -142,7 +141,6 @@ function TowerPlacement:Destroy()
 	self.Highlight = nil
 	self.Border = nil
 	self.RangeIndicator = nil
-	self.LastTargetHit = nil
 
 	ToggleExistingBorders(false)
 end
@@ -153,16 +151,15 @@ function TowerPlacement:GetPlacementData()
 	end
 
 	local result = MouseRayCast(true)
-	local surfaceHit = result or self.LastTargetHit
+	local spawnPosition = if result and result.Position then result.Position else self.LastTargetPosition
 
-	if not surfaceHit then
+	if not spawnPosition then
 		return nil
 	end
 
 	return {
 		TowerName = self.TowerName,
-		Position = surfaceHit.Position,
-		SurfaceHit = surfaceHit,
+		Position = spawnPosition,
 		Rotation = self.Rotation,
 		BorderRadius = self.Model.PrimaryPart.Size.X * 1.5,
 	}
@@ -173,7 +170,7 @@ function TowerPlacement:_CreateVisuals()
 	self.Highlight.Parent = self.Model
 
 	self.Border = ReplicatedStorage.Assets.Visuals.Border:Clone()
-	self.Border.Size = Vector3.new(0.001, self.BorderRadius * 2.5, self.BorderRadius * 2.5)
+	self.Border.Size = Vector3.new(0.001, self.BorderRadius * 2, self.BorderRadius * 2)
 	self.Border.Position = Vector3.new(0, GROUND_VISUAL_OFFSET, 0)
 	self.Border.Parent = workspace.Visuals.Borders
 
@@ -185,11 +182,10 @@ function TowerPlacement:_CreateVisuals()
 	)
 end
 
-function TowerPlacement:_CheckValidation(surfaceHit: RaycastResult)
+function TowerPlacement:_CheckValidation(targetPos)
 	local checkData = {
 		["TowerName"] = self.TowerName,
-		["SpawnPosition"] = surfaceHit.Position,
-		["SurfaceHit"] = surfaceHit,
+		["SpawnPosition"] = targetPos,
 		["BorderRadius"] = self.BorderRadius,
 		["CurrentCount"] = TowerPlacement.GetCountTower(self.TowerName),
 	}

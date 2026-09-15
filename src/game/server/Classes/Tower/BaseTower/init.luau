@@ -15,7 +15,6 @@ local DataService
 export type Tower = {
 	Id: number,
 	Name: string,
-	TowerKey: string,
 	Owner: Player,
 	Level: number,
 	MaxLevel: number,
@@ -41,18 +40,11 @@ end
 local BaseTower = {}
 BaseTower.__index = BaseTower
 
-function BaseTower.new(
-	player: Player,
-	towerId: number,
-	towerName: string,
-	towerKey: string,
-	position: Vector3
-): Tower
+function BaseTower.new(player: Player, towerId: number, towerName: string, position: Vector3): Tower
 	local self = setmetatable({}, BaseTower)
 
 	self.Id = towerId
 	self.Name = towerName
-	self.TowerKey = towerKey
 	self.Owner = player
 	self.Level = 0
 	self.MaxLevel = self:_CalculateMaxLevel()
@@ -137,13 +129,24 @@ function BaseTower:_AddTowerExp()
 	end
 
 	DataService = DataService or ServiceRegistry:GetService("DataService")
-	if self.TowerKey then
+	local playerData = DataService:GetData(self.Owner)
+	if playerData and playerData.Loadout then
+		for _, equippedTower in pairs(playerData.Loadout) do
+			if equippedTower.Name == self.Name then
+				self._TowerKey = equippedTower.Key
+				break
+			end
+		end
+	end
+
+	if self._TowerKey then
 		self:GetEvent("Killed"):Connect(function(_)
-			DataService:AdjustTower(self.Owner, self.Name, self.TowerKey, "Exp", 10)
+			DataService:AddData(self.Owner, "OwnedTowers", 10, self.Name, self._TowerKey, "Exp")
 		end)
 	end
 end
 
+<<<<<<< HEAD
 function BaseTower:_RecalculateStats()
 	self.Stats = TableUtils.DeepCopy(TowerData.ByName[self.Name].Stats[self.Level])
 
@@ -162,21 +165,20 @@ function BaseTower:_RecalculateStats()
 	end
 end
 
+=======
+>>>>>>> parent of b55c1aa (어드민타워 적용 딩딩과 18키로)
 function BaseTower:_ApplyNewStats()
-	self:_RecalculateStats()
+	self.Stats = TableUtils.DeepCopy(TowerData.ByName[self.Name].Stats[self.Level])
 
 	local needsAttack = self.Stats.AttackType and self.Stats.Damage
 	local needsSecondaryAttack = self.Stats.Secondary and self.Stats.Secondary.AttackType
-	local needsFarm = self.Stats.Income and self.Stats.IsFarm
+	local needsFarm = self.Stats.Income
 	local needsBuff = self.Stats.DamageBuff or self.Stats.RangeBuff or self.Stats.CooldownBuff
 
 	self:_SyncComponent("Attack", "AttackComponent", needsAttack, self.Stats)
 	self:_SyncComponent("SecondaryAttack", "AttackComponent", needsSecondaryAttack, self.Stats.Secondary, 2)
 	self:_SyncComponent("Farm", "FarmComponent", needsFarm)
 	self:_SyncComponent("Buff", "BuffComponent", needsBuff)
-
-	local passives = self.Stats.Passives or {}
-	self:_SyncComponent("Passives", "PassiveComponent", TableUtils.Length(passives) > 0, passives)
 
 	local summons = self.Stats.Summons or (self.Stats.SummonUnit and { self.Stats }) or {}
 

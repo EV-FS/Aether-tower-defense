@@ -67,12 +67,10 @@ local RawSettingsData = {
 
 	--// Auto Sells
 	AS_Common = newBoolean(false, "Auto Sell", "Common", 1),
-	AS_Rare = newBoolean(false, "Auto Sell", "Rare", 2),
-	AS_Epic = newBoolean(false, "Auto Sell", "Epic", 3),
-	AS_Legendary = newBoolean(false, "Auto Sell", "Legendary", 4),
-	AS_Mythic = newBoolean(false, "Auto Sell", "Mythic", 5),
-	AS_Exclusive = newBoolean(false, "Auto Sell", "Exclusive", 6),
-	AS_Absolute = newBoolean(false, "Auto Sell", "Absolute", 7),
+	AS_Uncommon = newBoolean(false, "Auto Sell", "Uncommon", 2),
+	AS_Rare = newBoolean(false, "Auto Sell", "Rare", 3),
+	AS_Epic = newBoolean(false, "Auto Sell", "Epic", 4),
+	AS_Legendary = newBoolean(false, "Auto Sell", "Legendary", 5),
 }
 
 local CatgoryOrder = {

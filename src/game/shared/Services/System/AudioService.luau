@@ -1,13 +1,10 @@
 --/Service
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
-local RunService = game:GetService("RunService")
 local SoundService = game:GetService("SoundService")
 
 --/Modules
 local SFXRecipes = require(ReplicatedStorage.Settings.Visuals.SFXRecipes)
 local InstanceCache = require(ReplicatedStorage.Shared.Modules.Core.InstanceCache)
-local ResolveSoundAsset = require(ReplicatedStorage.Shared.Modules.Utils.ResolveSoundAsset)
-local TimeService
 
 --/Variables
 local Caches = workspace:WaitForChild("Caches")
@@ -21,46 +18,52 @@ AudioFolder.Parent = SoundService
 local DEFAULT_DISTANCE = 1000
 local DEFAULT_VOLUME = 1
 
+local SFX_FOLDER = ReplicatedStorage:WaitForChild("Assets"):WaitForChild("SFX")
+
 --/Pools
 local PlayerStorage
 local EmitterStorage
 local WireStorage
 local FaderStorage
-local ActivePlayers: { [AudioPlayer]: boolean } = {}
 
 export type Recipes = { SFXRecipes.Step }
 
 -------------------------------------------------
 --// Local Functions
 -------------------------------------------------
-local function GetInverseAttenuation(minDist: number, maxDist: number): { [number]: number }
-	local rollOffMin = math.max(minDist, 10)
-	local rollOffMax = math.max(maxDist, rollOffMin + 1)
+local function GetInverseAttenuation(minDist, maxDist)
 	local attenuation = {}
 	attenuation[0] = 1
-	attenuation[rollOffMin] = 1
+	attenuation[minDist] = 1
 
 	local steps = 5
 	for i = 1, steps do
-		local distance = rollOffMin + (rollOffMax - rollOffMin) * (i / steps)
-		local volume = rollOffMin / distance
+		local distance = minDist + (maxDist - minDist) * (i / steps)
+		local volume = minDist / distance
 		attenuation[distance] = math.clamp(volume, 0, 1)
 	end
 
-	attenuation[rollOffMax] = 0
+	attenuation[maxDist] = 0
 	return attenuation
 end
 
 local function getSound(soundPath: string)
-	local sound = ResolveSoundAsset(soundPath)
-	if not sound then
-		warn(`Sound 에셋을 찾을 수 없음: {soundPath}`)
+	local current: Instance? = SFX_FOLDER
+
+	for name in string.gmatch(soundPath, "[^/]+") do
+		current = current and current:FindFirstChild(name)
+
+		if not current then
+			warn(`Sound 에셋을 찾을 수 없음: {soundPath}`)
+			return nil
+		end
 	end
-	return sound
+
+	return current
 end
 
 local function resolveInstance(value: any, sourceModel: Model, targetModel: Model)
-	if typeof(value) == "Instance" then
+	if typeof(value) == "BasePart" then
 		return value
 	end
 
@@ -81,12 +84,12 @@ local function resolveInstance(value: any, sourceModel: Model, targetModel: Mode
 		return
 	end
 
-	if not rootModel or not rootModel.Parent then
-		return
-	end
-
 	if #parts == 1 then
-		return rootModel.PrimaryPart
+		if rootModel.PrimaryPart then
+			return rootModel.PrimaryPart
+		end
+
+		return
 	end
 
 	local current = rootModel
@@ -119,12 +122,6 @@ function AudioService.GetRecipes(sourceName: string, audioType: string, sourceLe
 		return nil
 	end
 
-	-- Shared events contain steps directly; tower attacks can select steps by level.
-	local firstStep = audioRecipes[1]
-	if type(firstStep) == "table" and type(firstStep.Sound) == "string" then
-		return audioRecipes
-	end
-
 	local level = sourceLevel or 0
 
 	for currentLevel = level, 0, -1 do
@@ -144,7 +141,7 @@ function AudioService.PlayFromRecipes(soundRecipes: Recipes, sourceModel: Model,
 			local delayedRecipe = table.clone(recipe)
 			delayedRecipe.Delay = nil
 
-			TimeService.DeltaDelay(recipe.Delay):andThen(function()
+			task.delay(recipe.Delay, function()
 				AudioService.PlayFromRecipes({ delayedRecipe }, sourceModel, targetModel)
 			end)
 
@@ -153,15 +150,13 @@ function AudioService.PlayFromRecipes(soundRecipes: Recipes, sourceModel: Model,
 
 		local soundAsset = getSound(recipe.Sound)
 		local soundId = soundAsset and soundAsset.SoundId or recipe.Sound
+		local soundParent = resolveInstance(recipe.At, sourceModel, targetModel)
 		local volume = recipe.Volume or (soundAsset and soundAsset.Volume) or 1
 
 		if recipe.Type == "2D" then
 			AudioService.PlayOn2D(soundId, volume)
 		elseif recipe.Type == "3D" then
-			local soundParent = resolveInstance(recipe.At, sourceModel, targetModel)
-			if soundParent then
-				AudioService.PlayOn3D(soundId, volume, nil, soundParent)
-			end
+			AudioService.PlayOn3D(soundId, volume, nil, soundParent)
 		else
 			warn(`알 수 없는 SFX Type: {recipe.Type}`)
 		end
@@ -194,8 +189,9 @@ function AudioService.PlayOn2D(soundId, volume: number?)
 	wire.TargetInstance = fader or DeviceOutput
 	wire.Parent = SoundService
 
+	audioPlayer:Play()
+
 	audioPlayer.Ended:Once(function()
-		ActivePlayers[audioPlayer] = nil
 		PlayerStorage:ReturnInstance(audioPlayer)
 		WireStorage:ReturnInstance(wire)
 
@@ -206,10 +202,6 @@ function AudioService.PlayOn2D(soundId, volume: number?)
 			WireStorage:ReturnInstance(faderWire)
 		end
 	end)
-
-	audioPlayer.PlaybackSpeed = TimeService:GetGameSpeed()
-	ActivePlayers[audioPlayer] = true
-	audioPlayer:Play()
 
 	return audioPlayer
 end
@@ -262,8 +254,9 @@ function AudioService.PlayOn3D(soundId, volume: number?, distance: number?, pare
 	wire.TargetInstance = fader or emitter
 	wire.Parent = parentInst
 
+	audioPlayer:Play()
+
 	audioPlayer.Ended:Once(function()
-		ActivePlayers[audioPlayer] = nil
 		if isVector3 and parentInst then
 			parentInst:Destroy()
 		end
@@ -279,10 +272,6 @@ function AudioService.PlayOn3D(soundId, volume: number?, distance: number?, pare
 			WireStorage:ReturnInstance(faderWire)
 		end
 	end)
-
-	audioPlayer.PlaybackSpeed = TimeService:GetGameSpeed()
-	ActivePlayers[audioPlayer] = true
-	audioPlayer:Play()
 
 	return audioPlayer
 end
@@ -307,9 +296,7 @@ function AudioService.SetBGMState(playing: boolean?, volume: number?, newBGMId)
 	end
 end
 
-function AudioService.Init(services)
-	TimeService = services:GetService("TimeService")
-
+function AudioService.Init()
 	PlayerStorage = InstanceCache.new(Instance.new("AudioPlayer"), 30, Caches)
 	EmitterStorage = InstanceCache.new(Instance.new("AudioEmitter"), 30, Caches)
 	WireStorage = InstanceCache.new(Instance.new("Wire"), 60, Caches)
@@ -317,17 +304,6 @@ function AudioService.Init(services)
 end
 
 function AudioService.Start()
-	if RunService:IsClient() then
-		local StarterPlayer = game:GetService("StarterPlayer")
-		local ClientSignals = require(StarterPlayer.StarterPlayerScripts.Client.ClientSignals)
-
-		ClientSignals.GameSpeedChanged:Connect(function(newSpeed)
-			for audioPlayer in ActivePlayers do
-				audioPlayer.PlaybackSpeed = newSpeed
-			end
-		end)
-	end
-
 	AudioService.SetBGMState(true, DEFAULT_VOLUME)
 end
 

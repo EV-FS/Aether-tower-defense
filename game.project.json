@@ -3,12 +3,7 @@
   "tree": {
     "$className": "DataModel",
 
-    "ReplicatedFirst": {
-      "$path": "src/lobby/ReplicatedFirst"
-    },
-
     "ReplicatedStorage": {
-      "$ignoreUnknownInstances": true,
       "Packages": {
         "$path": "Packages"
       },

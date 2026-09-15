@@ -10,7 +10,7 @@ local TowerDescriptions = {
 			{ Label = "Hacking Chance", Key = "HackingChance", Suffix = "%" },
 		},
 	},
-	["Wizard"] = {
+	["Wizard Noob"] = {
 		PassiveName = "Elemental Magic",
 		PassiveIcon = "rbxassetid://135870452733899",
 		PassiveDescription = "Attacks apply a slow effect to enemies. At higher levels, spells gain a chance to stun or knock back targets on hit.",

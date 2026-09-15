@@ -41,7 +41,7 @@ local DOUBLE_TAP_THRESHOLD = 0.25
 -------------------------------------------------
 local InputService = {}
 
-function InputService.Scope(scopeName: string, actions: { [string]: Action }): Scope
+function InputService.NewScope(scopeName: string, actions: { [string]: Action }): Scope
 	local self = {}
 	self.Name = scopeName
 
@@ -67,7 +67,7 @@ function InputService.Scope(scopeName: string, actions: { [string]: Action }): S
 	return self
 end
 
-function InputService.Action(actionName: string, actionInfo: ActionInfo): Action
+function InputService.NewAction(actionName: string, actionInfo: ActionInfo): Action
 	local self = {}
 	self.Name = actionName
 	self.ActionInfo = actionInfo
@@ -95,7 +95,7 @@ function InputService.Action(actionName: string, actionInfo: ActionInfo): Action
 	return self
 end
 
-function InputService.Info(keyCodes: Keycodes?, guiButtons: { GuiButton }?): ActionInfo
+function InputService.NewInfo(keyCodes: Keycodes?, guiButtons: { GuiButton }?): ActionInfo
 	return { KeyCodes = keyCodes, GuiButtons = guiButtons }
 end
 

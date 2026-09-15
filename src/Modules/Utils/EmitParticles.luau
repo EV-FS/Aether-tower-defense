@@ -4,9 +4,7 @@ local TimeService
 
 local function GetTimeService()
 	if not TimeService then
-		pcall(function()
-			TimeService = ServiceRegistry:GetService("TimeService")
-		end)
+		TimeService = ServiceRegistry:GetService("TimeService")
 	end
 	return TimeService
 end

@@ -8,8 +8,6 @@ local RunService = game:GetService("RunService")
 local Promise = require(ReplicatedStorage.Packages.Promise)
 local GameSettings = require(ReplicatedStorage.Settings.Game.GameSettings)
 local MapData = require(ReplicatedStorage.Settings.Data.MapData)
-local ServerCutscene = require(script.Parent.ServerCutscene)
-local CharacterGuard = require(script.Parent.Parent.Parent.CharacterGuard)
 local SafeTeleport = require(ReplicatedStorage.Shared.Modules.Core.SafeTeleport)
 local Net = require(ReplicatedStorage.Shared.Net)
 
@@ -23,21 +21,10 @@ local TowerService
 local EnemyService
 local UnitService
 
-
 -------------------------------------------------
 --// GameService
 -------------------------------------------------
 local GameService = {}
-GameService.Dependencies = {
-	"BaseService",
-	"MapService",
-	"WaveService",
-	"EconomyService",
-	"DataService",
-	"TowerService",
-	"EnemyService",
-	"UnitService",
-}
 GameService.Connections = {}
 GameService.RestartList = {}
 GameService.ReadyList = {}
@@ -96,13 +83,14 @@ function GameService:PrepareMap()
 	end
 
 	self.IsMapLoading = true
-	local mapFolder = workspace:WaitForChild("Map")
-	mapFolder:SetAttribute("GameplayReady", false)
-	mapFolder:SetAttribute("LoadError", nil)
 
 	if RunService:IsStudio() then
 		self.SelectedMap = "Chapter 1"
+<<<<<<< HEAD
 		self.SelectedDifficulty = "Hard"
+=======
+		self.SelectedDifficulty = "Eternal"
+>>>>>>> parent of b55c1aa (어드민타워 적용 딩딩과 18키로)
 	end
 
 	local success = self:WaitForTeleportData():await()
@@ -112,46 +100,9 @@ function GameService:PrepareMap()
 		self.SelectedDifficulty = "Normal"
 	end
 
-	ReplicatedStorage:SetAttribute("SelectedMap", self.SelectedMap)
-	ReplicatedStorage:SetAttribute("SelectedDifficulty", self.SelectedDifficulty or "Normal")
-
-	local mapInfo = MapData[self.SelectedMap]
-	local introCutscene = mapInfo and mapInfo.IntroCutscene
-	local preparedMap = nil
-	ReplicatedStorage:SetAttribute("CutsceneEndedAt", nil)
-	ReplicatedStorage:SetAttribute("CutsceneTransitionSeconds", nil)
-	if introCutscene then
-		local played, err = pcall(ServerCutscene.Play, introCutscene, function()
-			preparedMap = MapService:PrepareMap(self.SelectedMap)
-		end)
-		if not played then
-			MapService:DiscardPrepared(preparedMap)
-			self.IsMapLoading = false
-			mapFolder:SetAttribute("LoadError", string.sub(tostring(err), 1, 500))
-			warn("[GameService] Map intro failed: " .. tostring(err))
-			return
-		end
-	end
-
-	local loaded, loadError = pcall(function()
-		MapService:LoadMapAsync(self.SelectedMap, self.SelectedDifficulty, preparedMap)
-		local characterStarted = os.clock()
-		CharacterGuard.Release(mapFolder)
-		mapFolder:SetAttribute("CharacterPrepareSeconds", os.clock() - characterStarted)
-	end)
-	if not loaded then
-		self.IsMapLoading = false
-		mapFolder:SetAttribute("LoadError", string.sub(tostring(loadError), 1, 500))
-		warn("[GameService] Map preparation failed: " .. tostring(loadError))
-		return
-	end
+	MapService:LoadMapAsync(self.SelectedMap, self.SelectedDifficulty)
 
 	self.IsMapLoaded = true
-	mapFolder:SetAttribute("GameplayReady", true)
-	local endedAt = ReplicatedStorage:GetAttribute("CutsceneEndedAt")
-	if endedAt then
-		ReplicatedStorage:SetAttribute("CutsceneTransitionSeconds", workspace:GetServerTimeNow() - endedAt)
-	end
 	self.IsMapLoading = false
 end
 
@@ -168,10 +119,6 @@ function GameService:StartGame()
 	})
 
 	self:PrepareMap()
-	if not self.IsMapLoaded then
-		self.IsGameRunning = false
-		return
-	end
 
 	BaseService:Reset()
 
