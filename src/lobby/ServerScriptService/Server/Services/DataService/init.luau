@@ -158,6 +158,33 @@ local function patchTowerRenames(playerData: PlayerData)
 	end
 end
 
+local function reconcileCollection(playerData: PlayerData)
+	if typeof(playerData.Collection) ~= "table" then
+		playerData.Collection = {}
+	end
+	if typeof(playerData.Collection.Units) ~= "table" then
+		playerData.Collection.Units = {}
+	end
+	if typeof(playerData.Collection.Items) ~= "table" then
+		playerData.Collection.Items = {}
+	end
+
+	-- Seed the permanent discovery history for profiles created before the index.
+	for towerName, towers in playerData.OwnedTowers or {} do
+		if typeof(towers) == "table" and next(towers) ~= nil then
+			playerData.Collection.Units[towerName] = true
+		end
+	end
+	local items = playerData.Inventory and playerData.Inventory.Items
+	if typeof(items) == "table" then
+		for itemName, count in items do
+			if typeof(count) == "number" and count > 0 then
+				playerData.Collection.Items[itemName] = true
+			end
+		end
+	end
+end
+
 -------------------------------------------------
 --// DataService
 -------------------------------------------------
@@ -213,6 +240,13 @@ function DataService.Start()
 
 	DataService:GetChangedSignal("Quests"):Connect(function(player, value)
 		Net.DataService.CurrencyChanged.Fire(player, { CurrencyName = "Quests", CurrencyValue = 0 })
+	end)
+
+	DataService:GetChangedSignal("Inventory"):Connect(function(player, value)
+		Net.DataService.CurrencyChanged.Fire(player, {
+			CurrencyName = "Inventory",
+			CurrencyValue = if typeof(value) == "number" then value else 0,
+		})
 	end)
 
 	DataService:GetChangedSignal("OwnedTowersAdded"):Connect(function(player, data)
@@ -323,6 +357,13 @@ function DataService:AddData(player: Player, mainKey: string, amount: number, ..
 		DataService._SetLevel(player, playerData)
 	end
 
+	-- Discovery is monotonic: spending or trading an item never removes it from the index.
+	if mainKey == "Inventory" and amount > 0 and subKeys[1] == "Items" and typeof(subKeys[2]) == "string" then
+		playerData.Collection = playerData.Collection or { Units = {}, Items = {} }
+		playerData.Collection.Items = playerData.Collection.Items or {}
+		playerData.Collection.Items[subKeys[2]] = true
+	end
+
 	UpdateLeaderstats(player, playerData)
 	self:FireChanged(player, mainKey, totalValue)
 
@@ -363,6 +404,9 @@ function DataService:AddTower(player: Player, towerName: string, towerData: towe
 	local towerId = playerData._NextId
 	local towerKey = `t_{towerId}`
 	local newTower = TableUtils.DeepCopy(towerData or DataConstants.TOWER_TEMPLATE)
+	playerData.Collection = playerData.Collection or { Units = {}, Items = {} }
+	playerData.Collection.Units = playerData.Collection.Units or {}
+	playerData.Collection.Units[towerName] = true
 
 	self:UpdateData(player, "OwnedTowers", newTower, towerName, towerKey)
 	playerData._NextId += 1
@@ -703,6 +747,7 @@ function DataService:_MigrateData(profile: profile, player: Player)
 	end
 
 	patchTowerRenames(playerData)
+	reconcileCollection(playerData)
 end
 
 function DataService._SetLevel(player: Player, playerData: PlayerData)

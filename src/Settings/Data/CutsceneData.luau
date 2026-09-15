@@ -22,11 +22,14 @@ export type ScreenTrack = { ScreenKey } | { Default: (number | boolean | Color3)
 
 export type CutsceneInfo = {
 	ScenePath: { string },
+	UseWorkspaceScene: boolean?,
+	FocusMode: boolean?,
 	Animations: { [string]: number },
 	Actors: { [string]: "Self" | "Friend" }?,
 	Lifecycle: { FastMount: boolean?, FastCleanup: boolean? }?,
 	Camera: CameraConfig,
 	MaxDuration: number?,
+	FPS: number?,
 	Audio: { SoundId: number, Volume: number? }?,
 	ScreenEffects: {
 		Tracks: { [string]: ScreenTrack },
@@ -51,6 +54,27 @@ export type CutsceneData = {
 }
 
 return TableUtils.DeepFreeze({
+	Summon = {
+		UseWorkspaceScene = true,
+		FocusMode = true,
+		ScenePath = {},
+		Animations = {
+			Cam = 114738772563001,
+			Bookrig = 108276115487738,
+			["Summon NPC"] = 90899610441522,
+		},
+		Camera = {
+			Model = "Cam",
+			Part = "CamPart",
+			FOV = {
+				Samples = require(script.Parent.CutsceneTracks.SummonFOV),
+				FPS = 60,
+			},
+		},
+		FPS = 60,
+		MaxDuration = 5,
+	},
+
 	RaidIntro = {
 		Lifecycle = { FastMount = true, FastCleanup = true },
 		ScenePath = { "Raid", "Intro", "Workspace" },

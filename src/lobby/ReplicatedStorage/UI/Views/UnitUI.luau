@@ -178,50 +178,6 @@ local UnitUI = {}
 function UnitUI.OnSelected(towerName: string, towerKey: string, _towerProfile)
 	selectedName(towerName)
 	selectedKey(towerKey)
-	unitActionFeedback("")
-end
-
-local function selectFirstOwnedUnit()
-	for towerName, towers in towerInventory() do
-		for towerKey in towers do
-			selectedName(towerName)
-			selectedKey(towerKey)
-			return
-		end
-	end
-
-	selectedName(nil)
-	selectedKey(nil)
-end
-
-function UnitUI.PerformSelectedAction(actionName: "ToggleUnitLock" | "SellUnit")
-	if unitActionPending() then
-		return
-	end
-
-	local towerName = selectedName()
-	local towerKey = selectedKey()
-	if type(towerName) ~= "string" or (type(towerKey) ~= "string" and type(towerKey) ~= "number") then
-		return
-	end
-
-	unitActionPending(true)
-	unitActionFeedback("")
-	InventoryClient.PerformUnitAction(actionName, towerName, towerKey)
-		:andThen(function(result)
-			unitActionPending(false)
-			unitActionSucceeded(result.Success == true)
-			unitActionFeedback(result.Message or if result.Success then "Done." else "Action failed.")
-			if result.Success and actionName == "SellUnit" then
-				selectFirstOwnedUnit()
-			end
-		end)
-		:catch(function(err)
-			unitActionPending(false)
-			unitActionSucceeded(false)
-			unitActionFeedback("Unit action failed.")
-			warn(`[UnitUI] Unit action failed: {err}`)
-		end)
 end
 
 function UnitUI.EquipActivated()
@@ -491,10 +447,6 @@ function UnitUI.RenderUI()
 						end, 0.35, 0.5),
 						Size = UDim2.fromScale(0.251482, 0.782844),
 						ZIndex = 21,
-						Activated = function()
-							UnitUI.PerformSelectedAction("SellUnit")
-							sellSFX:Play()
-						end,
 
 						useButtonEffect(nil, nil, true),
 
@@ -504,13 +456,7 @@ function UnitUI.RenderUI()
 							FontFace = Font.new("rbxasset://fonts/families/FredokaOne.json"),
 							Position = UDim2.fromScale(0.265238, 0.237766),
 							Size = UDim2.fromScale(0.467855, 0.487941),
-							Text = function()
-								if unitActionPending() then
-									return "WAIT"
-								end
-								local towerInfo = TowerData.ByName[selectedName()]
-								return if towerInfo then `SELL {towerInfo.SellPrice}` else "SELL"
-							end,
+							Text = "SELL",
 							TextColor3 = Color3.new(1, 1, 1),
 							TextScaled = true,
 						}),
@@ -532,10 +478,6 @@ function UnitUI.RenderUI()
 						end, 0.5, 0.5),
 						Size = UDim2.fromScale(0.251482, 0.782844),
 						ZIndex = 21,
-						Activated = function()
-							UnitUI.PerformSelectedAction("ToggleUnitLock")
-							lockSFX:Play()
-						end,
 
 						useButtonEffect(nil, nil, true),
 
@@ -545,36 +487,10 @@ function UnitUI.RenderUI()
 							FontFace = Font.new("rbxasset://fonts/families/FredokaOne.json"),
 							Position = UDim2.fromScale(0.265238, 0.237766),
 							Size = UDim2.fromScale(0.467855, 0.487941),
-							Text = function()
-								if unitActionPending() then
-									return "WAIT"
-								end
-								return if selectedLocked() then "UNLOCK" else "LOCK"
-							end,
+							Text = "LOCK",
 							TextColor3 = Color3.new(1, 1, 1),
 							TextScaled = true,
 						}),
-					}),
-
-					create("TextLabel")({
-						Name = "ActionFeedback",
-						AnchorPoint = Vector2.new(0.5, 1),
-						BackgroundTransparency = 1,
-						FontFace = Font.new("rbxasset://fonts/families/SourceSansPro.json", Enum.FontWeight.Bold),
-						Position = UDim2.fromScale(0.5, -0.08),
-						Size = UDim2.fromScale(0.82, 0.34),
-						Text = unitActionFeedback,
-						TextColor3 = function()
-							return if unitActionSucceeded()
-								then Color3.fromRGB(126, 255, 144)
-								else Color3.fromRGB(255, 105, 105)
-						end,
-						TextScaled = true,
-						Visible = function()
-							return unitActionFeedback() ~= ""
-						end,
-						ZIndex = 22,
-						create("UIStroke")({ Thickness = 1.5 }),
 					}),
 
 					create("ImageButton")({
@@ -676,9 +592,6 @@ function UnitUI.RenderUI()
 											end,
 											IsEquipped = function()
 												return InventoryClient.IsEquipped(towerName(), towerKey)
-											end,
-											IsLocked = function()
-												return towerData.Locked == true
 											end,
 											EquippedSlot = function()
 												return InventoryClient.FindEquippedSlot(towerName(), towerKey)
@@ -1154,9 +1067,6 @@ function UnitUI.RenderUI()
 					Image = "rbxassetid://127028785606527",
 					Position = UDim2.fromScale(0.0825364, 0.019763),
 					Size = UDim2.fromScale(0.113389, 0.097458),
-					Visible = function()
-						return selectedTraitInfo() ~= nil
-					end,
 
 					create("UIAspectRatioConstraint")({
 						Name = "UIAspectRatioConstraint",

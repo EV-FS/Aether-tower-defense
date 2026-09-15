@@ -1,18 +1,15 @@
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+
 local Vide = require(ReplicatedStorage.Packages.Vide)
-local TowerData = require(ReplicatedStorage.Settings.Data.TowerData)
+local ItemData = require(ReplicatedStorage.Settings.Data.ItemData)
 local RarityGradient = require(ReplicatedStorage.Settings.Visuals.RarityGradient)
 local ServiceRegistry = require(ReplicatedStorage.Shared.Modules.Core.ServiceRegistry)
 local useButtonEffect = require(ReplicatedStorage.Shared.Modules.UI.Hooks.useButtonEffect)
 local useColorSequenceCycle = require(ReplicatedStorage.Shared.Modules.UI.Hooks.useColorSequenceCycle)
-local useIsInScrollWindow = require(ReplicatedStorage.Shared.Modules.UI.Hooks.useIsInScrollWindow)
-local NumberUtils = require(ReplicatedStorage.Shared.Modules.Utils.NumberUtils)
-local TowerButton = require(ReplicatedStorage.UI.Components.TowerButton)
-local TowerViewport = require(ReplicatedStorage.UI.Components.TowerViewport)
-local InventoryClient
-local UIController
 
 local create = Vide.create
+local action = Vide.action
+local changed = Vide.changed
 local cleanup = Vide.cleanup
 local derive = Vide.derive
 local effect = Vide.effect
@@ -21,1005 +18,349 @@ local source = Vide.source
 local spring = Vide.spring
 local values = Vide.values
 
-local towerInventory = source({})
+local InventoryClient
+local UIController
+
+local VIEW_ID = "Inventory"
+local CATEGORIES = { "Material", "Skin" }
+local SORT_CRITERIA = { "Rarity", "ABC", "Quantity" }
+local RARITY_ORDER = { Absolute = 1, Exclusive = 2, Mythic = 3, Legendary = 4, Epic = 5, Rare = 6, Common = 7 }
+
+local selectedCategory = source("Material")
 local currentSort = source("Rarity")
+local searchQuery = source("")
+local selectedItemName = source(nil :: string?)
 
-local INITIAL_MOUNTED_TOWERS = 30
-local REVEAL_DELAY = 0.5
+local function normalizeSearch(text: string): string
+	return string.lower(text):gsub("^%s+", ""):gsub("%s+$", "")
+end
 
-local SORT_CRITERIA = { "Rarity", "ABC", "Level" }
-local RARITY_ORDER = {
-	Absolute = 1,
-	Exclusive = 2,
-	Mythic = 3,
-	Legendary = 4,
-	Epic = 5,
-	Rare = 6,
-	Common = 7,
-}
+local function categoryStacks(): { [string]: number }
+	return if selectedCategory() == "Skin" then InventoryClient.Skins() else InventoryClient.Items()
+end
 
-local selectedName = source(nil)
-local selectedKey = source()
-local selectedDamage = source(0)
-local selectedCooldown = source(0)
-local selectedRange = source(0)
-local selectedMaxTower = source(0)
+local function getInfo(itemName: string, category: string?)
+	return ItemData.ByName[itemName] or {
+		Name = itemName,
+		Rarity = if (category or selectedCategory()) == "Skin" then "Exclusive" else "Common",
+		ItemImage = "",
+	}
+end
 
--------------------------------------------------
---// Local Functions
--------------------------------------------------
-local function storageCount(): number
+local function matchesSearch(itemName: string): boolean
+	local query = normalizeSearch(searchQuery())
+	if query == "" then return true end
+	local info = getInfo(itemName)
+	return string.find(string.lower(`{itemName} {info.Rarity}`), query, 1, true) ~= nil
+end
+
+local function matchingItemCount(): number
 	local count = 0
-
-	for _, towers in towerInventory() do
-		for _ in towers do
+	for itemName, amount in categoryStacks() do
+		if typeof(amount) == "number" and amount > 0 and matchesSearch(itemName) then
 			count += 1
 		end
 	end
-
 	return count
 end
 
-local function getTowerKeyId(towerKey: string | number): number
-	return tonumber(tostring(towerKey):match("%d+$")) or 0
+local function comesBefore(aName: string, aCount: number, bName: string, bCount: number): boolean
+	local criterion = currentSort()
+	if criterion == "Quantity" and aCount ~= bCount then
+		return aCount > bCount
+	elseif criterion == "Rarity" then
+		local aOrder = RARITY_ORDER[getInfo(aName).Rarity] or 999
+		local bOrder = RARITY_ORDER[getInfo(bName).Rarity] or 999
+		if aOrder ~= bOrder then return aOrder < bOrder end
+	end
+	return string.lower(aName) < string.lower(bName)
 end
 
-local function compareByCriterion(a, b, criterion: string): boolean?
-	if criterion == "Rarity" then
-		local aInfo = TowerData.ByName[a.Name]
-		local bInfo = TowerData.ByName[b.Name]
-		local aOrder = if aInfo then RARITY_ORDER[aInfo.Rarity] or 999 else 999
-		local bOrder = if bInfo then RARITY_ORDER[bInfo.Rarity] or 999 else 999
-
-		return if aOrder ~= bOrder then aOrder < bOrder else nil
-	elseif criterion == "ABC" then
-		local aName = string.lower(a.Name)
-		local bName = string.lower(b.Name)
-
-		return if aName ~= bName then aName < bName else nil
-	elseif criterion == "Level" then
-		local aLevel = a.Data.Lv or 0
-		local bLevel = b.Data.Lv or 0
-
-		return if aLevel ~= bLevel then aLevel > bLevel else nil
-	end
-
-	return nil
-end
-
-local function comesBefore(a, b, priorities): boolean
-	for _, criterion in priorities do
-		local result = compareByCriterion(a, b, criterion)
-		if result ~= nil then
-			return result
-		end
-	end
-
-	local aKeyId = getTowerKeyId(a.Key)
-	local bKeyId = getTowerKeyId(b.Key)
-	if aKeyId ~= bKeyId then
-		return aKeyId < bKeyId
-	end
-
-	return tostring(a.Key) < tostring(b.Key)
-end
-
-local function getTowerLayoutOrder(towerName: string, towerKey: string | number, towerData): number
-	local primaryCriterion = currentSort()
-	local priorities = { primaryCriterion }
-	local target = {
-		Name = towerName,
-		Key = towerKey,
-		Data = towerData,
-	}
-	local layoutOrder = 1
-
-	for _, criterion in SORT_CRITERIA do
-		if criterion ~= primaryCriterion then
-			table.insert(priorities, criterion)
-		end
-	end
-
-	for otherName, towers in towerInventory() do
-		for otherKey, otherData in towers do
-			if otherName == towerName and otherKey == towerKey then
-				continue
-			end
-
-			if
-				comesBefore({
-					Name = otherName,
-					Key = otherKey,
-					Data = otherData,
-				}, target, priorities)
-			then
-				layoutOrder += 1
+local function selectFirstAvailable()
+	local bestName: string? = nil
+	local bestCount = 0
+	for itemName, count in categoryStacks() do
+		if typeof(count) == "number" and count > 0 and matchesSearch(itemName) then
+			if not bestName or comesBefore(itemName, count, bestName, bestCount) then
+				bestName, bestCount = itemName, count
 			end
 		end
 	end
-
-	return layoutOrder
+	selectedItemName(bestName)
 end
 
-local function formatAnimatedStat(animatedValue: number, statValue: number): string
-	local decimalPart = string.format("%.10f", math.abs(statValue)):match("%.(%d*[1-9])0*$")
-	local decimalPlaces = if decimalPart then #decimalPart else 0
-	local scale = 10 ^ decimalPlaces
-	local roundedValue = math.round(animatedValue * scale) / scale
-
-	return NumberUtils.FormatComma(roundedValue)
+local function setCategory(category: string)
+	if table.find(CATEGORIES, category) then
+		selectedCategory(category)
+		selectFirstAvailable()
+	end
 end
 
--------------------------------------------------
---// InventoryUI
--------------------------------------------------
+local function cycleSort()
+	local currentIndex = table.find(SORT_CRITERIA, currentSort()) or 1
+	currentSort(SORT_CRITERIA[currentIndex % #SORT_CRITERIA + 1])
+	selectFirstAvailable()
+end
+
+local function categoryButton(category: string, layout: number, isVisible: () -> boolean)
+	local isSelected = function() return selectedCategory() == category end
+	return create("ImageButton")({
+		Name = category,
+		Active = true,
+		AutoButtonColor = false,
+		BackgroundTransparency = 1,
+		Image = "rbxassetid://131630835944461",
+		LayoutOrder = layout,
+		Size = spring(function()
+			if not isVisible() then
+				return UDim2.fromScale(0.72, 0.066)
+			end
+			return if isSelected() then UDim2.fromScale(0.94, 0.072) else UDim2.fromScale(0.903, 0.066)
+		end, 0.42 + layout * 0.08, 0.78),
+		Selectable = true,
+		Activated = function() setCategory(category) end,
+		useButtonEffect(0.97, 1.02),
+		create("TextLabel")({
+			Name = "Title", BackgroundTransparency = 1,
+			FontFace = Font.new("rbxasset://fonts/families/FredokaOne.json"),
+			Position = UDim2.fromScale(0.122851, 0.237766), Size = UDim2.fromScale(0.733093, 0.487941),
+			Text = string.upper(category), TextColor3 = Color3.new(1, 1, 1), TextScaled = true,
+			create("UIStroke")({ Name = "UIStroke" }),
+		}),
+		create("UIGradient")({
+			Name = "StateGradient",
+			Color = function()
+				local color = if isSelected() then Color3.fromRGB(255, 85, 28) else Color3.fromRGB(97, 97, 97)
+				return ColorSequence.new(color)
+			end,
+		}),
+		create("UICorner")({ Name = "UICorner", CornerRadius = UDim.new(0, 6) }),
+		create("UIStroke")({
+			Name = "StateStroke",
+			Color = function() return if isSelected() then Color3.fromRGB(255, 158, 88) else Color3.fromRGB(109, 109, 109) end,
+			Thickness = function() return if isSelected() then 2 else 1 end,
+		}),
+	})
+end
+
+local function itemCard(itemName: string, count: number, category: string, layout: () -> number)
+	local info = getInfo(itemName, category)
+	local rarityGradient = RarityGradient.Gradients[info.Rarity] or RarityGradient.Gradients.Common
+	return create("ImageButton")({
+		Name = itemName,
+		Active = true,
+		AutoButtonColor = false,
+		BackgroundTransparency = 1,
+		Image = "rbxassetid://87496848270095",
+		LayoutOrder = layout,
+		Size = UDim2.fromScale(0.239841, 0.354932),
+		Activated = function() selectedItemName(itemName) end,
+		useButtonEffect(0.96, 1.025),
+		create("UIGradient")({ Name = "Rarity", Color = rarityGradient, Rotation = 45 }),
+		create("UIAspectRatioConstraint")({ Name = "UIAspectRatioConstraint" }),
+		create("UIStroke")({ Name = "Selection", Color = Color3.new(1, 1, 1), Thickness = function() return if selectedItemName() == itemName then 3 else 0 end }),
+		create("ImageLabel")({
+			Name = "Item", BackgroundTransparency = 1, Image = info.ItemImage or "",
+			Position = UDim2.fromScale(0.11, 0.102), ScaleType = Enum.ScaleType.Fit, Size = UDim2.fromScale(0.784, 0.66), ZIndex = 5,
+		}),
+		create("ImageLabel")({
+			Name = "Quantity", BackgroundTransparency = 1, Image = "rbxassetid://104083646922843",
+			Position = UDim2.fromScale(-0.013, -0.05), Size = UDim2.fromScale(0.653434, 0.238322), ZIndex = 10,
+			create("UIAspectRatioConstraint")({ Name = "UIAspectRatioConstraint", AspectRatio = 3.2 }),
+			create("TextLabel")({
+				Name = "Amount", AnchorPoint = Vector2.new(0.5, 0.5), BackgroundTransparency = 1,
+				FontFace = Font.new("rbxasset://fonts/families/SourceSansPro.json", Enum.FontWeight.Bold),
+				Position = UDim2.fromScale(0.365, 0.4), Size = UDim2.fromScale(0.608, 0.889),
+				Text = `{count}x`, TextColor3 = Color3.new(1, 1, 1), TextScaled = true,
+				create("UIStroke")({ Name = "UIStroke", Thickness = 2 }),
+			}),
+		}),
+		create("TextLabel")({
+			Name = "ItemName", BackgroundTransparency = 1,
+			FontFace = Font.new("rbxasset://fonts/families/SourceSansPro.json", Enum.FontWeight.Bold),
+			Position = UDim2.fromScale(0.076, 0.73), Size = UDim2.fromScale(0.849, 0.173),
+			Text = itemName, TextColor3 = Color3.new(1, 1, 1), TextScaled = true, TextXAlignment = Enum.TextXAlignment.Left, ZIndex = 10,
+			create("UIStroke")({ Name = "UIStroke", Thickness = 2 }),
+		}),
+	})
+end
+
+local function textButton(name: string, image: string, label: any, active: boolean, activated: (() -> ())?)
+	return create("ImageButton")({
+		Name = name, Active = active, AutoButtonColor = false, BackgroundTransparency = 1,
+		Image = image, Size = UDim2.fromScale(0.251482, 0.782844), Activated = activated,
+		useButtonEffect(),
+		create("TextLabel")({
+			Name = "Title", BackgroundTransparency = 1, FontFace = Font.new("rbxasset://fonts/families/FredokaOne.json"),
+			Position = UDim2.fromScale(0.16, 0.238), Size = UDim2.fromScale(0.8, 0.488),
+			Text = label, TextColor3 = Color3.new(1, 1, 1), TextScaled = true,
+		}),
+	})
+end
+
 local InventoryUI = {}
 
-function InventoryUI.SelectTower(towerName: string, towerKey: string, _towerProfile)
-	selectedName(towerName)
-	selectedKey(towerKey)
-
-	local towerInfo = TowerData.ByName[towerName]
-	if not towerInfo then
-		return
-	end
-	local towerStats = towerInfo.Stats
-
-	selectedMaxTower(towerInfo.MaxTowers or 0)
-	selectedDamage(towerStats[0].Damage or 0)
-	selectedCooldown(towerStats[0].Cooldown or 0)
-	selectedRange(towerStats[0].Range or 0)
-end
-
-function InventoryUI.EquipActivated()
-	local towerName = selectedName()
-	local towerKey = selectedKey()
-	if type(towerName) ~= "string" or (type(towerKey) ~= "string" and type(towerKey) ~= "number") then
-		return
-	end
-
-	InventoryClient.ToggleTower(towerName, towerKey):catch(function(err)
-		warn(`[InventoryUI] Failed to update loadout: {err}`)
-	end)
-end
-
-function InventoryUI.SortActivated()
-	local currentIndex = table.find(SORT_CRITERIA, currentSort()) or 1
-	local nextIndex = currentIndex % #SORT_CRITERIA + 1
-
-	currentSort(SORT_CRITERIA[nextIndex])
-end
-
 function InventoryUI.RenderUI()
-	local isInventoryVisible = UIController:IsVisible("Inventory")
-	local showAllTowers = source(false)
-
-	effect(function()
-		showAllTowers(false)
-		if not isInventoryVisible() then
-			return
+	local isVisible = UIController:IsVisible(VIEW_ID)
+	local searchTextBox: TextBox? = nil
+	local selectedInfo = derive(function()
+		local name = selectedItemName()
+		return if name then getInfo(name) else nil
+	end)
+	local sortedItemRanks = derive(function()
+		local entries = {}
+		for itemName, count in categoryStacks() do
+			if typeof(count) == "number" and count > 0 then
+				table.insert(entries, { Name = itemName, Count = count })
+			end
 		end
 
-		local pendingReveal: thread? = nil
-		pendingReveal = task.delay(REVEAL_DELAY, function()
-			pendingReveal = nil
-			showAllTowers(true)
+		table.sort(entries, function(a, b)
+			return comesBefore(a.Name, a.Count, b.Name, b.Count)
 		end)
 
-		cleanup(function()
-			if pendingReveal then
-				task.cancel(pendingReveal)
-				pendingReveal = nil
-			end
-		end)
+		local ranks = {}
+		for rank, entry in entries do
+			ranks[entry.Name] = rank
+		end
+		return ranks
 	end)
 
-	local animatedCount = spring(storageCount, 0.5, 1)
-	local animatedDamage = spring(selectedDamage, 0.5, 1)
-	local animatedCooldown = spring(selectedCooldown, 0.5, 1)
-	local animatedRange = spring(selectedRange, 0.5, 1)
-	local animatedMaxTower = spring(selectedMaxTower, 0.5, 1)
+	effect(function()
+		if isVisible() then
+			InventoryClient.RefreshInventory():andThen(function()
+				local name = selectedItemName()
+				if not name or (categoryStacks()[name] or 0) <= 0 then selectFirstAvailable() end
+			end):catch(function(err) warn(`[InventoryUI] Failed to load items: {err}`) end)
+		end
+	end)
+
+	effect(function()
+		-- Keep the details pane synchronized with category, search and live inventory changes.
+		local stacks = categoryStacks()
+		local name = selectedItemName()
+		local _sort = currentSort()
+		local _query = searchQuery()
+		if not name or (stacks[name] or 0) <= 0 or not matchesSearch(name) then
+			selectFirstAvailable()
+		end
+	end)
 
 	return create("Frame")({
-		Name = "Inventory",
-		AnchorPoint = Vector2.new(0.5, 0.5),
-		BackgroundTransparency = 1,
-		Position = UDim2.fromScale(0.5, 0.5),
-		Size = UDim2.fromScale(1, 1),
-		Visible = UIController:IsVisible("Inventory"),
-
+		Name = VIEW_ID, AnchorPoint = Vector2.new(0.5, 0.5), BackgroundTransparency = 1,
+		Position = UDim2.fromScale(0.5, 0.5), Size = UDim2.fromScale(1, 1), Visible = isVisible,
 		create("ImageLabel")({
-			Name = "Main",
-			AnchorPoint = Vector2.new(0.5, 0),
-			BackgroundTransparency = 1,
-			Image = "rbxassetid://86505261925755",
-			Rotation = spring(function()
-				return if UIController:IsVisible("Inventory")() then 0 else -4
-			end, 0.5, 1),
-
+			Name = "Main", AnchorPoint = Vector2.new(0.5, 0), BackgroundTransparency = 1,
+			Image = "rbxassetid://107486254365437",
 			Position = UDim2.fromScale(0.5, 0.20195),
-			Size = spring(function()
-				return if UIController:IsVisible("Inventory")()
-					then UDim2.fromScale(0.721698, 0.668872)
-					else UDim2.fromScale(0.675, 0.668872)
-			end, 0.5, 0.5),
-
+			Rotation = spring(function() return if isVisible() then 0 else -4 end, 0.5, 1),
+			Size = spring(function() return if isVisible() then UDim2.fromScale(0.721698, 0.668872) else UDim2.fromScale(0.675, 0.668872) end, 0.5, 0.5),
 			create("ImageLabel")({
-				Name = "Header",
-				BackgroundTransparency = 1,
-				Image = "rbxassetid://79038669500555",
-				Position = spring(function()
-					return if UIController:IsVisible("Inventory")()
-						then UDim2.fromScale(-0.0573612, -0.111321)
-						else UDim2.fromScale(-0.1, -0.111321)
-				end, 0.5, 1),
-				Size = UDim2.fromScale(0.692821, 0.28349),
-				ZIndex = 10,
-
-				create("ImageLabel")({
-					Name = "Star",
-					AnchorPoint = Vector2.new(0.5, 0.5),
-					BackgroundTransparency = 1,
-					Image = "rbxassetid://111343804919469",
-					Rotation = spring(function()
-						return if UIController:IsVisible("Inventory")() then 0 else -90
-					end, 0.5, 0.7),
-					Position = UDim2.fromScale(0.133, 0.478),
-					Size = spring(function()
-						return if UIController:IsVisible("Inventory")()
-							then UDim2.fromScale(0.184974, 0.837933)
-							else UDim2.fromScale(0.346017, 1.56746)
-					end, 0.5, 0.8),
-
-					create("UIAspectRatioConstraint")({
-						Name = "UIAspectRatioConstraint",
-					}),
-				}),
-
-				create("ImageLabel")({
-					Name = "Cloud",
-					BackgroundTransparency = 1,
-					Image = "rbxassetid://122017999272407",
-					ImageTransparency = spring(function()
-						return if UIController:IsVisible("Inventory")() then 0 else 1
-					end, 0.5, 1),
-
-					Position = spring(function()
-						return if UIController:IsVisible("Inventory")()
-							then UDim2.fromScale(0.529887, 0.0551715)
-							else UDim2.fromScale(0.375, 0.0551715)
-					end, 0.7, 0.8),
-					Size = UDim2.fromScale(0.537766, 1.06417),
-
-					create("UIAspectRatioConstraint")({
-						Name = "UIAspectRatioConstraint",
-						AspectRatio = 2.16,
-					}),
-				}),
-
-				create("TextLabel")({
-					Name = "Title",
-					BackgroundTransparency = 1,
-					FontFace = Font.new("rbxasset://fonts/families/FredokaOne.json"),
-					Position = UDim2.fromScale(0.265238, 0.435573),
-					Size = UDim2.fromScale(0.283423, 0.290134),
-					Text = "INVENTORY",
-					TextColor3 = Color3.new(1, 1, 1),
-					TextScaled = true,
-					TextTransparency = spring(function()
-						return if UIController:IsVisible("Inventory")() then 0 else 1
-					end, 0.5, 1),
-				}),
-
-				create("UIAspectRatioConstraint")({
-					Name = "UIAspectRatioConstraint",
-					AspectRatio = 4.53,
-				}),
+				Name = "Header", BackgroundTransparency = 1, Image = "rbxassetid://95305627117639",
+				Position = spring(function() return if isVisible() then UDim2.fromScale(-0.0573612, -0.111321) else UDim2.fromScale(-0.1, -0.111321) end, 0.5, 1),
+				Size = UDim2.fromScale(0.692821, 0.28349), ZIndex = 10,
+				create("ImageLabel")({ Name = "Star", AnchorPoint = Vector2.new(0.5, 0.5), BackgroundTransparency = 1, Image = "rbxassetid://111343804919469", Position = UDim2.fromScale(0.133, 0.478), Rotation = spring(function() return if isVisible() then 0 else -90 end, 0.5, 0.7), Size = spring(function() return if isVisible() then UDim2.fromScale(0.184974, 0.837933) else UDim2.fromScale(0.346017, 1.56746) end, 0.5, 0.8) }),
+				create("ImageLabel")({ Name = "Cloud", BackgroundTransparency = 1, Image = "rbxassetid://96280313244013", ImageTransparency = spring(function() return if isVisible() then 0 else 1 end, 0.5, 1), Position = spring(function() return if isVisible() then UDim2.fromScale(0.529887, 0.0551715) else UDim2.fromScale(0.375, 0.0551715) end, 0.7, 0.8), Size = UDim2.fromScale(0.537766, 1.06417), create("UIAspectRatioConstraint")({ AspectRatio = 2.16 }) }),
+				create("TextLabel")({ Name = "Title", BackgroundTransparency = 1, FontFace = Font.new("rbxasset://fonts/families/FredokaOne.json"), Position = UDim2.fromScale(0.265238, 0.435573), Size = UDim2.fromScale(0.283423, 0.290134), Text = "INVENTORY", TextColor3 = Color3.new(1, 1, 1), TextScaled = true, TextTransparency = spring(function() return if isVisible() then 0 else 1 end, 0.5, 1) }),
+				create("UIAspectRatioConstraint")({ AspectRatio = 4.53 }),
 			}),
-
 			create("Frame")({
-				Name = "LeftFrame",
-				BackgroundTransparency = 1,
-				Position = UDim2.fromScale(0.018712, 0.158304),
-				Size = UDim2.fromScale(0.596526, 0.803586),
-
+				Name = "LeftFrame", BackgroundTransparency = 1, Position = UDim2.fromScale(0.018712, 0.158304), Size = UDim2.fromScale(0.596526, 0.803586),
 				create("ImageLabel")({
-					Name = "Bottom",
-					Active = true,
-					BackgroundTransparency = 1,
-					Image = "rbxassetid://101405228511471",
-					Position = UDim2.fromScale(-0.00261403, 0.882837),
-					Size = UDim2.fromScale(1, 0.117596),
-					ZIndex = 20,
-
-					create("ImageButton")({
-						Name = "SellButton",
-						AnchorPoint = Vector2.new(0.5, 0.5),
-						BackgroundTransparency = 1,
-						Image = "rbxassetid://76383008324602",
-						Position = spring(function()
-							return if UIController:IsVisible("Inventory")()
-								then UDim2.fromScale(0.24, 0.5)
-								else UDim2.fromScale(0.24, 1.2)
-						end, 0.35, 0.5),
-						Size = UDim2.fromScale(0.251482, 0.782844),
-						ZIndex = 21,
-
-						useButtonEffect(),
-
-						create("TextLabel")({
-							Name = "Title",
-							BackgroundTransparency = 1,
-							FontFace = Font.new("rbxasset://fonts/families/FredokaOne.json"),
-							Position = UDim2.fromScale(0.265238, 0.237766),
-							Size = UDim2.fromScale(0.467855, 0.487941),
-							Text = "SELL",
-							TextColor3 = Color3.new(1, 1, 1),
-							TextScaled = true,
-						}),
-					}),
-
-					create("ImageButton")({
-						Name = "LockButton",
-						AnchorPoint = Vector2.new(0.5, 0.5),
-						BackgroundTransparency = 1,
-						Image = "rbxassetid://70564113534462",
-						Position = spring(function()
-							return if UIController:IsVisible("Inventory")()
-								then UDim2.fromScale(0.5, 0.5)
-								else UDim2.fromScale(0.5, 1.4)
-						end, 0.5, 0.5),
-						Size = UDim2.fromScale(0.251482, 0.782844),
-						ZIndex = 21,
-
-						useButtonEffect(),
-
-						create("TextLabel")({
-							Name = "Title",
-							BackgroundTransparency = 1,
-							FontFace = Font.new("rbxasset://fonts/families/FredokaOne.json"),
-							Position = UDim2.fromScale(0.265238, 0.237766),
-							Size = UDim2.fromScale(0.467855, 0.487941),
-							Text = "LOCK",
-							TextColor3 = Color3.new(1, 1, 1),
-							TextScaled = true,
-						}),
-					}),
-
-					create("ImageButton")({
-						Name = "SortButton",
-						Active = true,
-						AnchorPoint = Vector2.new(0.5, 0.5),
-						AutoButtonColor = false,
-						BackgroundTransparency = 1,
-						Image = "rbxassetid://128977854458302",
-						Position = spring(function()
-							return if UIController:IsVisible("Inventory")()
-								then UDim2.fromScale(0.76, 0.5)
-								else UDim2.fromScale(0.76, 1.6)
-						end, 0.65, 0.5),
-						Size = UDim2.fromScale(0.251482, 0.782844),
-						Selectable = true,
-						ZIndex = 21,
-
-						Activated = InventoryUI.SortActivated,
-
-						useButtonEffect(),
-
-						create("TextLabel")({
-							Name = "Title",
-							Active = false,
-							BackgroundTransparency = 1,
-							FontFace = Font.new("rbxasset://fonts/families/FredokaOne.json"),
-							Position = UDim2.fromScale(0.234055, 0.237766),
-							Size = UDim2.fromScale(0.734762, 0.487942),
-							Text = function()
-								return `SORT : {string.upper(currentSort())}`
-							end,
-							TextColor3 = Color3.new(1, 1, 1),
-							TextScaled = true,
-						}),
-					}),
+					Name = "Bottom", BackgroundTransparency = 1, Image = "rbxassetid://101405228511471",
+					Position = spring(function() return if isVisible() then UDim2.fromScale(-0.00261403, 0.882837) else UDim2.fromScale(-0.00261403, 1.08) end, 0.55, 0.65),
+					Size = UDim2.fromScale(1, 0.117596), ZIndex = 20,
+					create("UIListLayout")({ FillDirection = Enum.FillDirection.Horizontal, HorizontalAlignment = Enum.HorizontalAlignment.Center, Padding = UDim.new(0.01, 0), VerticalAlignment = Enum.VerticalAlignment.Center }),
+					textButton("SellButton", "rbxassetid://76383008324602", "SELL", false, nil),
+					textButton("LockButton", "rbxassetid://70564113534462", "LOCK", false, nil),
+					textButton("SortButton", "rbxassetid://128977854458302", function() return `SORT : {string.upper(currentSort())}` end, true, cycleSort),
 				}),
-
 				create("CanvasGroup")({
-					Name = "ScrollBackground",
-					BackgroundTransparency = 1,
-					ClipsDescendants = true,
-					Position = spring(function()
-						return if UIController:IsVisible("Inventory")()
-							then UDim2.fromScale(0.0339824, 0.124035)
-							else UDim2.fromScale(-0.03, 0.124035)
-					end, 0.5, 0.8),
-					Size = UDim2.fromScale(0.966018, 0.758802),
-
+					Name = "ScrollBackground", BackgroundTransparency = 1, ClipsDescendants = true,
+					Position = spring(function() return if isVisible() then UDim2.fromScale(0.261138, 0.0364527) else UDim2.fromScale(0.31, 0.0364527) end, 0.5, 0.8),
+					Size = UDim2.fromScale(0.738862, 0.846385),
 					create("ScrollingFrame")({
-						Name = "ScrollingFrame",
-						Active = true,
-						AutomaticCanvasSize = Enum.AutomaticSize.Y,
-						BackgroundTransparency = 1,
-						CanvasSize = UDim2.new(),
-						ClipsDescendants = true,
-						Position = UDim2.fromScale(0, 0),
-						ScrollBarImageColor3 = Color3.new(),
-						ScrollBarThickness = 0,
-						Size = UDim2.fromScale(1, 1),
-
-						create("UIGridLayout")({
-							Name = "UIGridLayout",
-							CellPadding = spring(function()
-								return if UIController:IsVisible("Inventory")()
-									then UDim2.fromScale(0.0015, 0.012)
-									else UDim2.fromScale(-0.015, 0.012)
-							end, 0.5, 1),
-							CellSize = UDim2.fromScale(0.192543, 0.329466),
-							SortOrder = Enum.SortOrder.LayoutOrder,
-						}),
-
-						values(towerInventory, function(towers, towerName)
-							local buttons = {}
-
-							for towerKey, towerData in towers do
-								local layoutOrder = derive(function()
-									return getTowerLayoutOrder(towerName(), towerKey, towerData)
-								end)
-								local shouldMount = derive(function()
-									return isInventoryVisible()
-										and (showAllTowers() or layoutOrder() <= INITIAL_MOUNTED_TOWERS)
-								end)
-
-								table.insert(
-									buttons,
-									show(shouldMount, function()
-										local isInView, bind = useIsInScrollWindow()
-										local button = TowerButton({
-											Bind = bind,
-											TowerName = towerName(),
-											TowerKey = towerKey,
-											TowerData = towerData,
-											IsInWindow = isInView,
-											IsSelected = function()
-												return if selectedName() == towerName()
-														and selectedKey() == towerKey
-													then true
-													else false
-											end,
-											IsEquipped = function()
-												return InventoryClient.IsEquipped(towerName(), towerKey)
-											end,
-											LayoutOrder = layoutOrder,
-											OnActivated = function()
-												InventoryUI.SelectTower(towerName(), towerKey, towerData)
-											end,
-										})
-
-										cleanup(function()
-											-- Let Vide detach the child before Destroy locks its Parent.
-											task.defer(function()
-												button:Destroy()
-											end)
-										end)
-
-										return button
-									end)
-								)
-							end
-
-							return buttons
+						Name = "Items", Active = true, AutomaticCanvasSize = Enum.AutomaticSize.Y, BackgroundTransparency = 1, CanvasSize = UDim2.new(),
+						ScrollBarThickness = 0, Size = UDim2.fromScale(1, 1),
+						create("UIGridLayout")({ CellPadding = spring(function() return if isVisible() then UDim2.fromScale(0.01, 0.015) else UDim2.fromScale(-0.012, 0.015) end, 0.5, 1), CellSize = UDim2.fromScale(0.239841, 0.354932), SortOrder = Enum.SortOrder.LayoutOrder }),
+						values(InventoryClient.Items, function(count, itemName)
+							local shouldMount = derive(function() return isVisible() and selectedCategory() == "Material" and count > 0 and matchesSearch(itemName()) end)
+							return show(shouldMount, function() return itemCard(itemName(), count, "Material", function() return sortedItemRanks()[itemName()] or 999999 end) end)
+						end),
+						values(InventoryClient.Skins, function(count, itemName)
+							local shouldMount = derive(function() return isVisible() and selectedCategory() == "Skin" and count > 0 and matchesSearch(itemName()) end)
+							return show(shouldMount, function() return itemCard(itemName(), count, "Skin", function() return sortedItemRanks()[itemName()] or 999999 end) end)
 						end),
 					}),
-				}),
-
-				create("ImageButton")({
-					Name = "SearchButton",
-					BackgroundTransparency = 1,
-					Image = "rbxassetid://97005389138079",
-					LayoutOrder = 6,
-					Position = UDim2.fromScale(0.033053, 0.0172543),
-					Size = UDim2.fromScale(0.0794115, 0.0921883),
-
-					create("UIAspectRatioConstraint")({
-						Name = "UIAspectRatioConstraint",
+					create("TextLabel")({
+						Name = "EmptyResult", AnchorPoint = Vector2.new(0.5, 0.5), BackgroundTransparency = 1,
+						FontFace = Font.new("rbxasset://fonts/families/FredokaOne.json"), Position = UDim2.fromScale(0.5, 0.48), Size = UDim2.fromScale(0.8, 0.1),
+						Text = function()
+							if normalizeSearch(searchQuery()) ~= "" then return "NO ITEMS FOUND" end
+							return if selectedCategory() == "Skin" then "NO SKINS OWNED" else "NO MATERIALS OWNED"
+						end,
+						TextColor3 = Color3.fromRGB(218, 218, 226), TextScaled = true,
+						Visible = function() return matchingItemCount() == 0 end, ZIndex = 4,
+						create("UIStroke")({ Color = Color3.fromRGB(32, 28, 60), Thickness = 2 }),
 					}),
 				}),
-
 				create("ImageLabel")({
-					Name = "SearchBox",
-					BackgroundTransparency = 1,
-					Image = "rbxassetid://102610083488834",
-					Position = UDim2.fromScale(0.123512, 0.0172543),
-					Size = spring(function()
-						return if UIController:IsVisible("Inventory")()
-							then UDim2.fromScale(0.702835, 0.0921883)
-							else UDim2.fromScale(0, 0.0921883)
-					end, 0.5, 0.9),
-
+					Name = "SearchBox", BackgroundTransparency = 1, Image = "rbxassetid://107178039915972", Position = UDim2.fromScale(1.006, -0.09),
+					Size = spring(function() return if isVisible() then UDim2.fromScale(0.565461, 0.0921883) else UDim2.fromScale(0, 0.0921883) end, 0.5, 0.9),
 					create("TextBox")({
-						Name = "TextBox",
-						BackgroundTransparency = 1,
-						FontFace = Font.new(
-							"rbxasset://fonts/families/FredokaOne.json",
-							Enum.FontWeight.Bold,
-							Enum.FontStyle.Normal
-						),
-						Position = UDim2.fromScale(0.0363427, 0),
-						Size = UDim2.fromScale(0.963657, 1),
-						PlaceholderText = "TOWER NAME",
-						TextColor3 = Color3.new(1, 1, 1),
-						TextSize = 22,
-						TextXAlignment = Enum.TextXAlignment.Left,
-
-						create("UITextSizeConstraint")({
-							Name = "UITextSizeConstraint",
-							MaxTextSize = 30,
-						}),
-
-						create("UIGradient")({
-							Name = "UIGradient",
-							Color = ColorSequence.new({
-								ColorSequenceKeypoint.new(0, Color3.new(1, 1, 1)),
-								ColorSequenceKeypoint.new(1, Color3.fromRGB(27, 18, 98)),
-							}),
-							Rotation = 90,
-						}),
-					}),
-				}),
-
-				create("ImageLabel")({
-					Name = "InventoryLimit",
-					BackgroundTransparency = 1,
-					Image = "rbxassetid://92189379920788",
-					Position = UDim2.fromScale(0.844985, 0.0172543),
-					Size = UDim2.fromScale(0.133909, 0.0921883),
-
-					create("TextLabel")({
-						Name = "Title",
-						AnchorPoint = Vector2.new(0.5, 0.5),
-						BackgroundTransparency = 1,
-						FontFace = Font.new("rbxasset://fonts/families/FredokaOne.json"),
-						Position = UDim2.fromScale(0.5, 0.5),
-						Size = UDim2.fromScale(0.843832, 0.543318),
-						Text = function()
-							return `{math.round(animatedCount())}/100`
-						end,
-						TextColor3 = Color3.new(1, 1, 1),
-						TextScaled = true,
-
-						create("UIGradient")({
-							Name = "UIGradient",
-							Color = ColorSequence.new({
-								ColorSequenceKeypoint.new(0, Color3.new(1, 1, 1)),
-								ColorSequenceKeypoint.new(1, Color3.fromRGB(29, 37, 85)),
-							}),
-							Rotation = 90,
-						}),
-
-						create("UIStroke")({
-							Name = "UIStroke",
-						}),
-					}),
-				}),
-
-				create("ImageLabel")({
-					Name = "Shadow",
-					BackgroundTransparency = 1,
-					Image = "rbxassetid://78891351891737",
-					Position = UDim2.fromScale(0.0130701, 0.671846),
-					Size = UDim2.fromScale(0.965823, 0.211848),
-				}),
-			}),
-
-			create("ImageLabel")({
-				Name = "Avatar",
-				BackgroundTransparency = 1,
-				Image = "rbxassetid://121523581447419",
-				Position = spring(function()
-					return if UIController:IsVisible("Inventory")()
-						then UDim2.fromScale(0.596001, 0.170108)
-						else UDim2.fromScale(0.625, 0.170108)
-				end, 0.4, 0.5),
-				Size = spring(function()
-					return if UIController:IsVisible("Inventory")()
-						then UDim2.fromScale(0.382446, 0.697631)
-						else UDim2.fromScale(0.425, 0.697631)
-				end, 0.4, 0.5),
-				ZIndex = 10,
-
-				create("UIGradient")({
-					Name = "UIGradient",
-					Color = function()
-						local selectedInfo = TowerData.ByName[selectedName()]
-						local secondColor = if selectedInfo
-							then RarityGradient.Glow[selectedInfo.Rarity]
-							else Color3.new(1, 1, 1)
-
-						return ColorSequence.new({
-							ColorSequenceKeypoint.new(0, Color3.fromRGB(100, 100, 100)),
-							ColorSequenceKeypoint.new(1, secondColor),
-						})
-					end,
-					Rotation = 90,
-				}),
-
-				create("ImageLabel")({
-					Name = "Damage",
-					BackgroundTransparency = 1,
-					Image = "rbxassetid://91726020798265",
-					Position = UDim2.fromScale(0.0743812, 0.865685),
-					Size = UDim2.fromScale(0.287129, 0.130411),
-
-					create("TextLabel")({
-						Name = "Tag",
-						AnchorPoint = Vector2.new(0.5, 0.5),
-						BackgroundTransparency = 1,
-						FontFace = Font.new("rbxasset://fonts/families/FredokaOne.json"),
-						Position = UDim2.fromScale(0.75, 0.5),
-						Size = UDim2.fromScale(0.843832, 0.543318),
-						Text = function()
-							return formatAnimatedStat(animatedDamage(), selectedDamage())
-						end,
-						TextColor3 = Color3.new(1, 1, 1),
-						TextScaled = true,
-						TextXAlignment = Enum.TextXAlignment.Left,
-
-						create("UIStroke")({
-							Name = "UIStroke",
-						}),
-					}),
-				}),
-
-				create("ImageLabel")({
-					Name = "Rng",
-					BackgroundTransparency = 1,
-					Image = "rbxassetid://77164215386840",
-					Position = UDim2.fromScale(0.355713, 0.865685),
-					Size = UDim2.fromScale(0.287129, 0.130411),
-
-					create("TextLabel")({
-						Name = "Tag",
-						AnchorPoint = Vector2.new(0.5, 0.5),
-						BackgroundTransparency = 1,
-						FontFace = Font.new("rbxasset://fonts/families/FredokaOne.json"),
-						Position = UDim2.fromScale(0.75, 0.5),
-						Size = UDim2.fromScale(0.843832, 0.543318),
-						Text = function()
-							return formatAnimatedStat(animatedRange(), selectedRange())
-						end,
-						TextColor3 = Color3.new(1, 1, 1),
-						TextScaled = true,
-						TextXAlignment = Enum.TextXAlignment.Left,
-
-						create("UIStroke")({
-							Name = "UIStroke",
-						}),
-					}),
-				}),
-
-				create("ImageLabel")({
-					Name = "Cooldown",
-					BackgroundTransparency = 1,
-					Image = "rbxassetid://117790979554827",
-					Position = UDim2.fromScale(0.641121, 0.865685),
-					Size = UDim2.fromScale(0.287129, 0.130411),
-
-					create("TextLabel")({
-						Name = "Tag",
-						AnchorPoint = Vector2.new(0.5, 0.5),
-						BackgroundTransparency = 1,
-						FontFace = Font.new("rbxasset://fonts/families/FredokaOne.json"),
-						Position = UDim2.fromScale(0.75, 0.5),
-						Size = UDim2.fromScale(0.843832, 0.543318),
-						Text = function()
-							return formatAnimatedStat(animatedCooldown(), selectedCooldown())
-						end,
-						TextColor3 = Color3.new(1, 1, 1),
-						TextScaled = true,
-						TextXAlignment = Enum.TextXAlignment.Left,
-
-						create("UIStroke")({
-							Name = "UIStroke",
-						}),
-					}),
-				}),
-
-				create("ImageLabel")({
-					Name = "LevelBG",
-					BackgroundTransparency = 1,
-					Image = "rbxassetid://111497714681866",
-					Position = UDim2.fromScale(0.0927249, 0.819462),
-					Size = UDim2.fromScale(0.813106, 0.0421658),
-
-					create("UIGradient")({
-						Name = "UIGradient",
-						Color = ColorSequence.new({
-							ColorSequenceKeypoint.new(0, Color3.fromRGB(44, 36, 28)),
-							ColorSequenceKeypoint.new(1, Color3.fromRGB(44, 36, 28)),
-						}),
-					}),
-				}),
-
-				create("ImageLabel")({
-					Name = "LevelFill",
-					BackgroundTransparency = 1,
-					Image = "rbxassetid://111497714681866",
-					Position = UDim2.fromScale(0.0927249, 0.819462),
-					Size = UDim2.fromScale(0.813106, 0.0421658),
-
-					create("TextLabel")({
-						Name = "Tag",
-						AnchorPoint = Vector2.new(0.5, 0.5),
-						BackgroundTransparency = 1,
-						FontFace = Font.new("rbxasset://fonts/families/FredokaOne.json"),
-						Position = UDim2.fromScale(0.48102, 0.39498),
-						Size = UDim2.fromScale(0.843832, 1),
-						Text = "LV.10(1/100xp)",
-						TextColor3 = Color3.new(1, 1, 1),
-						TextScaled = true,
-
-						create("UIStroke")({
-							Name = "UIStroke",
-						}),
-					}),
-
-					create("UIGradient")({
-						Name = "UIGradient",
-						Color = ColorSequence.new({
-							ColorSequenceKeypoint.new(0, Color3.fromRGB(147, 120, 12)),
-							ColorSequenceKeypoint.new(0.494898, Color3.fromRGB(251, 255, 0)),
-							ColorSequenceKeypoint.new(1, Color3.fromRGB(254, 255, 203)),
-						}),
-					}),
-				}),
-
-				create("ImageLabel")({
-					Name = "MaximumPlacement",
-					BackgroundTransparency = 1,
-					Image = "rbxassetid://99625316186918",
-					Position = UDim2.fromScale(0.0866135, 0.719145),
-					Size = UDim2.fromScale(0.207609, 0.0877106),
-
-					create("TextLabel")({
-						Name = "Tag",
-						AnchorPoint = Vector2.new(0.5, 0.5),
-						BackgroundTransparency = 1,
-						FontFace = Font.new("rbxasset://fonts/families/FredokaOne.json"),
-						Position = UDim2.fromScale(0.8, 0.52),
-						Size = UDim2.fromScale(0.843832, 0.672881),
-						Text = function()
-							return formatAnimatedStat(animatedMaxTower(), selectedMaxTower())
-						end,
-						TextColor3 = Color3.new(1, 1, 1),
-						TextScaled = true,
-						TextXAlignment = Enum.TextXAlignment.Left,
-
-						create("UIStroke")({
-							Name = "UIStroke",
-						}),
-					}),
-				}),
-
-				create("ImageButton")({
-					Name = "SkinButton",
-					AnchorPoint = Vector2.new(0.5, 0.5),
-					BackgroundTransparency = 1,
-					Image = "rbxassetid://114347652939958",
-					Position = UDim2.fromScale(0.85117, 0.732566),
-					Size = UDim2.fromScale(0.186781, 0.168732),
-
-					create("UIAspectRatioConstraint")({
-						Name = "UIAspectRatioConstraint",
-					}),
-
-					create("TextLabel")({
-						Name = "Tag",
-						AnchorPoint = Vector2.new(0.5, 0.5),
-						BackgroundTransparency = 1,
-						FontFace = Font.new("rbxasset://fonts/families/FredokaOne.json"),
-						Position = UDim2.fromScale(0.498106, 0.825253),
-						Size = UDim2.fromScale(0.721342, 0.344584),
-						Text = "skin",
-						TextColor3 = Color3.new(1, 1, 1),
-						TextScaled = true,
-
-						create("UIStroke")({
-							Name = "UIStroke",
-						}),
-					}),
-				}),
-
-				create("TextLabel")({
-					Name = "Name",
-					AnchorPoint = Vector2.new(0.5, 0.5),
-					BackgroundTransparency = 1,
-					FontFace = Font.new("rbxasset://fonts/families/FredokaOne.json"),
-					Position = UDim2.fromScale(0.49695, 0.147478),
-					Size = UDim2.fromScale(0.83363, 0.0605149),
-					Text = function()
-						return selectedName() or ""
-					end,
-					TextColor3 = Color3.new(1, 1, 1),
-					TextScaled = true,
-					TextXAlignment = Enum.TextXAlignment.Left,
-
-					create("UIStroke")({
-						Name = "UIStroke",
-					}),
-				}),
-
-				create("TextLabel")({
-					Name = "Grade",
-					AnchorPoint = Vector2.new(0.5, 0.5),
-					BackgroundTransparency = 1,
-					FontFace = Font.new("rbxasset://fonts/families/FredokaOne.json"),
-					Position = UDim2.fromScale(0.49695, 0.200005),
-					Size = UDim2.fromScale(0.83363, 0.0479085),
-					Text = function()
-						local selectedInfo = TowerData.ByName[selectedName()]
-						return if selectedInfo then selectedInfo.Rarity else ""
-					end,
-					TextColor3 = Color3.new(1, 1, 1),
-					TextScaled = true,
-					TextXAlignment = Enum.TextXAlignment.Left,
-
-					create("UIStroke")({
-						Name = "UIStroke",
-					}),
-
-					create("UIGradient")({
-						Name = "UIGradient",
-						useColorSequenceCycle(function()
-							local selectedInfo = TowerData.ByName[selectedName()]
-							return if selectedInfo
-								then RarityGradient.Gradients[selectedInfo.Rarity]
-								else ColorSequence.new(Color3.new(1, 1, 1))
-						end, function()
-							local selectedInfo = TowerData.ByName[selectedName()]
-							return if selectedInfo then RarityGradient.ShimmerSpeed[selectedInfo.Rarity] else 1
+						Name = "TextBox", BackgroundTransparency = 1, ClearTextOnFocus = false, FontFace = Font.new("rbxasset://fonts/families/FredokaOne.json"), PlaceholderText = "ITEM NAME",
+						Position = UDim2.fromScale(0.0363427, 0), Size = UDim2.fromScale(0.82, 1), Text = searchQuery, TextColor3 = Color3.new(1, 1, 1), TextSize = 22, TextXAlignment = Enum.TextXAlignment.Left,
+						changed("Text", function(value: string) searchQuery(value) end),
+						action(function(textBox: TextBox)
+							searchTextBox = textBox
+							cleanup(function() if searchTextBox == textBox then searchTextBox = nil end end)
 						end),
+						create("UITextSizeConstraint")({ MaxTextSize = 30 }),
+					}),
+					create("ImageButton")({
+						Name = "SearchButton", AnchorPoint = Vector2.new(0.5, 0.5), BackgroundTransparency = 1,
+						Image = "rbxassetid://97005389138079", Position = UDim2.fromScale(0.91, 0.5), Size = UDim2.fromScale(0.12, 0.8),
+						Activated = function()
+							if normalizeSearch(searchQuery()) ~= "" then searchQuery("") elseif searchTextBox then searchTextBox:CaptureFocus() end
+						end,
+						useButtonEffect(0.94, 1.06), create("UIAspectRatioConstraint")({}),
 					}),
 				}),
-
-				TowerViewport({
-					TowerName = selectedName,
-
-					AnimationName = "Idle",
-					AnimationFadeTime = 0,
-					BackgroundTransparency = 1,
-					Position = UDim2.fromScale(0.107252, 0.111511),
-					Size = UDim2.fromScale(0.789563, 0.888489),
-					ModelRotation = 20,
-
-					ZIndex = -1,
-				}),
-
-				create("ImageLabel")({
-					Name = "Trait",
-					BackgroundTransparency = 1,
-					Image = "rbxassetid://127028785606527",
-					Position = UDim2.fromScale(0.0825364, 0.019763),
-					Size = UDim2.fromScale(0.113389, 0.097458),
-
-					create("UIAspectRatioConstraint")({
-						Name = "UIAspectRatioConstraint",
-					}),
-
-					create("UIGradient")({
-						Name = "UIGradient",
-						Color = ColorSequence.new({
-							ColorSequenceKeypoint.new(0, Color3.fromRGB(255, 246, 144)),
-							ColorSequenceKeypoint.new(1, Color3.fromRGB(255, 246, 144)),
-						}),
-					}),
-
-					create("ImageLabel")({
-						Name = "Trait",
-						AnchorPoint = Vector2.new(0.5, 0.5),
-						BackgroundTransparency = 1,
-						Image = "rbxassetid://100463457721493",
-						Position = UDim2.fromScale(0.5, 0.5),
-						Size = UDim2.fromScale(0.887562, 0.847315),
-
-						create("UIAspectRatioConstraint")({
-							Name = "UIAspectRatioConstraint",
-						}),
-					}),
+				create("ImageLabel")({ Name = "Shadow", BackgroundTransparency = 1, Image = "rbxassetid://78891351891737", Position = UDim2.fromScale(0.265911, 0.671846), Size = UDim2.fromScale(0.734089, 0.211848) }),
+				create("ScrollingFrame")({
+					Name = "Category", Active = true, AutomaticCanvasSize = Enum.AutomaticSize.Y, BackgroundColor3 = Color3.fromRGB(8, 8, 8), BorderSizePixel = 0, CanvasSize = UDim2.new(),
+					Position = spring(function() return if isVisible() then UDim2.fromScale(0, 0.0172544) else UDim2.fromScale(-0.08, 0.0172544) end, 0.5, 0.82), ScrollBarThickness = 0, Size = UDim2.fromScale(0.259, 0.865746),
+					create("UIListLayout")({ HorizontalAlignment = Enum.HorizontalAlignment.Center, Padding = UDim.new(0.01, 0), SortOrder = Enum.SortOrder.LayoutOrder }),
+					create("UIPadding")({ PaddingTop = UDim.new(0, 2) }), categoryButton("Material", 1, isVisible), categoryButton("Skin", 2, isVisible),
 				}),
 			}),
-
+			create("ImageLabel")({
+				Name = "Avatar", BackgroundTransparency = 1, Image = "rbxassetid://121523581447419",
+				Position = spring(function() return if isVisible() then UDim2.fromScale(0.596001, 0.170108) else UDim2.fromScale(0.625, 0.170108) end, 0.4, 0.5),
+				Size = spring(function() return if isVisible() then UDim2.fromScale(0.382446, 0.697631) else UDim2.fromScale(0.425, 0.697631) end, 0.4, 0.5), ZIndex = 10,
+				create("UIGradient")({ Color = function() local info = selectedInfo(); local glow = if info then RarityGradient.Glow[info.Rarity] or Color3.fromRGB(100, 100, 100) else Color3.fromRGB(100, 100, 100); return ColorSequence.new(Color3.fromRGB(100, 100, 100), glow) end, Rotation = 90 }),
+				create("TextLabel")({ Name = "Name", AnchorPoint = Vector2.new(0.5, 0.5), BackgroundTransparency = 1, FontFace = Font.new("rbxasset://fonts/families/FredokaOne.json"), Position = UDim2.fromScale(0.49695, 0.055326), Size = UDim2.fromScale(0.83363, 0.0605149), Text = function() return selectedItemName() or "SELECT AN ITEM" end, TextColor3 = Color3.new(1, 1, 1), TextScaled = true, TextXAlignment = Enum.TextXAlignment.Left, create("UIStroke")({}) }),
+				create("TextLabel")({ Name = "Grade", AnchorPoint = Vector2.new(0.5, 0.5), BackgroundTransparency = 1, FontFace = Font.new("rbxasset://fonts/families/FredokaOne.json"), Position = UDim2.fromScale(0.49695, 0.107853), Size = UDim2.fromScale(0.83363, 0.0479085), Text = function() local info = selectedInfo(); return if info then string.upper(info.Rarity) else "" end, TextColor3 = Color3.new(1, 1, 1), TextScaled = true, TextXAlignment = Enum.TextXAlignment.Left, create("UIStroke")({}), create("UIGradient")({ useColorSequenceCycle(function() local info = selectedInfo(); return if info then RarityGradient.Gradients[info.Rarity] or RarityGradient.Gradients.Common else ColorSequence.new(Color3.new(1, 1, 1)) end, function() local info = selectedInfo(); return if info then RarityGradient.ShimmerSpeed[info.Rarity] or 1 else 1 end) }) }),
+				create("ImageLabel")({ Name = "Item", BackgroundTransparency = 1, Image = function() local info = selectedInfo(); return if info then info.ItemImage or "" else "" end, Position = UDim2.fromScale(0.18, 0.18), ScaleType = Enum.ScaleType.Fit, Size = UDim2.fromScale(0.64, 0.64) }),
+				create("TextLabel")({ Name = "Description", BackgroundTransparency = 1, FontFace = Font.new("rbxasset://fonts/families/SourceSansPro.json", Enum.FontWeight.Bold), Position = UDim2.fromScale(0.1, 0.82), Size = UDim2.fromScale(0.8, 0.1), Text = function() local info = selectedInfo(); return if info then info.Description or "" else "" end, TextColor3 = Color3.fromRGB(235, 235, 235), TextScaled = true, TextWrapped = true }),
+			}),
 			create("ImageButton")({
-				Name = "EquipButton",
-				AnchorPoint = Vector2.new(0.5, 0.5),
-				BackgroundTransparency = 1,
-				Image = "rbxassetid://83967774994235",
-				Position = spring(function()
-					return if UIController:IsVisible("Inventory")()
-						then UDim2.fromScale(0.787698, 0.920119)
-						else UDim2.fromScale(0.787698, 1.05)
-				end, 0.75, 0.65),
-				Size = UDim2.fromScale(0.337246, 0.0842378),
-				ZIndex = 11,
-
-				MouseButton1Click = InventoryUI.EquipActivated,
-
-				useButtonEffect(0.985),
-
-				create("TextLabel")({
-					Name = "Title",
-					BackgroundTransparency = 1,
-					FontFace = Font.new("rbxasset://fonts/families/FredokaOne.json"),
-					Position = UDim2.fromScale(0.265238, 0.237766),
-					Size = UDim2.fromScale(0.467855, 0.487941),
-					Text = function()
-						local towerName = selectedName()
-						local towerKey = selectedKey()
-
-						if
-							type(towerName) ~= "string"
-							or (type(towerKey) ~= "string" and type(towerKey) ~= "number")
-						then
-							return "EQUIP"
-						end
-
-						return if InventoryClient.IsEquipped(towerName, towerKey) then "UNEQUIP" else "EQUIP"
-					end,
-					TextColor3 = Color3.new(1, 1, 1),
-					TextScaled = true,
-				}),
-
-				create("UIGradient")({
-					Name = "UIGradient",
-					Color = ColorSequence.new({
-						ColorSequenceKeypoint.new(0, Color3.fromRGB(32, 255, 88)),
-						ColorSequenceKeypoint.new(1, Color3.fromRGB(230, 255, 1)),
-					}),
-					Rotation = 90,
-				}),
+				Name = "EquipButton", Active = false, AnchorPoint = Vector2.new(0.5, 0.5), BackgroundTransparency = 1, Image = "rbxassetid://83967774994235",
+				ImageTransparency = function() return if selectedCategory() == "Skin" and selectedItemName() then 0 else 0.45 end,
+				Position = spring(function() return if isVisible() then UDim2.fromScale(0.787698, 0.920119) else UDim2.fromScale(0.787698, 1.05) end, 0.75, 0.65), Size = UDim2.fromScale(0.337246, 0.0842378), ZIndex = 11,
+				create("TextLabel")({ Name = "Title", BackgroundTransparency = 1, FontFace = Font.new("rbxasset://fonts/families/FredokaOne.json"), Position = UDim2.fromScale(0.265238, 0.237766), Size = UDim2.fromScale(0.467855, 0.487941), Text = "EQUIP", TextColor3 = Color3.new(1, 1, 1), TextScaled = true }),
+				create("UIGradient")({ Color = ColorSequence.new(Color3.fromRGB(32, 255, 88), Color3.fromRGB(230, 255, 1)), Rotation = 90 }),
 			}),
-
-			create("ImageButton")({
-				Name = "CancelButton",
-				AnchorPoint = Vector2.new(0.5, 0.5),
-				BackgroundTransparency = 1,
-				Image = "rbxassetid://92651860309635",
-				Rotation = spring(function()
-					return if UIController:IsVisible("Inventory")() then 0 else -1800
-				end, 1, 0.8),
-				Position = spring(function()
-					return if UIController:IsVisible("Inventory")()
-						then UDim2.fromScale(0.980096, 0.0289194)
-						else UDim2.fromScale(0.2, 0.0289194)
-				end, 1, 0.85),
-				Size = UDim2.fromScale(0.102144, 0.15458),
-
-				MouseButton1Click = function()
-					UIController:Close("Inventory")
-				end,
-
-				useButtonEffect(nil, 1.1),
-
-				create("UIAspectRatioConstraint")({
-					Name = "UIAspectRatioConstraint",
-				}),
-			}),
-
-			create("UIAspectRatioConstraint")({
-				Name = "UIAspectRatioConstraint",
-				AspectRatio = 1.88,
-			}),
+			create("ImageButton")({ Name = "CancelButton", AnchorPoint = Vector2.new(0.5, 0.5), BackgroundTransparency = 1, Image = "rbxassetid://92651860309635", Rotation = spring(function() return if isVisible() then 0 else -1800 end, 1, 0.8), Position = spring(function() return if isVisible() then UDim2.fromScale(0.980096, 0.0289194) else UDim2.fromScale(0.2, 0.0289194) end, 1, 0.85), Size = UDim2.fromScale(0.102144, 0.15458), Activated = function() UIController:Close(VIEW_ID) end, useButtonEffect(nil, 1.1), create("UIAspectRatioConstraint")({}) }),
+			create("UIAspectRatioConstraint")({ AspectRatio = 1.88 }),
 		}),
-
-		create("UIAspectRatioConstraint")({
-			Name = "UIAspectRatioConstraint",
-			AspectRatio = 1.547,
-			AspectType = Enum.AspectType.ScaleWithParentSize,
-		}),
+		create("UIAspectRatioConstraint")({ AspectRatio = 1.547, AspectType = Enum.AspectType.ScaleWithParentSize }),
 	})
 end
 
 function InventoryUI.Init()
 	InventoryClient = ServiceRegistry:GetService("InventoryClient")
 	UIController = ServiceRegistry:GetService("UIController")
-	towerInventory = InventoryClient.Towers
 end
 
 function InventoryUI.Start() end

@@ -5,9 +5,11 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 --/Configs
 local Signal = require(ReplicatedStorage.Packages.Signal)
 local TowerData = require(ReplicatedStorage.Settings.Data.TowerData)
+local TraitData = require(ReplicatedStorage.Settings.Data.TraitData)
 local ServiceRegistry = require(ReplicatedStorage.Shared.Modules.Core.ServiceRegistry)
 local TableUtils = require(ReplicatedStorage.Shared.Modules.Utils.TableUtils)
 local Net = require(ReplicatedStorage.Shared.Net)
+local TraitHandlers = require(script.TraitHandlers)
 local DataService
 
 export type Tower = {
@@ -56,6 +58,12 @@ function BaseTower.new(
 	self.MaxLevel = self:_CalculateMaxLevel()
 	self.TargetMode = "First"
 	self.Position = position
+	DataService = DataService or ServiceRegistry:GetService("DataService")
+	local playerData = DataService and DataService:GetData(player)
+	local ownedTower = playerData
+		and playerData.OwnedTowers[towerName]
+		and playerData.OwnedTowers[towerName][towerKey]
+	self.Trait = if ownedTower then ownedTower.Trait else nil
 
 	self.Destroyed = Signal.new()
 
@@ -138,6 +146,16 @@ end
 
 function BaseTower:_RecalculateStats()
 	self.Stats = TableUtils.DeepCopy(TowerData.ByName[self.Name].Stats[self.Level])
+
+	local trait = if self.Trait then TraitData.ByName[self.Trait] else nil
+	if trait then
+		for _, effect in trait.Effects or {} do
+			local handler = TraitHandlers[effect.Handler]
+			if handler then
+				handler(self, effect.Value)
+			end
+		end
+	end
 
 	if self.Stats.Damage then
 		self.Stats.Damage = math.floor(self.Stats.Damage)

@@ -25,7 +25,6 @@ local TowerService
 local EnemyService
 local UnitService
 
-
 -------------------------------------------------
 --// GameService
 -------------------------------------------------
@@ -92,9 +91,11 @@ local function admitPlayer(player: Player, joinData: any): (boolean, string?)
 		incoming = matchData or MatchProtocol.CreateTeleportData(HttpService:GenerateGUID(false), settings, 1)
 	else
 		if not RunService:IsStudio() then
-			if type(joinData) ~= "table"
+			if
+				type(joinData) ~= "table"
 				or joinData.SourcePlaceId ~= GameSettings.LobbyPlaceId
-				or joinData.SourceGameId ~= game.GameId then
+				or joinData.SourceGameId ~= game.GameId
+			then
 				return false, "INVALID_SOURCE"
 			end
 		end
@@ -105,10 +106,12 @@ local function admitPlayer(player: Player, joinData: any): (boolean, string?)
 	end
 
 	if matchData then
-		if incoming.MatchId ~= matchData.MatchId
+		if
+			incoming.MatchId ~= matchData.MatchId
 			or incoming.Map ~= matchData.Map
 			or incoming.Difficulty ~= matchData.Difficulty
-			or incoming.MemberCount ~= matchData.MemberCount then
+			or incoming.MemberCount ~= matchData.MemberCount
+		then
 			return false, "MATCH_MISMATCH"
 		end
 	else
@@ -165,6 +168,18 @@ function GameService:PrepareMap()
 	local mapFolder = workspace:WaitForChild("Map")
 	mapFolder:SetAttribute("GameplayReady", false)
 	mapFolder:SetAttribute("LoadError", nil)
+
+	if RunService:IsStudio() then
+		self.SelectedMap = "Kitsune Raid"
+		self.SelectedDifficulty = "Normal"
+	end
+
+	local success = self:WaitForTeleportData():await()
+	if not success then
+		warn("Failed to receive teleport data. Falling back to default map.")
+		self.SelectedMap = "Chapter 1"
+		self.SelectedDifficulty = "Normal"
+	end
 
 	ReplicatedStorage:SetAttribute("SelectedMap", self.SelectedMap)
 	ReplicatedStorage:SetAttribute("SelectedDifficulty", self.SelectedDifficulty or "Normal")

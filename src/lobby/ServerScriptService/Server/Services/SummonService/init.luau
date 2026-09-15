@@ -71,9 +71,14 @@ function SummonService.Summon(player: Player, amount: number)
 	ActiveSummons[player] = true
 
 	local ok, success, pulledUnits = pcall(function()
+		local currentBanner = Banner.GetActiveBanner()
+		if currentBanner.TotalWeight <= 0 or #currentBanner.Units == 0 then
+			warn("Summon banner has no units with usable tower models.")
+			return false, {}
+		end
+
 		DataService:AddData(player, "Coins", -totalCost)
 
-		local currentBanner = Banner.GetActiveBanner()
 		local pity = getPity(playerData)
 		local results = {}
 
@@ -91,7 +96,11 @@ function SummonService.Summon(player: Player, amount: number)
 			local unitName, rarity
 			if forcedRarity then
 				unitName = Banner.GetUnitForRarity(forcedRarity)
-				rarity = forcedRarity
+				if unitName then
+					rarity = forcedRarity
+				else
+					unitName, rarity = rollSingleUnit(currentBanner)
+				end
 			else
 				unitName, rarity = rollSingleUnit(currentBanner)
 			end
