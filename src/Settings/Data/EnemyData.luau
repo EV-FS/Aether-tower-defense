@@ -65,6 +65,26 @@ local RawEnemyData = {
 		MaxHealth = 50,
 		WalkSpeed = 3,
 	},
+	["JiangShi"] = {
+		Index = 13,
+		MaxHealth = 10,
+		WalkSpeed = 4,
+	},
+	["Wraith"] = {
+		Index = 14,
+		MaxHealth = 15,
+		WalkSpeed = 5,
+	},
+	["Soul"] = {
+		Index = 15,
+		MaxHealth = 35,
+		WalkSpeed = 7,
+	},
+	["Speedy Soul"] = {
+		Index = 16,
+		MaxHealth = 45,
+		WalkSpeed = 12,
+	},
 }
 
 local EnemyData = {
