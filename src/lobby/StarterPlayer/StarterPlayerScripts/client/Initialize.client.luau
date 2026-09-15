@@ -25,6 +25,9 @@ ServiceRegistry:RegisterServices({
 	Controllers.SettingsClient,
 	Controllers.DataClient,
 	Controllers.InventoryClient,
+	Controllers.IndexClient,
+	Controllers.TraitClient,
+	Controllers.PartyController,
 	Controllers.EmoteClient,
 	Controllers.EmojiClient,
 	Controllers.SprintClient,
@@ -36,23 +39,25 @@ ServiceRegistry:RegisterServices({
 	Controllers.TutorialClient,
 })
 
-ServiceRegistry:Start():andThen(function()
-	print("클라이언트 로드 완료.")
-	UI.Init()
-	print("UI 로드 완료.")
+ServiceRegistry:Start()
+	:andThen(function()
+		print("클라이언트 로드 완료.")
+		UI.Init()
+		print("UI 로드 완료.")
 
-	task.spawn(function()
-		local ContentProvider = game:GetService("ContentProvider")
-		local playerGui = game:GetService("Players").LocalPlayer:WaitForChild("PlayerGui")
-		pcall(function()
-			ContentProvider:PreloadAsync({ ReplicatedStorage, workspace, playerGui })
+		task.spawn(function()
+			local ContentProvider = game:GetService("ContentProvider")
+			local playerGui = game:GetService("Players").LocalPlayer:WaitForChild("PlayerGui")
+			pcall(function()
+				ContentProvider:PreloadAsync({ ReplicatedStorage, workspace, playerGui })
+			end)
+			UI.HideLoading()
 		end)
+	end)
+	:catch(function(err)
+		warn(`클라이언트 초기화 실패: {err}`)
 		UI.HideLoading()
 	end)
-end):catch(function(err)
-	warn(`클라이언트 초기화 실패: {err}`)
-	UI.HideLoading()
-end)
 
 -------------------------------------------------
 --// Load Matter

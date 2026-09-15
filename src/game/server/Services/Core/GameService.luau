@@ -2,11 +2,13 @@
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
+local HttpService = game:GetService("HttpService")
 
 --/Modules
 
-local Promise = require(ReplicatedStorage.Packages.Promise)
 local GameSettings = require(ReplicatedStorage.Settings.Game.GameSettings)
+local PartySettings = require(ReplicatedStorage.Settings.Game.PartySettings)
+local MatchProtocol = require(ReplicatedStorage.Shared.Modules.Core.MatchProtocol)
 local MapData = require(ReplicatedStorage.Settings.Data.MapData)
 local ServerCutscene = require(script.Parent.ServerCutscene)
 local CharacterGuard = require(script.Parent.Parent.Parent.CharacterGuard)
@@ -45,6 +47,7 @@ GameService.SkipList = {}
 
 GameService.SkipActive = false
 GameService.IsGameRunning = false
+GameService.IsGameStarting = false
 GameService.IsMapLoading = false
 GameService.IsMapLoaded = false
 
@@ -52,22 +55,85 @@ GameService.SelectedMap = nil
 GameService.SelectedDifficulty = nil
 GameService.StartPlayerCount = 1
 
-function GameService:WaitForTeleportData()
-	local function check()
-		return Promise.new(function(resolve, reject)
-			if self.SelectedMap ~= nil then
-				resolve()
-			else
-				reject()
+-- Match settings are committed together before any yielding work. Later arrivals
+-- can join this match, but cannot replace its map, difficulty, or identity.
+local matchData: MatchProtocol.TeleportData? = nil
+local admittedPlayers: { [Player]: boolean } = {}
+local arrivalDeadline = 0
+local started = false
+
+function GameService:GetMatchInfo(): MatchProtocol.TeleportData?
+	return if matchData then table.clone(matchData) else nil
+end
+
+function GameService:GetMatchPlayers(): { Player }
+	local players = {}
+	for _, player in Players:GetPlayers() do
+		if admittedPlayers[player] then
+			table.insert(players, player)
+		end
+	end
+	return players
+end
+
+local function admitPlayer(player: Player, joinData: any): (boolean, string?)
+	local teleportData = if type(joinData) == "table" then joinData.TeleportData else nil
+	local incoming: MatchProtocol.TeleportData?
+	local errorCode: string?
+	if RunService:IsStudio() and teleportData == nil then
+		-- Preserve the project's map-preview workflow even while its waves are WIP.
+		local settings, settingsError = MatchProtocol.ValidateSettings({
+			Map = PartySettings.StudioMap,
+			Difficulty = PartySettings.StudioDifficulty,
+		})
+		if not settings then
+			return false, settingsError
+		end
+		incoming = matchData or MatchProtocol.CreateTeleportData(HttpService:GenerateGUID(false), settings, 1)
+	else
+		if not RunService:IsStudio() then
+			if type(joinData) ~= "table"
+				or joinData.SourcePlaceId ~= GameSettings.LobbyPlaceId
+				or joinData.SourceGameId ~= game.GameId then
+				return false, "INVALID_SOURCE"
+			end
+		end
+		incoming, errorCode = MatchProtocol.ValidateTeleportData(teleportData)
+	end
+	if not incoming then
+		return false, errorCode or "INVALID_TELEPORT_DATA"
+	end
+
+	if matchData then
+		if incoming.MatchId ~= matchData.MatchId
+			or incoming.Map ~= matchData.Map
+			or incoming.Difficulty ~= matchData.Difficulty
+			or incoming.MemberCount ~= matchData.MemberCount then
+			return false, "MATCH_MISMATCH"
+		end
+	else
+		matchData = table.freeze(table.clone(incoming))
+		GameService.SelectedMap = incoming.Map
+		GameService.SelectedDifficulty = incoming.Difficulty
+		arrivalDeadline = os.clock() + PartySettings.ArrivalTimeout
+		ReplicatedStorage:SetAttribute("MatchId", incoming.MatchId)
+		ReplicatedStorage:SetAttribute("ExpectedPlayerCount", incoming.MemberCount)
+		task.delay(PartySettings.ArrivalTimeout, function()
+			if started then
+				GameService:TryStartGameWhenAllReady()
 			end
 		end)
 	end
-	return Promise.retryWithDelay(check, 300, 0.1)
+	admittedPlayers[player] = true
+	return true, nil
 end
 
 function GameService:AllReady()
-	local players = Players:GetPlayers()
+	local players = self:GetMatchPlayers()
 	if #players == 0 then
+		return false
+	end
+	if matchData and #players < matchData.MemberCount and os.clock() < arrivalDeadline then
 		return false
 	end
 
@@ -84,7 +150,7 @@ function GameService:FireReadyState()
 end
 
 function GameService:PrepareMap()
-	if self.IsMapLoaded then
+	if self.IsMapLoaded or not matchData then
 		return
 	end
 
@@ -99,18 +165,6 @@ function GameService:PrepareMap()
 	local mapFolder = workspace:WaitForChild("Map")
 	mapFolder:SetAttribute("GameplayReady", false)
 	mapFolder:SetAttribute("LoadError", nil)
-
-	if RunService:IsStudio() then
-		self.SelectedMap = "Kitsune Raid"
-		self.SelectedDifficulty = "Normal"
-	end
-
-	local success = self:WaitForTeleportData():await()
-	if not success then
-		warn("Failed to receive teleport data. Falling back to default map.")
-		self.SelectedMap = "Chapter 1"
-		self.SelectedDifficulty = "Normal"
-	end
 
 	ReplicatedStorage:SetAttribute("SelectedMap", self.SelectedMap)
 	ReplicatedStorage:SetAttribute("SelectedDifficulty", self.SelectedDifficulty or "Normal")
@@ -136,7 +190,7 @@ function GameService:PrepareMap()
 	local loaded, loadError = pcall(function()
 		MapService:LoadMapAsync(self.SelectedMap, self.SelectedDifficulty, preparedMap)
 		local characterStarted = os.clock()
-		CharacterGuard.Release(mapFolder)
+		CharacterGuard.Release(mapFolder, self:GetMatchPlayers())
 		mapFolder:SetAttribute("CharacterPrepareSeconds", os.clock() - characterStarted)
 	end)
 	if not loaded then
@@ -156,22 +210,24 @@ function GameService:PrepareMap()
 end
 
 function GameService:StartGame()
-	if self.IsGameRunning then
+	if self.IsGameRunning or self.IsGameStarting then
+		return
+	end
+	self.IsGameStarting = true
+	self:PrepareMap()
+	self.IsGameStarting = false
+	-- A player may have arrived while map/cutscene loading yielded.
+	if not self.IsMapLoaded or not self:AllReady() then
 		return
 	end
 	self.IsGameRunning = true
-
-	self.StartPlayerCount = math.max(1, #Players:GetPlayers())
+	table.clear(self.ReadyList)
+	self:FireReadyState()
+	self.StartPlayerCount = math.max(1, #self:GetMatchPlayers())
 	Net.GameEvent.GameInfoSynced.FireAll({
-		Difficulty = self.SelectedDifficulty or "Normal",
+		Difficulty = self.SelectedDifficulty,
 		StartPlayerCount = self.StartPlayerCount,
 	})
-
-	self:PrepareMap()
-	if not self.IsMapLoaded then
-		self.IsGameRunning = false
-		return
-	end
 
 	BaseService:Reset()
 
@@ -224,7 +280,9 @@ function GameService:GameOver(isWin: boolean)
 		warn(`[GameService] MapData에서 {self.SelectedMap}의 보상 정보를 찾을 수 없습니다.`)
 	end
 
-	for _, player in ipairs(Players:GetPlayers()) do
+	-- Rewards continue to come from server-observed game results and MapData.
+	-- TeleportData never contains reward amounts or player entitlements.
+	for _, player in ipairs(self:GetMatchPlayers()) do
 		task.spawn(function()
 			local profile = DataService:GetProfile(player)
 			if not profile then
@@ -281,7 +339,7 @@ function GameService:TrySkip()
 		return
 	end
 
-	local totalPlayers = #Players:GetPlayers()
+	local totalPlayers = #self:GetMatchPlayers()
 	if totalPlayers == 0 then
 		return
 	end
@@ -302,7 +360,7 @@ function GameService:TrySkip()
 end
 
 function GameService:TryStartGameWhenAllReady()
-	if self.IsGameRunning then
+	if self.IsGameRunning or self.IsGameStarting then
 		return
 	end
 
@@ -310,17 +368,15 @@ function GameService:TryStartGameWhenAllReady()
 		return
 	end
 
-	table.clear(self.ReadyList)
-	self:FireReadyState()
 	self:StartGame()
 end
 
 function GameService:RestartGame()
-	if self.IsGameRunning then
+	if self.IsGameRunning or self.IsGameStarting then
 		return
 	end
 
-	local totalPlayers = #Players:GetPlayers()
+	local totalPlayers = #self:GetMatchPlayers()
 	if totalPlayers == 0 then
 		return
 	end
@@ -360,27 +416,48 @@ function GameService.Init(services)
 end
 
 function GameService.Start()
+	if started then
+		return
+	end
+	started = true
+
 	local function PlayerAdded(player: Player)
-		local joinData = player:GetJoinData()
-		local teleportData = joinData and joinData.TeleportData
-
-		if teleportData and teleportData.Map and GameService.SelectedMap == nil then
-			GameService.SelectedMap = teleportData.Map
+		if admittedPlayers[player] or player.Parent ~= Players then
+			return
 		end
-
-		if teleportData and teleportData.Difficulty and GameService.SelectedDifficulty == nil then
-			GameService.SelectedDifficulty = teleportData.Difficulty
+		local readSuccess, joinData = pcall(player.GetJoinData, player)
+		local admitted, reason = admitPlayer(player, if readSuccess then joinData else nil)
+		if not admitted then
+			warn(string.format("[GameService] Rejected match arrival %d: %s", player.UserId, tostring(reason)))
+			player:Kick("Invalid match information. Please join the game through the lobby.")
+			return
 		end
 
 		GameService:FireReadyState()
+		task.defer(function()
+			GameService:PrepareMap()
+			if not GameService.IsMapLoaded or player.Parent ~= Players or not admittedPlayers[player] then
+				return
+			end
+			-- CharacterGuard snapshots players during map setup. An arrival during
+			-- that yielding work may have missed the snapshot with auto-loads off.
+			if not player.Character and Players.CharacterAutoLoads then
+				local loaded, loadError = pcall(player.LoadCharacterAsync, player)
+				if not loaded and player.Parent == Players then
+					warn("[GameService] Late-arrival character failed: " .. tostring(loadError))
+					player:Kick("Your character could not load. Please rejoin through the lobby.")
+				end
+			end
+		end)
 	end
 
 	--/Player
+	Players.PlayerAdded:Connect(PlayerAdded)
 	for _, player in ipairs(Players:GetPlayers()) do
 		PlayerAdded(player)
 	end
-	Players.PlayerAdded:Connect(PlayerAdded)
 	Players.PlayerRemoving:Connect(function(player)
+		admittedPlayers[player] = nil
 		GameService:RemoveFromRestartList(player)
 		GameService:RemoveFromReadyList(player)
 		GameService:RemoveFromSkipList(player)
@@ -394,11 +471,6 @@ function GameService.Start()
 			GameService:TrySkip()
 			GameService:TryStartGameWhenAllReady()
 		end)
-	end)
-
-	--/Map
-	task.defer(function()
-		GameService:PrepareMap()
 	end)
 
 	--/Net
@@ -442,7 +514,7 @@ function GameService.Start()
 	end)
 
 	Net.GameEvent.VoteSkip.On(function(player: Player)
-		if not GameService.IsGameRunning then
+		if not admittedPlayers[player] or not GameService.IsGameRunning then
 			return
 		end
 
@@ -461,7 +533,7 @@ function GameService.Start()
 	end)
 
 	Net.GameEvent.VoteRestart.On(function(player: Player)
-		if GameService.IsGameRunning then
+		if not admittedPlayers[player] or GameService.IsGameRunning or GameService.IsGameStarting then
 			return
 		end
 
@@ -476,7 +548,7 @@ function GameService.Start()
 	end)
 
 	Net.GameEvent.Ready.On(function(player: Player)
-		if GameService.IsGameRunning then
+		if not admittedPlayers[player] or GameService.IsGameRunning then
 			return
 		end
 
@@ -497,6 +569,9 @@ function GameService.Start()
 	end)
 
 	Net.GameEvent.TeleportToLobby.On(function(player: Player)
+		if not admittedPlayers[player] then
+			return
+		end
 		GameService:RemoveFromRestartList(player)
 		GameService:RemoveFromReadyList(player)
 
