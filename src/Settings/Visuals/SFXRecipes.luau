@@ -30,6 +30,46 @@ local function newStep(sound: string, options: Options): Step
 end
 
 return TableUtils.DeepFreeze({
+	["TowerShared"] = {
+		Place_Common = {
+			newStep("UI/Common", { Type = "3D", At = "Source" }),
+		},
+		Place_Rare = {
+			newStep("UI/Rare", { Type = "3D", At = "Source" }),
+		},
+		Place_Epic = {
+			newStep("UI/Epic", { Type = "3D", At = "Source" }),
+		},
+		Place_Legendary = {
+			newStep("UI/Legendary", { Type = "3D", At = "Source" }),
+		},
+		Place_Mythic = {
+			newStep("UI/Mythic", { Type = "3D", At = "Source" }),
+		},
+		Place_Absolute = {
+			newStep("UI/Absolute", { Type = "3D", At = "Source" }),
+		},
+
+		Upgrade_Common = {
+			newStep("UI/Common", { Type = "3D", At = "Source" }),
+		},
+		Upgrade_Rare = {
+			newStep("UI/Rare", { Type = "3D", At = "Source" }),
+		},
+		Upgrade_Epic = {
+			newStep("UI/Epic", { Type = "3D", At = "Source" }),
+		},
+		Upgrade_Legendary = {
+			newStep("UI/Legendary", { Type = "3D", At = "Source" }),
+		},
+		Upgrade_Mythic = {
+			newStep("UI/Mythic", { Type = "3D", At = "Source" }),
+		},
+		Upgrade_Absolute = {
+			newStep("UI/Absolute", { Type = "3D", At = "Source" }),
+		},
+	},
+
 	["Knight"] = {
 		AttackCombo1End = {
 			[0] = {
