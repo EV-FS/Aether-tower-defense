@@ -6,7 +6,7 @@ return {
 			Text = "반갑구만,, 혹시 내 물건에 관심이 있어?",
 			Choices = {
 				{ Text = "도움이 필요한 일이 있어? [퀘스트]", Next = "Quest_Check" },
-				{ Text = "물건들을 보여줘.", Next = "Shop" },
+				{ Text = "이벤트샵을 보여줘. [이벤트샵]", Next = "End", Action = "OpenEventShop" },
 				{ Text = "여행하면서 들은 소문이 있어?", Next = "Rumors" },
 				{ Text = "너에 대해 알고 싶어.", Next = "About" },
 				{ Text = "다음에 다시 올게.", Next = "End" },
@@ -14,22 +14,22 @@ return {
 		},
 
 		["Quest_Check"] = {
-			Text = "마침 잘 왔네! 키츠네의 결계를 정화하기 위해선 '벚꽃' 1,500개가 꼭 필요하다네. 자네가 좀 모아다 줄 수 있겠나?",
+			Text = "마침 잘 왔네! 키츠네의 결계를 정화하려면 <font color=\"#FFD84D\"><b>벚꽃 1,500개</b></font>가 꼭 필요하다네. 자네가 모아다 줄 수 있겠나?",
 			Choices = {
-				{ Text = "좋아! 벚꽃 1,500개를 모아올게. [수락]", Next = "Quest_Accepted" },
+				{ Text = "좋아! <font color=\"#FFD84D\"><b>벚꽃 1,500개</b></font>를 모아올게. [수락]", Next = "Quest_Accepted" },
 				{ Text = "지금은 바빠서 힘들 것 같아.", Next = "Start" },
 			},
 		},
 
 		["Quest_Accepted"] = {
-			Text = "고맙네! 벚꽃 1,500개를 모아서 다시 나를 찾아오게나. 보상은 두둑이 챙겨주지!",
+			Text = "고맙네! <font color=\"#FFD84D\"><b>벚꽃 1,500개</b></font>를 모아서 다시 나를 찾아오게나. 보상은 두둑이 챙겨주지!",
 			Choices = {
 				{ Text = "알겠어, 금방 다녀올게!", Next = "End" },
 			},
 		},
 
 		["Quest_Progress"] = {
-			Text = "아직 벚꽃이 부족하구만... 목표는 1,500개라네! 힘내게나.",
+			Text = "아직 벚꽃이 부족하구만... 목표는 <font color=\"#FFD84D\"><b>1,500개</b></font>라네! 힘내게나.",
 			Choices = {
 				{ Text = "더 모아올게.", Next = "End" },
 				{ Text = "처음으로 돌아가기", Next = "Start" },
@@ -37,7 +37,7 @@ return {
 		},
 
 		["Quest_Ready"] = {
-			Text = "오오! 벚꽃 1,500개를 모두 모아왔군! 정말 대단해. 약속대로 보상을 주겠네!",
+			Text = "오오! <font color=\"#73FF9A\"><b>벚꽃 1,500개 달성!</b></font> 정말 대단해. 약속대로 보상을 주겠네!",
 			Choices = {
 				{ Text = "보상 받기! [완료]", Next = "Quest_Completed" },
 			},

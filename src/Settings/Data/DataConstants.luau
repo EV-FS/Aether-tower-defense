@@ -18,7 +18,12 @@ return TableUtils.DeepFreeze({
 		Inventory = {
 			Crates = {},
 			Items = {},
+			Skins = {},
 			Emotes = {},
+		},
+		Collection = {
+			Units = {},
+			Items = {},
 		},
 		GamePasses = {},
 		DevProducts = {},
@@ -45,6 +50,7 @@ return TableUtils.DeepFreeze({
 		Exp = true,
 		OwnedTowers = true,
 		Inventory = true,
+		Collection = true,
 		GamePass = true,
 		DevProducts = true,
 		Loadout = true,
@@ -61,5 +67,6 @@ return TableUtils.DeepFreeze({
 	TOWER_TEMPLATE = {
 		Lv = 0,
 		Exp = 0,
+		Locked = false,
 	},
 })

@@ -2,7 +2,6 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local TableUtils = require(ReplicatedStorage.Shared.Modules.Utils.TableUtils)
 local TowerStats = require(script.TowerStats)
 
-<<<<<<< HEAD
 local RawTowerData = {
 	["Bacon"] = {
 		Index = 1,

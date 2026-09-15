@@ -18,6 +18,12 @@ export type LoadoutEntry = {
 	towerKey: string?,
 }
 export type Loadout = { [string | number]: LoadoutEntry }
+export type StackInventory = { [string]: number }
+export type GeneralInventory = {
+	Items: StackInventory,
+	Skins: StackInventory,
+	[string]: any,
+}
 
 type LoadoutRequestType = "Equip" | "Unequip" | "UnequipAll"
 type TowerAddedData = { towerData: any, towerIndex: number, towerKeyId: number }
@@ -28,19 +34,27 @@ local InventoryClient = {}
 
 InventoryClient.Towers = Vide.source({} :: OwnedTowers)
 InventoryClient.Loadout = Vide.source({} :: Loadout)
+InventoryClient.Inventory = Vide.source({ Items = {}, Skins = {} } :: GeneralInventory)
+InventoryClient.Items = Vide.source({} :: StackInventory)
+InventoryClient.Skins = Vide.source({} :: StackInventory)
 
 InventoryClient.TowersChanged = Signal.new()
 InventoryClient.LoadoutChanged = Signal.new()
+InventoryClient.InventoryChanged = Signal.new()
 InventoryClient.TowerAdded = Signal.new()
 InventoryClient.TowerRemoved = Signal.new()
 InventoryClient.CountUpdated = Signal.new()
 
 local towersRequest = nil
 local loadoutRequest = nil
+local inventoryRequest = nil
 local towersLoaded = false
 local loadoutLoaded = false
+local inventoryLoaded = false
 local towersRequestVersion = 0
 local loadoutRequestVersion = 0
+local inventoryRequestVersion = 0
+local inventorySyncScheduled = false
 
 local function normalizeTowerKey(towerKey: TowerKey): (string?, number?)
 	local keyId
@@ -72,6 +86,17 @@ end
 local function setLoadout(loadout: Loadout)
 	InventoryClient.Loadout(loadout)
 	InventoryClient.LoadoutChanged:Fire(loadout)
+end
+
+local function setInventory(inventory: GeneralInventory)
+	local normalized = table.clone(inventory)
+	normalized.Items = if typeof(inventory.Items) == "table" then inventory.Items else {}
+	normalized.Skins = if typeof(inventory.Skins) == "table" then inventory.Skins else {}
+
+	InventoryClient.Inventory(normalized)
+	InventoryClient.Items(normalized.Items)
+	InventoryClient.Skins(normalized.Skins)
+	InventoryClient.InventoryChanged:Fire(normalized)
 end
 
 local function loadTowers(forceRefresh: boolean?)
@@ -143,6 +168,38 @@ local function loadLoadout(forceRefresh: boolean?)
 		end)
 
 	loadoutRequest = request
+	return request
+end
+
+local function loadInventory(forceRefresh: boolean?)
+	if inventoryRequest and not forceRefresh then
+		return inventoryRequest
+	end
+	if inventoryLoaded and not forceRefresh then
+		return Promise.resolve(InventoryClient.Inventory())
+	end
+
+	inventoryRequestVersion += 1
+	local requestVersion = inventoryRequestVersion
+	local request = Net.DataService.GetDataValue
+		.Invoke("Inventory")
+		:andThen(function(value)
+			local inventory = if typeof(value) == "table" then value else {}
+			if requestVersion == inventoryRequestVersion then
+				inventoryLoaded = true
+				inventoryRequest = nil
+				setInventory(inventory)
+			end
+			return inventory
+		end)
+		:catch(function(err)
+			if requestVersion == inventoryRequestVersion then
+				inventoryRequest = nil
+			end
+			return Promise.reject(err)
+		end)
+
+	inventoryRequest = request
 	return request
 end
 
@@ -233,11 +290,57 @@ local function onTowerRemoved(data: TowerRemovedData)
 end
 
 function InventoryClient.Load()
-	return Promise.all({ loadTowers(), loadLoadout() }):andThen(function(values)
+	return Promise.all({ loadTowers(), loadLoadout(), loadInventory() }):andThen(function(values)
 		return {
 			Towers = values[1],
 			Loadout = values[2],
+			Inventory = values[3],
 		}
+	end)
+end
+
+function InventoryClient.RefreshInventory()
+	return loadInventory(true)
+end
+
+function InventoryClient.FetchInventory()
+	return loadInventory()
+end
+
+function InventoryClient.PerformUnitAction(action: "ToggleUnitLock" | "SellUnit", towerName: string, towerKey: TowerKey)
+	return Promise.new(function(resolve, reject)
+		task.spawn(function()
+			local remotes = ReplicatedStorage:WaitForChild("RuntimeRemotes", 5)
+			local remote = remotes and remotes:FindFirstChild("InventoryAction")
+			if not remote or not remote:IsA("RemoteFunction") then
+				reject("Inventory action service is unavailable.")
+				return
+			end
+
+			local success, result = pcall(function()
+				return remote:InvokeServer({
+					Action = action,
+					TowerName = towerName,
+					TowerKey = towerKey,
+				})
+			end)
+			if not success then
+				reject(result)
+				return
+			end
+			if typeof(result) ~= "table" then
+				reject("Invalid unit action response.")
+				return
+			end
+
+			if result.Success == true then
+				Promise.all({ InventoryClient.RefreshTowers(), InventoryClient.RefreshLoadout() }):andThen(function()
+					resolve(result)
+				end):catch(reject)
+			else
+				resolve(result)
+			end
+		end)
 	end)
 end
 
@@ -258,10 +361,15 @@ function InventoryClient.FetchLoadout()
 end
 
 function InventoryClient.Refresh()
-	return Promise.all({ InventoryClient.RefreshTowers(), InventoryClient.RefreshLoadout() }):andThen(function(values)
+	return Promise.all({
+		InventoryClient.RefreshTowers(),
+		InventoryClient.RefreshLoadout(),
+		InventoryClient.RefreshInventory(),
+	}):andThen(function(values)
 		return {
 			Towers = values[1],
 			Loadout = values[2],
+			Inventory = values[3],
 		}
 	end)
 end
@@ -355,6 +463,18 @@ function InventoryClient.Start()
 	Net.DataService.OwnedTowersRemoved.On(onTowerRemoved)
 	Net.GlobalExistService.CountUpdated.On(function(data: CountUpdatedData)
 		InventoryClient.CountUpdated:Fire(data.category, data.itemName, data.newCount)
+	end)
+	Net.DataService.CurrencyChanged.On(function(data)
+		if data.CurrencyName ~= "Inventory" or inventorySyncScheduled then
+			return
+		end
+		inventorySyncScheduled = true
+		task.defer(function()
+			inventorySyncScheduled = false
+			InventoryClient.RefreshInventory():catch(function(err)
+				warn(`[InventoryClient] Failed to synchronize inventory: {err}`)
+			end)
+		end)
 	end)
 
 	InventoryClient.Load():catch(function(err)

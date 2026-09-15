@@ -6,7 +6,7 @@ local TweenService = game:GetService("TweenService")
 local Vide = require(ReplicatedStorage.Packages.Vide)
 local RarityData = require(ReplicatedStorage.Settings.Data.RarityData)
 local ServiceRegistry = require(ReplicatedStorage.Shared.Modules.Core.ServiceRegistry)
-local TowerViewport = require(ReplicatedStorage.UI.Components.TowerViewport)
+local WorldTowerDisplay = require(ReplicatedStorage.UI.Components.WorldTowerDisplay)
 
 local create = Vide.create
 local cleanup = Vide.cleanup
@@ -342,9 +342,13 @@ local function playClose(onFinished: () -> ())
 	end)
 end
 
-function SummonResultUI.ShowResults(units: { PulledUnit }, onCompleted: (() -> ())?)
+function SummonResultUI.ShowResults(
+	units: { PulledUnit },
+	onCompleted: (() -> ())?,
+	lockCameraDuringResults: boolean?
+): boolean
 	if #units == 0 then
-		return
+		return false
 	end
 
 	closeToken += 1
@@ -360,11 +364,14 @@ function SummonResultUI.ShowResults(units: { PulledUnit }, onCompleted: (() -> (
 		completedCallback = nil
 		resultsQueue({})
 		currentIndex(0)
-		return
+		return false
 	end
-	lockResultCamera()
+	if lockCameraDuringResults ~= false then
+		lockResultCamera()
+	end
 	lockPlayerControls()
 	playInitialReveal()
+	return true
 end
 
 function SummonResultUI.Advance()
@@ -477,34 +484,34 @@ function SummonResultUI.RenderUI()
 			Activated = SummonResultUI.Advance,
 		}),
 
-		TowerViewport({
-			Name = "ResultUnitViewport",
+		WorldTowerDisplay({
 			TowerName = function()
-				if not UIController:IsOpen(VIEW_ID) then
-					return ""
-				end
 				local unit = getCurrentUnit()
 				return unit and unit.UnitName or ""
 			end,
+			Rarity = function()
+				local unit = getCurrentUnit()
+				return unit and unit.Rarity or nil
+			end,
+			RevealKey = currentIndex,
 			AnimationName = "Idle",
-			AnchorPoint = Vector2.new(0.5, 0.5),
-			Position = UDim2.fromScale(0.5, 0.39),
-			BackgroundTransparency = 1,
-			UseViewportModel = true,
+			ScreenPosition = Vector2.new(0.5, 0.39),
+			ScreenHeight = 0.44,
+			ScreenWidth = 0.4,
 			UseCharacterBounds = true,
-			FitPadding = 1.1,
-			ZIndex = 52,
+			Depth = SUMMON_MODEL_DEPTH,
 			Visible = function()
 				return UIController:IsOpen(VIEW_ID)
 			end,
-			ImageTransparency = spring(function()
+			Transparency = spring(function()
 				return if isRevealed() then 0 else 1
-			end, 0.45, 0.85),
-			Size = spring(function()
-				local scale = if isRevealed() then 1 elseif isClosing() then 0.88 else 0.94
-				return UDim2.fromScale(0.4 * scale, 0.44 * scale)
-			end, if isClosing() then 0.3 else 0.38, 0.68),
-			ModelRotation = 0,
+			end, 0.4, 0.82),
+			DisplayScale = spring(function()
+				return if isRevealed() then 1 else if isClosing() then 0.88 else 0.94
+			end, if isClosing() then 0.3 else 0.38, 0.72),
+			ModelRotation = spring(function()
+				return if isRevealed() then 0 else slideSign() * 14
+			end, if isClosing() then 0.34 else 0.4, 0.72),
 		}),
 
 		create("Frame")({
