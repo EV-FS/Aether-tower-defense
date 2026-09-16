@@ -149,7 +149,7 @@ local function createMenuButton(config: MenuButtonConfig)
 
 		Activated = config.Activated,
 
-		useButtonEffect(0.93, 1.055),
+		useButtonEffect(0.93, 1.055, true),
 
 		create("UIShadow")({
 			Name = "UIShadow",

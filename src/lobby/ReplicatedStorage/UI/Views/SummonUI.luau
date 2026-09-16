@@ -96,8 +96,6 @@ local bannerSecondsRemaining = source(BANNER_TIMER_DURATION)
 local mythicPity = source(0)
 local absolutePity = source(0)
 
-local isLast = false
-
 local SummonUI = {}
 
 local function isOpen(): boolean
@@ -663,12 +661,23 @@ function SummonUI.RenderUI()
 		Volume = UISFX.Close.Volume,
 	})
 
+	local wasOpen = false
 	effect(function()
-		if UIController:IsVisible(VIEW_ID)() then
-			isLast = true
+		local shouldOpen = isOpen()
+		if shouldOpen == wasOpen then
+			return
+		end
+		wasOpen = shouldOpen
+
+		-- Results switch views while the summon menu stays hidden behind the cutscene.
+		-- Track those switches silently; ending the cutscene must not replay a menu sound.
+		if untrack(isCutscenePlaying) then
+			return
+		end
+
+		if shouldOpen then
 			openSFX:Play()
-		elseif isLast then
-			isLast = false
+		else
 			closeSFX:Play()
 		end
 	end)

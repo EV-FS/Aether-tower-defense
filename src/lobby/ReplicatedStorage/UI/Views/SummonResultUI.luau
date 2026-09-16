@@ -288,10 +288,6 @@ local function playInitialReveal()
 		if UIController:IsOpen(VIEW_ID) then
 			revealPhase(true)
 			flushQueuedAdvance()
-
-			local unit = getCurrentUnit()
-			local sfx = unit and UISFX[unit.Rarity]
-			useAudio({ Id = sfx.Id, Volume = sfx.Volume }):Play()
 		end
 	end)
 end
@@ -316,10 +312,6 @@ local function playTransition(onSwitch: () -> ())
 			end
 
 			revealPhase(true)
-
-			local unit = getCurrentUnit()
-			local sfx = unit and UISFX[unit.Rarity]
-			useAudio({ Id = sfx.Id, Volume = sfx.Volume }):Play()
 
 			task.delay(ENTER_DELAY, function()
 				isTransitioning(false)
@@ -429,6 +421,27 @@ function SummonResultUI.Close()
 end
 
 function SummonResultUI.RenderUI()
+	-- Create audio in the mounted Vide scope so its properties and cleanup are owned by the UI.
+	local revealSounds = {}
+	for rarity in RarityData.DisplayNames do
+		local sfx = UISFX[rarity]
+		if sfx then
+			revealSounds[rarity] = useAudio({ Id = sfx.Id, Volume = sfx.Volume })
+		end
+	end
+
+	effect(function()
+		if not isRevealed() then
+			return
+		end
+
+		local unit = getCurrentUnit()
+		local sound = unit and revealSounds[unit.Rarity]
+		if sound then
+			sound:Play()
+		end
+	end)
+
 	local backdropFocus = Instance.new("DepthOfFieldEffect")
 	backdropFocus.Name = "SummonResultBackdropFocus"
 	backdropFocus.FarIntensity = 0
