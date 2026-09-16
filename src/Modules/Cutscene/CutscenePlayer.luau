@@ -15,10 +15,17 @@ local CUTSCENE_LOAD_TIMEOUT = 15
 
 local CutscenePlayer = {}
 
+type SavedWorkspaceModelState = {
+	Pivot: CFrame,
+	Transforms: { [Instance]: CFrame },
+	Anchored: { [BasePart]: boolean },
+}
+
 local activeToken = 0
 local activeScene: { Instance }? = nil
 local activeTracks: { AnimationTrack }? = nil
 local savedCameraState = nil
+local savedWorkspaceSceneStates: { [Model]: SavedWorkspaceModelState }? = nil
 local activeTimingConnection: RBXScriptConnection? = nil
 local focusRestoreCallbacks: { () -> () }? = nil
 local focusConnections: { RBXScriptConnection }? = nil
@@ -94,7 +101,7 @@ local function cloneScene(sceneSource: Instance): { Instance }
 	return sceneRoots
 end
 
-local function getWorkspaceScene(config): { Instance }
+local function getWorkspaceScene(config, saveState: boolean?): { Instance }
 	local sceneRoots = {}
 	local added = {}
 
@@ -103,6 +110,22 @@ local function getWorkspaceScene(config): { Instance }
 		if instance and not added[instance] then
 			added[instance] = true
 			table.insert(sceneRoots, instance)
+			if saveState and instance:IsA("Model") then
+				local transforms = {}
+				local anchored = {}
+				for _, descendant in instance:GetDescendants() do
+					if descendant:IsA("Motor6D") or descendant:IsA("Bone") then
+						transforms[descendant] = descendant.Transform
+					elseif descendant:IsA("BasePart") then
+						anchored[descendant] = descendant.Anchored
+					end
+				end
+				(savedWorkspaceSceneStates :: { [Model]: SavedWorkspaceModelState })[instance] = {
+					Pivot = instance:GetPivot(),
+					Transforms = transforms,
+					Anchored = anchored,
+				}
+			end
 		end
 	end
 
@@ -280,6 +303,25 @@ local function cleanActiveCutscene()
 		activeTracks = nil
 	end
 
+	if savedWorkspaceSceneStates then
+		for model, state in savedWorkspaceSceneStates do
+			if model.Parent then
+				model:PivotTo(state.Pivot)
+			end
+			for part, wasAnchored in state.Anchored do
+				if part.Parent then
+					part.Anchored = wasAnchored
+				end
+			end
+			for joint, transform in state.Transforms do
+				if joint.Parent and (joint:IsA("Motor6D") or joint:IsA("Bone")) then
+					joint.Transform = transform
+				end
+			end
+		end
+		savedWorkspaceSceneStates = nil
+	end
+
 	if activeScene then
 		for _, instance in ipairs(activeScene) do
 			instance:Destroy()
@@ -408,7 +450,8 @@ function CutscenePlayer.Play(cutsceneName: string, options: PlaybackOptions?): b
 
 	local sceneRoots
 	if config.UseWorkspaceScene then
-		sceneRoots = getWorkspaceScene(config)
+		savedWorkspaceSceneStates = {}
+		sceneRoots = getWorkspaceScene(config, true)
 		activeScene = nil
 	else
 		local cutsceneRoot = findPath(ReplicatedStorage, CUTSCENE_ROOT)
