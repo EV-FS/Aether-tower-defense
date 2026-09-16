@@ -36,6 +36,7 @@ export type TowerInfo = {
 	Rarity: string,
 	TowerImage: string,
 	MaxTowers: number,
+	SellPrice: number?,
 	Stats: { [number]: { [string]: any } },
 }
 
@@ -50,6 +51,7 @@ local RawTowerData: {
 		Rarity: string,
 		TowerImage: string,
 		MaxTowers: number,
+		SellPrice: number?,
 		Stats: { [number]: { [string]: any } }?,
 		Name: string?,
 	},
@@ -157,11 +159,25 @@ local RawTowerData: {
 			TowerImage = "rbxassetid://127595189045553",
 			MaxTowers = 1,
 		},
+		["Onion_fire18"] = {
+			Index = 18,
+			Rarity = "Absolute",
+			TowerImage = "rbxassetid://130148747698173",
+			MaxTowers = 1818,
+			SellPrice = 1818,
+		},
 		["Ranger Super Tower"] = {
 			Index = 31,
 			Rarity = "Absolute",
 			TowerImage = "rbxassetid://127595189045553",
 			MaxTowers = 1,
+		},
+		["dingding"] = {
+			Index = 32,
+			Rarity = "Absolute",
+			TowerImage = "rbxassetid://101401673871794",
+			MaxTowers = 64,
+			SellPrice = 32,
 		},
 	}
 

@@ -2,11 +2,6 @@
 local DataStoreService = game:GetService("DataStoreService")
 local MessagingService = game:GetService("MessagingService")
 local MemoryStoreService = game:GetService("MemoryStoreService")
-local ReplicatedStorage = game:GetService("ReplicatedStorage")
-
---/Modules
-local Net = require(ReplicatedStorage.Shared.Net)
-local DataService
 
 --/Settings
 local DB_UPDATE_INTERVAL = 300
@@ -37,10 +32,10 @@ local function MakeCombinedKey(category: string, itemName: string): string
 	return category .. ":" .. itemName
 end
 
-local function ParseCombinedKey(combinedKey: string): (string, string)
+--[[local function ParseCombinedKey(combinedKey: string): (string, string)
 	local split = string.split(combinedKey, ":")
 	return split[1], split[2]
-end
+end--]]
 
 local function GetMemoryMapAll()
 	local counts = {}
@@ -184,9 +179,7 @@ end
 -------------------------------------------------
 local GlobalExistService = {}
 
-function GlobalExistService.Init(services)
-	DataService = services:GetService("DataService")
-end
+function GlobalExistService.Init() end
 
 function GlobalExistService.Start()
 	globalCounts = FetchAllGlobalCounts()
@@ -199,22 +192,7 @@ function GlobalExistService.Start()
 			end
 
 			AddCounts(globalCounts, data.Updates)
-
-			for combinedKey, _ in pairs(data.Updates) do
-				local category, itemName = ParseCombinedKey(combinedKey)
-				if category and itemName then
-					Net.GlobalExistService.CountUpdated.FireAll({
-						category = category,
-						itemName = itemName,
-						newCount = globalCounts[combinedKey] or 0,
-					})
-				end
-			end
 		end)
-	end)
-
-	Net.GlobalExistService.GetCount.On(function(_: Player, data: { category: string, itemName: string })
-		return GlobalExistService:GetCount(data.category, data.itemName)
 	end)
 
 	CreateLoop(DB_UPDATE_INTERVAL, SavePendingData, true)
@@ -236,24 +214,6 @@ function GlobalExistService.Start()
 	CreateLoop(REFRESH_INTERVAL, function()
 		local counts = GetMemoryMapAll()
 		SetCounts(globalCounts, counts)
-
-		for combinedKey, newCount in pairs(counts) do
-			local category, itemName = ParseCombinedKey(combinedKey)
-			if category and itemName then
-				Net.GlobalExistService.CountUpdated.FireAll({
-					category = category,
-					itemName = itemName,
-					newCount = newCount,
-				})
-			end
-		end
-	end)
-
-	DataService:GetChangedSignal("OwnedTowersAdded"):Connect(function(_player, data)
-		GlobalExistService:AddExistCount("Towers", data.towerName)
-	end)
-	DataService:GetChangedSignal("OwnedTowersRemoved"):Connect(function(_player, data)
-		GlobalExistService:AddExistCount("Towers", data.towerName, -1)
 	end)
 
 	game:BindToClose(function()
@@ -271,12 +231,6 @@ function GlobalExistService:AddExistCount(category: string, itemName: string, am
 	msgPending[combinedKey] = (msgPending[combinedKey] or 0) + change
 
 	globalCounts[combinedKey] = (globalCounts[combinedKey] or 0) + change
-
-	Net.GlobalExistService.CountUpdated.FireAll({
-		category = category,
-		itemName = itemName,
-		newCount = globalCounts[combinedKey],
-	})
 end
 
 function GlobalExistService:GetCount(category: string, itemName: string): number

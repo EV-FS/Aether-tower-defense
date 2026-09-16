@@ -27,11 +27,10 @@
     },
 
     "ServerScriptService": {
+      "$path": "src/game/ServerScriptService",
+      "$ignoreUnknownInstances": true,
       "ServerPackages": {
         "$path": "ServerPackages"
-      },
-      "Server": {
-        "$path": "src/game/server"
       }
     },
 

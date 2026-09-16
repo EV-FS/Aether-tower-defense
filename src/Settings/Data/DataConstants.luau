@@ -35,7 +35,6 @@ return TableUtils.DeepFreeze({
 			Absolute = 0,
 		},
 		Quests = {},
-		TutorialCompleted = false,
 		_NextId = 1,
 		_StructureVersion = "v2",
 		_StarterTowerReceived = false,
