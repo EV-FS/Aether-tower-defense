@@ -54,8 +54,6 @@ GameService.SelectedMap = nil
 GameService.SelectedDifficulty = nil
 GameService.StartPlayerCount = 1
 
--- Match settings are committed together before any yielding work. Later arrivals
--- can join this match, but cannot replace its map, difficulty, or identity.
 local matchData: MatchProtocol.TeleportData? = nil
 local admittedPlayers: { [Player]: boolean } = {}
 local arrivalDeadline = 0
@@ -80,7 +78,6 @@ local function admitPlayer(player: Player, joinData: any): (boolean, string?)
 	local incoming: MatchProtocol.TeleportData?
 	local errorCode: string?
 	if RunService:IsStudio() and teleportData == nil then
-		-- Preserve the project's map-preview workflow even while its waves are WIP.
 		local settings, settingsError = MatchProtocol.ValidateSettings({
 			Map = PartySettings.StudioMap,
 			Difficulty = PartySettings.StudioDifficulty,
@@ -174,13 +171,6 @@ function GameService:PrepareMap()
 		self.SelectedDifficulty = "Normal"
 	end
 
-	local success = self:WaitForTeleportData():await()
-	if not success then
-		warn("Failed to receive teleport data. Falling back to default map.")
-		self.SelectedMap = "Chapter 1"
-		self.SelectedDifficulty = "Normal"
-	end
-
 	ReplicatedStorage:SetAttribute("SelectedMap", self.SelectedMap)
 	ReplicatedStorage:SetAttribute("SelectedDifficulty", self.SelectedDifficulty or "Normal")
 
@@ -231,7 +221,7 @@ function GameService:StartGame()
 	self.IsGameStarting = true
 	self:PrepareMap()
 	self.IsGameStarting = false
-	-- A player may have arrived while map/cutscene loading yielded.
+
 	if not self.IsMapLoaded or not self:AllReady() then
 		return
 	end
@@ -295,8 +285,6 @@ function GameService:GameOver(isWin: boolean)
 		warn(`[GameService] MapData에서 {self.SelectedMap}의 보상 정보를 찾을 수 없습니다.`)
 	end
 
-	-- Rewards continue to come from server-observed game results and MapData.
-	-- TeleportData never contains reward amounts or player entitlements.
 	for _, player in ipairs(self:GetMatchPlayers()) do
 		task.spawn(function()
 			local profile = DataService:GetProfile(player)

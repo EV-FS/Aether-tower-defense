@@ -133,6 +133,13 @@ return TableUtils.DeepFreeze({
 			},
 		},
 	},
+	["Poseidon"] = {
+		AttackEnd = {
+			[0] = {
+				Steps.Emit("Towers/Poseidon/A1", { Lifetime = 3, LockToSource = true, At = "Source" }),
+			},
+		},
+	},
 	["Galahad"] = {
 		AttackCombo1End = {
 			[0] = {
@@ -197,6 +204,16 @@ return TableUtils.DeepFreeze({
 				Steps.Emit("Towers/Kitsune Samurai/CATK4", { Lifetime = 3, Delay = 0.983, At = "Source" }),
 				Steps.Emit("Towers/Kitsune Samurai/CATK5", { Lifetime = 3, Delay = 2.166, At = "Source" }),
 				Steps.Emit("Towers/Kitsune Samurai/CATK6", { Lifetime = 3, Delay = 2.35, At = "Source" }),
+			},
+		},
+	},
+	["Wizard"] = {
+		AttackEnd = {
+			[0] = {
+				Steps.Emit("Towers/Wizard/A1", { Lifetime = 3, LockToSource = true, At = "Source" }),
+			},
+			[3] = {
+				Steps.Emit("Towers/Wizard/A2", { Lifetime = 3, LockToSource = true, At = "Source" }),
 			},
 		},
 	},
