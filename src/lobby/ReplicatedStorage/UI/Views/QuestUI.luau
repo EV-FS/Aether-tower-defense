@@ -1,9 +1,7 @@
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
-local SoundService = game:GetService("SoundService")
 
 local Vide = require(ReplicatedStorage.Packages.Vide)
 local ServiceRegistry = require(ReplicatedStorage.Shared.Modules.Core.ServiceRegistry)
-local QuestData = require(ReplicatedStorage.Settings.Data.QuestData)
 local UISFX = require(ReplicatedStorage.Settings.Visuals.UISFX)
 local useAudio = require(ReplicatedStorage.Shared.Modules.UI.Hooks.useAudio)
 local QuestMenuUI = require(script.Parent.QuestMenuUI)
@@ -22,21 +20,7 @@ local QuestUI = {}
 
 local isTrackingExpanded = source(true)
 
-local function playQuestAcceptSound()
-	task.spawn(function()
-		local sound = Instance.new("Sound")
-		sound.SoundId = "rbxassetid://9069609268"
-		sound.Volume = 0.55
-		sound.Parent = SoundService
-		sound:Play()
-		sound.Ended:Connect(function()
-			sound:Destroy()
-		end)
-	end)
-end
-
 function QuestUI.RenderUI()
-	local targetAmount = 1500
 	local pinnedQuest = derive(function()
 		local quest = QuestMenuUI.GetPinnedQuest()
 		return quest
@@ -47,12 +31,7 @@ function QuestUI.RenderUI()
 	end)
 
 	local isAccepted = derive(function()
-		if pinnedQuest() then
-			return true
-		end
-		local quests = DataClient and DataClient.Quests() or {}
-		local q = quests["BlossomCollector"]
-		return q and (q.Active or q.Completed) and not q.Claimed or false
+		return pinnedQuest() ~= nil
 	end)
 
 	local isHovered = source(false)
@@ -65,7 +44,6 @@ function QuestUI.RenderUI()
 		if cur and not prevAccepted then
 			prevAccepted = true
 			isEntered(false)
-			playQuestAcceptSound()
 			task.delay(0.05, function()
 				isEntered(true)
 			end)
@@ -106,21 +84,12 @@ function QuestUI.RenderUI()
 		return if isHovered() then 0.05 else 0.85
 	end, 0.18, 0.75)
 
-	local targetBlossom = derive(function()
-		local blossom = DataClient and DataClient.Blossom() or 0
-		return math.min(blossom, targetAmount)
-	end)
-
-	-- 4. 숫자는 천천히 부드럽게 카운트업 (period 0.45, damping 0.85)
-	local animatedBlossom = spring(targetBlossom, 0.45, 0.85)
-
 	local targetRatio = derive(function()
 		local pinned = pinnedQuest()
 		if pinned then
 			return math.clamp(pinned.Current / math.max(pinned.Target, 1), 0, 1)
 		end
-		local blossom = targetBlossom()
-		return math.clamp(blossom / targetAmount, 0, 1)
+		return 0
 	end)
 
 	-- 5. 게이지 바는 쫀득하고 탄력있게 스프링 이동 (period 0.32, damping 0.70)
@@ -131,15 +100,7 @@ function QuestUI.RenderUI()
 		if pinned then
 			return `{pinned.Description} {pinned.Progress}`
 		end
-		local rawCur = targetBlossom()
-		local animCur = math.clamp(math.round(animatedBlossom()), 0, targetAmount)
-		if rawCur >= targetAmount then
-			return "벚꽃 수집 완료! 방랑 상인에게 보고하세요."
-		end
-		return string.format(
-			"키츠네 정화를 위해 벚꽃 수집 (%s/1,500)",
-			DataClient and DataClient.FormatNumber(animCur) or tostring(animCur)
-		)
+		return ""
 	end
 
 	local trackSFX = useAudio({
@@ -158,6 +119,9 @@ function QuestUI.RenderUI()
 		Size = UDim2.fromScale(0.180105, 1),
 		ZIndex = 5,
 		Visible = function()
+			if not isAccepted() then
+				return false
+			end
 			if UIController and UIController:IsExclusive() then
 				return false
 			end

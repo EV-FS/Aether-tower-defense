@@ -185,11 +185,17 @@ function DataService.Start()
 		return playerData[valueName]
 	end)
 
-	for _, currencyName in { "Coins", "Gems", "Exp", "Level" } do
+	for _, currencyName in { "Coins", "Gems", "Blossom", "Exp", "Level" } do
 		DataService:GetChangedSignal(currencyName):Connect(function(player, value)
 			Net.DataService.CurrencyChanged.Fire(player, { CurrencyName = currencyName, CurrencyValue = value })
 		end)
 	end
+
+	-- Quest state is a table, so this event only invalidates the client's cache;
+	-- DataClient then fetches the authoritative quest table through GetDataValue.
+	DataService:GetChangedSignal("Quests"):Connect(function(player)
+		Net.DataService.CurrencyChanged.Fire(player, { CurrencyName = "Quests", CurrencyValue = 0 })
+	end)
 
 	DataService:GetChangedSignal("OwnedTowersAdded"):Connect(function(player, data)
 		local towerInfo = TowerData.ByName[data.towerName]

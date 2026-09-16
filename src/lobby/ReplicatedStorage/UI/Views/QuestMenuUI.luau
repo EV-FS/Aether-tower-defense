@@ -1,6 +1,7 @@
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Vide = require(ReplicatedStorage.Packages.Vide)
+local QuestData = require(ReplicatedStorage.Settings.Data.QuestData)
 local UISFX = require(ReplicatedStorage.Settings.Visuals.UISFX)
 local ServiceRegistry = require(ReplicatedStorage.Shared.Modules.Core.ServiceRegistry)
 local useAudio = require(ReplicatedStorage.Shared.Modules.UI.Hooks.useAudio)
@@ -12,17 +13,19 @@ local source = Vide.source
 local spring = Vide.spring
 
 local QuestMenuUI = {}
+local DataClient
 local UIController
 
 local VIEW_ID = "Quest"
 
-local selectedCategory = source("GUIDE")
+local selectedCategory = source("EVENT")
 local selectedQuestIndex = source(1)
 local pinnedQuestKey = source(nil :: string?)
 
 local isLast = false
 
 type QuestDisplay = {
+	Id: string,
 	Title: string,
 	Description: string,
 	Current: number,
@@ -32,76 +35,68 @@ type QuestDisplay = {
 	RewardQuantity: string,
 }
 
-local QUESTS_BY_CATEGORY: { [string]: { QuestDisplay } } = {
-	GUIDE = {
-		{
-			Title = "첫 승리",
-			Description = "이지모드로 전투 1회 승리하기.",
-			Current = 0,
-			Target = 1,
-			Progress = "(0/1)",
-			RewardName = "어니언의 눈물",
-			RewardQuantity = "10x",
-		},
-		{
-			Title = "전투 준비",
-			Description = "유닛을 편성하고 전투를 시작하기.",
-			Current = 0,
-			Target = 1,
-			Progress = "(0/1)",
-			RewardName = "어니언의 눈물",
-			RewardQuantity = "10x",
-		},
-	},
-	WEEK = {
-		{
-			Title = "주간 승리",
-			Description = "이번 주에 전투 10회 승리하기.",
-			Current = 0,
-			Target = 10,
-			Progress = "(0/10)",
-			RewardName = "주간 보상",
-			RewardQuantity = "1x",
-		},
-		{
-			Title = "주간 소환",
-			Description = "이번 주에 유닛을 20회 소환하기.",
-			Current = 0,
-			Target = 20,
-			Progress = "(0/20)",
-			RewardName = "주간 보상",
-			RewardQuantity = "1x",
-		},
-	},
-	DAILY = {
-		{
-			Title = "오늘의 전투",
-			Description = "오늘 전투 1회 완료하기.",
-			Current = 0,
-			Target = 1,
-			Progress = "(0/1)",
-			RewardName = "일일 보상",
-			RewardQuantity = "1x",
-		},
-		{
-			Title = "오늘의 접속",
-			Description = "오늘 로비에 접속하기.",
-			Current = 1,
-			Target = 1,
-			Progress = "(1/1)",
-			RewardName = "일일 보상",
-			RewardQuantity = "1x",
-		},
-	},
+local EMPTY_QUEST: QuestDisplay = {
+	Id = "",
+	Title = "",
+	Description = "",
+	Current = 0,
+	Target = 1,
+	Progress = "",
+	RewardName = "",
+	RewardQuantity = "",
 }
 
-local function getQuest(index: number): QuestDisplay
-	local quests = QUESTS_BY_CATEGORY[selectedCategory()] or QUESTS_BY_CATEGORY.GUIDE
-	return quests[index] or quests[1]
+local function formatRewards(rewards): (string, string)
+	local names = {}
+	local amounts = {}
+	for _, rewardName in ipairs({ "Coins", "Gems", "Exp" }) do
+		local amount = rewards[rewardName]
+		if type(amount) == "number" and amount > 0 then
+			table.insert(names, if rewardName == "Exp" then "EXP" else rewardName)
+			table.insert(amounts, tostring(amount))
+		end
+	end
+	return table.concat(names, " / "), table.concat(amounts, " / ")
 end
 
-local function getQuestKey(index: number): string
-	return `{selectedCategory()}:{index}`
+local function getCategoryQuests(category: string): { QuestDisplay }
+	local displays = {}
+	local playerQuests = if DataClient then DataClient.Quests() else {}
+	for questId, config in QuestData do
+		local state = playerQuests[questId]
+		if
+			config.Theme == category
+			and state
+			and (state.Active or state.Completed)
+			and not state.Claimed
+		then
+			local current = math.clamp(tonumber(state.Progress) or 0, 0, config.TargetAmount)
+			local rewardName, rewardQuantity = formatRewards(config.Rewards)
+			table.insert(displays, {
+				Id = questId,
+				Title = config.Title,
+				Description = config.Description,
+				Current = current,
+				Target = config.TargetAmount,
+				Progress = `({current}/{config.TargetAmount})`,
+				RewardName = rewardName,
+				RewardQuantity = rewardQuantity,
+			})
+		end
+	end
+	table.sort(displays, function(a, b)
+		return a.Id < b.Id
+	end)
+	return displays
+end
+
+local function getQuest(index: number): QuestDisplay
+	return getCategoryQuests(selectedCategory())[index] or EMPTY_QUEST
+end
+
+local function getQuestKey(index: number): string?
+	local questId = getQuest(index).Id
+	return if questId ~= "" then questId else nil
 end
 
 function QuestMenuUI.GetPinnedQuest(): (QuestDisplay?, string?)
@@ -110,13 +105,16 @@ function QuestMenuUI.GetPinnedQuest(): (QuestDisplay?, string?)
 		return nil, nil
 	end
 
-	local category, indexText = key:match("^(%u+):(%d+)$")
-	local index = tonumber(indexText)
-	local quests = category and QUESTS_BY_CATEGORY[category]
-	if quests and index then
-		return quests[index], category
+	local config = QuestData[key]
+	local state = DataClient and DataClient.Quests()[key]
+	if config and state and (state.Active or state.Completed) and not state.Claimed then
+		for _, quest in getCategoryQuests(config.Theme) do
+			if quest.Id == key then
+				return quest, config.Theme
+			end
+		end
 	end
-	return nil, category
+	return nil, nil
 end
 
 local function selectCategory(category: string)
@@ -193,6 +191,28 @@ function QuestMenuUI.RenderUI()
 		Id = UISFX.Close.Id,
 		Volume = UISFX.Close.Volume,
 	})
+	local trackSFX = useAudio({
+		Id = UISFX.QuestTrack.Id,
+		Volume = UISFX.QuestTrack.Volume,
+	})
+	local untrackSFX = useAudio({
+		Id = UISFX.QuestUntrack.Id,
+		Volume = UISFX.QuestUntrack.Volume,
+	})
+
+	local function togglePinnedQuest(index: number)
+		local key = getQuestKey(index)
+		if not key then
+			return
+		end
+		if pinnedQuestKey() == key then
+			pinnedQuestKey(nil)
+			untrackSFX:Play()
+		else
+			pinnedQuestKey(key)
+			trackSFX:Play()
+		end
+	end
 
 	effect(function()
 		if UIController:IsVisible(VIEW_ID)() then
@@ -342,6 +362,22 @@ function QuestMenuUI.RenderUI()
 					SortOrder = Enum.SortOrder.LayoutOrder,
 				}),
 
+				create("TextLabel")({
+					Name = "EmptyState",
+					BackgroundTransparency = 1,
+					FontFace = Font.new("rbxasset://fonts/families/FredokaOne.json"),
+					LayoutOrder = -1,
+					Size = UDim2.fromScale(0.92, 0.16),
+					Text = "진행 중인 퀘스트가 없습니다.",
+					TextColor3 = Color3.fromRGB(161, 161, 161),
+					TextScaled = true,
+					Visible = function()
+						return #getCategoryQuests(selectedCategory()) == 0
+					end,
+
+					create("UIStroke")({ Transparency = 0.5 }),
+				}),
+
 				create("ImageButton")({
 					Name = "Quest",
 					AutoButtonColor = false,
@@ -349,6 +385,9 @@ function QuestMenuUI.RenderUI()
 					Image = "rbxassetid://103014172048487",
 					Position = UDim2.fromScale(0.0475516, 0),
 					Size = UDim2.fromScale(0.949, 0.16),
+					Visible = function()
+						return getQuest(1).Id ~= ""
+					end,
 					ImageTransparency = function()
 						return if selectedQuestIndex() == 1 then 0 else 0.12
 					end,
@@ -363,7 +402,9 @@ function QuestMenuUI.RenderUI()
 						FontFace = Font.new("rbxasset://fonts/families/FredokaOne.json"),
 						Position = UDim2.fromScale(0.0212704, 0.047321),
 						Size = UDim2.fromScale(0.485076, 0.191573),
-						Text = selectedCategory,
+						Text = function()
+							return getQuest(1).Title
+						end,
 						TextColor3 = Color3.new(1, 1, 1),
 						TextScaled = true,
 						TextXAlignment = Enum.TextXAlignment.Left,
@@ -410,19 +451,23 @@ function QuestMenuUI.RenderUI()
 					create("ImageButton")({
 						Name = "PinButton",
 						AnchorPoint = Vector2.new(0.5, 0.5),
-						BackgroundTransparency = 1,
+						BackgroundColor3 = function()
+							return if pinnedQuestKey() == getQuestKey(1)
+								then Color3.fromRGB(255, 213, 35)
+								else Color3.fromRGB(91, 91, 91)
+						end,
+						BackgroundTransparency = 0,
 						Image = "rbxassetid://128325259577735",
 						ImageColor3 = function()
 							return if pinnedQuestKey() == getQuestKey(1)
 								then Color3.fromRGB(255, 241, 84)
-								else Color3.new(1, 1, 1)
+								else Color3.fromRGB(91, 91, 91)
 						end,
 						Position = UDim2.fromScale(0.934471, 0.193828),
 						Size = UDim2.fromScale(0.228367, 0.249376),
 						Activated = function()
 							selectedQuestIndex(1)
-							local key = getQuestKey(1)
-							pinnedQuestKey(if pinnedQuestKey() == key then nil else key)
+							togglePinnedQuest(1)
 						end,
 						useButtonEffect(0.9, 1.08),
 
@@ -599,10 +644,12 @@ function QuestMenuUI.RenderUI()
 
 					create("UIGradient")({
 						Name = "UIGradient",
-						Color = ColorSequence.new({
-							ColorSequenceKeypoint.new(0, Color3.fromRGB(255, 241, 84)),
-							ColorSequenceKeypoint.new(1, Color3.fromRGB(255, 241, 84)),
-						}),
+						Color = function()
+							local color = if pinnedQuestKey() == getQuestKey(1)
+								then Color3.fromRGB(255, 241, 84)
+								else Color3.fromRGB(91, 91, 91)
+							return ColorSequence.new(color)
+						end,
 					}),
 				}),
 
@@ -613,6 +660,9 @@ function QuestMenuUI.RenderUI()
 					Image = "rbxassetid://103014172048487",
 					Position = UDim2.fromScale(0.0475516, 0),
 					Size = UDim2.fromScale(0.949, 0.16),
+					Visible = function()
+						return getQuest(2).Id ~= ""
+					end,
 					ImageTransparency = function()
 						return if selectedQuestIndex() == 2 then 0 else 0.12
 					end,
@@ -627,7 +677,9 @@ function QuestMenuUI.RenderUI()
 						FontFace = Font.new("rbxasset://fonts/families/FredokaOne.json"),
 						Position = UDim2.fromScale(0.0212704, 0.047321),
 						Size = UDim2.fromScale(0.485076, 0.191573),
-						Text = selectedCategory,
+						Text = function()
+							return getQuest(2).Title
+						end,
 						TextColor3 = Color3.new(1, 1, 1),
 						TextScaled = true,
 						TextXAlignment = Enum.TextXAlignment.Left,
@@ -674,19 +726,23 @@ function QuestMenuUI.RenderUI()
 					create("ImageButton")({
 						Name = "PinButton",
 						AnchorPoint = Vector2.new(0.5, 0.5),
-						BackgroundTransparency = 1,
+						BackgroundColor3 = function()
+							return if pinnedQuestKey() == getQuestKey(2)
+								then Color3.fromRGB(255, 213, 35)
+								else Color3.fromRGB(91, 91, 91)
+						end,
+						BackgroundTransparency = 0,
 						Image = "rbxassetid://128325259577735",
 						ImageColor3 = function()
 							return if pinnedQuestKey() == getQuestKey(2)
 								then Color3.fromRGB(255, 241, 84)
-								else Color3.new(1, 1, 1)
+								else Color3.fromRGB(91, 91, 91)
 						end,
 						Position = UDim2.fromScale(0.934471, 0.193828),
 						Size = UDim2.fromScale(0.228367, 0.249376),
 						Activated = function()
 							selectedQuestIndex(2)
-							local key = getQuestKey(2)
-							pinnedQuestKey(if pinnedQuestKey() == key then nil else key)
+							togglePinnedQuest(2)
 						end,
 						useButtonEffect(0.9, 1.08),
 
@@ -863,10 +919,12 @@ function QuestMenuUI.RenderUI()
 
 					create("UIGradient")({
 						Name = "UIGradient",
-						Color = ColorSequence.new({
-							ColorSequenceKeypoint.new(0, Color3.fromRGB(91, 91, 91)),
-							ColorSequenceKeypoint.new(1, Color3.fromRGB(91, 91, 91)),
-						}),
+						Color = function()
+							local color = if pinnedQuestKey() == getQuestKey(2)
+								then Color3.fromRGB(255, 241, 84)
+								else Color3.fromRGB(91, 91, 91)
+							return ColorSequence.new(color)
+						end,
 					}),
 				}),
 			}),
@@ -890,9 +948,7 @@ function QuestMenuUI.RenderUI()
 					SortOrder = Enum.SortOrder.LayoutOrder,
 					VerticalAlignment = Enum.VerticalAlignment.Center,
 				}),
-				createCategoryButton("GUIDE"),
-				createCategoryButton("WEEK"),
-				createCategoryButton("DAILY"),
+				createCategoryButton("EVENT"),
 				create("UIPadding")({ Name = "UIPadding", PaddingLeft = UDim.new(0, 2) }),
 			}),
 
@@ -900,6 +956,9 @@ function QuestMenuUI.RenderUI()
 				Name = "Information",
 				BackgroundTransparency = 1,
 				Image = "rbxassetid://86773350223025",
+				Visible = function()
+					return getQuest(selectedQuestIndex()).Id ~= ""
+				end,
 				Position = spring(function()
 					return if isVisible() then UDim2.fromScale(0.674872, 0.184204) else UDim2.fromScale(0.74, 0.184204)
 				end, 0.55, 0.78),
@@ -1113,6 +1172,7 @@ function QuestMenuUI.RenderUI()
 end
 
 function QuestMenuUI.Init()
+	DataClient = ServiceRegistry:GetService("DataClient")
 	UIController = ServiceRegistry:GetService("UIController")
 end
 
