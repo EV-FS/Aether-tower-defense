@@ -5,7 +5,9 @@ local TweenService = game:GetService("TweenService")
 
 local Vide = require(ReplicatedStorage.Packages.Vide)
 local RarityData = require(ReplicatedStorage.Settings.Data.RarityData)
+local UISFX = require(ReplicatedStorage.Settings.Visuals.UISFX)
 local ServiceRegistry = require(ReplicatedStorage.Shared.Modules.Core.ServiceRegistry)
+local useAudio = require(ReplicatedStorage.Shared.Modules.UI.Hooks.useAudio)
 local WorldTowerDisplay = require(ReplicatedStorage.UI.Components.WorldTowerDisplay)
 
 local create = Vide.create
@@ -69,6 +71,33 @@ local BACKDROP_FAR_INTENSITY = 0.65
 local BACKDROP_FOCUS_RADIUS = 3
 local FOCUS_FADE_IN_TIME = 0.32
 local FOCUS_FADE_OUT_TIME = 0.38
+
+local SUMMON_SFX = {
+	Absolute = useAudio({
+		Id = UISFX.Absolute.Id,
+		Volume = UISFX.Absolute.Volume,
+	}),
+	Mythic = useAudio({
+		Id = UISFX.Mythic.Id,
+		Volume = UISFX.Mythic.Volume,
+	}),
+	Legendary = useAudio({
+		Id = UISFX.Legendary.Id,
+		Volume = UISFX.Legendary.Volume,
+	}),
+	Epic = useAudio({
+		Id = UISFX.Epic.Id,
+		Volume = UISFX.Epic.Volume,
+	}),
+	Rare = useAudio({
+		Id = UISFX.Rare.Id,
+		Volume = UISFX.Rare.Volume,
+	}),
+	Common = useAudio({
+		Id = UISFX.Common.Id,
+		Volume = UISFX.Common.Volume,
+	}),
+}
 
 local closeToken = 0
 local completedCallback: (() -> ())? = nil
@@ -286,6 +315,10 @@ local function playInitialReveal()
 		if UIController:IsOpen(VIEW_ID) then
 			revealPhase(true)
 			flushQueuedAdvance()
+
+			local unit = getCurrentUnit()
+			local sfx = unit and UISFX[unit.Rarity]
+			sfx:Play()
 		end
 	end)
 end
@@ -310,6 +343,10 @@ local function playTransition(onSwitch: () -> ())
 			end
 
 			revealPhase(true)
+
+			local unit = getCurrentUnit()
+			local sfx = unit and UISFX[unit.Rarity]
+			sfx:Play()
 
 			task.delay(ENTER_DELAY, function()
 				isTransitioning(false)

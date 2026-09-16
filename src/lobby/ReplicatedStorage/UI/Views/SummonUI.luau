@@ -9,7 +9,9 @@ local useButtonEffect = require(ReplicatedStorage.Shared.Modules.UI.Hooks.useBut
 local TouchZone = require(ReplicatedStorage.Shared.Modules.Utils.TouchZone)
 local Net = require(ReplicatedStorage.Shared.Net)
 local SummonConfig = require(ReplicatedStorage.Settings.Data.SummonConfig)
+local UISFX = require(ReplicatedStorage.Settings.Visuals.UISFX)
 local CutscenePlayer = require(ReplicatedStorage.Shared.Modules.Cutscene.CutscenePlayer)
+local useAudio = require(ReplicatedStorage.Shared.Modules.UI.Hooks.useAudio)
 local EmitModule = require(ReplicatedStorage.Shared.Modules.Utils.EmitModule)
 local TowerViewport = require(ReplicatedStorage.UI.Components.TowerViewport)
 local SummonResultUI = require(script.Parent.SummonResultUI)
@@ -38,17 +40,9 @@ local MYTHIC_PITY_ATTRIBUTE = SummonConfig.Pity.Mythic.Attribute
 local ABSOLUTE_PITY_ATTRIBUTE = SummonConfig.Pity.Absolute.Attribute
 local RESULT_REVEAL_FRAMES = { 142, 158, 171, 183, 193, 203, 214, 223, 233, 243 }
 
-local DISPLAY_FONT = Font.new(
-	"rbxasset://fonts/families/FredokaOne.json",
-	Enum.FontWeight.Bold,
-	Enum.FontStyle.Normal
-)
+local DISPLAY_FONT = Font.new("rbxasset://fonts/families/FredokaOne.json", Enum.FontWeight.Bold, Enum.FontStyle.Normal)
 local PLAIN_DISPLAY_FONT = Font.new("rbxasset://fonts/families/FredokaOne.json")
-local BODY_FONT = Font.new(
-	"rbxasset://fonts/families/SourceSansPro.json",
-	Enum.FontWeight.Bold,
-	Enum.FontStyle.Normal
-)
+local BODY_FONT = Font.new("rbxasset://fonts/families/SourceSansPro.json", Enum.FontWeight.Bold, Enum.FontStyle.Normal)
 
 local MAIN_IMAGE = "rbxassetid://101796292394413"
 local HEADER_IMAGE = "rbxassetid://106553153352559"
@@ -101,6 +95,9 @@ local nextBannerTimerResetAt = source(0)
 local bannerSecondsRemaining = source(BANNER_TIMER_DURATION)
 local mythicPity = source(0)
 local absolutePity = source(0)
+
+local isLast = false
+
 local SummonUI = {}
 
 local function isOpen(): boolean
@@ -358,9 +355,7 @@ local function createPurchaseButton(
 			Position = if amount == 1
 				then UDim2.fromScale(0.0483483, 0.168285)
 				else UDim2.fromScale(0.0483484, 0.253242),
-			Size = if amount == 1
-				then UDim2.fromScale(0.402995, 0.699418)
-				else UDim2.fromScale(0.547652, 0.473445),
+			Size = if amount == 1 then UDim2.fromScale(0.402995, 0.699418) else UDim2.fromScale(0.547652, 0.473445),
 			Text = title,
 			TextColor3 = Color3.new(1, 1, 1),
 			TextScaled = true,
@@ -546,11 +541,7 @@ function SummonUI.UpdateBanner(bannerData)
 	local lineupChanged = false
 	for rarity, unitInfo in unitsByRarity do
 		local previousInfo = previousPool[rarity]
-		if
-			not previousInfo
-			or previousInfo.Name ~= unitInfo.Name
-			or previousInfo.RateText ~= unitInfo.RateText
-		then
+		if not previousInfo or previousInfo.Name ~= unitInfo.Name or previousInfo.RateText ~= unitInfo.RateText then
 			lineupChanged = true
 			break
 		end
@@ -661,6 +652,26 @@ function SummonUI.RenderUI()
 	local motion = source(0)
 	local reveal = source(0)
 	local opacity = source(0)
+
+	local openSFX = useAudio({
+		Id = UISFX.SummonOpen.Id,
+		Volume = UISFX.SummonOpen.Volume,
+	})
+
+	local closeSFX = useAudio({
+		Id = UISFX.Close.Id,
+		Volume = UISFX.Close.Volume,
+	})
+
+	effect(function()
+		if UIController:IsVisible(VIEW_ID)() then
+			isLast = true
+			openSFX:Play()
+		elseif isLast then
+			isLast = false
+			closeSFX:Play()
+		end
+	end)
 
 	effect(function()
 		local shouldOpen = isOpen()
@@ -873,25 +884,13 @@ function SummonUI.RenderUI()
 				createUnitCard(FEATURED_RARITIES[3], 3, stagger(0.125)),
 			}),
 
-			createPurchaseButton(
-				"PurchaseButton",
-				1,
-				"SUMMON",
-				ONE_PULL_COST,
-				function()
-					return UDim2.fromScale(0.152616, 0.905 + 0.035 * (1 - footerReveal()))
-				end
-			),
+			createPurchaseButton("PurchaseButton", 1, "SUMMON", ONE_PULL_COST, function()
+				return UDim2.fromScale(0.152616, 0.905 + 0.035 * (1 - footerReveal()))
+			end),
 
-			createPurchaseButton(
-				"PurchaseButton",
-				10,
-				"X10",
-				TEN_PULL_COST,
-				function()
-					return UDim2.fromScale(0.406167, 0.905 + 0.035 * (1 - footerReveal()))
-				end
-			),
+			createPurchaseButton("PurchaseButton", 10, "X10", TEN_PULL_COST, function()
+				return UDim2.fromScale(0.406167, 0.905 + 0.035 * (1 - footerReveal()))
+			end),
 
 			createStatusBar(
 				"BannerTimer",
@@ -911,35 +910,17 @@ function SummonUI.RenderUI()
 				UDim2.fromScale(0.26, 0.036)
 			),
 
-			createStatusBar(
-				"MythicFloorBar",
-				"Fill",
-				"MYTHIC PITY",
-				function()
-					return mythicPity() / MYTHIC_PITY_LIMIT
-				end,
-				function()
-					return `{mythicPity()}/{MYTHIC_PITY_LIMIT}`
-				end,
-				RARITY_GRADIENTS.Mythic,
-				UDim2.fromScale(0.7, 0.875),
-				UDim2.fromScale(0.26, 0.036)
-			),
+			createStatusBar("MythicFloorBar", "Fill", "MYTHIC PITY", function()
+				return mythicPity() / MYTHIC_PITY_LIMIT
+			end, function()
+				return `{mythicPity()}/{MYTHIC_PITY_LIMIT}`
+			end, RARITY_GRADIENTS.Mythic, UDim2.fromScale(0.7, 0.875), UDim2.fromScale(0.26, 0.036)),
 
-			createStatusBar(
-				"AbsoluteFloorBar",
-				"Fill",
-				"ABSOLUTE PITY",
-				function()
-					return absolutePity() / ABSOLUTE_PITY_LIMIT
-				end,
-				function()
-					return `{absolutePity()}/{ABSOLUTE_PITY_LIMIT}`
-				end,
-				RARITY_GRADIENTS.Absolute,
-				UDim2.fromScale(0.7, 0.935),
-				UDim2.fromScale(0.26, 0.036)
-			),
+			createStatusBar("AbsoluteFloorBar", "Fill", "ABSOLUTE PITY", function()
+				return absolutePity() / ABSOLUTE_PITY_LIMIT
+			end, function()
+				return `{absolutePity()}/{ABSOLUTE_PITY_LIMIT}`
+			end, RARITY_GRADIENTS.Absolute, UDim2.fromScale(0.7, 0.935), UDim2.fromScale(0.26, 0.036)),
 
 			create("ImageButton")({
 				Name = "DropRateButton",
@@ -994,9 +975,7 @@ function SummonUI.RenderUI()
 					return isMounted() and (isProbabilityOpen() or ratesTransparency() < 0.995)
 				end,
 				Position = spring(function()
-					return if isProbabilityOpen()
-						then UDim2.fromScale(0.78, 0.475)
-						else UDim2.fromScale(0.82, 0.475)
+					return if isProbabilityOpen() then UDim2.fromScale(0.78, 0.475) else UDim2.fromScale(0.82, 0.475)
 				end, 0.3, 0.74),
 				Size = UDim2.fromScale(0.3, 0.54),
 				ZIndex = 20,
@@ -1072,11 +1051,7 @@ function SummonUI.Start()
 
 	local function updatePitySources()
 		mythicPity(
-			math.clamp(
-				math.floor(tonumber(player:GetAttribute(MYTHIC_PITY_ATTRIBUTE)) or 0),
-				0,
-				MYTHIC_PITY_LIMIT - 1
-			)
+			math.clamp(math.floor(tonumber(player:GetAttribute(MYTHIC_PITY_ATTRIBUTE)) or 0), 0, MYTHIC_PITY_LIMIT - 1)
 		)
 		absolutePity(
 			math.clamp(

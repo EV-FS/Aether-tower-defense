@@ -4,6 +4,8 @@ local SoundService = game:GetService("SoundService")
 local Vide = require(ReplicatedStorage.Packages.Vide)
 local ServiceRegistry = require(ReplicatedStorage.Shared.Modules.Core.ServiceRegistry)
 local QuestData = require(ReplicatedStorage.Settings.Data.QuestData)
+local UISFX = require(ReplicatedStorage.Settings.Visuals.UISFX)
+local useAudio = require(ReplicatedStorage.Shared.Modules.UI.Hooks.useAudio)
 local QuestMenuUI = require(script.Parent.QuestMenuUI)
 
 local create = Vide.create
@@ -140,6 +142,15 @@ function QuestUI.RenderUI()
 		)
 	end
 
+	local trackSFX = useAudio({
+		Id = UISFX.QuestTrack.Id,
+		Volume = UISFX.QuestTrack.Volume,
+	})
+	local untrackSFX = useAudio({
+		Id = UISFX.QuestUntrack.Id,
+		Volume = UISFX.QuestUntrack.Volume,
+	})
+
 	return create("Frame")({
 		Name = "QuestFrame",
 		BackgroundTransparency = 1,
@@ -202,8 +213,15 @@ function QuestUI.RenderUI()
 					Image = "rbxassetid://104073784954292",
 					Position = UDim2.fromScale(0.1, 0.5),
 					Size = UDim2.fromScale(0.0955804, 0.860585),
+
 					Activated = function()
 						isTrackingExpanded(not isTrackingExpanded())
+
+						if isTrackingExpanded() then
+							trackSFX:Play()
+						else
+							untrackSFX:Play()
+						end
 					end,
 
 					create("UIAspectRatioConstraint")({

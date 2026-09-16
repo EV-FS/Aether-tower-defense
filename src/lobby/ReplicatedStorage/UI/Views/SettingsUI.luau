@@ -4,7 +4,9 @@ local TweenService = game:GetService("TweenService")
 local UserInputService = game:GetService("UserInputService")
 
 local Vide = require(ReplicatedStorage.Packages.Vide)
+local UISFX = require(ReplicatedStorage.Settings.Visuals.UISFX)
 local ServiceRegistry = require(ReplicatedStorage.Shared.Modules.Core.ServiceRegistry)
+local useAudio = require(ReplicatedStorage.Shared.Modules.UI.Hooks.useAudio)
 local useButtonEffect = require(ReplicatedStorage.Shared.Modules.UI.Hooks.useButtonEffect)
 local SettingsMotion = require(ReplicatedStorage.Shared.Modules.UI.SettingsMotion)
 
@@ -39,6 +41,8 @@ local vfx = source(true)
 
 local autoSkip = source(false)
 local trade = source(true)
+
+local isLast = false
 
 --// Gradients
 local SELECTED_GRADIENT = ColorSequence.new({
@@ -290,20 +294,47 @@ function SettingsUI.RenderUI()
 		return if isWindowOpen() then SettingsMotion.WindowRotation.Open else SettingsMotion.WindowRotation.Closed
 	end, SettingsMotion.WindowRotation.Speed, SettingsMotion.WindowRotation.Damping)
 	local windowTransparency = spring(function()
-		return if isWindowOpen() then SettingsMotion.WindowTransparency.Open else SettingsMotion.WindowTransparency.Closed
+		return if isWindowOpen()
+			then SettingsMotion.WindowTransparency.Open
+			else SettingsMotion.WindowTransparency.Closed
 	end, SettingsMotion.WindowTransparency.Speed, SettingsMotion.WindowTransparency.Damping)
 	local codeFrameScale = spring(function()
 		return if isCodeFrameOpen() then SettingsMotion.CodeFrameScale.Open else SettingsMotion.CodeFrameScale.Closed
 	end, SettingsMotion.CodeFrameScale.Speed, SettingsMotion.CodeFrameScale.Damping)
 	local codeFramePosition = spring(function()
-		return if isCodeFrameOpen() then SettingsMotion.CodeFramePosition.Open else SettingsMotion.CodeFramePosition.Closed
+		return if isCodeFrameOpen()
+			then SettingsMotion.CodeFramePosition.Open
+			else SettingsMotion.CodeFramePosition.Closed
 	end, SettingsMotion.CodeFramePosition.Speed, SettingsMotion.CodeFramePosition.Damping)
 	local codeFrameRotation = spring(function()
-		return if isCodeFrameOpen() then SettingsMotion.CodeFrameRotation.Open else SettingsMotion.CodeFrameRotation.Closed
+		return if isCodeFrameOpen()
+			then SettingsMotion.CodeFrameRotation.Open
+			else SettingsMotion.CodeFrameRotation.Closed
 	end, SettingsMotion.CodeFrameRotation.Speed, SettingsMotion.CodeFrameRotation.Damping)
 	local codeFrameTransparency = spring(function()
-		return if isCodeFrameOpen() then SettingsMotion.CodeFrameTransparency.Open else SettingsMotion.CodeFrameTransparency.Closed
+		return if isCodeFrameOpen()
+			then SettingsMotion.CodeFrameTransparency.Open
+			else SettingsMotion.CodeFrameTransparency.Closed
 	end, SettingsMotion.CodeFrameTransparency.Speed, SettingsMotion.CodeFrameTransparency.Damping)
+
+	local openSFX = useAudio({
+		Id = UISFX.SettingsOpen.Id,
+		Volume = UISFX.SettingsOpen.Volume,
+	})
+	local closeSFX = useAudio({
+		Id = UISFX.Close.Id,
+		Volume = UISFX.Close.Volume,
+	})
+
+	effect(function()
+		if UIController:IsVisible(VIEW_ID)() then
+			isLast = true
+			openSFX:Play()
+		elseif isLast then
+			isLast = false
+			closeSFX:Play()
+		end
+	end)
 
 	return create("CanvasGroup")({
 		Name = "Setting",
@@ -339,7 +370,9 @@ function SettingsUI.RenderUI()
 				BackgroundTransparency = 1,
 				Image = "rbxassetid://96923630520876",
 				Position = spring(function()
-					return if isWindowOpen() then SettingsMotion.HeaderPosition.Open else SettingsMotion.HeaderPosition.Closed
+					return if isWindowOpen()
+						then SettingsMotion.HeaderPosition.Open
+						else SettingsMotion.HeaderPosition.Closed
 				end, SettingsMotion.HeaderPosition.Speed, SettingsMotion.HeaderPosition.Damping),
 				Size = UDim2.fromScale(0.692821, 0.28349),
 				ZIndex = 10,
@@ -351,7 +384,9 @@ function SettingsUI.RenderUI()
 					Image = "rbxassetid://131771458383625",
 					Position = UDim2.fromScale(0.129065, 0.438255),
 					Rotation = spring(function()
-						return if isWindowOpen() then SettingsMotion.GearRotation.Open else SettingsMotion.GearRotation.Closed
+						return if isWindowOpen()
+							then SettingsMotion.GearRotation.Open
+							else SettingsMotion.GearRotation.Closed
 					end, SettingsMotion.GearRotation.Speed, SettingsMotion.GearRotation.Damping),
 					Size = UDim2.fromScale(0.168507, 0.766167),
 
@@ -365,7 +400,9 @@ function SettingsUI.RenderUI()
 					BackgroundTransparency = 1,
 					Image = "rbxassetid://108560268349568",
 					Position = spring(function()
-						return if isWindowOpen() then SettingsMotion.CloudPosition.Open else SettingsMotion.CloudPosition.Closed
+						return if isWindowOpen()
+							then SettingsMotion.CloudPosition.Open
+							else SettingsMotion.CloudPosition.Closed
 					end, SettingsMotion.CloudPosition.Speed, SettingsMotion.CloudPosition.Damping),
 					ImageTransparency = spring(function()
 						return if isWindowOpen() then 0 else 1
@@ -404,10 +441,14 @@ function SettingsUI.RenderUI()
 				BackgroundTransparency = 1,
 				Image = "rbxassetid://92651860309635",
 				Position = spring(function()
-					return if isWindowOpen() then SettingsMotion.CancelPosition.Open else SettingsMotion.CancelPosition.Closed
+					return if isWindowOpen()
+						then SettingsMotion.CancelPosition.Open
+						else SettingsMotion.CancelPosition.Closed
 				end, SettingsMotion.CancelPosition.Speed, SettingsMotion.CancelPosition.Damping),
 				Rotation = spring(function()
-					return if isWindowOpen() then SettingsMotion.CancelRotation.Open else SettingsMotion.CancelRotation.Closed
+					return if isWindowOpen()
+						then SettingsMotion.CancelRotation.Open
+						else SettingsMotion.CancelRotation.Closed
 				end, SettingsMotion.CancelRotation.Speed, SettingsMotion.CancelRotation.Damping),
 				Size = UDim2.fromScale(0.102144, 0.15458),
 
@@ -487,9 +528,7 @@ function SettingsUI.RenderUI()
 						create("UIGradient")({
 							Name = "UIGradient",
 							Color = function()
-								return if activeTab() == "Gameplay"
-									then SELECTED_GRADIENT
-									else UNSELECTED_GRADIENT
+								return if activeTab() == "Gameplay" then SELECTED_GRADIENT else UNSELECTED_GRADIENT
 							end,
 							Rotation = 90,
 						}),
@@ -543,9 +582,7 @@ function SettingsUI.RenderUI()
 						create("UIGradient")({
 							Name = "UIGradient",
 							Color = function()
-								return if activeTab() == "Sound"
-									then SELECTED_GRADIENT
-									else UNSELECTED_GRADIENT
+								return if activeTab() == "Sound" then SELECTED_GRADIENT else UNSELECTED_GRADIENT
 							end,
 							Rotation = 90,
 						}),
@@ -611,9 +648,7 @@ function SettingsUI.RenderUI()
 						create("UIGradient")({
 							Name = "UIGradient",
 							Color = function()
-								return if activeTab() == "Graphics"
-									then SELECTED_GRADIENT
-									else UNSELECTED_GRADIENT
+								return if activeTab() == "Graphics" then SELECTED_GRADIENT else UNSELECTED_GRADIENT
 							end,
 							Rotation = 90,
 						}),
@@ -1327,7 +1362,9 @@ function SettingsUI.RenderUI()
 				BackgroundTransparency = 1,
 				Image = "rbxassetid://110509589182931",
 				Position = spring(function()
-					return if isWindowOpen() then SettingsMotion.CodeButtonPosition.Open else SettingsMotion.CodeButtonPosition.Closed
+					return if isWindowOpen()
+						then SettingsMotion.CodeButtonPosition.Open
+						else SettingsMotion.CodeButtonPosition.Closed
 				end, SettingsMotion.CodeButtonPosition.Speed, SettingsMotion.CodeButtonPosition.Damping),
 				Size = UDim2.fromScale(0.0773201, 0.138996),
 				ZIndex = 11,
@@ -1631,7 +1668,6 @@ function SettingsUI.Close()
 end
 
 function SettingsUI.Start()
-
 	-- Sync state from SettingsClient if available
 	task.spawn(function()
 		if SettingsClient then

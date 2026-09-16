@@ -27,7 +27,7 @@ return TableUtils.DeepFreeze({
 		Id = 97658036908169,
 		Volume = 2,
 	},
-	Index = {
+	IndexOpen = {
 		Id = 123165741327103,
 		Volume = 2,
 	},
@@ -84,26 +84,26 @@ return TableUtils.DeepFreeze({
 
 	Absolute = {
 		Id = 105474779214033,
-		Volume = 2,
+		Volume = 2.5,
 	},
 	Mythic = {
 		Id = 80021825278683,
-		Volume = 2,
+		Volume = 2.5,
 	},
 	Legendary = {
 		Id = 76298902313015,
-		Volume = 2,
+		Volume = 2.5,
 	},
 	Epic = {
 		Id = 130514706263457,
-		Volume = 2,
+		Volume = 2.5,
 	},
 	Rare = {
 		Id = 128731121290086,
-		Volume = 2,
+		Volume = 2.5,
 	},
 	Common = {
 		Id = 92354073534704,
-		Volume = 2,
+		Volume = 2.5,
 	},
 })

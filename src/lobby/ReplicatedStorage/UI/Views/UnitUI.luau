@@ -54,6 +54,8 @@ local unitActionPending = source(false)
 local unitActionFeedback = source("")
 local unitActionSucceeded = source(true)
 
+local isLast = false
+
 local function normalizeSearch(value: string): string
 	return string.lower(value):gsub("^%s+", ""):gsub("%s+$", "")
 end
@@ -306,7 +308,11 @@ function UnitUI.RenderUI()
 
 	effect(function()
 		if UIController:IsVisible(VIEW_ID)() then
+			isLast = true
 			openSFX:Play()
+		elseif isLast then
+			isLast = false
+			closeSFX:Play()
 		end
 	end)
 
@@ -447,6 +453,9 @@ function UnitUI.RenderUI()
 						end, 0.35, 0.5),
 						Size = UDim2.fromScale(0.251482, 0.782844),
 						ZIndex = 21,
+						MouseButton1Click = function()
+							sellSFX:Play()
+						end,
 
 						useButtonEffect(nil, nil, true),
 
@@ -478,6 +487,9 @@ function UnitUI.RenderUI()
 						end, 0.5, 0.5),
 						Size = UDim2.fromScale(0.251482, 0.782844),
 						ZIndex = 21,
+						MouseButton1Click = function()
+							lockSFX:Play()
+						end,
 
 						useButtonEffect(nil, nil, true),
 
@@ -1180,7 +1192,6 @@ function UnitUI.RenderUI()
 
 				MouseButton1Click = function()
 					UIController:Close(VIEW_ID)
-					closeSFX:Play()
 				end,
 
 				useButtonEffect(nil, 1.1, true),
