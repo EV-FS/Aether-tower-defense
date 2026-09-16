@@ -88,12 +88,14 @@ local function admitPlayer(player: Player, joinData: any): (boolean, string?)
 		incoming = matchData or MatchProtocol.CreateTeleportData(HttpService:GenerateGUID(false), settings, 1)
 	else
 		if not RunService:IsStudio() then
-			if
-				type(joinData) ~= "table"
-				or joinData.SourcePlaceId ~= GameSettings.LobbyPlaceId
-				or joinData.SourceGameId ~= game.GameId
-			then
-				return false, "INVALID_SOURCE"
+			if type(joinData) ~= "table" then
+				return false, "MISSING_JOIN_DATA"
+			end
+			if joinData.SourcePlaceId ~= GameSettings.LobbyPlaceId then
+				return false, "INVALID_SOURCE_PLACE"
+			end
+			if joinData.SourceGameId ~= game.GameId then
+				return false, "INVALID_SOURCE_GAME"
 			end
 		end
 		incoming, errorCode = MatchProtocol.ValidateTeleportData(teleportData)
@@ -429,10 +431,35 @@ function GameService.Start()
 			return
 		end
 		local readSuccess, joinData = pcall(player.GetJoinData, player)
-		local admitted, reason = admitPlayer(player, if readSuccess then joinData else nil)
+		local admitted, reason = false, "JOIN_DATA_READ_FAILED"
+		if readSuccess then
+			admitted, reason = admitPlayer(player, joinData)
+		end
 		if not admitted then
-			warn(string.format("[GameService] Rejected match arrival %d: %s", player.UserId, tostring(reason)))
-			player:Kick("Invalid match information. Please join the game through the lobby.")
+			local source = if readSuccess and type(joinData) == "table" then joinData else {}
+			local payload = if type(source.TeleportData) == "table" then source.TeleportData else {}
+			warn(string.format(
+				"[GameService] Rejected match arrival %d: %s; sourcePlace=%s expectedLobby=%s; sourceGame=%s expectedGame=%s; destination=%s placeVersion=%s; teleportVersion=%s map=%s difficulty=%s members=%s",
+				player.UserId,
+				tostring(reason),
+				tostring(source.SourcePlaceId),
+				tostring(GameSettings.LobbyPlaceId),
+				tostring(source.SourceGameId),
+				tostring(game.GameId),
+				tostring(game.PlaceId),
+				tostring(game.PlaceVersion),
+				tostring(payload.Version),
+				tostring(payload.Map),
+				tostring(payload.Difficulty),
+				tostring(payload.MemberCount)
+			))
+			if not readSuccess then
+				warn("[GameService] GetJoinData failed:", joinData)
+			end
+			player:Kick(string.format(
+				"Could not verify this match. Please return to the lobby and try again. (%s)",
+				tostring(reason)
+			))
 			return
 		end
 
