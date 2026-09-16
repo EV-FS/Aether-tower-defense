@@ -3,7 +3,7 @@ local TableUtils = require(ReplicatedStorage.Shared.Modules.Utils.TableUtils)
 
 return TableUtils.DeepFreeze({
 	--GameService
-	LobbyPlaceId = 82472147389912,
+	LobbyPlaceId = 120706143666221,
 	StartMoney = 100000000,
 	WaveReward = 100, --(WaveReward * wave + waveBonus)
 	SkipBonus = 100, --웨이브 스킵 시에 웨이브 보상
