@@ -72,33 +72,6 @@ local BACKDROP_FOCUS_RADIUS = 3
 local FOCUS_FADE_IN_TIME = 0.32
 local FOCUS_FADE_OUT_TIME = 0.38
 
-local SUMMON_SFX = {
-	Absolute = useAudio({
-		Id = UISFX.Absolute.Id,
-		Volume = UISFX.Absolute.Volume,
-	}),
-	Mythic = useAudio({
-		Id = UISFX.Mythic.Id,
-		Volume = UISFX.Mythic.Volume,
-	}),
-	Legendary = useAudio({
-		Id = UISFX.Legendary.Id,
-		Volume = UISFX.Legendary.Volume,
-	}),
-	Epic = useAudio({
-		Id = UISFX.Epic.Id,
-		Volume = UISFX.Epic.Volume,
-	}),
-	Rare = useAudio({
-		Id = UISFX.Rare.Id,
-		Volume = UISFX.Rare.Volume,
-	}),
-	Common = useAudio({
-		Id = UISFX.Common.Id,
-		Volume = UISFX.Common.Volume,
-	}),
-}
-
 local closeToken = 0
 local completedCallback: (() -> ())? = nil
 
@@ -318,7 +291,7 @@ local function playInitialReveal()
 
 			local unit = getCurrentUnit()
 			local sfx = unit and UISFX[unit.Rarity]
-			sfx:Play()
+			useAudio({ Id = sfx.Id, Volume = sfx.Volume }):Play()
 		end
 	end)
 end
@@ -346,7 +319,7 @@ local function playTransition(onSwitch: () -> ())
 
 			local unit = getCurrentUnit()
 			local sfx = unit and UISFX[unit.Rarity]
-			sfx:Play()
+			useAudio({ Id = sfx.Id, Volume = sfx.Volume }):Play()
 
 			task.delay(ENTER_DELAY, function()
 				isTransitioning(false)
