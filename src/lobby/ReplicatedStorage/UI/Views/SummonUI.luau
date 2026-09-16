@@ -27,6 +27,8 @@ local UIController
 local DataClient
 local InventoryClient
 local summonZone
+local cutsceneSFX
+local bookTurnSFX
 
 local VIEW_ID = "Summon"
 local ENTER_DURATION = 0.42
@@ -583,6 +585,11 @@ function SummonUI.Summon(number: number)
 			isProbabilityOpen(false)
 			local revealedResults = {}
 			local frameCallbacks = {
+				[0] = function()
+					if cutsceneSFX then
+						cutsceneSFX:Play()
+					end
+				end,
 				[19] = function()
 					emitCutsceneVFX("Book VFX")
 				end,
@@ -600,6 +607,9 @@ function SummonUI.Summon(number: number)
 				local revealFrame = RESULT_REVEAL_FRAMES[capturedIndex]
 				pauseFrames[revealFrame] = true
 				frameCallbacks[revealFrame] = function()
+					if bookTurnSFX then
+						bookTurnSFX:Play()
+					end
 					emitCutsceneVFX("OpenBook")
 					local didOpen = SummonResultUI.ShowResults({ pulledUnits[capturedIndex] }, function()
 						-- Keep an exclusive view active while the cutscene is hidden so the
@@ -660,6 +670,20 @@ function SummonUI.RenderUI()
 		Id = UISFX.Close.Id,
 		Volume = UISFX.Close.Volume,
 	})
+
+	-- Frame callbacks only play audio; Vide owns its creation and cleanup here.
+	cutsceneSFX = useAudio({
+		Id = UISFX.SummonSceneStart.Id,
+		Volume = UISFX.SummonSceneStart.Volume,
+	})
+	bookTurnSFX = useAudio({
+		Id = UISFX.SummonBookTurn.Id,
+		Volume = UISFX.SummonBookTurn.Volume,
+	})
+	cleanup(function()
+		cutsceneSFX = nil
+		bookTurnSFX = nil
+	end)
 
 	local wasOpen = false
 	effect(function()

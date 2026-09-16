@@ -106,4 +106,14 @@ return TableUtils.DeepFreeze({
 		Id = 92354073534704,
 		Volume = 2.5,
 	},
+
+	SummonSceneStart = {
+		Id = 96407598764657,
+		Volume = 3,
+	},
+
+	SummonBookTurn = {
+		Id = 97099435838422,
+		Volume = 3,
+	},
 })
