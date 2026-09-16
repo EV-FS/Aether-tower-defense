@@ -25,6 +25,7 @@ ServiceRegistry:RegisterServices({
 	Controllers.SettingsClient,
 	Controllers.DataClient,
 	Controllers.InventoryClient,
+	Controllers.IndexClient,
 	Controllers.EmoteClient,
 	Controllers.EmojiClient,
 	Controllers.SprintClient,
@@ -33,6 +34,8 @@ ServiceRegistry:RegisterServices({
 	Controllers.InputController,
 	Controllers.UIController,
 	Controllers.DialogueClient,
+	Controllers.PartyController,
+	Controllers.TraitClient,
 	Controllers.TutorialClient,
 })
 

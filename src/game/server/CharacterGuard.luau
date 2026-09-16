@@ -29,7 +29,7 @@ end
 table.insert(connections, Players.PlayerAdded:Connect(watch))
 for _, player in Players:GetPlayers() do watch(player) end
 
-function Guard.Release(map)
+function Guard.Release(map, matchPlayers: { Player }?)
 	if released then return end
 	-- Resolve a real standing surface before allowing character physics.
 	local surface = nil
@@ -52,7 +52,7 @@ function Guard.Release(map)
 	assert(surface, "Map has no spawn or solid standing surface; characters remain protected")
 	local destination = surface.CFrame * CFrame.new(0, surface.Size.Y / 2 + 5, 0)
 	-- Keep new characters anchored until they have been placed on the loaded map.
-	local players = Players:GetPlayers()
+	local players = matchPlayers or Players:GetPlayers()
 	local pending = #players
 	local failures = {}
 	for _, player in players do
