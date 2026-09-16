@@ -76,7 +76,6 @@ end
 local function admitPlayer(player: Player, joinData: any): (boolean, string?)
 	local teleportData = if type(joinData) == "table" then joinData.TeleportData else nil
 	local incoming: MatchProtocol.TeleportData?
-	local errorCode: string?
 	if RunService:IsStudio() and teleportData == nil then
 		local settings, settingsError = MatchProtocol.ValidateSettings({
 			Map = PartySettings.StudioMap,
@@ -87,21 +86,45 @@ local function admitPlayer(player: Player, joinData: any): (boolean, string?)
 		end
 		incoming = matchData or MatchProtocol.CreateTeleportData(HttpService:GenerateGUID(false), settings, 1)
 	else
-		if not RunService:IsStudio() then
-			if type(joinData) ~= "table" then
-				return false, "MISSING_JOIN_DATA"
-			end
-			if joinData.SourcePlaceId ~= GameSettings.LobbyPlaceId then
-				return false, "INVALID_SOURCE_PLACE"
-			end
-			if joinData.SourceGameId ~= game.GameId then
-				return false, "INVALID_SOURCE_GAME"
-			end
+		if teleportData == nil then
+			return false, "MISSING_TELEPORT_DATA"
 		end
-		incoming, errorCode = MatchProtocol.ValidateTeleportData(teleportData)
-	end
-	if not incoming then
-		return false, errorCode or "INVALID_TELEPORT_DATA"
+		local settings, settingsError = MatchProtocol.ValidateStartSettings(teleportData)
+		if not settings then
+			return false, settingsError
+		end
+
+		-- Older lobbies send only Map/Difficulty. Transport version and source
+		-- place IDs are not required to play an otherwise valid selection.
+		local memberCount = teleportData.MemberCount
+		if memberCount == nil then
+			local members = { [player.UserId] = true }
+			memberCount = 1
+			if type(joinData.Members) == "table" then
+				for _, userId in joinData.Members do
+					if type(userId) == "number" and not members[userId] then
+						members[userId] = true
+						memberCount += 1
+					end
+				end
+			end
+			memberCount = if matchData then matchData.MemberCount else memberCount
+		end
+		if
+			type(memberCount) ~= "number"
+			or memberCount % 1 ~= 0
+			or memberCount < 1
+			or memberCount > PartySettings.MaxMembers
+		then
+			return false, "INVALID_MEMBER_COUNT"
+		end
+		local matchId = teleportData.MatchId
+		if matchId == nil then
+			matchId = if matchData then matchData.MatchId else HttpService:GenerateGUID(false)
+		elseif type(matchId) ~= "string" or #matchId == 0 or #matchId > 100 then
+			return false, "INVALID_MATCH_ID"
+		end
+		incoming = MatchProtocol.CreateTeleportData(matchId, settings, memberCount)
 	end
 
 	if matchData then
@@ -121,6 +144,7 @@ local function admitPlayer(player: Player, joinData: any): (boolean, string?)
 		ReplicatedStorage:SetAttribute("MatchId", incoming.MatchId)
 		ReplicatedStorage:SetAttribute("ExpectedPlayerCount", incoming.MemberCount)
 		task.delay(PartySettings.ArrivalTimeout, function()
+			ReplicatedStorage:SetAttribute("ExpectedPlayerCount", nil)
 			if started then
 				GameService:TryStartGameWhenAllReady()
 			end
@@ -167,11 +191,6 @@ function GameService:PrepareMap()
 	local mapFolder = workspace:WaitForChild("Map")
 	mapFolder:SetAttribute("GameplayReady", false)
 	mapFolder:SetAttribute("LoadError", nil)
-
-	if RunService:IsStudio() then
-		self.SelectedMap = "Kitsune Raid"
-		self.SelectedDifficulty = "Normal"
-	end
 
 	ReplicatedStorage:SetAttribute("SelectedMap", self.SelectedMap)
 	ReplicatedStorage:SetAttribute("SelectedDifficulty", self.SelectedDifficulty or "Normal")
@@ -231,6 +250,7 @@ function GameService:StartGame()
 	table.clear(self.ReadyList)
 	self:FireReadyState()
 	self.StartPlayerCount = math.max(1, #self:GetMatchPlayers())
+	ReplicatedStorage:SetAttribute("ExpectedPlayerCount", nil)
 	Net.GameEvent.GameInfoSynced.FireAll({
 		Difficulty = self.SelectedDifficulty,
 		StartPlayerCount = self.StartPlayerCount,
@@ -427,39 +447,67 @@ function GameService.Start()
 	started = true
 
 	local function PlayerAdded(player: Player)
-		if admittedPlayers[player] or player.Parent ~= Players then
+		if admittedPlayers[player] ~= nil or player.Parent ~= Players then
 			return
 		end
+		admittedPlayers[player] = false -- Mark pending while GetJoinData is retried.
 		local readSuccess, joinData = pcall(player.GetJoinData, player)
 		local admitted, reason = false, "JOIN_DATA_READ_FAILED"
-		if readSuccess then
-			admitted, reason = admitPlayer(player, joinData)
+		for attempt = 1, 3 do
+			if player.Parent ~= Players then
+				return
+			end
+			if readSuccess then
+				admitted, reason = admitPlayer(player, joinData)
+			else
+				reason = "JOIN_DATA_READ_FAILED"
+			end
+			if
+				admitted
+				or (reason ~= "MISSING_TELEPORT_DATA" and reason ~= "JOIN_DATA_READ_FAILED")
+				or attempt == 3
+			then
+				break
+			end
+			task.wait(0.5)
+			readSuccess, joinData = pcall(player.GetJoinData, player)
 		end
 		if not admitted then
 			local source = if readSuccess and type(joinData) == "table" then joinData else {}
 			local payload = if type(source.TeleportData) == "table" then source.TeleportData else {}
-			warn(string.format(
-				"[GameService] Rejected match arrival %d: %s; sourcePlace=%s expectedLobby=%s; sourceGame=%s expectedGame=%s; destination=%s placeVersion=%s; teleportVersion=%s map=%s difficulty=%s members=%s",
-				player.UserId,
-				tostring(reason),
-				tostring(source.SourcePlaceId),
-				tostring(GameSettings.LobbyPlaceId),
-				tostring(source.SourceGameId),
-				tostring(game.GameId),
-				tostring(game.PlaceId),
-				tostring(game.PlaceVersion),
-				tostring(payload.Version),
-				tostring(payload.Map),
-				tostring(payload.Difficulty),
-				tostring(payload.MemberCount)
-			))
+			warn(
+				string.format(
+					"[GameService] Returning match arrival %d to lobby: %s; sourcePlace=%s; destination=%s placeVersion=%s; map=%s difficulty=%s members=%s",
+					player.UserId,
+					tostring(reason),
+					tostring(source.SourcePlaceId),
+					tostring(game.PlaceId),
+					tostring(game.PlaceVersion),
+					tostring(payload.Map),
+					tostring(payload.Difficulty),
+					tostring(payload.MemberCount)
+				)
+			)
 			if not readSuccess then
 				warn("[GameService] GetJoinData failed:", joinData)
 			end
-			player:Kick(string.format(
-				"Could not verify this match. Please return to the lobby and try again. (%s)",
-				tostring(reason)
-			))
+			-- Do not silently replace the player's selection with a default map.
+			task.delay(PartySettings.TeleportAttemptTimeout, function()
+				if player.Parent == Players then
+					player:Kick(
+						string.format(
+							"Could not load this match or return to the lobby. Please rejoin. (%s)",
+							tostring(reason)
+						)
+					)
+				end
+			end)
+			task.spawn(function()
+				local success, result = SafeTeleport(GameSettings.LobbyPlaceId, { player })
+				if not success then
+					warn("[GameService] Return to lobby failed:", result)
+				end
+			end)
 			return
 		end
 
@@ -484,7 +532,7 @@ function GameService.Start()
 	--/Player
 	Players.PlayerAdded:Connect(PlayerAdded)
 	for _, player in ipairs(Players:GetPlayers()) do
-		PlayerAdded(player)
+		task.spawn(PlayerAdded, player)
 	end
 	Players.PlayerRemoving:Connect(function(player)
 		admittedPlayers[player] = nil
