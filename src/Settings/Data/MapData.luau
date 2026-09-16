@@ -30,7 +30,9 @@ local DEFAULT_DIFFICULTIES: { Difficulty } = {
 
 return TableUtils.DeepFreeze({
 	["Chapter 1"] = {
+		MapName = "Chapter 1 - Goblin Cave",
 		MapImage = "rbxassetid://139254798620970",
+		LayoutOrder = 1,
 		Difficulties = DEFAULT_DIFFICULTIES,
 		DifficultyWaves = {
 			Normal = 20,
@@ -77,8 +79,9 @@ return TableUtils.DeepFreeze({
 		},
 	},
 	["Kitsune Raid"] = {
-		IntroCutscene = "RaidIntro",
+		MapName = "Kitsune Raid",
 		MapImage = "rbxassetid://139254798620970",
+		LayoutOrder = 3,
 		Difficulties = DEFAULT_DIFFICULTIES,
 		DifficultyWaves = {
 			Normal = 20,
@@ -125,7 +128,9 @@ return TableUtils.DeepFreeze({
 		},
 	},
 	["Raid"] = {
+		IntroCutscene = "RaidIntro",
 		MapImage = "rbxassetid://139254798620970",
+		LayoutOrder = 4,
 		Difficulties = DEFAULT_DIFFICULTIES,
 		DifficultyWaves = {
 			Normal = 20,

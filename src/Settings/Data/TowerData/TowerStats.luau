@@ -1025,7 +1025,7 @@ return TableUtils.DeepFreeze({
 			Cost = 300,
 			Damage = 2,
 			Cooldown = 1,
-			Range = 9,
+			Range = 8,
 			AttackDelay = 0.2,
 			AttackType = "Single",
 		},
@@ -1033,7 +1033,7 @@ return TableUtils.DeepFreeze({
 			Cost = 100,
 			Damage = 2,
 			Cooldown = 0.75,
-			Range = 9,
+			Range = 8,
 			AttackDelay = 0.2,
 			AttackType = "Single",
 		},
@@ -1041,7 +1041,7 @@ return TableUtils.DeepFreeze({
 			Cost = 410,
 			Damage = 4,
 			Cooldown = 0.75,
-			Range = 9,
+			Range = 8,
 			AttackDelay = 0.2,
 			AttackType = "Single",
 		},
@@ -1049,7 +1049,7 @@ return TableUtils.DeepFreeze({
 			Cost = 1250,
 			Damage = 6,
 			Cooldown = 0.45,
-			Range = 10,
+			Range = 9,
 			AttackDelay = 0.2,
 			AttackType = "Single",
 		},
@@ -1057,7 +1057,7 @@ return TableUtils.DeepFreeze({
 			Cost = 2440,
 			Damage = 13,
 			Cooldown = 0.45,
-			Range = 10,
+			Range = 9,
 			AttackDelay = 0.2,
 			AttackType = "Single",
 		},
@@ -1067,7 +1067,7 @@ return TableUtils.DeepFreeze({
 			Cost = 550,
 			Damage = 4,
 			Cooldown = 1.1,
-			Range = 10,
+			Range = 9,
 			AttackDelay = 0.23,
 			AttackType = "Single",
 		},
@@ -1075,15 +1075,15 @@ return TableUtils.DeepFreeze({
 			Cost = 250,
 			Damage = 5,
 			Cooldown = 0.95,
-			Range = 10,
+			Range = 9,
 			AttackDelay = 0.23,
 			AttackType = "Single",
 		},
 		[2] = {
 			Cost = 800,
-			Damage = 10,
+			Damage = 8,
 			Cooldown = 0.95,
-			Range = 10,
+			Range = 9,
 			AttackDelay = 0.23,
 			AttackType = "Single",
 		},
@@ -1091,7 +1091,7 @@ return TableUtils.DeepFreeze({
 			Cost = 1450,
 			Damage = 18,
 			Cooldown = 0.9,
-			Range = 11,
+			Range = 10,
 			AttackDelay = 0.23,
 			AttackType = "Single",
 		},
@@ -1099,7 +1099,7 @@ return TableUtils.DeepFreeze({
 			Cost = 2350,
 			Damage = 30,
 			Cooldown = 0.85,
-			Range = 11,
+			Range = 10,
 			AttackDelay = 0.23,
 			AttackType = "Single",
 		},
@@ -1469,7 +1469,7 @@ return TableUtils.DeepFreeze({
 			Cost = 800,
 			Damage = 5,
 			Cooldown = 1.5,
-			Range = 13,
+			Range = 11,
 			Passives = {
 				{ Type = "Slow", Amount = 10, Duration = 0.5 },
 			},
@@ -1482,7 +1482,7 @@ return TableUtils.DeepFreeze({
 			Cost = 1200,
 			Damage = 12,
 			Cooldown = 1.5,
-			Range = 13,
+			Range = 11,
 			Passives = {
 				{ Type = "Slow", Amount = 10, Duration = 0.5 },
 			},
@@ -1495,7 +1495,7 @@ return TableUtils.DeepFreeze({
 			Cost = 3550,
 			Damage = 30,
 			Cooldown = 1.5,
-			Range = 13,
+			Range = 11,
 			Passives = {
 				{ Type = "Slow", Amount = 15, Duration = 0.5 },
 			},
@@ -1508,7 +1508,7 @@ return TableUtils.DeepFreeze({
 			Cost = 5650,
 			Damage = 56,
 			Cooldown = 1.5,
-			Range = 16,
+			Range = 14,
 			Passives = {
 				{ Type = "Slow", Amount = 15, Duration = 0.5 },
 			},
@@ -1521,7 +1521,7 @@ return TableUtils.DeepFreeze({
 			Cost = 6800,
 			Damage = 70,
 			Cooldown = 1.2,
-			Range = 16,
+			Range = 14,
 			Passives = {
 				{ Type = "Slow", Amount = 15, Duration = 0.5 },
 			},
@@ -1534,7 +1534,7 @@ return TableUtils.DeepFreeze({
 			Cost = 9500,
 			Damage = 100,
 			Cooldown = 1.2,
-			Range = 16,
+			Range = 14,
 			Passives = {
 				{ Type = "Slow", Amount = 20, Duration = 0.5 },
 			},
@@ -1798,7 +1798,7 @@ return TableUtils.DeepFreeze({
 			Cost = 1850,
 			Damage = 18,
 			Cooldown = 2.5,
-			Range = 14,
+			Range = 12,
 
 			Passives = {
 				{
@@ -1808,7 +1808,7 @@ return TableUtils.DeepFreeze({
 				},
 			},
 
-			Width = 7,
+			Width = 6,
 			AttackDelay = 0.75,
 			AttackType = "Line",
 		},
@@ -1816,7 +1816,7 @@ return TableUtils.DeepFreeze({
 			Cost = 3000,
 			Damage = 42,
 			Cooldown = 2.3,
-			Range = 16,
+			Range = 13,
 
 			Passives = {
 				{
@@ -1826,7 +1826,7 @@ return TableUtils.DeepFreeze({
 				},
 			},
 
-			Width = 7,
+			Width = 6,
 			AttackDelay = 0.75,
 			AttackType = "Line",
 		},
@@ -1834,7 +1834,7 @@ return TableUtils.DeepFreeze({
 			Cost = 5500,
 			Damage = 80,
 			Cooldown = 2.2,
-			Range = 16,
+			Range = 13,
 
 			Passives = {
 				{
@@ -1844,7 +1844,7 @@ return TableUtils.DeepFreeze({
 				},
 			},
 
-			Width = 7,
+			Width = 6,
 			AttackDelay = 0.75,
 			AttackType = "Line",
 		},
@@ -1852,7 +1852,7 @@ return TableUtils.DeepFreeze({
 			Cost = 8500,
 			Damage = 135,
 			Cooldown = 2.2,
-			Range = 18,
+			Range = 15,
 
 			Passives = {
 				{
@@ -1867,7 +1867,7 @@ return TableUtils.DeepFreeze({
 				},
 			},
 
-			Width = 7,
+			Width = 6,
 			AttackDelay = 0.75,
 			AttackType = "Line",
 		},
@@ -1875,7 +1875,7 @@ return TableUtils.DeepFreeze({
 			Cost = 11000,
 			Damage = 250,
 			Cooldown = 3.8,
-			Range = 25,
+			Range = 21,
 
 			Passives = {
 				{
@@ -1890,7 +1890,7 @@ return TableUtils.DeepFreeze({
 				},
 			},
 
-			Width = 12,
+			Width = 10,
 			AttackDelay = 0.866,
 			AttackType = "Line",
 		},
@@ -1898,7 +1898,7 @@ return TableUtils.DeepFreeze({
 			Cost = 18500,
 			Damage = 350,
 			Cooldown = 3.5,
-			Range = 25,
+			Range = 21,
 
 			Passives = {
 				{
@@ -1915,7 +1915,7 @@ return TableUtils.DeepFreeze({
 				},
 			},
 
-			Width = 12,
+			Width = 10,
 			AttackDelay = 0.866,
 			AttackType = "Line",
 		},
@@ -1927,7 +1927,7 @@ return TableUtils.DeepFreeze({
 			Cost = 2000,
 			Damage = 21,
 			Cooldown = 1.5,
-			Range = 13,
+			Range = 11,
 
 			AttackDelay = 0.333,
 			AttackType = "Angle",
@@ -1937,7 +1937,7 @@ return TableUtils.DeepFreeze({
 			Cost = 2350,
 			Damage = 45,
 			Cooldown = 1.5,
-			Range = 13,
+			Range = 11,
 
 			AttackDelay = 0.333,
 			AttackType = "Angle",
@@ -1947,7 +1947,7 @@ return TableUtils.DeepFreeze({
 			Cost = 6000,
 			Damage = 57,
 			Cooldown = 2.4,
-			Range = 15,
+			Range = 13,
 
 			Hits = {
 				{
@@ -1963,7 +1963,7 @@ return TableUtils.DeepFreeze({
 				{
 					Delay = 1.417,
 					AttackType = "Line",
-					Width = 15,
+					Width = 13,
 				},
 			},
 
@@ -1975,7 +1975,7 @@ return TableUtils.DeepFreeze({
 			Cost = 15000,
 			Damage = 113,
 			Cooldown = 2.2,
-			Range = 15,
+			Range = 13,
 
 			Hits = {
 				{
@@ -1991,7 +1991,7 @@ return TableUtils.DeepFreeze({
 				{
 					Delay = 1.417,
 					AttackType = "Line",
-					Width = 15,
+					Width = 13,
 				},
 			},
 
@@ -2003,7 +2003,7 @@ return TableUtils.DeepFreeze({
 			Cost = 21000,
 			Damage = 280,
 			Cooldown = 4,
-			Range = 20,
+			Range = 17,
 
 			Hits = {
 				{
@@ -2022,13 +2022,13 @@ return TableUtils.DeepFreeze({
 
 			AttackDelay = 0,
 			AttackType = "Line",
-			Width = 18,
+			Width = 15,
 		},
 		[5] = {
 			Cost = 30500,
 			Damage = 400,
 			Cooldown = 3.5,
-			Range = 20,
+			Range = 17,
 
 			Hits = {
 				{
@@ -2047,7 +2047,7 @@ return TableUtils.DeepFreeze({
 
 			AttackDelay = 0,
 			AttackType = "Line",
-			Width = 18,
+			Width = 15,
 		},
 	},
 	["Galahad"] = {
@@ -2055,7 +2055,7 @@ return TableUtils.DeepFreeze({
 			Cost = 1200,
 			Damage = 15,
 			Cooldown = 1.25,
-			Range = 13,
+			Range = 11,
 			Angle = 180,
 			Passives = {
 				{
@@ -2074,7 +2074,7 @@ return TableUtils.DeepFreeze({
 			Cost = 2800,
 			Damage = 40,
 			Cooldown = 1.1,
-			Range = 13,
+			Range = 11,
 			Angle = 180,
 			Passives = {
 				{
@@ -2093,7 +2093,7 @@ return TableUtils.DeepFreeze({
 			Cost = 6500,
 			Damage = 90,
 			Cooldown = 1,
-			Range = 13,
+			Range = 11,
 			Angle = 180,
 			Passives = {
 				{
@@ -2112,7 +2112,7 @@ return TableUtils.DeepFreeze({
 			Cost = 10000,
 			Damage = 400,
 			Cooldown = 3,
-			Range = 17,
+			Range = 14,
 			Width = 12,
 			Passives = {
 				{
@@ -2131,7 +2131,7 @@ return TableUtils.DeepFreeze({
 			Cost = 17000,
 			Damage = 600,
 			Cooldown = 2.5,
-			Range = 17,
+			Range = 14,
 			Width = 12,
 			Passives = {
 				{
@@ -2150,7 +2150,7 @@ return TableUtils.DeepFreeze({
 			Cost = 28500,
 			Damage = 1000,
 			Cooldown = 2.3,
-			Range = 17,
+			Range = 14,
 			Width = 12,
 			Passives = {
 				{
@@ -2171,7 +2171,7 @@ return TableUtils.DeepFreeze({
 			Cost = 0,
 			Damage = 6767,
 			Cooldown = 5,
-			Range = 25,
+			Range = 21,
 
 			Hits = {
 				{

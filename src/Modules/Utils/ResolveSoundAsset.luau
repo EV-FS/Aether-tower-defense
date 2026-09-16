@@ -1,5 +1,6 @@
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
+-- Recipe paths are relative to ReplicatedStorage.Assets.SFX.
 local function ResolveSoundAsset(soundPath: string): Sound?
 	if soundPath == "" then
 		return nil

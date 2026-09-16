@@ -28,6 +28,8 @@ ServiceRegistry:RegisterServices({
 	ServerServices.DialogueService,
 	ServerServices.QuestService,
 	ServerServices.RoleTagService,
+	ServerServices.MatchService,
+	ServerServices.PartyService,
 
 	SharedServices.NotificationService,
 })

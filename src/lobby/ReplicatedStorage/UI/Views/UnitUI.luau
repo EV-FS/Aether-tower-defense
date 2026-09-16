@@ -5,7 +5,9 @@ local TowerData = require(ReplicatedStorage.Settings.Data.TowerData)
 local TraitData = require(ReplicatedStorage.Settings.Data.TraitData)
 local UnitCatalog = require(ReplicatedStorage.Settings.Data.UnitCatalog)
 local RarityGradient = require(ReplicatedStorage.Settings.Visuals.RarityGradient)
+local UISFX = require(ReplicatedStorage.Settings.Visuals.UISFX)
 local ServiceRegistry = require(ReplicatedStorage.Shared.Modules.Core.ServiceRegistry)
+local useAudio = require(ReplicatedStorage.Shared.Modules.UI.Hooks.useAudio)
 local useButtonEffect = require(ReplicatedStorage.Shared.Modules.UI.Hooks.useButtonEffect)
 local useColorSequenceCycle = require(ReplicatedStorage.Shared.Modules.UI.Hooks.useColorSequenceCycle)
 local NumberUtils = require(ReplicatedStorage.Shared.Modules.Utils.NumberUtils)
@@ -176,46 +178,6 @@ local UnitUI = {}
 function UnitUI.OnSelected(towerName: string, towerKey: string, _towerProfile)
 	selectedName(towerName)
 	selectedKey(towerKey)
-	unitActionFeedback("")
-end
-
-local function selectFirstOwnedUnit()
-	for towerName, towers in towerInventory() do
-		for towerKey in towers do
-			selectedName(towerName)
-			selectedKey(towerKey)
-			return
-		end
-	end
-
-	selectedName(nil)
-	selectedKey(nil)
-end
-
-function UnitUI.PerformSelectedAction(actionName: "ToggleUnitLock" | "SellUnit")
-	if unitActionPending() then return end
-
-	local towerName = selectedName()
-	local towerKey = selectedKey()
-	if type(towerName) ~= "string" or (type(towerKey) ~= "string" and type(towerKey) ~= "number") then
-		return
-	end
-
-	unitActionPending(true)
-	unitActionFeedback("")
-	InventoryClient.PerformUnitAction(actionName, towerName, towerKey):andThen(function(result)
-		unitActionPending(false)
-		unitActionSucceeded(result.Success == true)
-		unitActionFeedback(result.Message or if result.Success then "Done." else "Action failed.")
-		if result.Success and actionName == "SellUnit" then
-			selectFirstOwnedUnit()
-		end
-	end):catch(function(err)
-		unitActionPending(false)
-		unitActionSucceeded(false)
-		unitActionFeedback("Unit action failed.")
-		warn(`[UnitUI] Unit action failed: {err}`)
-	end)
 end
 
 function UnitUI.EquipActivated()
@@ -301,6 +263,35 @@ function UnitUI.RenderUI()
 		return ranks
 	end)
 
+	local openSFX = useAudio({
+		Id = UISFX.UnitsOpen.Id,
+		Volume = UISFX.UnitsOpen.Volume,
+	})
+	local closeSFX = useAudio({
+		Id = UISFX.Close.Id,
+		Volume = UISFX.Close.Volume,
+	})
+	local equipSFX = useAudio({
+		Id = UISFX.Equip.Id,
+		Volume = UISFX.Equip.Volume,
+	})
+	local unequipSFX = useAudio({
+		Id = UISFX.Uneqiup.Id,
+		Volume = UISFX.Uneqiup.Volume,
+	})
+	local sellSFX = useAudio({
+		Id = UISFX.Sell.Id,
+		Volume = UISFX.Sell.Volume,
+	})
+	local lockSFX = useAudio({
+		Id = UISFX.Lock.Id,
+		Volume = UISFX.Lock.Volume,
+	})
+	local sortSFX = useAudio({
+		Id = UISFX.Sort.Id,
+		Volume = UISFX.Sort.Volume,
+	})
+
 	effect(function()
 		local towerName = selectedName()
 		local towerInfo = if towerName then TowerData.ByName[towerName] else nil
@@ -311,6 +302,12 @@ function UnitUI.RenderUI()
 		selectedDamage(if currentStats then currentStats.Damage or 0 else 0)
 		selectedCooldown(if currentStats then currentStats.Cooldown or 0 else 0)
 		selectedRange(if currentStats then currentStats.Range or 0 else 0)
+	end)
+
+	effect(function()
+		if UIController:IsVisible(VIEW_ID)() then
+			openSFX:Play()
+		end
 	end)
 
 	local animatedCount = spring(storageCount, 0.5, 1)
@@ -424,9 +421,12 @@ function UnitUI.RenderUI()
 
 				create("ImageLabel")({
 					Name = "Bottom",
-					Active = true,
+					Active = hasSelectedUnit,
 					BackgroundTransparency = 1,
 					Image = "rbxassetid://101405228511471",
+					ImageTransparency = function()
+						return if hasSelectedUnit() then 0 else 0.45
+					end,
 					Position = UDim2.fromScale(-0.00261403, 0.882837),
 					Size = UDim2.fromScale(1, 0.117596),
 					ZIndex = 20,
@@ -447,11 +447,8 @@ function UnitUI.RenderUI()
 						end, 0.35, 0.5),
 						Size = UDim2.fromScale(0.251482, 0.782844),
 						ZIndex = 21,
-						Activated = function()
-							UnitUI.PerformSelectedAction("SellUnit")
-						end,
 
-						useButtonEffect(),
+						useButtonEffect(nil, nil, true),
 
 						create("TextLabel")({
 							Name = "Title",
@@ -459,11 +456,7 @@ function UnitUI.RenderUI()
 							FontFace = Font.new("rbxasset://fonts/families/FredokaOne.json"),
 							Position = UDim2.fromScale(0.265238, 0.237766),
 							Size = UDim2.fromScale(0.467855, 0.487941),
-							Text = function()
-								if unitActionPending() then return "WAIT" end
-								local towerInfo = TowerData.ByName[selectedName()]
-								return if towerInfo then `SELL {towerInfo.SellPrice}` else "SELL"
-							end,
+							Text = "SELL",
 							TextColor3 = Color3.new(1, 1, 1),
 							TextScaled = true,
 						}),
@@ -485,11 +478,8 @@ function UnitUI.RenderUI()
 						end, 0.5, 0.5),
 						Size = UDim2.fromScale(0.251482, 0.782844),
 						ZIndex = 21,
-						Activated = function()
-							UnitUI.PerformSelectedAction("ToggleUnitLock")
-						end,
 
-						useButtonEffect(),
+						useButtonEffect(nil, nil, true),
 
 						create("TextLabel")({
 							Name = "Title",
@@ -497,30 +487,10 @@ function UnitUI.RenderUI()
 							FontFace = Font.new("rbxasset://fonts/families/FredokaOne.json"),
 							Position = UDim2.fromScale(0.265238, 0.237766),
 							Size = UDim2.fromScale(0.467855, 0.487941),
-							Text = function()
-								if unitActionPending() then return "WAIT" end
-								return if selectedLocked() then "UNLOCK" else "LOCK"
-							end,
+							Text = "LOCK",
 							TextColor3 = Color3.new(1, 1, 1),
 							TextScaled = true,
 						}),
-					}),
-
-					create("TextLabel")({
-						Name = "ActionFeedback",
-						AnchorPoint = Vector2.new(0.5, 1),
-						BackgroundTransparency = 1,
-						FontFace = Font.new("rbxasset://fonts/families/SourceSansPro.json", Enum.FontWeight.Bold),
-						Position = UDim2.fromScale(0.5, -0.08),
-						Size = UDim2.fromScale(0.82, 0.34),
-						Text = unitActionFeedback,
-						TextColor3 = function()
-							return if unitActionSucceeded() then Color3.fromRGB(126, 255, 144) else Color3.fromRGB(255, 105, 105)
-						end,
-						TextScaled = true,
-						Visible = function() return unitActionFeedback() ~= "" end,
-						ZIndex = 22,
-						create("UIStroke")({ Thickness = 1.5 }),
 					}),
 
 					create("ImageButton")({
@@ -539,9 +509,12 @@ function UnitUI.RenderUI()
 						Selectable = true,
 						ZIndex = 21,
 
-						Activated = UnitUI.SortActivated,
+						Activated = function()
+							UnitUI.SortActivated()
+							sortSFX:Play()
+						end,
 
-						useButtonEffect(),
+						useButtonEffect(nil, nil, true),
 
 						create("TextLabel")({
 							Name = "Title",
@@ -601,36 +574,35 @@ function UnitUI.RenderUI()
 									return sortedUnitRanks()[getUnitId(towerName(), towerKey)] or 999999
 								end
 								local shouldMount = derive(function()
-									return isInventoryVisible()
-										and matchesSearch(towerName(), towerKey, towerData)
+									return isInventoryVisible() and matchesSearch(towerName(), towerKey, towerData)
 								end)
 
-								table.insert(buttons, show(shouldMount, function()
-									return TowerButton({
-										TowerName = towerName(),
-										TowerKey = towerKey,
-										TowerData = towerData,
-										IsSelected = function()
-											return if selectedName() == towerName()
-													and selectedKey() == towerKey
-												then true
-												else false
-										end,
-										IsEquipped = function()
-											return InventoryClient.IsEquipped(towerName(), towerKey)
-										end,
-										IsLocked = function()
-											return towerData.Locked == true
-										end,
-										EquippedSlot = function()
-											return InventoryClient.FindEquippedSlot(towerName(), towerKey)
-										end,
-										LayoutOrder = layoutOrder,
-										OnActivated = function()
-											UnitUI.OnSelected(towerName(), towerKey, towerData)
-										end,
-									})
-								end))
+								table.insert(
+									buttons,
+									show(shouldMount, function()
+										return TowerButton({
+											TowerName = towerName(),
+											TowerKey = towerKey,
+											TowerData = towerData,
+											IsSelected = function()
+												return if selectedName() == towerName()
+														and selectedKey() == towerKey
+													then true
+													else false
+											end,
+											IsEquipped = function()
+												return InventoryClient.IsEquipped(towerName(), towerKey)
+											end,
+											EquippedSlot = function()
+												return InventoryClient.FindEquippedSlot(towerName(), towerKey)
+											end,
+											LayoutOrder = layoutOrder,
+											OnActivated = function()
+												UnitUI.OnSelected(towerName(), towerKey, towerData)
+											end,
+										})
+									end)
+								)
 							end
 
 							return buttons
@@ -1095,7 +1067,6 @@ function UnitUI.RenderUI()
 					Image = "rbxassetid://127028785606527",
 					Position = UDim2.fromScale(0.0825364, 0.019763),
 					Size = UDim2.fromScale(0.113389, 0.097458),
-					Visible = function() return selectedTraitInfo() ~= nil end,
 
 					create("UIAspectRatioConstraint")({
 						Name = "UIAspectRatioConstraint",
@@ -1140,9 +1111,24 @@ function UnitUI.RenderUI()
 				Size = UDim2.fromScale(0.337246, 0.0842378),
 				ZIndex = 11,
 
-				MouseButton1Click = UnitUI.EquipActivated,
+				MouseButton1Click = function()
+					UnitUI.EquipActivated()
 
-				useButtonEffect(0.985),
+					local towerName = selectedName()
+					local towerKey = selectedKey()
+
+					if type(towerName) ~= "string" or (type(towerKey) ~= "string" and type(towerKey) ~= "number") then
+						return
+					end
+
+					if InventoryClient.IsEquipped(towerName, towerKey) then
+						unequipSFX:Play()
+					else
+						equipSFX:Play()
+					end
+				end,
+
+				useButtonEffect(0.985, nil, true),
 
 				create("TextLabel")({
 					Name = "Title",
@@ -1194,9 +1180,10 @@ function UnitUI.RenderUI()
 
 				MouseButton1Click = function()
 					UIController:Close(VIEW_ID)
+					closeSFX:Play()
 				end,
 
-				useButtonEffect(nil, 1.1),
+				useButtonEffect(nil, 1.1, true),
 
 				create("UIAspectRatioConstraint")({
 					Name = "UIAspectRatioConstraint",
