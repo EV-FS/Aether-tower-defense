@@ -158,4 +158,11 @@ return TableUtils.DeepFreeze({
 			},
 		},
 	},
+	["dingding"] = {
+		AttackStart = {
+			[0] = {
+				newStep("Towers/dingding/dingdingattack", { Type = "3D", At = "Source" }),
+			},
+		},
+	},
 })

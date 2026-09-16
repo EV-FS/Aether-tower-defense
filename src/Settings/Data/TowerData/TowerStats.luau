@@ -2199,4 +2199,42 @@ return TableUtils.DeepFreeze({
 			Width = 10,
 		},
 	},
+		["Onion_fire18"] = {
+		[0] = {
+			Cost = 0,
+			Damage = 1818,
+			Cooldown = 0.61818,
+			Range = 1818,
+			Passives = {
+				{
+					Type = "Burn",
+					Duration = 1818,
+					Amount = 1818,
+				},
+			},
+
+			AttackDelay = 0.45,
+			AttackType = "Line",
+			Width = 18.18,
+		},
+	},
+	["dingding"] = {
+		[0] = {
+			Cost = 16,
+			Damage = 32,
+			Cooldown = 0.64,
+			Range = 128,
+			Angle = 360,
+			Passives = {
+				{
+					Type = "Burn",
+					Duration = 3000000,
+					Amount = 5200,
+				},
+			},
+
+			AttackDelay = 0,
+			AttackType = "Angle",
+		},
+	},
 })

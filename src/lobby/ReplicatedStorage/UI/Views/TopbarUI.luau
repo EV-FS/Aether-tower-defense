@@ -3,7 +3,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local TopbarFactory = require(ReplicatedStorage.Shared.Modules.UI.TopbarFactory)
 local EmoteUI = require(script.Parent.EmoteUI)
 local SettingsUI = require(script.Parent.SettingsUI)
-local StageSelection = require(script.Parent.StageSelection)
+local StageSelection = require(script.Parent.StageSelectionUI)
 
 local TopbarUI = {}
 local topbar = TopbarFactory.new()

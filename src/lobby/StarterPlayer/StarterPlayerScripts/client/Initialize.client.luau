@@ -35,6 +35,7 @@ ServiceRegistry:RegisterServices({
 	Controllers.InputController,
 	Controllers.UIController,
 	Controllers.DialogueClient,
+	Controllers.PartyController,
 })
 
 ServiceRegistry:Start():andThen(function()

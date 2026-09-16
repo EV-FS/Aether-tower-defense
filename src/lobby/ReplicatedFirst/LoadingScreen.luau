@@ -845,7 +845,7 @@ return function(props: Props)
 
 	return create(if useScreenGui then "ScreenGui" else "Frame")({
 		Name = "LoadingScreen",
-		DisplayOrder = if useScreenGui then 100 else nil,
+		DisplayOrder = if useScreenGui then 100003 else nil,
 		IgnoreGuiInset = if useScreenGui then true else nil,
 		ResetOnSpawn = if useScreenGui then false else nil,
 		ZIndexBehavior = if useScreenGui then Enum.ZIndexBehavior.Sibling else nil,

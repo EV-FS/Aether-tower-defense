@@ -234,4 +234,11 @@ return TableUtils.DeepFreeze({
 			},
 		},
 	},
+	["dingding"] = {
+		AttackStart = {
+			[0] = {
+				Steps.Emit("Towers/dingding/0", { Delay = 0, At = "Source" }),
+			},
+		},
+	},
 })
