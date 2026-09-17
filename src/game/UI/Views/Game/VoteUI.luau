@@ -30,7 +30,8 @@ local TotalPlayers = source(#Players:GetPlayers())
 -------------------------------------------------
 local function setPlayerCount()
 	task.defer(function()
-		TotalPlayers(#Players:GetPlayers())
+		local expected = if CurrentMode() == "Ready" then ReplicatedStorage:GetAttribute("ExpectedPlayerCount") else nil
+		TotalPlayers(math.max(#Players:GetPlayers(), if type(expected) == "number" then expected else 0))
 	end)
 end
 
@@ -266,6 +267,7 @@ function ReadyUI.Start()
 
 	ClientSignals.CanSkip:Connect(function()
 		CurrentMode("Skip")
+		setPlayerCount()
 		IsReady(false)
 		ReadyCount(0)
 		IsOpen(true)
@@ -283,6 +285,8 @@ function ReadyUI.Start()
 
 	Players.PlayerAdded:Connect(setPlayerCount)
 	Players.PlayerRemoving:Connect(setPlayerCount)
+	ReplicatedStorage:GetAttributeChangedSignal("ExpectedPlayerCount"):Connect(setPlayerCount)
+	setPlayerCount()
 
 	task.defer(function()
 		IsOpen(true)
