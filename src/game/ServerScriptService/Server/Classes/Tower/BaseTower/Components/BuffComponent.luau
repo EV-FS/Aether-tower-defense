@@ -1,12 +1,11 @@
 --/Services
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
-local ServerScriptService = game:GetService("ServerScriptService")
 
 --/Modules
 local ServiceRegistry = require(ReplicatedStorage.Shared.Modules.Core.ServiceRegistry)
 local Net = require(ReplicatedStorage.Shared.Net)
-local Registry = require(ServerScriptService.Server.Services.Entities.TowerService.Registry)
+local TowerService
 local TimeService
 
 local CHECK_INTERVAL = 0.2
@@ -55,7 +54,9 @@ end
 function BuffComponent:_UpdateBuff()
 	local towersCurrentlyInRange = {}
 
-	for _, tower in Registry.getAll() do
+	TowerService = TowerService or ServiceRegistry:GetService("TowerService")
+
+	for _, tower in TowerService.GetAll() do
 		if tower == self.Tower then
 			continue
 		end
