@@ -198,15 +198,20 @@ Queue.Reliable[30] = table.create(256)
 Queue.Reliable[31] = table.create(256)
 Queue.Reliable[32] = table.create(256)
 Queue.Reliable[33] = table.create(256)
+Queue.Reliable[34] = table.create(256)
+Queue.Reliable[35] = table.create(256)
+Queue.Reliable[36] = table.create(256)
 Queue.Reliable[37] = table.create(256)
 Queue.Reliable[38] = table.create(256)
-Queue.Reliable[39] = table.create(256)
-Queue.Reliable[40] = table.create(256)
-Queue.Reliable[41] = table.create(256)
+Queue.Reliable[42] = table.create(256)
 Queue.Reliable[43] = table.create(256)
 Queue.Reliable[44] = table.create(256)
 Queue.Reliable[45] = table.create(256)
 Queue.Reliable[46] = table.create(256)
+Queue.Reliable[48] = table.create(256)
+Queue.Reliable[49] = table.create(256)
+Queue.Reliable[50] = table.create(256)
+Queue.Reliable[51] = table.create(256)
 function SerdesFunctions.EnemyService_ReadEVENT_ReplicatedEnemy(): ({ enemyId: number, enemyIndex: number, sendTimeMs: number, isBoss: boolean?, startPathAlpha: number?, pathId: number })
 	-- Read BLOCK: 8 bytes
 	local BLOCK_START = Read(8)
@@ -473,6 +478,16 @@ function SerdesFunctions.TowerService_ReadEVENT_TowerTargetModeUpdated(): ({ tow
 	return Value
 end
 
+function SerdesFunctions.TowerService_ReadEVENT_StatsUpdated(): ({ towerId: number, stats: any })
+	-- Read BLOCK: 2 bytes
+	local BLOCK_START = Read(2)
+	local Value = {} :: any
+	Value.towerId = buffer.readu16(RecieveBuffer, BLOCK_START + 0)
+	RecieveInstanceCursor += 1
+	Value.stats = RecieveInstances[RecieveInstanceCursor]
+	return Value
+end
+
 function SerdesFunctions.TowerService_ReadEVENT_PassiveTriggered(): ({ towerId: number, passiveType: string, arg: any? })
 	-- Read BLOCK: 5 bytes
 	local BLOCK_START = Read(5)
@@ -484,6 +499,44 @@ function SerdesFunctions.TowerService_ReadEVENT_PassiveTriggered(): ({ towerId: 
 		RecieveInstanceCursor += 1
 		Value.arg = RecieveInstances[RecieveInstanceCursor]
 	end
+	return Value
+end
+
+function SerdesFunctions.TowerService_ReadEVENT_OnApplyBuff(): ({ towerId: number, targetId: number })
+	-- Read BLOCK: 4 bytes
+	local BLOCK_START = Read(4)
+	local Value = {} :: any
+	Value.towerId = buffer.readu16(RecieveBuffer, BLOCK_START + 0)
+	Value.targetId = buffer.readu16(RecieveBuffer, BLOCK_START + 2)
+	return Value
+end
+
+function SerdesFunctions.TowerService_ReadEVENT_OnRemoveBuff(): ({ towerId: number, targetId: number })
+	-- Read BLOCK: 4 bytes
+	local BLOCK_START = Read(4)
+	local Value = {} :: any
+	Value.towerId = buffer.readu16(RecieveBuffer, BLOCK_START + 0)
+	Value.targetId = buffer.readu16(RecieveBuffer, BLOCK_START + 2)
+	return Value
+end
+
+function SerdesFunctions.TowerService_ReadEVENT_OnBuffAdded(): ({ bufferId: number, targetId: number, activeBuffs: any })
+	-- Read BLOCK: 4 bytes
+	local BLOCK_START = Read(4)
+	local Value = {} :: any
+	Value.bufferId = buffer.readu16(RecieveBuffer, BLOCK_START + 0)
+	Value.targetId = buffer.readu16(RecieveBuffer, BLOCK_START + 2)
+	RecieveInstanceCursor += 1
+	Value.activeBuffs = RecieveInstances[RecieveInstanceCursor]
+	return Value
+end
+
+function SerdesFunctions.TowerService_ReadEVENT_OnBuffRemoved(): ({ bufferId: number, targetId: number })
+	-- Read BLOCK: 4 bytes
+	local BLOCK_START = Read(4)
+	local Value = {} :: any
+	Value.bufferId = buffer.readu16(RecieveBuffer, BLOCK_START + 0)
+	Value.targetId = buffer.readu16(RecieveBuffer, BLOCK_START + 2)
 	return Value
 end
 
@@ -565,7 +618,7 @@ end
 function SerdesFunctions.SettingsService_WriteFUNCTION_DATA_GetSettings(Value: string?, InvocationIdentifier: number): ()
 	-- Allocate BLOCK: 3 bytes
 	local BLOCK_START = Allocate(3)
-	buffer.writeu8(SendBuffer, BLOCK_START + 0, 27)
+	buffer.writeu8(SendBuffer, BLOCK_START + 0, 32)
 	buffer.writeu8(SendBuffer, BLOCK_START + 1, InvocationIdentifier)
 	buffer.writeu8(SendBuffer, BLOCK_START + 2, Value ~= nil and 1 or 0)
 	if Value ~= nil then
@@ -593,7 +646,7 @@ end
 function SerdesFunctions.SettingsService_WriteFUNCTION_DATA_SaveSetting(Value: { SettingName: string, Value: any }, InvocationIdentifier: number): ()
 	-- Allocate BLOCK: 4 bytes
 	local BLOCK_START = Allocate(4)
-	buffer.writeu8(SendBuffer, BLOCK_START + 0, 28)
+	buffer.writeu8(SendBuffer, BLOCK_START + 0, 33)
 	buffer.writeu8(SendBuffer, BLOCK_START + 1, InvocationIdentifier)
 	local Length = #Value.SettingName
 	buffer.writeu16(SendBuffer, BLOCK_START + 2, Length)
@@ -616,7 +669,7 @@ end
 function SerdesFunctions.GameEvent_WriteFUNCTION_DATA_GetGameInfo(Value: nil, InvocationIdentifier: number): ()
 	-- Allocate BLOCK: 2 bytes
 	local BLOCK_START = Allocate(2)
-	buffer.writeu8(SendBuffer, BLOCK_START + 0, 29)
+	buffer.writeu8(SendBuffer, BLOCK_START + 0, 34)
 	buffer.writeu8(SendBuffer, BLOCK_START + 1, InvocationIdentifier)
 end
 
@@ -669,19 +722,19 @@ end
 function SerdesFunctions.GameEvent_WriteEVENT_TeleportToLobby(Value: nil): ()
 	-- Allocate BLOCK: 1 bytes
 	local BLOCK_START = Allocate(1)
-	buffer.writeu8(SendBuffer, BLOCK_START + 0, 34)
+	buffer.writeu8(SendBuffer, BLOCK_START + 0, 39)
 end
 
 function SerdesFunctions.GameEvent_WriteEVENT_VoteRestart(Value: nil): ()
 	-- Allocate BLOCK: 1 bytes
 	local BLOCK_START = Allocate(1)
-	buffer.writeu8(SendBuffer, BLOCK_START + 0, 35)
+	buffer.writeu8(SendBuffer, BLOCK_START + 0, 40)
 end
 
 function SerdesFunctions.GameEvent_WriteEVENT_Ready(Value: nil): ()
 	-- Allocate BLOCK: 1 bytes
 	local BLOCK_START = Allocate(1)
-	buffer.writeu8(SendBuffer, BLOCK_START + 0, 36)
+	buffer.writeu8(SendBuffer, BLOCK_START + 0, 41)
 end
 
 function SerdesFunctions.GameEvent_ReadEVENT_ReadyVoted(): (number)
@@ -716,13 +769,13 @@ end
 function SerdesFunctions.GameEvent_WriteEVENT_VoteSkip(Value: nil): ()
 	-- Allocate BLOCK: 1 bytes
 	local BLOCK_START = Allocate(1)
-	buffer.writeu8(SendBuffer, BLOCK_START + 0, 42)
+	buffer.writeu8(SendBuffer, BLOCK_START + 0, 47)
 end
 
 function SerdesFunctions.TimeService_WriteFUNCTION_DATA_ChangeGameSpeed(Value: number, InvocationIdentifier: number): ()
 	-- Allocate BLOCK: 3 bytes
 	local BLOCK_START = Allocate(3)
-	buffer.writeu8(SendBuffer, BLOCK_START + 0, 43)
+	buffer.writeu8(SendBuffer, BLOCK_START + 0, 48)
 	buffer.writeu8(SendBuffer, BLOCK_START + 1, InvocationIdentifier)
 	buffer.writeu8(SendBuffer, BLOCK_START + 2, Value)
 end
@@ -750,7 +803,7 @@ end
 function SerdesFunctions.GlobalExistService_WriteFUNCTION_DATA_GetCount(Value: { category: string, itemName: string }, InvocationIdentifier: number): ()
 	-- Allocate BLOCK: 6 bytes
 	local BLOCK_START = Allocate(6)
-	buffer.writeu8(SendBuffer, BLOCK_START + 0, 45)
+	buffer.writeu8(SendBuffer, BLOCK_START + 0, 50)
 	buffer.writeu8(SendBuffer, BLOCK_START + 1, InvocationIdentifier)
 	local Length = #Value.category
 	buffer.writeu16(SendBuffer, BLOCK_START + 2, Length)
@@ -850,7 +903,22 @@ if not RunService:IsRunning() then
 		TowerTargetModeUpdated = {
 			On = NOOP
 		},
+		StatsUpdated = {
+			On = NOOP
+		},
 		PassiveTriggered = {
+			On = NOOP
+		},
+		OnApplyBuff = {
+			On = NOOP
+		},
+		OnRemoveBuff = {
+			On = NOOP
+		},
+		OnBuffAdded = {
+			On = NOOP
+		},
+		OnBuffRemoved = {
 			On = NOOP
 		},
 	},
@@ -1209,94 +1277,149 @@ Reliable.OnClientEvent:Connect(function(Buffer: buffer, Instances: {Instance})
 				table.insert(Queue.Reliable[18], {Value} :: {any})
 			end
 		elseif Index == 19 then
-			local Value: { towerId: number, passiveType: string, arg: any? } = SerdesFunctions.TowerService_ReadEVENT_PassiveTriggered()
+			local Value: { towerId: number, stats: any } = SerdesFunctions.TowerService_ReadEVENT_StatsUpdated()
 			if Events.Reliable[19] ~= nil then
-				SerdesEvent = "PassiveTriggered"
+				SerdesEvent = "StatsUpdated"
 				Events.Reliable[19](Value)
 			else
 				if #Queue.Reliable[19] > 256 then
-					warn("[Blink]: Event queue of \"PassiveTriggered\" exceeded 256, did you forget to implement a listener?")
+					warn("[Blink]: Event queue of \"StatsUpdated\" exceeded 256, did you forget to implement a listener?")
 				end
 				table.insert(Queue.Reliable[19], {Value} :: {any})
 			end
 		elseif Index == 20 then
-			local Value: { unitId: number, unitIndex: number, summonerId: number, sendTimeMs: number, pathAlpha: number?, isEnemyType: boolean? } = SerdesFunctions.UnitService_ReadEVENT_ReplicatedUnit()
+			local Value: { towerId: number, passiveType: string, arg: any? } = SerdesFunctions.TowerService_ReadEVENT_PassiveTriggered()
 			if Events.Reliable[20] ~= nil then
-				SerdesEvent = "ReplicatedUnit"
+				SerdesEvent = "PassiveTriggered"
 				Events.Reliable[20](Value)
 			else
 				if #Queue.Reliable[20] > 256 then
-					warn("[Blink]: Event queue of \"ReplicatedUnit\" exceeded 256, did you forget to implement a listener?")
+					warn("[Blink]: Event queue of \"PassiveTriggered\" exceeded 256, did you forget to implement a listener?")
 				end
 				table.insert(Queue.Reliable[20], {Value} :: {any})
 			end
 		elseif Index == 21 then
-			local Value: { unitId: number, enemyId: number } = SerdesFunctions.UnitService_ReadEVENT_OnAttackEnemy()
+			local Value: { towerId: number, targetId: number } = SerdesFunctions.TowerService_ReadEVENT_OnApplyBuff()
 			if Events.Reliable[21] ~= nil then
-				SerdesEvent = "OnAttackEnemy"
+				SerdesEvent = "OnApplyBuff"
 				Events.Reliable[21](Value)
 			else
 				if #Queue.Reliable[21] > 256 then
-					warn("[Blink]: Event queue of \"OnAttackEnemy\" exceeded 256, did you forget to implement a listener?")
+					warn("[Blink]: Event queue of \"OnApplyBuff\" exceeded 256, did you forget to implement a listener?")
 				end
 				table.insert(Queue.Reliable[21], {Value} :: {any})
 			end
 		elseif Index == 22 then
-			local Value: number = SerdesFunctions.UnitService_ReadEVENT_UnitDestroyed()
+			local Value: { towerId: number, targetId: number } = SerdesFunctions.TowerService_ReadEVENT_OnRemoveBuff()
 			if Events.Reliable[22] ~= nil then
-				SerdesEvent = "UnitDestroyed"
+				SerdesEvent = "OnRemoveBuff"
 				Events.Reliable[22](Value)
 			else
 				if #Queue.Reliable[22] > 256 then
-					warn("[Blink]: Event queue of \"UnitDestroyed\" exceeded 256, did you forget to implement a listener?")
+					warn("[Blink]: Event queue of \"OnRemoveBuff\" exceeded 256, did you forget to implement a listener?")
 				end
 				table.insert(Queue.Reliable[22], {Value} :: {any})
 			end
 		elseif Index == 23 then
-			local Value: { unitId: number, damaged: number } = SerdesFunctions.UnitService_ReadEVENT_OnDamaged()
+			local Value: { bufferId: number, targetId: number, activeBuffs: any } = SerdesFunctions.TowerService_ReadEVENT_OnBuffAdded()
 			if Events.Reliable[23] ~= nil then
-				SerdesEvent = "OnDamaged"
+				SerdesEvent = "OnBuffAdded"
 				Events.Reliable[23](Value)
 			else
 				if #Queue.Reliable[23] > 256 then
-					warn("[Blink]: Event queue of \"OnDamaged\" exceeded 256, did you forget to implement a listener?")
+					warn("[Blink]: Event queue of \"OnBuffAdded\" exceeded 256, did you forget to implement a listener?")
 				end
 				table.insert(Queue.Reliable[23], {Value} :: {any})
 			end
 		elseif Index == 24 then
-			local Value: number = SerdesFunctions.BaseService_ReadEVENT_BaseHealthChanged()
+			local Value: { bufferId: number, targetId: number } = SerdesFunctions.TowerService_ReadEVENT_OnBuffRemoved()
 			if Events.Reliable[24] ~= nil then
-				SerdesEvent = "BaseHealthChanged"
+				SerdesEvent = "OnBuffRemoved"
 				Events.Reliable[24](Value)
 			else
 				if #Queue.Reliable[24] > 256 then
-					warn("[Blink]: Event queue of \"BaseHealthChanged\" exceeded 256, did you forget to implement a listener?")
+					warn("[Blink]: Event queue of \"OnBuffRemoved\" exceeded 256, did you forget to implement a listener?")
 				end
 				table.insert(Queue.Reliable[24], {Value} :: {any})
 			end
 		elseif Index == 25 then
-			local Value: { Message: string, LogType: string, DurationMs: number } = SerdesFunctions.NotificationService_ReadEVENT_Popup()
+			local Value: { unitId: number, unitIndex: number, summonerId: number, sendTimeMs: number, pathAlpha: number?, isEnemyType: boolean? } = SerdesFunctions.UnitService_ReadEVENT_ReplicatedUnit()
 			if Events.Reliable[25] ~= nil then
-				SerdesEvent = "Popup"
+				SerdesEvent = "ReplicatedUnit"
 				Events.Reliable[25](Value)
 			else
 				if #Queue.Reliable[25] > 256 then
-					warn("[Blink]: Event queue of \"Popup\" exceeded 256, did you forget to implement a listener?")
+					warn("[Blink]: Event queue of \"ReplicatedUnit\" exceeded 256, did you forget to implement a listener?")
 				end
 				table.insert(Queue.Reliable[25], {Value} :: {any})
 			end
 		elseif Index == 26 then
-			local Value: { itemName: string, amount: number } = SerdesFunctions.LootService_ReadEVENT_ReplicateDrop()
+			local Value: { unitId: number, enemyId: number } = SerdesFunctions.UnitService_ReadEVENT_OnAttackEnemy()
 			if Events.Reliable[26] ~= nil then
-				SerdesEvent = "ReplicateDrop"
+				SerdesEvent = "OnAttackEnemy"
 				Events.Reliable[26](Value)
 			else
 				if #Queue.Reliable[26] > 256 then
-					warn("[Blink]: Event queue of \"ReplicateDrop\" exceeded 256, did you forget to implement a listener?")
+					warn("[Blink]: Event queue of \"OnAttackEnemy\" exceeded 256, did you forget to implement a listener?")
 				end
 				table.insert(Queue.Reliable[26], {Value} :: {any})
 			end
 		elseif Index == 27 then
+			local Value: number = SerdesFunctions.UnitService_ReadEVENT_UnitDestroyed()
+			if Events.Reliable[27] ~= nil then
+				SerdesEvent = "UnitDestroyed"
+				Events.Reliable[27](Value)
+			else
+				if #Queue.Reliable[27] > 256 then
+					warn("[Blink]: Event queue of \"UnitDestroyed\" exceeded 256, did you forget to implement a listener?")
+				end
+				table.insert(Queue.Reliable[27], {Value} :: {any})
+			end
+		elseif Index == 28 then
+			local Value: { unitId: number, damaged: number } = SerdesFunctions.UnitService_ReadEVENT_OnDamaged()
+			if Events.Reliable[28] ~= nil then
+				SerdesEvent = "OnDamaged"
+				Events.Reliable[28](Value)
+			else
+				if #Queue.Reliable[28] > 256 then
+					warn("[Blink]: Event queue of \"OnDamaged\" exceeded 256, did you forget to implement a listener?")
+				end
+				table.insert(Queue.Reliable[28], {Value} :: {any})
+			end
+		elseif Index == 29 then
+			local Value: number = SerdesFunctions.BaseService_ReadEVENT_BaseHealthChanged()
+			if Events.Reliable[29] ~= nil then
+				SerdesEvent = "BaseHealthChanged"
+				Events.Reliable[29](Value)
+			else
+				if #Queue.Reliable[29] > 256 then
+					warn("[Blink]: Event queue of \"BaseHealthChanged\" exceeded 256, did you forget to implement a listener?")
+				end
+				table.insert(Queue.Reliable[29], {Value} :: {any})
+			end
+		elseif Index == 30 then
+			local Value: { Message: string, LogType: string, DurationMs: number } = SerdesFunctions.NotificationService_ReadEVENT_Popup()
+			if Events.Reliable[30] ~= nil then
+				SerdesEvent = "Popup"
+				Events.Reliable[30](Value)
+			else
+				if #Queue.Reliable[30] > 256 then
+					warn("[Blink]: Event queue of \"Popup\" exceeded 256, did you forget to implement a listener?")
+				end
+				table.insert(Queue.Reliable[30], {Value} :: {any})
+			end
+		elseif Index == 31 then
+			local Value: { itemName: string, amount: number } = SerdesFunctions.LootService_ReadEVENT_ReplicateDrop()
+			if Events.Reliable[31] ~= nil then
+				SerdesEvent = "ReplicateDrop"
+				Events.Reliable[31](Value)
+			else
+				if #Queue.Reliable[31] > 256 then
+					warn("[Blink]: Event queue of \"ReplicateDrop\" exceeded 256, did you forget to implement a listener?")
+				end
+				table.insert(Queue.Reliable[31], {Value} :: {any})
+			end
+		elseif Index == 32 then
 			-- Read BLOCK: 1 bytes
 			local BLOCK_START = Read(1)
 			local InvocationIdentifier = buffer.readu8(RecieveBuffer, BLOCK_START + 0)
@@ -1307,7 +1430,7 @@ Reliable.OnClientEvent:Connect(function(Buffer: buffer, Instances: {Instance})
 				task.spawn(Calls[InvocationIdentifier], Success, ReturnValue)
 				Calls[InvocationIdentifier] = nil
 			end
-		elseif Index == 28 then
+		elseif Index == 33 then
 			-- Read BLOCK: 1 bytes
 			local BLOCK_START = Read(1)
 			local InvocationIdentifier = buffer.readu8(RecieveBuffer, BLOCK_START + 0)
@@ -1318,7 +1441,7 @@ Reliable.OnClientEvent:Connect(function(Buffer: buffer, Instances: {Instance})
 				task.spawn(Calls[InvocationIdentifier], Success, ReturnValue)
 				Calls[InvocationIdentifier] = nil
 			end
-		elseif Index == 29 then
+		elseif Index == 34 then
 			-- Read BLOCK: 1 bytes
 			local BLOCK_START = Read(1)
 			local InvocationIdentifier = buffer.readu8(RecieveBuffer, BLOCK_START + 0)
@@ -1329,106 +1452,106 @@ Reliable.OnClientEvent:Connect(function(Buffer: buffer, Instances: {Instance})
 				task.spawn(Calls[InvocationIdentifier], Success, ReturnValue)
 				Calls[InvocationIdentifier] = nil
 			end
-		elseif Index == 30 then
+		elseif Index == 35 then
 			local Value: { Difficulty: string, StartPlayerCount: number } = SerdesFunctions.GameEvent_ReadEVENT_GameInfoSynced()
-			if Events.Reliable[30] ~= nil then
+			if Events.Reliable[35] ~= nil then
 				SerdesEvent = "GameInfoSynced"
-				Events.Reliable[30](Value)
+				Events.Reliable[35](Value)
 			else
-				if #Queue.Reliable[30] > 256 then
+				if #Queue.Reliable[35] > 256 then
 					warn("[Blink]: Event queue of \"GameInfoSynced\" exceeded 256, did you forget to implement a listener?")
 				end
-				table.insert(Queue.Reliable[30], {Value} :: {any})
+				table.insert(Queue.Reliable[35], {Value} :: {any})
 			end
-		elseif Index == 31 then
+		elseif Index == 36 then
 			local Value: number = SerdesFunctions.GameEvent_ReadEVENT_WaveStarted()
-			if Events.Reliable[31] ~= nil then
+			if Events.Reliable[36] ~= nil then
 				SerdesEvent = "WaveStarted"
-				Events.Reliable[31](Value)
+				Events.Reliable[36](Value)
 			else
-				if #Queue.Reliable[31] > 256 then
+				if #Queue.Reliable[36] > 256 then
 					warn("[Blink]: Event queue of \"WaveStarted\" exceeded 256, did you forget to implement a listener?")
 				end
-				table.insert(Queue.Reliable[31], {Value} :: {any})
-			end
-		elseif Index == 32 then
-			local Value: nil = SerdesFunctions.GameEvent_ReadEVENT_WaveCompleted()
-			if Events.Reliable[32] ~= nil then
-				SerdesEvent = "WaveCompleted"
-				Events.Reliable[32](Value)
-			else
-				if #Queue.Reliable[32] > 256 then
-					warn("[Blink]: Event queue of \"WaveCompleted\" exceeded 256, did you forget to implement a listener?")
-				end
-				table.insert(Queue.Reliable[32], {Value} :: {any})
-			end
-		elseif Index == 33 then
-			local Value: { isWin: boolean, coins: number, exp: number, gems: number } = SerdesFunctions.GameEvent_ReadEVENT_GameOver()
-			if Events.Reliable[33] ~= nil then
-				SerdesEvent = "GameOver"
-				Events.Reliable[33](Value)
-			else
-				if #Queue.Reliable[33] > 256 then
-					warn("[Blink]: Event queue of \"GameOver\" exceeded 256, did you forget to implement a listener?")
-				end
-				table.insert(Queue.Reliable[33], {Value} :: {any})
+				table.insert(Queue.Reliable[36], {Value} :: {any})
 			end
 		elseif Index == 37 then
-			local Value: number = SerdesFunctions.GameEvent_ReadEVENT_ReadyVoted()
+			local Value: nil = SerdesFunctions.GameEvent_ReadEVENT_WaveCompleted()
 			if Events.Reliable[37] ~= nil then
-				SerdesEvent = "ReadyVoted"
+				SerdesEvent = "WaveCompleted"
 				Events.Reliable[37](Value)
 			else
 				if #Queue.Reliable[37] > 256 then
-					warn("[Blink]: Event queue of \"ReadyVoted\" exceeded 256, did you forget to implement a listener?")
+					warn("[Blink]: Event queue of \"WaveCompleted\" exceeded 256, did you forget to implement a listener?")
 				end
 				table.insert(Queue.Reliable[37], {Value} :: {any})
 			end
 		elseif Index == 38 then
-			local Value: number = SerdesFunctions.GameEvent_ReadEVENT_RestartVoted()
+			local Value: { isWin: boolean, coins: number, exp: number, gems: number } = SerdesFunctions.GameEvent_ReadEVENT_GameOver()
 			if Events.Reliable[38] ~= nil then
-				SerdesEvent = "RestartVoted"
+				SerdesEvent = "GameOver"
 				Events.Reliable[38](Value)
 			else
 				if #Queue.Reliable[38] > 256 then
-					warn("[Blink]: Event queue of \"RestartVoted\" exceeded 256, did you forget to implement a listener?")
+					warn("[Blink]: Event queue of \"GameOver\" exceeded 256, did you forget to implement a listener?")
 				end
 				table.insert(Queue.Reliable[38], {Value} :: {any})
 			end
-		elseif Index == 39 then
-			local Value: number = SerdesFunctions.GameEvent_ReadEVENT_SkipVoted()
-			if Events.Reliable[39] ~= nil then
-				SerdesEvent = "SkipVoted"
-				Events.Reliable[39](Value)
+		elseif Index == 42 then
+			local Value: number = SerdesFunctions.GameEvent_ReadEVENT_ReadyVoted()
+			if Events.Reliable[42] ~= nil then
+				SerdesEvent = "ReadyVoted"
+				Events.Reliable[42](Value)
 			else
-				if #Queue.Reliable[39] > 256 then
-					warn("[Blink]: Event queue of \"SkipVoted\" exceeded 256, did you forget to implement a listener?")
+				if #Queue.Reliable[42] > 256 then
+					warn("[Blink]: Event queue of \"ReadyVoted\" exceeded 256, did you forget to implement a listener?")
 				end
-				table.insert(Queue.Reliable[39], {Value} :: {any})
-			end
-		elseif Index == 40 then
-			local Value: nil = SerdesFunctions.GameEvent_ReadEVENT_Restarted()
-			if Events.Reliable[40] ~= nil then
-				SerdesEvent = "Restarted"
-				Events.Reliable[40](Value)
-			else
-				if #Queue.Reliable[40] > 256 then
-					warn("[Blink]: Event queue of \"Restarted\" exceeded 256, did you forget to implement a listener?")
-				end
-				table.insert(Queue.Reliable[40], {Value} :: {any})
-			end
-		elseif Index == 41 then
-			local Value: nil = SerdesFunctions.GameEvent_ReadEVENT_CanSkip()
-			if Events.Reliable[41] ~= nil then
-				SerdesEvent = "CanSkip"
-				Events.Reliable[41](Value)
-			else
-				if #Queue.Reliable[41] > 256 then
-					warn("[Blink]: Event queue of \"CanSkip\" exceeded 256, did you forget to implement a listener?")
-				end
-				table.insert(Queue.Reliable[41], {Value} :: {any})
+				table.insert(Queue.Reliable[42], {Value} :: {any})
 			end
 		elseif Index == 43 then
+			local Value: number = SerdesFunctions.GameEvent_ReadEVENT_RestartVoted()
+			if Events.Reliable[43] ~= nil then
+				SerdesEvent = "RestartVoted"
+				Events.Reliable[43](Value)
+			else
+				if #Queue.Reliable[43] > 256 then
+					warn("[Blink]: Event queue of \"RestartVoted\" exceeded 256, did you forget to implement a listener?")
+				end
+				table.insert(Queue.Reliable[43], {Value} :: {any})
+			end
+		elseif Index == 44 then
+			local Value: number = SerdesFunctions.GameEvent_ReadEVENT_SkipVoted()
+			if Events.Reliable[44] ~= nil then
+				SerdesEvent = "SkipVoted"
+				Events.Reliable[44](Value)
+			else
+				if #Queue.Reliable[44] > 256 then
+					warn("[Blink]: Event queue of \"SkipVoted\" exceeded 256, did you forget to implement a listener?")
+				end
+				table.insert(Queue.Reliable[44], {Value} :: {any})
+			end
+		elseif Index == 45 then
+			local Value: nil = SerdesFunctions.GameEvent_ReadEVENT_Restarted()
+			if Events.Reliable[45] ~= nil then
+				SerdesEvent = "Restarted"
+				Events.Reliable[45](Value)
+			else
+				if #Queue.Reliable[45] > 256 then
+					warn("[Blink]: Event queue of \"Restarted\" exceeded 256, did you forget to implement a listener?")
+				end
+				table.insert(Queue.Reliable[45], {Value} :: {any})
+			end
+		elseif Index == 46 then
+			local Value: nil = SerdesFunctions.GameEvent_ReadEVENT_CanSkip()
+			if Events.Reliable[46] ~= nil then
+				SerdesEvent = "CanSkip"
+				Events.Reliable[46](Value)
+			else
+				if #Queue.Reliable[46] > 256 then
+					warn("[Blink]: Event queue of \"CanSkip\" exceeded 256, did you forget to implement a listener?")
+				end
+				table.insert(Queue.Reliable[46], {Value} :: {any})
+			end
+		elseif Index == 48 then
 			-- Read BLOCK: 1 bytes
 			local BLOCK_START = Read(1)
 			local InvocationIdentifier = buffer.readu8(RecieveBuffer, BLOCK_START + 0)
@@ -1439,18 +1562,18 @@ Reliable.OnClientEvent:Connect(function(Buffer: buffer, Instances: {Instance})
 				task.spawn(Calls[InvocationIdentifier], Success, ReturnValue)
 				Calls[InvocationIdentifier] = nil
 			end
-		elseif Index == 44 then
+		elseif Index == 49 then
 			local Value: { newSpeed: number, sendTimeMs: number } = SerdesFunctions.TimeService_ReadEVENT_GameSpeedChanged()
-			if Events.Reliable[44] ~= nil then
+			if Events.Reliable[49] ~= nil then
 				SerdesEvent = "GameSpeedChanged"
-				Events.Reliable[44](Value)
+				Events.Reliable[49](Value)
 			else
-				if #Queue.Reliable[44] > 256 then
+				if #Queue.Reliable[49] > 256 then
 					warn("[Blink]: Event queue of \"GameSpeedChanged\" exceeded 256, did you forget to implement a listener?")
 				end
-				table.insert(Queue.Reliable[44], {Value} :: {any})
+				table.insert(Queue.Reliable[49], {Value} :: {any})
 			end
-		elseif Index == 45 then
+		elseif Index == 50 then
 			-- Read BLOCK: 1 bytes
 			local BLOCK_START = Read(1)
 			local InvocationIdentifier = buffer.readu8(RecieveBuffer, BLOCK_START + 0)
@@ -1461,16 +1584,16 @@ Reliable.OnClientEvent:Connect(function(Buffer: buffer, Instances: {Instance})
 				task.spawn(Calls[InvocationIdentifier], Success, ReturnValue)
 				Calls[InvocationIdentifier] = nil
 			end
-		elseif Index == 46 then
+		elseif Index == 51 then
 			local Value: { category: string, itemName: string, newCount: number } = SerdesFunctions.GlobalExistService_ReadEVENT_CountUpdated()
-			if Events.Reliable[46] ~= nil then
+			if Events.Reliable[51] ~= nil then
 				SerdesEvent = "CountUpdated"
-				Events.Reliable[46](Value)
+				Events.Reliable[51](Value)
 			else
-				if #Queue.Reliable[46] > 256 then
+				if #Queue.Reliable[51] > 256 then
 					warn("[Blink]: Event queue of \"CountUpdated\" exceeded 256, did you forget to implement a listener?")
 				end
-				table.insert(Queue.Reliable[46], {Value} :: {any})
+				table.insert(Queue.Reliable[51], {Value} :: {any})
 			end
 		end
 	end
@@ -1811,8 +1934,8 @@ local Returns = table.freeze({
 				end
 			end
 		},
-		PassiveTriggered = {
-			On = function(Listener: (Value: { towerId: number, passiveType: string, arg: any? }) -> ()): () -> ()
+		StatsUpdated = {
+			On = function(Listener: (Value: { towerId: number, stats: any }) -> ()): () -> ()
 				Events.Reliable[19] = Listener
 				for Index, Arguments in Queue.Reliable[19] do
 					Listener(table.unpack(Arguments))
@@ -1825,10 +1948,8 @@ local Returns = table.freeze({
 				end
 			end
 		},
-	},
-	UnitService = {
-		ReplicatedUnit = {
-			On = function(Listener: (Value: { unitId: number, unitIndex: number, summonerId: number, sendTimeMs: number, pathAlpha: number?, isEnemyType: boolean? }) -> ()): () -> ()
+		PassiveTriggered = {
+			On = function(Listener: (Value: { towerId: number, passiveType: string, arg: any? }) -> ()): () -> ()
 				Events.Reliable[20] = Listener
 				for Index, Arguments in Queue.Reliable[20] do
 					Listener(table.unpack(Arguments))
@@ -1841,8 +1962,8 @@ local Returns = table.freeze({
 				end
 			end
 		},
-		OnAttackEnemy = {
-			On = function(Listener: (Value: { unitId: number, enemyId: number }) -> ()): () -> ()
+		OnApplyBuff = {
+			On = function(Listener: (Value: { towerId: number, targetId: number }) -> ()): () -> ()
 				Events.Reliable[21] = Listener
 				for Index, Arguments in Queue.Reliable[21] do
 					Listener(table.unpack(Arguments))
@@ -1855,8 +1976,8 @@ local Returns = table.freeze({
 				end
 			end
 		},
-		UnitDestroyed = {
-			On = function(Listener: (Value: number) -> ()): () -> ()
+		OnRemoveBuff = {
+			On = function(Listener: (Value: { towerId: number, targetId: number }) -> ()): () -> ()
 				Events.Reliable[22] = Listener
 				for Index, Arguments in Queue.Reliable[22] do
 					Listener(table.unpack(Arguments))
@@ -1869,8 +1990,8 @@ local Returns = table.freeze({
 				end
 			end
 		},
-		OnDamaged = {
-			On = function(Listener: (Value: { unitId: number, damaged: number }) -> ()): () -> ()
+		OnBuffAdded = {
+			On = function(Listener: (Value: { bufferId: number, targetId: number, activeBuffs: any }) -> ()): () -> ()
 				Events.Reliable[23] = Listener
 				for Index, Arguments in Queue.Reliable[23] do
 					Listener(table.unpack(Arguments))
@@ -1883,10 +2004,8 @@ local Returns = table.freeze({
 				end
 			end
 		},
-	},
-	BaseService = {
-		BaseHealthChanged = {
-			On = function(Listener: (Value: number) -> ()): () -> ()
+		OnBuffRemoved = {
+			On = function(Listener: (Value: { bufferId: number, targetId: number }) -> ()): () -> ()
 				Events.Reliable[24] = Listener
 				for Index, Arguments in Queue.Reliable[24] do
 					Listener(table.unpack(Arguments))
@@ -1900,9 +2019,9 @@ local Returns = table.freeze({
 			end
 		},
 	},
-	NotificationService = {
-		Popup = {
-			On = function(Listener: (Value: { Message: string, LogType: string, DurationMs: number }) -> ()): () -> ()
+	UnitService = {
+		ReplicatedUnit = {
+			On = function(Listener: (Value: { unitId: number, unitIndex: number, summonerId: number, sendTimeMs: number, pathAlpha: number?, isEnemyType: boolean? }) -> ()): () -> ()
 				Events.Reliable[25] = Listener
 				for Index, Arguments in Queue.Reliable[25] do
 					Listener(table.unpack(Arguments))
@@ -1915,10 +2034,8 @@ local Returns = table.freeze({
 				end
 			end
 		},
-	},
-	LootService = {
-		ReplicateDrop = {
-			On = function(Listener: (Value: { itemName: string, amount: number }) -> ()): () -> ()
+		OnAttackEnemy = {
+			On = function(Listener: (Value: { unitId: number, enemyId: number }) -> ()): () -> ()
 				Events.Reliable[26] = Listener
 				for Index, Arguments in Queue.Reliable[26] do
 					Listener(table.unpack(Arguments))
@@ -1927,6 +2044,82 @@ local Returns = table.freeze({
 				return function (): ()
 					if Events.Reliable[26] == Listener then
 						Events.Reliable[26] = nil
+					end
+				end
+			end
+		},
+		UnitDestroyed = {
+			On = function(Listener: (Value: number) -> ()): () -> ()
+				Events.Reliable[27] = Listener
+				for Index, Arguments in Queue.Reliable[27] do
+					Listener(table.unpack(Arguments))
+				end
+				Queue.Reliable[27] = {}
+				return function (): ()
+					if Events.Reliable[27] == Listener then
+						Events.Reliable[27] = nil
+					end
+				end
+			end
+		},
+		OnDamaged = {
+			On = function(Listener: (Value: { unitId: number, damaged: number }) -> ()): () -> ()
+				Events.Reliable[28] = Listener
+				for Index, Arguments in Queue.Reliable[28] do
+					Listener(table.unpack(Arguments))
+				end
+				Queue.Reliable[28] = {}
+				return function (): ()
+					if Events.Reliable[28] == Listener then
+						Events.Reliable[28] = nil
+					end
+				end
+			end
+		},
+	},
+	BaseService = {
+		BaseHealthChanged = {
+			On = function(Listener: (Value: number) -> ()): () -> ()
+				Events.Reliable[29] = Listener
+				for Index, Arguments in Queue.Reliable[29] do
+					Listener(table.unpack(Arguments))
+				end
+				Queue.Reliable[29] = {}
+				return function (): ()
+					if Events.Reliable[29] == Listener then
+						Events.Reliable[29] = nil
+					end
+				end
+			end
+		},
+	},
+	NotificationService = {
+		Popup = {
+			On = function(Listener: (Value: { Message: string, LogType: string, DurationMs: number }) -> ()): () -> ()
+				Events.Reliable[30] = Listener
+				for Index, Arguments in Queue.Reliable[30] do
+					Listener(table.unpack(Arguments))
+				end
+				Queue.Reliable[30] = {}
+				return function (): ()
+					if Events.Reliable[30] == Listener then
+						Events.Reliable[30] = nil
+					end
+				end
+			end
+		},
+	},
+	LootService = {
+		ReplicateDrop = {
+			On = function(Listener: (Value: { itemName: string, amount: number }) -> ()): () -> ()
+				Events.Reliable[31] = Listener
+				for Index, Arguments in Queue.Reliable[31] do
+					Listener(table.unpack(Arguments))
+				end
+				Queue.Reliable[31] = {}
+				return function (): ()
+					if Events.Reliable[31] == Listener then
+						Events.Reliable[31] = nil
 					end
 				end
 			end
@@ -2003,56 +2196,56 @@ local Returns = table.freeze({
 		},
 		GameInfoSynced = {
 			On = function(Listener: (Value: { Difficulty: string, StartPlayerCount: number }) -> ()): () -> ()
-				Events.Reliable[30] = Listener
-				for Index, Arguments in Queue.Reliable[30] do
+				Events.Reliable[35] = Listener
+				for Index, Arguments in Queue.Reliable[35] do
 					Listener(table.unpack(Arguments))
 				end
-				Queue.Reliable[30] = {}
+				Queue.Reliable[35] = {}
 				return function (): ()
-					if Events.Reliable[30] == Listener then
-						Events.Reliable[30] = nil
+					if Events.Reliable[35] == Listener then
+						Events.Reliable[35] = nil
 					end
 				end
 			end
 		},
 		WaveStarted = {
 			On = function(Listener: (Value: number) -> ()): () -> ()
-				Events.Reliable[31] = Listener
-				for Index, Arguments in Queue.Reliable[31] do
+				Events.Reliable[36] = Listener
+				for Index, Arguments in Queue.Reliable[36] do
 					Listener(table.unpack(Arguments))
 				end
-				Queue.Reliable[31] = {}
+				Queue.Reliable[36] = {}
 				return function (): ()
-					if Events.Reliable[31] == Listener then
-						Events.Reliable[31] = nil
+					if Events.Reliable[36] == Listener then
+						Events.Reliable[36] = nil
 					end
 				end
 			end
 		},
 		WaveCompleted = {
 			On = function(Listener: (Value: nil) -> ()): () -> ()
-				Events.Reliable[32] = Listener
-				for Index, Arguments in Queue.Reliable[32] do
+				Events.Reliable[37] = Listener
+				for Index, Arguments in Queue.Reliable[37] do
 					Listener(table.unpack(Arguments))
 				end
-				Queue.Reliable[32] = {}
+				Queue.Reliable[37] = {}
 				return function (): ()
-					if Events.Reliable[32] == Listener then
-						Events.Reliable[32] = nil
+					if Events.Reliable[37] == Listener then
+						Events.Reliable[37] = nil
 					end
 				end
 			end
 		},
 		GameOver = {
 			On = function(Listener: (Value: { isWin: boolean, coins: number, exp: number, gems: number }) -> ()): () -> ()
-				Events.Reliable[33] = Listener
-				for Index, Arguments in Queue.Reliable[33] do
+				Events.Reliable[38] = Listener
+				for Index, Arguments in Queue.Reliable[38] do
 					Listener(table.unpack(Arguments))
 				end
-				Queue.Reliable[33] = {}
+				Queue.Reliable[38] = {}
 				return function (): ()
-					if Events.Reliable[33] == Listener then
-						Events.Reliable[33] = nil
+					if Events.Reliable[38] == Listener then
+						Events.Reliable[38] = nil
 					end
 				end
 			end
@@ -2074,70 +2267,70 @@ local Returns = table.freeze({
 		},
 		ReadyVoted = {
 			On = function(Listener: (Value: number) -> ()): () -> ()
-				Events.Reliable[37] = Listener
-				for Index, Arguments in Queue.Reliable[37] do
+				Events.Reliable[42] = Listener
+				for Index, Arguments in Queue.Reliable[42] do
 					Listener(table.unpack(Arguments))
 				end
-				Queue.Reliable[37] = {}
+				Queue.Reliable[42] = {}
 				return function (): ()
-					if Events.Reliable[37] == Listener then
-						Events.Reliable[37] = nil
+					if Events.Reliable[42] == Listener then
+						Events.Reliable[42] = nil
 					end
 				end
 			end
 		},
 		RestartVoted = {
 			On = function(Listener: (Value: number) -> ()): () -> ()
-				Events.Reliable[38] = Listener
-				for Index, Arguments in Queue.Reliable[38] do
+				Events.Reliable[43] = Listener
+				for Index, Arguments in Queue.Reliable[43] do
 					Listener(table.unpack(Arguments))
 				end
-				Queue.Reliable[38] = {}
+				Queue.Reliable[43] = {}
 				return function (): ()
-					if Events.Reliable[38] == Listener then
-						Events.Reliable[38] = nil
+					if Events.Reliable[43] == Listener then
+						Events.Reliable[43] = nil
 					end
 				end
 			end
 		},
 		SkipVoted = {
 			On = function(Listener: (Value: number) -> ()): () -> ()
-				Events.Reliable[39] = Listener
-				for Index, Arguments in Queue.Reliable[39] do
+				Events.Reliable[44] = Listener
+				for Index, Arguments in Queue.Reliable[44] do
 					Listener(table.unpack(Arguments))
 				end
-				Queue.Reliable[39] = {}
+				Queue.Reliable[44] = {}
 				return function (): ()
-					if Events.Reliable[39] == Listener then
-						Events.Reliable[39] = nil
+					if Events.Reliable[44] == Listener then
+						Events.Reliable[44] = nil
 					end
 				end
 			end
 		},
 		Restarted = {
 			On = function(Listener: (Value: nil) -> ()): () -> ()
-				Events.Reliable[40] = Listener
-				for Index, Arguments in Queue.Reliable[40] do
+				Events.Reliable[45] = Listener
+				for Index, Arguments in Queue.Reliable[45] do
 					Listener(table.unpack(Arguments))
 				end
-				Queue.Reliable[40] = {}
+				Queue.Reliable[45] = {}
 				return function (): ()
-					if Events.Reliable[40] == Listener then
-						Events.Reliable[40] = nil
+					if Events.Reliable[45] == Listener then
+						Events.Reliable[45] = nil
 					end
 				end
 			end
 		},
 		CanSkip = {
 			On = function(Listener: (Value: nil) -> ()): () -> ()
-				Events.Reliable[41] = Listener
-				for Index, Arguments in Queue.Reliable[41] do
+				Events.Reliable[46] = Listener
+				for Index, Arguments in Queue.Reliable[46] do
 					Listener(table.unpack(Arguments))
 				end
-				Queue.Reliable[41] = {}
+				Queue.Reliable[46] = {}
 				return function (): ()
-					if Events.Reliable[41] == Listener then
-						Events.Reliable[41] = nil
+					if Events.Reliable[46] == Listener then
+						Events.Reliable[46] = nil
 					end
 				end
 			end
@@ -2173,14 +2366,14 @@ local Returns = table.freeze({
 		},
 		GameSpeedChanged = {
 			On = function(Listener: (Value: { newSpeed: number, sendTimeMs: number }) -> ()): () -> ()
-				Events.Reliable[44] = Listener
-				for Index, Arguments in Queue.Reliable[44] do
+				Events.Reliable[49] = Listener
+				for Index, Arguments in Queue.Reliable[49] do
 					Listener(table.unpack(Arguments))
 				end
-				Queue.Reliable[44] = {}
+				Queue.Reliable[49] = {}
 				return function (): ()
-					if Events.Reliable[44] == Listener then
-						Events.Reliable[44] = nil
+					if Events.Reliable[49] == Listener then
+						Events.Reliable[49] = nil
 					end
 				end
 			end
@@ -2211,14 +2404,14 @@ local Returns = table.freeze({
 		},
 		CountUpdated = {
 			On = function(Listener: (Value: { category: string, itemName: string, newCount: number }) -> ()): () -> ()
-				Events.Reliable[46] = Listener
-				for Index, Arguments in Queue.Reliable[46] do
+				Events.Reliable[51] = Listener
+				for Index, Arguments in Queue.Reliable[51] do
 					Listener(table.unpack(Arguments))
 				end
-				Queue.Reliable[46] = {}
+				Queue.Reliable[51] = {}
 				return function (): ()
-					if Events.Reliable[46] == Listener then
-						Events.Reliable[46] = nil
+					if Events.Reliable[51] == Listener then
+						Events.Reliable[51] = nil
 					end
 				end
 			end

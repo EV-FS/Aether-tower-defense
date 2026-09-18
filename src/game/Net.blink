@@ -187,6 +187,16 @@ scope TowerService {
         }
     }
 
+    event StatsUpdated {
+        from: Server,
+        type: Reliable,
+        call: SingleSync,
+        data: struct {
+            towerId: u16,
+            stats: unknown,
+        }
+    }
+
     event PassiveTriggered {
         from: Server,
         type: Reliable,
@@ -197,6 +207,47 @@ scope TowerService {
             arg: unknown?,
         }
     }
+
+    event OnApplyBuff {
+        from: Server,
+        type: Reliable,
+        call: SingleSync,
+        data: struct {
+            towerId: u16,
+            targetId: u16,
+        }
+    }
+
+    event OnRemoveBuff {
+        from: Server,
+        type: Reliable,
+        call: SingleSync,
+        data: struct {
+            towerId: u16,
+            targetId: u16,
+        }
+    }
+
+    event OnBuffAdded {
+        from: Server,
+        type: Reliable,
+        call: SingleSync,
+        data: struct {
+            bufferId: u16,
+            targetId: u16,
+            activeBuffs: unknown,
+        }
+	}
+
+    event OnBuffRemoved {
+		from: Server,
+        type: Reliable,
+        call: SingleSync,
+        data: struct {
+            bufferId: u16,
+            targetId: u16,
+        }
+	}
 }
 
 scope UnitService {

@@ -41,13 +41,7 @@ end
 local BaseTower = {}
 BaseTower.__index = BaseTower
 
-function BaseTower.new(
-	player: Player,
-	towerId: number,
-	towerName: string,
-	towerKey: string,
-	position: Vector3
-): Tower
+function BaseTower.new(player: Player, towerId: number, towerName: string, towerKey: string, position: Vector3): Tower
 	local self = setmetatable({}, BaseTower)
 
 	self.Id = towerId
@@ -60,15 +54,14 @@ function BaseTower.new(
 	self.Position = position
 	DataService = DataService or ServiceRegistry:GetService("DataService")
 	local playerData = DataService and DataService:GetData(player)
-	local ownedTower = playerData
-		and playerData.OwnedTowers[towerName]
-		and playerData.OwnedTowers[towerName][towerKey]
+	local ownedTower = playerData and playerData.OwnedTowers[towerName] and playerData.OwnedTowers[towerName][towerKey]
 	self.Trait = if ownedTower then ownedTower.Trait else nil
 
 	self.Destroyed = Signal.new()
 
 	self.Components = {}
 	self.EventSignals = {}
+	self.ActiveBuffs = {}
 
 	self:_ApplyNewStats()
 	self:_AddTowerExp()
@@ -157,12 +150,44 @@ function BaseTower:_RecalculateStats()
 		end
 	end
 
+	if self.ActiveBuffs then
+		local maxDamageBuff = 0
+		local maxRangeBuff = 0
+		local maxCooldownBuff = 0
+
+		for _, buffData in pairs(self.ActiveBuffs) do
+			maxDamageBuff = math.max(maxDamageBuff, buffData.DamageBuff)
+			maxRangeBuff = math.max(maxRangeBuff, buffData.RangeBuff)
+			maxCooldownBuff = math.max(maxCooldownBuff, buffData.CooldownBuff)
+		end
+
+		if self.Stats.Damage then
+			self.Stats.Damage *= 1 + maxDamageBuff / 100
+		end
+		if self.Stats.Range then
+			self.Stats.Range *= 1 + maxRangeBuff / 100
+		end
+		if self.Stats.Cooldown then
+			self.Stats.Cooldown *= 1 - maxCooldownBuff / 100
+		end
+	end
+
 	if self.Stats.Damage then
 		self.Stats.Damage = math.floor(self.Stats.Damage)
+	end
+	if self.Stats.Range then
+		self.Stats.Range = math.floor(self.Stats.Range * 10) / 10
+	end
+	if self.Stats.Cooldown then
+		self.Stats.Cooldown = math.floor(self.Stats.Cooldown * 100) / 100
 	end
 end
 
 function BaseTower:_ApplyNewStats()
+	if self.IsDestroyed then
+		return
+	end
+
 	self:_RecalculateStats()
 
 	local needsAttack = self.Stats.AttackType and self.Stats.Damage
@@ -190,6 +215,11 @@ function BaseTower:_ApplyNewStats()
 	for i = #summons + 1, previousCount do
 		self:_SyncComponent(getSummonKey(i), "SummonComponent", false)
 	end
+
+	Net.TowerService.StatsUpdated.FireAll({
+		towerId = self.Id,
+		stats = self.Stats,
+	})
 end
 
 function BaseTower:_SyncComponent(key: string, componentName: string, shouldExist: boolean?, ...)

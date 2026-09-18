@@ -4,10 +4,12 @@ local RunService = game:GetService("RunService")
 local ServerScriptService = game:GetService("ServerScriptService")
 
 --/Modules
-local TowerData = require(ReplicatedStorage.Settings.Data.TowerData)
 local ServiceRegistry = require(ReplicatedStorage.Shared.Modules.Core.ServiceRegistry)
+local Net = require(ReplicatedStorage.Shared.Net)
 local Registry = require(ServerScriptService.Server.Services.Entities.TowerService.Registry)
 local TimeService
+
+local CHECK_INTERVAL = 0.2
 
 -------------------------------------------------
 --// BuffComponent
@@ -22,7 +24,6 @@ function BuffComponent.new(tower)
 		self.Tower.ActiveBuffs = {}
 	end
 
-	self.LevelUpConnection = {}
 	self.BuffedTowers = {}
 
 	self.Tower:GetEvent("LevelUp"):Connect(function()
@@ -36,7 +37,6 @@ function BuffComponent.new(tower)
 end
 
 function BuffComponent:Start()
-	local checkInterval = 0.2
 	local timeLeft = 0
 
 	TimeService = TimeService or ServiceRegistry:GetService("TimeService")
@@ -46,7 +46,7 @@ function BuffComponent:Start()
 		if timeLeft > 0 then
 			return
 		end
-		timeLeft += checkInterval
+		timeLeft += CHECK_INTERVAL
 
 		self:_UpdateBuff()
 	end)
@@ -81,51 +81,38 @@ function BuffComponent:_UpdateBuff()
 end
 
 function BuffComponent:_ApplyBuff(targetTower)
-	if self.LevelUpConnection[targetTower.Id] then
-		self.LevelUpConnection[targetTower.Id]:Disconnect()
-		self.LevelUpConnection[targetTower.Id] = nil
-	end
-
 	targetTower.ActiveBuffs[self.Tower] = {
 		DamageBuff = self.Tower.Stats.DamageBuff or 0,
 		RangeBuff = self.Tower.Stats.RangeBuff or 0,
 		CooldownBuff = self.Tower.Stats.CooldownBuff or 0,
 	}
 
-	self.LevelUpConnection[targetTower.Id] = targetTower:GetEvent("LevelUp"):Connect(function()
-		self:_ApplyBuff(targetTower)
-	end)
+	targetTower:_ApplyNewStats()
 
-	self:_SetTargetStats(targetTower)
+	Net.TowerService.OnApplyBuff.FireAll({
+		towerId = self.Tower.Id,
+		targetId = targetTower.Id,
+	})
+	Net.TowerService.OnBuffAdded.FireAll({
+		bufferId = self.Tower.Id,
+		targetId = targetTower.Id,
+		activeBuffs = targetTower.ActiveBuffs[self.Tower],
+	})
 end
 
 function BuffComponent:_RemoveBuff(targetTower)
-	if self.LevelUpConnection[targetTower.Id] then
-		self.LevelUpConnection[targetTower.Id]:Disconnect()
-		self.LevelUpConnection[targetTower.Id] = nil
-	end
-
 	targetTower.ActiveBuffs[self.Tower] = nil
 
-	self:_SetTargetStats(targetTower)
-end
+	targetTower:_ApplyNewStats()
 
-function BuffComponent:_SetTargetStats(tower)
-	local defaultStats = TowerData.ByName[tower.Name].Stats[tower.Level]
-
-	local maxDamageBuff = 0
-	local maxRangeBuff = 0
-	local maxCooldownBuff = 0
-
-	for _, buffData in pairs(tower.ActiveBuffs) do
-		maxDamageBuff = math.max(maxDamageBuff, buffData.DamageBuff)
-		maxRangeBuff = math.max(maxRangeBuff, buffData.RangeBuff)
-		maxCooldownBuff = math.max(maxCooldownBuff, buffData.CooldownBuff)
-	end
-
-	tower.Stats.Damage = defaultStats.Damage * (1 + maxDamageBuff / 100)
-	tower.Stats.Range = defaultStats.Range * (1 + maxRangeBuff / 100)
-	tower.Stats.Cooldown = defaultStats.Cooldown * (1 - maxCooldownBuff / 100)
+	Net.TowerService.OnRemoveBuff.FireAll({
+		towerId = self.Tower.Id,
+		targetId = targetTower.Id,
+	})
+	Net.TowerService.OnBuffRemoved.FireAll({
+		bufferId = self.Tower.Id,
+		targetId = targetTower.Id,
+	})
 end
 
 function BuffComponent:Destroy()
@@ -133,11 +120,6 @@ function BuffComponent:Destroy()
 		self.HeartbeatConnection:Disconnect()
 		self.HeartbeatConnection = nil
 	end
-
-	for _, connection in pairs(self.LevelUpConnection) do
-		connection:Disconnect()
-	end
-	table.clear(self.LevelUpConnection)
 
 	for buffedTower, _ in pairs(self.BuffedTowers) do
 		self:_RemoveBuff(buffedTower)

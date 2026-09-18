@@ -127,6 +127,10 @@ function TimeService:GetGameSpeed()
 end
 
 function TimeService:SetGameSpeed(speed: number, pingTime: number?, isForce: boolean?): boolean
+	if typeof(speed) ~= "number" or speed ~= speed or speed < 0 or speed == math.huge then
+		return false
+	end
+
 	if RunService:IsClient() and not isForce then
 		local success = Net.TimeService.ChangeGameSpeed.Invoke(speed * 10):expect()
 		return success == true

@@ -505,6 +505,34 @@ function TowerRenderer.OnAttack(towerId: number, enemyModel: Model, stats, attac
 	end
 end
 
+function TowerRenderer.OnApplyBuff(towerId: number, targetId: number)
+	local bufferTower = TowerRenderer.RenderStates[towerId]
+	if not bufferTower then
+		return
+	end
+
+	local targetTower = TowerRenderer.RenderStates[targetId]
+	if not targetTower then
+		return
+	end
+
+	VisualService.Play(bufferTower, "ApplyBuff", targetTower.Level, bufferTower.Model, targetTower.Model)
+end
+
+function TowerRenderer.OnRemoveBuff(towerId: number, targetId: number)
+	local bufferTower = TowerRenderer.RenderStates[towerId]
+	if not bufferTower then
+		return
+	end
+
+	local targetTower = TowerRenderer.RenderStates[targetId]
+	if not targetTower then
+		return
+	end
+
+	VisualService.Play(bufferTower, "RemoveBuff", targetTower.Level, bufferTower.Model, targetTower.Model)
+end
+
 function TowerRenderer.Cleanup(towerId: number)
 	local renderData = TowerRenderer.RenderStates[towerId]
 	AnimationService.Clear(renderData.Model)

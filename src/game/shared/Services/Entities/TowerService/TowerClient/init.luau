@@ -8,6 +8,7 @@ local StarterPlayer = game:GetService("StarterPlayer")
 --/Service Modules
 local EconomyService
 local InputService
+local NotificationService
 
 --/Core Modules
 local ClientSignals = require(StarterPlayer.StarterPlayerScripts.Client.ClientSignals)
@@ -21,7 +22,6 @@ local TowerData = require(ReplicatedStorage.Settings.Data.TowerData)
 local MouseRayCast = require(ReplicatedStorage.Shared.Modules.Utils.MouseRayCast)
 local TableUtils = require(ReplicatedStorage.Shared.Modules.Utils.TableUtils)
 local CharacterUtils = require(ReplicatedStorage.Shared.Modules.Utils.CharacterUtils)
-local NotificationService = require(ReplicatedStorage.Shared.Services.System.NotificationService)
 local CreateRangeIndicator = require(script.Parent.Utils.CreateRangeIndicator)
 
 --/Constants
@@ -75,6 +75,7 @@ TowerClient.ActiveTowers = {}
 function TowerClient.Init(services)
 	EconomyService = services:GetService("EconomyService")
 	InputService = services:GetService("InputService")
+	NotificationService = services:GetService("NotificationService")
 
 	TowerRenderer.Init(services)
 	TowerPlacement.Init(services, TowerClient.GetTowerCount)
@@ -121,10 +122,15 @@ function TowerClient.Start()
 
 	Net.TowerService.OnAttackEnemy.On(TowerClient._OnAttackEnemy)
 	Net.TowerService.TowerUpdated.On(TowerClient._TowerUpdated)
+	Net.TowerService.StatsUpdated.On(TowerClient._StatsUpdated)
 	Net.TowerService.TowerDestroyed.On(TowerClient.RemoveTower)
 	Net.TowerService.TowerSpawned.On(TowerClient._TowerSpawned)
 	Net.TowerService.TowerTargetModeUpdated.On(TowerClient._TowerTargetModeUpdated)
 	Net.TowerService.PassiveTriggered.On(TowerClient._PassiveTriggered)
+	Net.TowerService.OnApplyBuff.On(TowerClient._OnApplyBuff)
+	Net.TowerService.OnRemoveBuff.On(TowerClient._OnRemoveBuff)
+	Net.TowerService.OnBuffAdded.On(TowerClient._OnBuffAdded)
+	Net.TowerService.OnBuffRemoved.On(TowerClient._OnBuffRemoved)
 end
 
 function TowerClient._SetPlacementInput()
@@ -202,6 +208,7 @@ function TowerClient.RegisterTower(player: Player?, towerId: number, data)
 		Target = "First",
 		Level = 0,
 		Stats = TableUtils.DeepCopy(TowerData.ByName[data.towerName].Stats[0]),
+		ActiveBuffs = {},
 	}
 
 	PlaceValidator.AddBorder(towerId, data.borderData)
@@ -458,7 +465,6 @@ function TowerClient._TowerUpdated(data: { towerId: number, towerLevel: number }
 	end
 
 	towerData.Level = data.towerLevel
-	towerData.Stats = TableUtils.DeepCopy(TowerData.ByName[towerData.Name].Stats[data.towerLevel])
 
 	TowerRenderer.UpgradeVisuals(data.towerLevel, data.towerId)
 	if selectedTowerId == data.towerId then
@@ -466,6 +472,43 @@ function TowerClient._TowerUpdated(data: { towerId: number, towerLevel: number }
 	end
 
 	ClientSignals.TowerUpdated:Fire(data.towerId, towerData)
+end
+
+function TowerClient._StatsUpdated(data: { towerId: number, stats: any })
+	local towerData = TowerClient.ActiveTowers[data.towerId]
+	if not towerData then
+		return
+	end
+
+	towerData.Stats = data.stats
+
+	ClientSignals.StatsUpdated:Fire(data.towerId, towerData.Stats)
+end
+
+function TowerClient._OnApplyBuff(data: { towerId: number, targetId: number })
+	TowerRenderer.OnApplyBuff(data.towerId, data.targetId)
+end
+
+function TowerClient._OnRemoveBuff(data: { towerId: number, targetId: number })
+	TowerRenderer.OnRemoveBuff(data.towerId, data.targetId)
+end
+
+function TowerClient._OnBuffAdded(data: { bufferId: number, targetId: number, activeBuffs: any })
+	local buffedTower = TowerClient.ActiveTowers[data.targetId]
+	if not buffedTower then
+		return
+	end
+
+	buffedTower.ActiveBuffs[data.bufferId] = data.activeBuffs
+end
+
+function TowerClient._OnBuffRemoved(data: { bufferId: number, targetId: number })
+	local buffedTower = TowerClient.ActiveTowers[data.targetId]
+	if not buffedTower then
+		return
+	end
+
+	buffedTower.ActiveBuffs[data.bufferId] = nil
 end
 
 function TowerClient._UpdateHoverState()

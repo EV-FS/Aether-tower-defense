@@ -167,15 +167,15 @@ Queue.Reliable[14] = table.create(256)
 Queue.Reliable[15] = table.create(256)
 Queue.Reliable[16] = table.create(256)
 Queue.Reliable[17] = table.create(256)
-Queue.Reliable[27] = table.create(256)
-Queue.Reliable[28] = table.create(256)
-Queue.Reliable[29] = table.create(256)
+Queue.Reliable[32] = table.create(256)
+Queue.Reliable[33] = table.create(256)
 Queue.Reliable[34] = table.create(256)
-Queue.Reliable[35] = table.create(256)
-Queue.Reliable[36] = table.create(256)
-Queue.Reliable[42] = table.create(256)
-Queue.Reliable[43] = table.create(256)
-Queue.Reliable[45] = table.create(256)
+Queue.Reliable[39] = table.create(256)
+Queue.Reliable[40] = table.create(256)
+Queue.Reliable[41] = table.create(256)
+Queue.Reliable[47] = table.create(256)
+Queue.Reliable[48] = table.create(256)
+Queue.Reliable[50] = table.create(256)
 function SerdesFunctions.EnemyService_WriteEVENT_ReplicatedEnemy(Value: { enemyId: number, enemyIndex: number, sendTimeMs: number, isBoss: boolean?, startPathAlpha: number?, pathId: number }): ()
 	-- Allocate BLOCK: 9 bytes
 	local BLOCK_START = Allocate(9)
@@ -416,10 +416,18 @@ function SerdesFunctions.TowerService_WriteEVENT_TowerTargetModeUpdated(Value: {
 	buffer.writestring(SendBuffer, SendOffset, Value.targetMode, Length)
 end
 
+function SerdesFunctions.TowerService_WriteEVENT_StatsUpdated(Value: { towerId: number, stats: any }): ()
+	-- Allocate BLOCK: 3 bytes
+	local BLOCK_START = Allocate(3)
+	buffer.writeu8(SendBuffer, BLOCK_START + 0, 19)
+	buffer.writeu16(SendBuffer, BLOCK_START + 1, Value.towerId)
+	table.insert(SendInstances, if Value.stats == nil then Null else Value.stats)
+end
+
 function SerdesFunctions.TowerService_WriteEVENT_PassiveTriggered(Value: { towerId: number, passiveType: string, arg: any? }): ()
 	-- Allocate BLOCK: 6 bytes
 	local BLOCK_START = Allocate(6)
-	buffer.writeu8(SendBuffer, BLOCK_START + 0, 19)
+	buffer.writeu8(SendBuffer, BLOCK_START + 0, 20)
 	buffer.writeu16(SendBuffer, BLOCK_START + 1, Value.towerId)
 	local Length = #Value.passiveType
 	buffer.writeu16(SendBuffer, BLOCK_START + 3, Length)
@@ -431,10 +439,43 @@ function SerdesFunctions.TowerService_WriteEVENT_PassiveTriggered(Value: { tower
 	end
 end
 
+function SerdesFunctions.TowerService_WriteEVENT_OnApplyBuff(Value: { towerId: number, targetId: number }): ()
+	-- Allocate BLOCK: 5 bytes
+	local BLOCK_START = Allocate(5)
+	buffer.writeu8(SendBuffer, BLOCK_START + 0, 21)
+	buffer.writeu16(SendBuffer, BLOCK_START + 1, Value.towerId)
+	buffer.writeu16(SendBuffer, BLOCK_START + 3, Value.targetId)
+end
+
+function SerdesFunctions.TowerService_WriteEVENT_OnRemoveBuff(Value: { towerId: number, targetId: number }): ()
+	-- Allocate BLOCK: 5 bytes
+	local BLOCK_START = Allocate(5)
+	buffer.writeu8(SendBuffer, BLOCK_START + 0, 22)
+	buffer.writeu16(SendBuffer, BLOCK_START + 1, Value.towerId)
+	buffer.writeu16(SendBuffer, BLOCK_START + 3, Value.targetId)
+end
+
+function SerdesFunctions.TowerService_WriteEVENT_OnBuffAdded(Value: { bufferId: number, targetId: number, activeBuffs: any }): ()
+	-- Allocate BLOCK: 5 bytes
+	local BLOCK_START = Allocate(5)
+	buffer.writeu8(SendBuffer, BLOCK_START + 0, 23)
+	buffer.writeu16(SendBuffer, BLOCK_START + 1, Value.bufferId)
+	buffer.writeu16(SendBuffer, BLOCK_START + 3, Value.targetId)
+	table.insert(SendInstances, if Value.activeBuffs == nil then Null else Value.activeBuffs)
+end
+
+function SerdesFunctions.TowerService_WriteEVENT_OnBuffRemoved(Value: { bufferId: number, targetId: number }): ()
+	-- Allocate BLOCK: 5 bytes
+	local BLOCK_START = Allocate(5)
+	buffer.writeu8(SendBuffer, BLOCK_START + 0, 24)
+	buffer.writeu16(SendBuffer, BLOCK_START + 1, Value.bufferId)
+	buffer.writeu16(SendBuffer, BLOCK_START + 3, Value.targetId)
+end
+
 function SerdesFunctions.UnitService_WriteEVENT_ReplicatedUnit(Value: { unitId: number, unitIndex: number, summonerId: number, sendTimeMs: number, pathAlpha: number?, isEnemyType: boolean? }): ()
 	-- Allocate BLOCK: 10 bytes
 	local BLOCK_START = Allocate(10)
-	buffer.writeu8(SendBuffer, BLOCK_START + 0, 20)
+	buffer.writeu8(SendBuffer, BLOCK_START + 0, 25)
 	buffer.writeu16(SendBuffer, BLOCK_START + 1, Value.unitId)
 	buffer.writeu8(SendBuffer, BLOCK_START + 3, Value.unitIndex)
 	buffer.writeu16(SendBuffer, BLOCK_START + 4, Value.summonerId)
@@ -456,7 +497,7 @@ end
 function SerdesFunctions.UnitService_WriteEVENT_OnAttackEnemy(Value: { unitId: number, enemyId: number }): ()
 	-- Allocate BLOCK: 5 bytes
 	local BLOCK_START = Allocate(5)
-	buffer.writeu8(SendBuffer, BLOCK_START + 0, 21)
+	buffer.writeu8(SendBuffer, BLOCK_START + 0, 26)
 	buffer.writeu16(SendBuffer, BLOCK_START + 1, Value.unitId)
 	buffer.writeu16(SendBuffer, BLOCK_START + 3, Value.enemyId)
 end
@@ -464,14 +505,14 @@ end
 function SerdesFunctions.UnitService_WriteEVENT_UnitDestroyed(Value: number): ()
 	-- Allocate BLOCK: 3 bytes
 	local BLOCK_START = Allocate(3)
-	buffer.writeu8(SendBuffer, BLOCK_START + 0, 22)
+	buffer.writeu8(SendBuffer, BLOCK_START + 0, 27)
 	buffer.writeu16(SendBuffer, BLOCK_START + 1, Value)
 end
 
 function SerdesFunctions.UnitService_WriteEVENT_OnDamaged(Value: { unitId: number, damaged: number }): ()
 	-- Allocate BLOCK: 7 bytes
 	local BLOCK_START = Allocate(7)
-	buffer.writeu8(SendBuffer, BLOCK_START + 0, 23)
+	buffer.writeu8(SendBuffer, BLOCK_START + 0, 28)
 	buffer.writeu16(SendBuffer, BLOCK_START + 1, Value.unitId)
 	buffer.writeu32(SendBuffer, BLOCK_START + 3, Value.damaged)
 end
@@ -479,14 +520,14 @@ end
 function SerdesFunctions.BaseService_WriteEVENT_BaseHealthChanged(Value: number): ()
 	-- Allocate BLOCK: 3 bytes
 	local BLOCK_START = Allocate(3)
-	buffer.writeu8(SendBuffer, BLOCK_START + 0, 24)
+	buffer.writeu8(SendBuffer, BLOCK_START + 0, 29)
 	buffer.writeu16(SendBuffer, BLOCK_START + 1, Value)
 end
 
 function SerdesFunctions.NotificationService_WriteEVENT_Popup(Value: { Message: string, LogType: string, DurationMs: number }): ()
 	-- Allocate BLOCK: 7 bytes
 	local BLOCK_START = Allocate(7)
-	buffer.writeu8(SendBuffer, BLOCK_START + 0, 25)
+	buffer.writeu8(SendBuffer, BLOCK_START + 0, 30)
 	local Length = #Value.Message
 	buffer.writeu16(SendBuffer, BLOCK_START + 1, Length)
 	Allocate(Length)
@@ -501,7 +542,7 @@ end
 function SerdesFunctions.LootService_WriteEVENT_ReplicateDrop(Value: { itemName: string, amount: number }): ()
 	-- Allocate BLOCK: 4 bytes
 	local BLOCK_START = Allocate(4)
-	buffer.writeu8(SendBuffer, BLOCK_START + 0, 26)
+	buffer.writeu8(SendBuffer, BLOCK_START + 0, 31)
 	local Length = #Value.itemName
 	buffer.writeu16(SendBuffer, BLOCK_START + 1, Length)
 	Allocate(Length)
@@ -525,7 +566,7 @@ end
 function SerdesFunctions.SettingsService_WriteFUNCTION_RETURN_GetSettings(Value: any, InvocationIdentifier: number): ()
 	-- Allocate BLOCK: 3 bytes
 	local BLOCK_START = Allocate(3)
-	buffer.writeu8(SendBuffer, BLOCK_START + 0, 27)
+	buffer.writeu8(SendBuffer, BLOCK_START + 0, 32)
 	buffer.writeu8(SendBuffer, BLOCK_START + 1, InvocationIdentifier)
 	buffer.writeu8(SendBuffer, BLOCK_START + 2, 1)
 	table.insert(SendInstances, if Value == nil then Null else Value)
@@ -545,7 +586,7 @@ end
 function SerdesFunctions.SettingsService_WriteFUNCTION_RETURN_SaveSetting(Value: boolean, InvocationIdentifier: number): ()
 	-- Allocate BLOCK: 4 bytes
 	local BLOCK_START = Allocate(4)
-	buffer.writeu8(SendBuffer, BLOCK_START + 0, 28)
+	buffer.writeu8(SendBuffer, BLOCK_START + 0, 33)
 	buffer.writeu8(SendBuffer, BLOCK_START + 1, InvocationIdentifier)
 	buffer.writeu8(SendBuffer, BLOCK_START + 2, 1)
 	buffer.writeu8(SendBuffer, BLOCK_START + 3, Value and 1 or 0)
@@ -558,7 +599,7 @@ end
 function SerdesFunctions.GameEvent_WriteFUNCTION_RETURN_GetGameInfo(Value: { Difficulty: string, StartPlayerCount: number }, InvocationIdentifier: number): ()
 	-- Allocate BLOCK: 6 bytes
 	local BLOCK_START = Allocate(6)
-	buffer.writeu8(SendBuffer, BLOCK_START + 0, 29)
+	buffer.writeu8(SendBuffer, BLOCK_START + 0, 34)
 	buffer.writeu8(SendBuffer, BLOCK_START + 1, InvocationIdentifier)
 	buffer.writeu8(SendBuffer, BLOCK_START + 2, 1)
 	local Length = #Value.Difficulty
@@ -571,7 +612,7 @@ end
 function SerdesFunctions.GameEvent_WriteEVENT_GameInfoSynced(Value: { Difficulty: string, StartPlayerCount: number }): ()
 	-- Allocate BLOCK: 4 bytes
 	local BLOCK_START = Allocate(4)
-	buffer.writeu8(SendBuffer, BLOCK_START + 0, 30)
+	buffer.writeu8(SendBuffer, BLOCK_START + 0, 35)
 	local Length = #Value.Difficulty
 	buffer.writeu16(SendBuffer, BLOCK_START + 1, Length)
 	Allocate(Length)
@@ -582,20 +623,20 @@ end
 function SerdesFunctions.GameEvent_WriteEVENT_WaveStarted(Value: number): ()
 	-- Allocate BLOCK: 3 bytes
 	local BLOCK_START = Allocate(3)
-	buffer.writeu8(SendBuffer, BLOCK_START + 0, 31)
+	buffer.writeu8(SendBuffer, BLOCK_START + 0, 36)
 	buffer.writeu16(SendBuffer, BLOCK_START + 1, Value)
 end
 
 function SerdesFunctions.GameEvent_WriteEVENT_WaveCompleted(Value: nil): ()
 	-- Allocate BLOCK: 1 bytes
 	local BLOCK_START = Allocate(1)
-	buffer.writeu8(SendBuffer, BLOCK_START + 0, 32)
+	buffer.writeu8(SendBuffer, BLOCK_START + 0, 37)
 end
 
 function SerdesFunctions.GameEvent_WriteEVENT_GameOver(Value: { isWin: boolean, coins: number, exp: number, gems: number }): ()
 	-- Allocate BLOCK: 8 bytes
 	local BLOCK_START = Allocate(8)
-	buffer.writeu8(SendBuffer, BLOCK_START + 0, 33)
+	buffer.writeu8(SendBuffer, BLOCK_START + 0, 38)
 	buffer.writeu8(SendBuffer, BLOCK_START + 1, Value.isWin and 1 or 0)
 	buffer.writeu16(SendBuffer, BLOCK_START + 2, Value.coins)
 	buffer.writeu16(SendBuffer, BLOCK_START + 4, Value.exp)
@@ -617,34 +658,34 @@ end
 function SerdesFunctions.GameEvent_WriteEVENT_ReadyVoted(Value: number): ()
 	-- Allocate BLOCK: 2 bytes
 	local BLOCK_START = Allocate(2)
-	buffer.writeu8(SendBuffer, BLOCK_START + 0, 37)
+	buffer.writeu8(SendBuffer, BLOCK_START + 0, 42)
 	buffer.writeu8(SendBuffer, BLOCK_START + 1, Value)
 end
 
 function SerdesFunctions.GameEvent_WriteEVENT_RestartVoted(Value: number): ()
 	-- Allocate BLOCK: 2 bytes
 	local BLOCK_START = Allocate(2)
-	buffer.writeu8(SendBuffer, BLOCK_START + 0, 38)
+	buffer.writeu8(SendBuffer, BLOCK_START + 0, 43)
 	buffer.writeu8(SendBuffer, BLOCK_START + 1, Value)
 end
 
 function SerdesFunctions.GameEvent_WriteEVENT_SkipVoted(Value: number): ()
 	-- Allocate BLOCK: 2 bytes
 	local BLOCK_START = Allocate(2)
-	buffer.writeu8(SendBuffer, BLOCK_START + 0, 39)
+	buffer.writeu8(SendBuffer, BLOCK_START + 0, 44)
 	buffer.writeu8(SendBuffer, BLOCK_START + 1, Value)
 end
 
 function SerdesFunctions.GameEvent_WriteEVENT_Restarted(Value: nil): ()
 	-- Allocate BLOCK: 1 bytes
 	local BLOCK_START = Allocate(1)
-	buffer.writeu8(SendBuffer, BLOCK_START + 0, 40)
+	buffer.writeu8(SendBuffer, BLOCK_START + 0, 45)
 end
 
 function SerdesFunctions.GameEvent_WriteEVENT_CanSkip(Value: nil): ()
 	-- Allocate BLOCK: 1 bytes
 	local BLOCK_START = Allocate(1)
-	buffer.writeu8(SendBuffer, BLOCK_START + 0, 41)
+	buffer.writeu8(SendBuffer, BLOCK_START + 0, 46)
 end
 
 function SerdesFunctions.GameEvent_ReadEVENT_VoteSkip(): (nil)
@@ -661,7 +702,7 @@ end
 function SerdesFunctions.TimeService_WriteFUNCTION_RETURN_ChangeGameSpeed(Value: boolean, InvocationIdentifier: number): ()
 	-- Allocate BLOCK: 4 bytes
 	local BLOCK_START = Allocate(4)
-	buffer.writeu8(SendBuffer, BLOCK_START + 0, 43)
+	buffer.writeu8(SendBuffer, BLOCK_START + 0, 48)
 	buffer.writeu8(SendBuffer, BLOCK_START + 1, InvocationIdentifier)
 	buffer.writeu8(SendBuffer, BLOCK_START + 2, 1)
 	buffer.writeu8(SendBuffer, BLOCK_START + 3, Value and 1 or 0)
@@ -670,7 +711,7 @@ end
 function SerdesFunctions.TimeService_WriteEVENT_GameSpeedChanged(Value: { newSpeed: number, sendTimeMs: number }): ()
 	-- Allocate BLOCK: 4 bytes
 	local BLOCK_START = Allocate(4)
-	buffer.writeu8(SendBuffer, BLOCK_START + 0, 44)
+	buffer.writeu8(SendBuffer, BLOCK_START + 0, 49)
 	buffer.writeu8(SendBuffer, BLOCK_START + 1, Value.newSpeed)
 	buffer.writeu16(SendBuffer, BLOCK_START + 2, Value.sendTimeMs)
 end
@@ -689,7 +730,7 @@ end
 function SerdesFunctions.GlobalExistService_WriteFUNCTION_RETURN_GetCount(Value: number, InvocationIdentifier: number): ()
 	-- Allocate BLOCK: 7 bytes
 	local BLOCK_START = Allocate(7)
-	buffer.writeu8(SendBuffer, BLOCK_START + 0, 45)
+	buffer.writeu8(SendBuffer, BLOCK_START + 0, 50)
 	buffer.writeu8(SendBuffer, BLOCK_START + 1, InvocationIdentifier)
 	buffer.writeu8(SendBuffer, BLOCK_START + 2, 1)
 	buffer.writeu32(SendBuffer, BLOCK_START + 3, Value)
@@ -698,7 +739,7 @@ end
 function SerdesFunctions.GlobalExistService_WriteEVENT_CountUpdated(Value: { category: string, itemName: string, newCount: number }): ()
 	-- Allocate BLOCK: 9 bytes
 	local BLOCK_START = Allocate(9)
-	buffer.writeu8(SendBuffer, BLOCK_START + 0, 46)
+	buffer.writeu8(SendBuffer, BLOCK_START + 0, 51)
 	local Length = #Value.category
 	buffer.writeu16(SendBuffer, BLOCK_START + 1, Length)
 	Allocate(Length)
@@ -817,7 +858,37 @@ if not RunService:IsRunning() then
 			FireList = NOOP,
 			FireExcept = NOOP
 		},
+		StatsUpdated = {
+			Fire = NOOP,
+			FireAll = NOOP,
+			FireList = NOOP,
+			FireExcept = NOOP
+		},
 		PassiveTriggered = {
+			Fire = NOOP,
+			FireAll = NOOP,
+			FireList = NOOP,
+			FireExcept = NOOP
+		},
+		OnApplyBuff = {
+			Fire = NOOP,
+			FireAll = NOOP,
+			FireList = NOOP,
+			FireExcept = NOOP
+		},
+		OnRemoveBuff = {
+			Fire = NOOP,
+			FireAll = NOOP,
+			FireList = NOOP,
+			FireExcept = NOOP
+		},
+		OnBuffAdded = {
+			Fire = NOOP,
+			FireAll = NOOP,
+			FireList = NOOP,
+			FireExcept = NOOP
+		},
+		OnBuffRemoved = {
 			Fire = NOOP,
 			FireAll = NOOP,
 			FireList = NOOP,
@@ -1102,114 +1173,114 @@ Reliable.OnServerEvent:Connect(function(Player: Player, Buffer: buffer, Instance
 				end
 				table.insert(Queue.Reliable[17], {Player, Value, InvocationIdentifier} :: {any})
 			end
-		elseif Index == 27 then
+		elseif Index == 32 then
 			-- Read BLOCK: 1 bytes
 			local BLOCK_START = Read(1)
 			local InvocationIdentifier = buffer.readu8(RecieveBuffer, BLOCK_START + 0)
 			local Value: string? = SerdesFunctions.SettingsService_ReadFUNCTION_DATA_GetSettings()
-			if Events.Reliable[27] ~= nil then
-				task.spawn(Events.Reliable[27], Player, Value, InvocationIdentifier)
+			if Events.Reliable[32] ~= nil then
+				task.spawn(Events.Reliable[32], Player, Value, InvocationIdentifier)
 			else
-				if #Queue.Reliable[27] > 256 then
+				if #Queue.Reliable[32] > 256 then
 					warn("[Blink]: Event queue of \"GetSettings\" exceeded 256, did you forget to implement a listener?")
 				end
-				table.insert(Queue.Reliable[27], {Player, Value, InvocationIdentifier} :: {any})
+				table.insert(Queue.Reliable[32], {Player, Value, InvocationIdentifier} :: {any})
 			end
-		elseif Index == 28 then
+		elseif Index == 33 then
 			-- Read BLOCK: 1 bytes
 			local BLOCK_START = Read(1)
 			local InvocationIdentifier = buffer.readu8(RecieveBuffer, BLOCK_START + 0)
 			local Value: { SettingName: string, Value: any } = SerdesFunctions.SettingsService_ReadFUNCTION_DATA_SaveSetting()
-			if Events.Reliable[28] ~= nil then
-				task.spawn(Events.Reliable[28], Player, Value, InvocationIdentifier)
+			if Events.Reliable[33] ~= nil then
+				task.spawn(Events.Reliable[33], Player, Value, InvocationIdentifier)
 			else
-				if #Queue.Reliable[28] > 256 then
+				if #Queue.Reliable[33] > 256 then
 					warn("[Blink]: Event queue of \"SaveSetting\" exceeded 256, did you forget to implement a listener?")
 				end
-				table.insert(Queue.Reliable[28], {Player, Value, InvocationIdentifier} :: {any})
+				table.insert(Queue.Reliable[33], {Player, Value, InvocationIdentifier} :: {any})
 			end
-		elseif Index == 29 then
+		elseif Index == 34 then
 			-- Read BLOCK: 1 bytes
 			local BLOCK_START = Read(1)
 			local InvocationIdentifier = buffer.readu8(RecieveBuffer, BLOCK_START + 0)
 			local Value: nil = SerdesFunctions.GameEvent_ReadFUNCTION_DATA_GetGameInfo()
-			if Events.Reliable[29] ~= nil then
-				task.spawn(Events.Reliable[29], Player, Value, InvocationIdentifier)
-			else
-				if #Queue.Reliable[29] > 256 then
-					warn("[Blink]: Event queue of \"GetGameInfo\" exceeded 256, did you forget to implement a listener?")
-				end
-				table.insert(Queue.Reliable[29], {Player, Value, InvocationIdentifier} :: {any})
-			end
-		elseif Index == 34 then
-			local Value: nil = SerdesFunctions.GameEvent_ReadEVENT_TeleportToLobby()
 			if Events.Reliable[34] ~= nil then
-				SerdesEvent = "TeleportToLobby"
-				Events.Reliable[34](Player, Value)
+				task.spawn(Events.Reliable[34], Player, Value, InvocationIdentifier)
 			else
 				if #Queue.Reliable[34] > 256 then
+					warn("[Blink]: Event queue of \"GetGameInfo\" exceeded 256, did you forget to implement a listener?")
+				end
+				table.insert(Queue.Reliable[34], {Player, Value, InvocationIdentifier} :: {any})
+			end
+		elseif Index == 39 then
+			local Value: nil = SerdesFunctions.GameEvent_ReadEVENT_TeleportToLobby()
+			if Events.Reliable[39] ~= nil then
+				SerdesEvent = "TeleportToLobby"
+				Events.Reliable[39](Player, Value)
+			else
+				if #Queue.Reliable[39] > 256 then
 					warn("[Blink]: Event queue of \"TeleportToLobby\" exceeded 256, did you forget to implement a listener?")
 				end
-				table.insert(Queue.Reliable[34], {Player, Value} :: {any})
+				table.insert(Queue.Reliable[39], {Player, Value} :: {any})
 			end
-		elseif Index == 35 then
+		elseif Index == 40 then
 			local Value: nil = SerdesFunctions.GameEvent_ReadEVENT_VoteRestart()
-			if Events.Reliable[35] ~= nil then
+			if Events.Reliable[40] ~= nil then
 				SerdesEvent = "VoteRestart"
-				Events.Reliable[35](Player, Value)
+				Events.Reliable[40](Player, Value)
 			else
-				if #Queue.Reliable[35] > 256 then
+				if #Queue.Reliable[40] > 256 then
 					warn("[Blink]: Event queue of \"VoteRestart\" exceeded 256, did you forget to implement a listener?")
 				end
-				table.insert(Queue.Reliable[35], {Player, Value} :: {any})
+				table.insert(Queue.Reliable[40], {Player, Value} :: {any})
 			end
-		elseif Index == 36 then
+		elseif Index == 41 then
 			local Value: nil = SerdesFunctions.GameEvent_ReadEVENT_Ready()
-			if Events.Reliable[36] ~= nil then
+			if Events.Reliable[41] ~= nil then
 				SerdesEvent = "Ready"
-				Events.Reliable[36](Player, Value)
+				Events.Reliable[41](Player, Value)
 			else
-				if #Queue.Reliable[36] > 256 then
+				if #Queue.Reliable[41] > 256 then
 					warn("[Blink]: Event queue of \"Ready\" exceeded 256, did you forget to implement a listener?")
 				end
-				table.insert(Queue.Reliable[36], {Player, Value} :: {any})
+				table.insert(Queue.Reliable[41], {Player, Value} :: {any})
 			end
-		elseif Index == 42 then
+		elseif Index == 47 then
 			local Value: nil = SerdesFunctions.GameEvent_ReadEVENT_VoteSkip()
-			if Events.Reliable[42] ~= nil then
+			if Events.Reliable[47] ~= nil then
 				SerdesEvent = "VoteSkip"
-				Events.Reliable[42](Player, Value)
+				Events.Reliable[47](Player, Value)
 			else
-				if #Queue.Reliable[42] > 256 then
+				if #Queue.Reliable[47] > 256 then
 					warn("[Blink]: Event queue of \"VoteSkip\" exceeded 256, did you forget to implement a listener?")
 				end
-				table.insert(Queue.Reliable[42], {Player, Value} :: {any})
+				table.insert(Queue.Reliable[47], {Player, Value} :: {any})
 			end
-		elseif Index == 43 then
+		elseif Index == 48 then
 			-- Read BLOCK: 1 bytes
 			local BLOCK_START = Read(1)
 			local InvocationIdentifier = buffer.readu8(RecieveBuffer, BLOCK_START + 0)
 			local Value: number = SerdesFunctions.TimeService_ReadFUNCTION_DATA_ChangeGameSpeed()
-			if Events.Reliable[43] ~= nil then
-				task.spawn(Events.Reliable[43], Player, Value, InvocationIdentifier)
+			if Events.Reliable[48] ~= nil then
+				task.spawn(Events.Reliable[48], Player, Value, InvocationIdentifier)
 			else
-				if #Queue.Reliable[43] > 256 then
+				if #Queue.Reliable[48] > 256 then
 					warn("[Blink]: Event queue of \"ChangeGameSpeed\" exceeded 256, did you forget to implement a listener?")
 				end
-				table.insert(Queue.Reliable[43], {Player, Value, InvocationIdentifier} :: {any})
+				table.insert(Queue.Reliable[48], {Player, Value, InvocationIdentifier} :: {any})
 			end
-		elseif Index == 45 then
+		elseif Index == 50 then
 			-- Read BLOCK: 1 bytes
 			local BLOCK_START = Read(1)
 			local InvocationIdentifier = buffer.readu8(RecieveBuffer, BLOCK_START + 0)
 			local Value: { category: string, itemName: string } = SerdesFunctions.GlobalExistService_ReadFUNCTION_DATA_GetCount()
-			if Events.Reliable[45] ~= nil then
-				task.spawn(Events.Reliable[45], Player, Value, InvocationIdentifier)
+			if Events.Reliable[50] ~= nil then
+				task.spawn(Events.Reliable[50], Player, Value, InvocationIdentifier)
 			else
-				if #Queue.Reliable[45] > 256 then
+				if #Queue.Reliable[50] > 256 then
 					warn("[Blink]: Event queue of \"GetCount\" exceeded 256, did you forget to implement a listener?")
 				end
-				table.insert(Queue.Reliable[45], {Player, Value, InvocationIdentifier} :: {any})
+				table.insert(Queue.Reliable[50], {Player, Value, InvocationIdentifier} :: {any})
 			end
 		end
 	end
@@ -2025,6 +2096,52 @@ local Returns = table.freeze({
 				end
 			end,
 		},
+		StatsUpdated = {
+			Fire = function(Player: Player, Value: { towerId: number, stats: any }): ()
+				Load(PlayersMap[Player])
+				SerdesFunctions.TowerService_WriteEVENT_StatsUpdated(Value)
+				PlayersMap[Player] = Save()
+			end,
+			FireAll = function(Value: { towerId: number, stats: any }): ()
+				Load()
+				SerdesFunctions.TowerService_WriteEVENT_StatsUpdated(Value)
+				local Buffer, Size, Instances = SendBuffer, SendCursor, SendInstances
+				for _, Player in Players:GetPlayers() do
+					Load(PlayersMap[Player])
+					local Position = Allocate(Size)
+					buffer.copy(SendBuffer, Position, Buffer, 0, Size)
+					table.move(Instances, 1, #Instances, #SendInstances + 1, SendInstances)
+					PlayersMap[Player] = Save()
+				end
+			end,
+			FireList = function(List: {Player}, Value: { towerId: number, stats: any }): ()
+				Load()
+				SerdesFunctions.TowerService_WriteEVENT_StatsUpdated(Value)
+				local Buffer, Size, Instances = SendBuffer, SendCursor, SendInstances
+				for _, Player in List do
+					Load(PlayersMap[Player])
+					local Position = Allocate(Size)
+					buffer.copy(SendBuffer, Position, Buffer, 0, Size)
+					table.move(Instances, 1, #Instances, #SendInstances + 1, SendInstances)
+					PlayersMap[Player] = Save()
+				end
+			end,
+			FireExcept = function(Except: Player, Value: { towerId: number, stats: any }): ()
+				Load()
+				SerdesFunctions.TowerService_WriteEVENT_StatsUpdated(Value)
+				local Buffer, Size, Instances = SendBuffer, SendCursor, SendInstances
+				for _, Player in Players:GetPlayers() do
+					if Player == Except then
+						continue
+					end
+					Load(PlayersMap[Player])
+					local Position = Allocate(Size)
+					buffer.copy(SendBuffer, Position, Buffer, 0, Size)
+					table.move(Instances, 1, #Instances, #SendInstances + 1, SendInstances)
+					PlayersMap[Player] = Save()
+				end
+			end,
+		},
 		PassiveTriggered = {
 			Fire = function(Player: Player, Value: { towerId: number, passiveType: string, arg: any? }): ()
 				Load(PlayersMap[Player])
@@ -2058,6 +2175,190 @@ local Returns = table.freeze({
 			FireExcept = function(Except: Player, Value: { towerId: number, passiveType: string, arg: any? }): ()
 				Load()
 				SerdesFunctions.TowerService_WriteEVENT_PassiveTriggered(Value)
+				local Buffer, Size, Instances = SendBuffer, SendCursor, SendInstances
+				for _, Player in Players:GetPlayers() do
+					if Player == Except then
+						continue
+					end
+					Load(PlayersMap[Player])
+					local Position = Allocate(Size)
+					buffer.copy(SendBuffer, Position, Buffer, 0, Size)
+					table.move(Instances, 1, #Instances, #SendInstances + 1, SendInstances)
+					PlayersMap[Player] = Save()
+				end
+			end,
+		},
+		OnApplyBuff = {
+			Fire = function(Player: Player, Value: { towerId: number, targetId: number }): ()
+				Load(PlayersMap[Player])
+				SerdesFunctions.TowerService_WriteEVENT_OnApplyBuff(Value)
+				PlayersMap[Player] = Save()
+			end,
+			FireAll = function(Value: { towerId: number, targetId: number }): ()
+				Load()
+				SerdesFunctions.TowerService_WriteEVENT_OnApplyBuff(Value)
+				local Buffer, Size, Instances = SendBuffer, SendCursor, SendInstances
+				for _, Player in Players:GetPlayers() do
+					Load(PlayersMap[Player])
+					local Position = Allocate(Size)
+					buffer.copy(SendBuffer, Position, Buffer, 0, Size)
+					table.move(Instances, 1, #Instances, #SendInstances + 1, SendInstances)
+					PlayersMap[Player] = Save()
+				end
+			end,
+			FireList = function(List: {Player}, Value: { towerId: number, targetId: number }): ()
+				Load()
+				SerdesFunctions.TowerService_WriteEVENT_OnApplyBuff(Value)
+				local Buffer, Size, Instances = SendBuffer, SendCursor, SendInstances
+				for _, Player in List do
+					Load(PlayersMap[Player])
+					local Position = Allocate(Size)
+					buffer.copy(SendBuffer, Position, Buffer, 0, Size)
+					table.move(Instances, 1, #Instances, #SendInstances + 1, SendInstances)
+					PlayersMap[Player] = Save()
+				end
+			end,
+			FireExcept = function(Except: Player, Value: { towerId: number, targetId: number }): ()
+				Load()
+				SerdesFunctions.TowerService_WriteEVENT_OnApplyBuff(Value)
+				local Buffer, Size, Instances = SendBuffer, SendCursor, SendInstances
+				for _, Player in Players:GetPlayers() do
+					if Player == Except then
+						continue
+					end
+					Load(PlayersMap[Player])
+					local Position = Allocate(Size)
+					buffer.copy(SendBuffer, Position, Buffer, 0, Size)
+					table.move(Instances, 1, #Instances, #SendInstances + 1, SendInstances)
+					PlayersMap[Player] = Save()
+				end
+			end,
+		},
+		OnRemoveBuff = {
+			Fire = function(Player: Player, Value: { towerId: number, targetId: number }): ()
+				Load(PlayersMap[Player])
+				SerdesFunctions.TowerService_WriteEVENT_OnRemoveBuff(Value)
+				PlayersMap[Player] = Save()
+			end,
+			FireAll = function(Value: { towerId: number, targetId: number }): ()
+				Load()
+				SerdesFunctions.TowerService_WriteEVENT_OnRemoveBuff(Value)
+				local Buffer, Size, Instances = SendBuffer, SendCursor, SendInstances
+				for _, Player in Players:GetPlayers() do
+					Load(PlayersMap[Player])
+					local Position = Allocate(Size)
+					buffer.copy(SendBuffer, Position, Buffer, 0, Size)
+					table.move(Instances, 1, #Instances, #SendInstances + 1, SendInstances)
+					PlayersMap[Player] = Save()
+				end
+			end,
+			FireList = function(List: {Player}, Value: { towerId: number, targetId: number }): ()
+				Load()
+				SerdesFunctions.TowerService_WriteEVENT_OnRemoveBuff(Value)
+				local Buffer, Size, Instances = SendBuffer, SendCursor, SendInstances
+				for _, Player in List do
+					Load(PlayersMap[Player])
+					local Position = Allocate(Size)
+					buffer.copy(SendBuffer, Position, Buffer, 0, Size)
+					table.move(Instances, 1, #Instances, #SendInstances + 1, SendInstances)
+					PlayersMap[Player] = Save()
+				end
+			end,
+			FireExcept = function(Except: Player, Value: { towerId: number, targetId: number }): ()
+				Load()
+				SerdesFunctions.TowerService_WriteEVENT_OnRemoveBuff(Value)
+				local Buffer, Size, Instances = SendBuffer, SendCursor, SendInstances
+				for _, Player in Players:GetPlayers() do
+					if Player == Except then
+						continue
+					end
+					Load(PlayersMap[Player])
+					local Position = Allocate(Size)
+					buffer.copy(SendBuffer, Position, Buffer, 0, Size)
+					table.move(Instances, 1, #Instances, #SendInstances + 1, SendInstances)
+					PlayersMap[Player] = Save()
+				end
+			end,
+		},
+		OnBuffAdded = {
+			Fire = function(Player: Player, Value: { bufferId: number, targetId: number, activeBuffs: any }): ()
+				Load(PlayersMap[Player])
+				SerdesFunctions.TowerService_WriteEVENT_OnBuffAdded(Value)
+				PlayersMap[Player] = Save()
+			end,
+			FireAll = function(Value: { bufferId: number, targetId: number, activeBuffs: any }): ()
+				Load()
+				SerdesFunctions.TowerService_WriteEVENT_OnBuffAdded(Value)
+				local Buffer, Size, Instances = SendBuffer, SendCursor, SendInstances
+				for _, Player in Players:GetPlayers() do
+					Load(PlayersMap[Player])
+					local Position = Allocate(Size)
+					buffer.copy(SendBuffer, Position, Buffer, 0, Size)
+					table.move(Instances, 1, #Instances, #SendInstances + 1, SendInstances)
+					PlayersMap[Player] = Save()
+				end
+			end,
+			FireList = function(List: {Player}, Value: { bufferId: number, targetId: number, activeBuffs: any }): ()
+				Load()
+				SerdesFunctions.TowerService_WriteEVENT_OnBuffAdded(Value)
+				local Buffer, Size, Instances = SendBuffer, SendCursor, SendInstances
+				for _, Player in List do
+					Load(PlayersMap[Player])
+					local Position = Allocate(Size)
+					buffer.copy(SendBuffer, Position, Buffer, 0, Size)
+					table.move(Instances, 1, #Instances, #SendInstances + 1, SendInstances)
+					PlayersMap[Player] = Save()
+				end
+			end,
+			FireExcept = function(Except: Player, Value: { bufferId: number, targetId: number, activeBuffs: any }): ()
+				Load()
+				SerdesFunctions.TowerService_WriteEVENT_OnBuffAdded(Value)
+				local Buffer, Size, Instances = SendBuffer, SendCursor, SendInstances
+				for _, Player in Players:GetPlayers() do
+					if Player == Except then
+						continue
+					end
+					Load(PlayersMap[Player])
+					local Position = Allocate(Size)
+					buffer.copy(SendBuffer, Position, Buffer, 0, Size)
+					table.move(Instances, 1, #Instances, #SendInstances + 1, SendInstances)
+					PlayersMap[Player] = Save()
+				end
+			end,
+		},
+		OnBuffRemoved = {
+			Fire = function(Player: Player, Value: { bufferId: number, targetId: number }): ()
+				Load(PlayersMap[Player])
+				SerdesFunctions.TowerService_WriteEVENT_OnBuffRemoved(Value)
+				PlayersMap[Player] = Save()
+			end,
+			FireAll = function(Value: { bufferId: number, targetId: number }): ()
+				Load()
+				SerdesFunctions.TowerService_WriteEVENT_OnBuffRemoved(Value)
+				local Buffer, Size, Instances = SendBuffer, SendCursor, SendInstances
+				for _, Player in Players:GetPlayers() do
+					Load(PlayersMap[Player])
+					local Position = Allocate(Size)
+					buffer.copy(SendBuffer, Position, Buffer, 0, Size)
+					table.move(Instances, 1, #Instances, #SendInstances + 1, SendInstances)
+					PlayersMap[Player] = Save()
+				end
+			end,
+			FireList = function(List: {Player}, Value: { bufferId: number, targetId: number }): ()
+				Load()
+				SerdesFunctions.TowerService_WriteEVENT_OnBuffRemoved(Value)
+				local Buffer, Size, Instances = SendBuffer, SendCursor, SendInstances
+				for _, Player in List do
+					Load(PlayersMap[Player])
+					local Position = Allocate(Size)
+					buffer.copy(SendBuffer, Position, Buffer, 0, Size)
+					table.move(Instances, 1, #Instances, #SendInstances + 1, SendInstances)
+					PlayersMap[Player] = Save()
+				end
+			end,
+			FireExcept = function(Except: Player, Value: { bufferId: number, targetId: number }): ()
+				Load()
+				SerdesFunctions.TowerService_WriteEVENT_OnBuffRemoved(Value)
 				local Buffer, Size, Instances = SendBuffer, SendCursor, SendInstances
 				for _, Player in Players:GetPlayers() do
 					if Player == Except then
@@ -2405,7 +2706,7 @@ local Returns = table.freeze({
 	SettingsService = {
 		GetSettings = {
 		On = function(Listener: (Player, string?) -> (any)): ()
-			Events.Reliable[27] = function(Player: Player, Value: string?, InvocationIdentifier: number): ()
+			Events.Reliable[32] = function(Player: Player, Value: string?, InvocationIdentifier: number): ()
 				local ReturnValue: any;
 				local Success, Error = pcall(function ()
 					ReturnValue = Listener(Player, Value)
@@ -2413,7 +2714,7 @@ local Returns = table.freeze({
 				Load(PlayersMap[Player])
 				if Success ~= true then
 					local Position = Allocate(3)
-					buffer.writeu8(SendBuffer, Position, 27)
+					buffer.writeu8(SendBuffer, Position, 32)
 					buffer.writeu8(SendBuffer, Position + 1, InvocationIdentifier)
 					buffer.writeu8(SendBuffer, Position + 2, 0)
 					warn(`"GetSettings" encountered an error, {Error}`)
@@ -2423,17 +2724,17 @@ local Returns = table.freeze({
 				PlayersMap[Player] = Save()
 			end
 			task.spawn(function (): ()
-				local EventQueue = Queue.Reliable[27] or {}
-				Queue.Reliable[27] = nil
+				local EventQueue = Queue.Reliable[32] or {}
+				Queue.Reliable[32] = nil
 				for Index, Arguments in EventQueue do
-					Events.Reliable[27](table.unpack(Arguments))
+					Events.Reliable[32](table.unpack(Arguments))
 				end
 			end)
 		end
 		},
 		SaveSetting = {
 		On = function(Listener: (Player, { SettingName: string, Value: any }) -> (boolean)): ()
-			Events.Reliable[28] = function(Player: Player, Value: { SettingName: string, Value: any }, InvocationIdentifier: number): ()
+			Events.Reliable[33] = function(Player: Player, Value: { SettingName: string, Value: any }, InvocationIdentifier: number): ()
 				local ReturnValue: boolean;
 				local Success, Error = pcall(function ()
 					ReturnValue = Listener(Player, Value)
@@ -2441,7 +2742,7 @@ local Returns = table.freeze({
 				Load(PlayersMap[Player])
 				if Success ~= true then
 					local Position = Allocate(3)
-					buffer.writeu8(SendBuffer, Position, 28)
+					buffer.writeu8(SendBuffer, Position, 33)
 					buffer.writeu8(SendBuffer, Position + 1, InvocationIdentifier)
 					buffer.writeu8(SendBuffer, Position + 2, 0)
 					warn(`"SaveSetting" encountered an error, {Error}`)
@@ -2451,10 +2752,10 @@ local Returns = table.freeze({
 				PlayersMap[Player] = Save()
 			end
 			task.spawn(function (): ()
-				local EventQueue = Queue.Reliable[28] or {}
-				Queue.Reliable[28] = nil
+				local EventQueue = Queue.Reliable[33] or {}
+				Queue.Reliable[33] = nil
 				for Index, Arguments in EventQueue do
-					Events.Reliable[28](table.unpack(Arguments))
+					Events.Reliable[33](table.unpack(Arguments))
 				end
 			end)
 		end
@@ -2463,7 +2764,7 @@ local Returns = table.freeze({
 	GameEvent = {
 		GetGameInfo = {
 		On = function(Listener: (Player, nil) -> ({ Difficulty: string, StartPlayerCount: number })): ()
-			Events.Reliable[29] = function(Player: Player, Value: nil, InvocationIdentifier: number): ()
+			Events.Reliable[34] = function(Player: Player, Value: nil, InvocationIdentifier: number): ()
 				local ReturnValue: { Difficulty: string, StartPlayerCount: number };
 				local Success, Error = pcall(function ()
 					ReturnValue = Listener(Player, Value)
@@ -2471,7 +2772,7 @@ local Returns = table.freeze({
 				Load(PlayersMap[Player])
 				if Success ~= true then
 					local Position = Allocate(3)
-					buffer.writeu8(SendBuffer, Position, 29)
+					buffer.writeu8(SendBuffer, Position, 34)
 					buffer.writeu8(SendBuffer, Position + 1, InvocationIdentifier)
 					buffer.writeu8(SendBuffer, Position + 2, 0)
 					warn(`"GetGameInfo" encountered an error, {Error}`)
@@ -2481,10 +2782,10 @@ local Returns = table.freeze({
 				PlayersMap[Player] = Save()
 			end
 			task.spawn(function (): ()
-				local EventQueue = Queue.Reliable[29] or {}
-				Queue.Reliable[29] = nil
+				local EventQueue = Queue.Reliable[34] or {}
+				Queue.Reliable[34] = nil
 				for Index, Arguments in EventQueue do
-					Events.Reliable[29](table.unpack(Arguments))
+					Events.Reliable[34](table.unpack(Arguments))
 				end
 			end)
 		end
@@ -2675,42 +2976,42 @@ local Returns = table.freeze({
 		},
 		TeleportToLobby = {
 			On = function(Listener: (Player: Player, Value: nil) -> ()): () -> ()
-				Events.Reliable[34] = Listener
-				for Index, Arguments in Queue.Reliable[34] do
+				Events.Reliable[39] = Listener
+				for Index, Arguments in Queue.Reliable[39] do
 					Listener(table.unpack(Arguments))
 				end
-				Queue.Reliable[34] = {}
+				Queue.Reliable[39] = {}
 				return function (): ()
-					if Events.Reliable[34] == Listener then
-						Events.Reliable[34] = nil
+					if Events.Reliable[39] == Listener then
+						Events.Reliable[39] = nil
 					end
 				end
 			end
 		},
 		VoteRestart = {
 			On = function(Listener: (Player: Player, Value: nil) -> ()): () -> ()
-				Events.Reliable[35] = Listener
-				for Index, Arguments in Queue.Reliable[35] do
+				Events.Reliable[40] = Listener
+				for Index, Arguments in Queue.Reliable[40] do
 					Listener(table.unpack(Arguments))
 				end
-				Queue.Reliable[35] = {}
+				Queue.Reliable[40] = {}
 				return function (): ()
-					if Events.Reliable[35] == Listener then
-						Events.Reliable[35] = nil
+					if Events.Reliable[40] == Listener then
+						Events.Reliable[40] = nil
 					end
 				end
 			end
 		},
 		Ready = {
 			On = function(Listener: (Player: Player, Value: nil) -> ()): () -> ()
-				Events.Reliable[36] = Listener
-				for Index, Arguments in Queue.Reliable[36] do
+				Events.Reliable[41] = Listener
+				for Index, Arguments in Queue.Reliable[41] do
 					Listener(table.unpack(Arguments))
 				end
-				Queue.Reliable[36] = {}
+				Queue.Reliable[41] = {}
 				return function (): ()
-					if Events.Reliable[36] == Listener then
-						Events.Reliable[36] = nil
+					if Events.Reliable[41] == Listener then
+						Events.Reliable[41] = nil
 					end
 				end
 			end
@@ -2947,14 +3248,14 @@ local Returns = table.freeze({
 		},
 		VoteSkip = {
 			On = function(Listener: (Player: Player, Value: nil) -> ()): () -> ()
-				Events.Reliable[42] = Listener
-				for Index, Arguments in Queue.Reliable[42] do
+				Events.Reliable[47] = Listener
+				for Index, Arguments in Queue.Reliable[47] do
 					Listener(table.unpack(Arguments))
 				end
-				Queue.Reliable[42] = {}
+				Queue.Reliable[47] = {}
 				return function (): ()
-					if Events.Reliable[42] == Listener then
-						Events.Reliable[42] = nil
+					if Events.Reliable[47] == Listener then
+						Events.Reliable[47] = nil
 					end
 				end
 			end
@@ -2963,7 +3264,7 @@ local Returns = table.freeze({
 	TimeService = {
 		ChangeGameSpeed = {
 		On = function(Listener: (Player, number) -> (boolean)): ()
-			Events.Reliable[43] = function(Player: Player, Value: number, InvocationIdentifier: number): ()
+			Events.Reliable[48] = function(Player: Player, Value: number, InvocationIdentifier: number): ()
 				local ReturnValue: boolean;
 				local Success, Error = pcall(function ()
 					ReturnValue = Listener(Player, Value)
@@ -2971,7 +3272,7 @@ local Returns = table.freeze({
 				Load(PlayersMap[Player])
 				if Success ~= true then
 					local Position = Allocate(3)
-					buffer.writeu8(SendBuffer, Position, 43)
+					buffer.writeu8(SendBuffer, Position, 48)
 					buffer.writeu8(SendBuffer, Position + 1, InvocationIdentifier)
 					buffer.writeu8(SendBuffer, Position + 2, 0)
 					warn(`"ChangeGameSpeed" encountered an error, {Error}`)
@@ -2981,10 +3282,10 @@ local Returns = table.freeze({
 				PlayersMap[Player] = Save()
 			end
 			task.spawn(function (): ()
-				local EventQueue = Queue.Reliable[43] or {}
-				Queue.Reliable[43] = nil
+				local EventQueue = Queue.Reliable[48] or {}
+				Queue.Reliable[48] = nil
 				for Index, Arguments in EventQueue do
-					Events.Reliable[43](table.unpack(Arguments))
+					Events.Reliable[48](table.unpack(Arguments))
 				end
 			end)
 		end
@@ -3039,7 +3340,7 @@ local Returns = table.freeze({
 	GlobalExistService = {
 		GetCount = {
 		On = function(Listener: (Player, { category: string, itemName: string }) -> (number)): ()
-			Events.Reliable[45] = function(Player: Player, Value: { category: string, itemName: string }, InvocationIdentifier: number): ()
+			Events.Reliable[50] = function(Player: Player, Value: { category: string, itemName: string }, InvocationIdentifier: number): ()
 				local ReturnValue: number;
 				local Success, Error = pcall(function ()
 					ReturnValue = Listener(Player, Value)
@@ -3047,7 +3348,7 @@ local Returns = table.freeze({
 				Load(PlayersMap[Player])
 				if Success ~= true then
 					local Position = Allocate(3)
-					buffer.writeu8(SendBuffer, Position, 45)
+					buffer.writeu8(SendBuffer, Position, 50)
 					buffer.writeu8(SendBuffer, Position + 1, InvocationIdentifier)
 					buffer.writeu8(SendBuffer, Position + 2, 0)
 					warn(`"GetCount" encountered an error, {Error}`)
@@ -3057,10 +3358,10 @@ local Returns = table.freeze({
 				PlayersMap[Player] = Save()
 			end
 			task.spawn(function (): ()
-				local EventQueue = Queue.Reliable[45] or {}
-				Queue.Reliable[45] = nil
+				local EventQueue = Queue.Reliable[50] or {}
+				Queue.Reliable[50] = nil
 				for Index, Arguments in EventQueue do
-					Events.Reliable[45](table.unpack(Arguments))
+					Events.Reliable[50](table.unpack(Arguments))
 				end
 			end)
 		end
