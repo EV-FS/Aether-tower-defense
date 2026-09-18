@@ -47,6 +47,9 @@ end
 local TowerService = {}
 TowerService.PlacedTowers = {}
 
+TowerService.Get = TowerRegistry.get
+TowerService.GetAll = TowerRegistry.getAll
+
 function TowerService.GetTowerCount(player: Player, towerName: string)
 	local playerData = TowerService.PlacedTowers[player.UserId]
 	return (playerData and playerData[towerName]) or 0
@@ -156,6 +159,30 @@ function TowerService.SellTower(player: Player, towerId: number)
 	return success
 end
 
+function TowerService.SetTargetMode(player: Player, data: { towerId: number, targetMode: string }): boolean
+	local targetTower = TowerRegistry.get(data.towerId)
+
+	if not targetTower or targetTower.Owner ~= player then
+		warn(`비정상적인 타겟 모드 변경 시도: {player.Name}, {data.towerId}`)
+		return false
+	end
+
+	local validModes = { "First", "Last", "Strongest", "Weakest", "Closest", "Farthest", "Random" }
+	if not table.find(validModes, data.targetMode) then
+		warn(`잘못된 타겟 모드: {data.targetMode}`)
+		return false
+	end
+
+	targetTower.TargetMode = data.targetMode
+
+	Net.TowerService.TowerTargetModeUpdated.FireAll({
+		towerId = data.towerId,
+		targetMode = data.targetMode,
+	})
+
+	return true
+end
+
 function TowerService:DestroyAll()
 	for _, tower in TowerRegistry.getAll() do
 		tower:Destroy()
@@ -256,30 +283,6 @@ function TowerService.Start()
 	Net.TowerService.SetTargetMode.On(function(player: Player, data)
 		return TowerService.SetTargetMode(player, data)
 	end)
-end
-
-function TowerService.SetTargetMode(player: Player, data: { towerId: number, targetMode: string }): boolean
-	local targetTower = TowerRegistry.get(data.towerId)
-
-	if not targetTower or targetTower.Owner ~= player then
-		warn(`비정상적인 타겟 모드 변경 시도: {player.Name}, {data.towerId}`)
-		return false
-	end
-
-	local validModes = { "First", "Last", "Strongest", "Weakest", "Closest", "Farthest", "Random" }
-	if not table.find(validModes, data.targetMode) then
-		warn(`잘못된 타겟 모드: {data.targetMode}`)
-		return false
-	end
-
-	targetTower.TargetMode = data.targetMode
-
-	Net.TowerService.TowerTargetModeUpdated.FireAll({
-		towerId = data.towerId,
-		targetMode = data.targetMode,
-	})
-
-	return true
 end
 
 return TowerService

@@ -8,7 +8,7 @@ local Net = require(ReplicatedStorage.Shared.Net)
 local TowerService
 local TimeService
 
-local CHECK_INTERVAL = 0.2
+local CHECK_INTERVAL = 0.1
 
 -------------------------------------------------
 --// BuffComponent
@@ -19,18 +19,11 @@ BuffComponent.__index = BuffComponent
 function BuffComponent.new(tower)
 	local self = setmetatable({}, BuffComponent)
 	self.Tower = tower
+	self.BuffedTowers = {}
+
 	if not self.Tower.ActiveBuffs then
 		self.Tower.ActiveBuffs = {}
 	end
-
-	self.BuffedTowers = {}
-
-	self.Tower:GetEvent("LevelUp"):Connect(function()
-		for buffedTower, _ in pairs(self.BuffedTowers) do
-			self:_ApplyBuff(buffedTower)
-		end
-		self:_UpdateBuff()
-	end)
 
 	return self
 end
@@ -45,13 +38,15 @@ function BuffComponent:Start()
 		if timeLeft > 0 then
 			return
 		end
-		timeLeft += CHECK_INTERVAL
-
-		self:_UpdateBuff()
+		timeLeft = CHECK_INTERVAL
 	end)
 end
 
-function BuffComponent:_UpdateBuff()
+function BuffComponent:SetStats()
+	self:_UpdateBuff(true)
+end
+
+function BuffComponent:_UpdateBuff(refreshExisting)
 	local towersCurrentlyInRange = {}
 
 	TowerService = TowerService or ServiceRegistry:GetService("TowerService")
@@ -66,9 +61,9 @@ function BuffComponent:_UpdateBuff()
 		if offset.X ^ 2 + offset.Z ^ 2 <= self.Tower.Stats.Range ^ 2 then
 			towersCurrentlyInRange[tower] = true
 
-			if not self.BuffedTowers[tower] then
-				self:_ApplyBuff(tower)
+			if refreshExisting or not self.BuffedTowers[tower] then
 				self.BuffedTowers[tower] = true
+				self:_ApplyBuff(tower)
 			end
 		end
 	end

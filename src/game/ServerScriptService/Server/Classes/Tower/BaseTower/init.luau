@@ -231,7 +231,7 @@ function BaseTower:_SyncComponent(key: string, componentName: string, shouldExis
 			return
 		end
 
-		if component.SetStats and select("#", ...) > 0 then
+		if component.SetStats then
 			component:SetStats(...)
 		end
 		return
