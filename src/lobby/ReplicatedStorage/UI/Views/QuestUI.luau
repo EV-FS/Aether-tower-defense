@@ -302,7 +302,7 @@ function QuestUI.RenderUI()
 						Size = UDim2.fromScale(0.66, 0.232207),
 						Text = function()
 							local pinned = pinnedQuest()
-							return if pinned then pinned.Title else "벚꽃 수집가"
+							return if pinned then pinned.Title else "QUEST"
 						end,
 						TextColor3 = Color3.new(1, 1, 1),
 						TextScaled = true,

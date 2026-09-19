@@ -2,7 +2,7 @@ return {
 	Name = "Grayzone",
 	Index = 4,
 	DisplayName = "Grayzone",
-	AnimationId = "rbxassetid://123113221439398",
+	AnimationId = "rbxassetid://98389578669904",
 	SoundId = "rbxassetid://135082326035068",
 	SoundVolume = 1,
 	SoundDistance = 80,

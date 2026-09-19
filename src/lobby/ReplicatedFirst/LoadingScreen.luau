@@ -21,9 +21,10 @@ local STAR_SPIN_DURATION = 0.72
 local STAR_SPIN_DEGREES = 1080
 local CLOUD_SPIN_SPEED = 145
 local SPOTLIGHT_FOCUS_DURATION = 0.92
+local TITLE_TARGET_POSITION = Vector2.new(0.5, 0.376482)
 local STAR_START_POSITION = Vector2.new(-0.28, -0.72)
-local STAR_CONTROL_POSITION = Vector2.new(0.72, -1.32)
-local STAR_END_POSITION = Vector2.new(0.779, 0.632)
+local STAR_CONTROL_POSITION = Vector2.new(0.32, -1.18)
+local STAR_END_POSITION = Vector2.new(0.145, 0.62)
 
 export type Props = {
 	IsVisible: () -> boolean,
@@ -45,7 +46,7 @@ local function animateTitleEntrance(instance: ImageLabel, visible: () -> boolean
 	local connection: RBXScriptConnection
 
 	local function reset()
-		instance.Position = UDim2.fromScale(0.5, 0.392)
+		instance.Position = UDim2.fromScale(TITLE_TARGET_POSITION.X, TITLE_TARGET_POSITION.Y + 0.027)
 		instance.ImageTransparency = 1
 		instance.Rotation = -1.8
 		if subtitle and subtitle:IsA("ImageLabel") then
@@ -85,7 +86,10 @@ local function animateTitleEntrance(instance: ImageLabel, visible: () -> boolean
 
 		local progress = math.clamp(elapsed / TITLE_ENTER_DURATION, 0, 1)
 		local reveal = TweenService:GetValue(progress, Enum.EasingStyle.Quint, Enum.EasingDirection.Out)
-		instance.Position = UDim2.fromScale(0.5, 0.392 - 0.027 * reveal)
+		instance.Position = UDim2.fromScale(
+			TITLE_TARGET_POSITION.X,
+			TITLE_TARGET_POSITION.Y + 0.027 * (1 - reveal)
+		)
 		instance.ImageTransparency = 1 - TweenService:GetValue(
 			math.clamp(progress / 0.42, 0, 1),
 			Enum.EasingStyle.Quad,
@@ -106,7 +110,7 @@ local function animateTitleEntrance(instance: ImageLabel, visible: () -> boolean
 		end
 
 		if progress >= 1 then
-			instance.Position = UDim2.fromScale(0.5, 0.365)
+			instance.Position = UDim2.fromScale(TITLE_TARGET_POSITION.X, TITLE_TARGET_POSITION.Y)
 			instance.ImageTransparency = 0
 			instance.Rotation = 0
 			if subtitle and subtitle:IsA("ImageLabel") then
@@ -536,7 +540,7 @@ local function impactTitle(star: GuiObject, visible: () -> boolean)
 		end
 
 		local compress = tween(title, TweenInfo.new(0.09, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
-			Position = UDim2.fromScale(0.5, 0.371),
+			Position = UDim2.fromScale(TITLE_TARGET_POSITION.X, TITLE_TARGET_POSITION.Y + 0.006),
 		})
 		tween(titleScale, TweenInfo.new(0.09, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), { Scale = 0.985 })
 		compress.Completed:Wait()
@@ -545,7 +549,7 @@ local function impactTitle(star: GuiObject, visible: () -> boolean)
 		end
 
 		local rebound = tween(title, TweenInfo.new(0.13, Enum.EasingStyle.Sine, Enum.EasingDirection.Out), {
-			Position = UDim2.fromScale(0.5, 0.362),
+			Position = UDim2.fromScale(TITLE_TARGET_POSITION.X, TITLE_TARGET_POSITION.Y - 0.003),
 		})
 		tween(titleScale, TweenInfo.new(0.13, Enum.EasingStyle.Sine, Enum.EasingDirection.Out), { Scale = 1.012 })
 		rebound.Completed:Wait()
@@ -554,7 +558,7 @@ local function impactTitle(star: GuiObject, visible: () -> boolean)
 		end
 
 		tween(title, TweenInfo.new(0.18, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut), {
-			Position = UDim2.fromScale(0.5, 0.365),
+			Position = UDim2.fromScale(TITLE_TARGET_POSITION.X, TITLE_TARGET_POSITION.Y),
 		})
 		tween(titleScale, TweenInfo.new(0.18, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut), { Scale = 1 })
 	end)
@@ -721,24 +725,6 @@ local function pulse(instance: Instance, delayTime: number, amount: number, dura
 	end)
 end
 
-local function shimmerProgress(instance: GuiObject, visible: () -> boolean)
-	task.spawn(function()
-		while instance.Parent do
-			if not visible() then
-				task.wait(0.1)
-				continue
-			end
-
-			instance.Position = UDim2.fromScale(-0.24, 0.5)
-			local animation = tween(instance, TweenInfo.new(1.15, Enum.EasingStyle.Quad, Enum.EasingDirection.InOut), {
-				Position = UDim2.fromScale(1.24, 0.5),
-			})
-			animation.Completed:Wait()
-			task.wait(0.18)
-		end
-	end)
-end
-
 local function sweep(instance: GuiObject)
 	task.spawn(function()
 		while instance.Parent do
@@ -846,7 +832,7 @@ return function(props: Props)
 	return create(if useScreenGui then "ScreenGui" else "Frame")({
 		Name = "LoadingScreen",
 		DisplayOrder = if useScreenGui then 100003 else nil,
-		IgnoreGuiInset = if useScreenGui then true else nil,
+		ScreenInsets = if useScreenGui then Enum.ScreenInsets.DeviceSafeInsets else nil,
 		ResetOnSpawn = if useScreenGui then false else nil,
 		ZIndexBehavior = if useScreenGui then Enum.ZIndexBehavior.Sibling else nil,
 		Enabled = if useScreenGui then true else nil,
@@ -883,7 +869,7 @@ return function(props: Props)
 
 			create("ImageLabel")({
 				Name = "Main",
-				BackgroundColor3 = Color3.fromRGB(20, 13, 39),
+				BackgroundColor3 = Color3.new(1, 1, 1),
 				BackgroundTransparency = 0,
 				BorderSizePixel = 0,
 				Image = "rbxassetid://121340856010495",
@@ -904,13 +890,13 @@ return function(props: Props)
 					Name = "Title",
 					AnchorPoint = Vector2.new(0.5, 0.5),
 					BackgroundTransparency = 1,
-					Image = "rbxassetid://86974214352692",
+					Image = "rbxassetid://131330315389596",
 					ImageTransparency = 0,
-					Position = UDim2.fromScale(0.5, -0.18),
-					Size = UDim2.fromScale(0.332543, 0.136633),
+					Position = UDim2.fromScale(TITLE_TARGET_POSITION.X, TITLE_TARGET_POSITION.Y),
+					Size = UDim2.fromScale(0.34247, 0.166542),
 					ZIndex = 110,
 
-					create("UIAspectRatioConstraint")({ AspectRatio = 5 }),
+					create("UIAspectRatioConstraint")({ AspectRatio = 4.04 }),
 					create("UIScale")({ Name = "MotionScale", Scale = 0.92 }),
 					create("ImageLabel")({
 						Name = "TowerDefense",
@@ -925,7 +911,7 @@ return function(props: Props)
 						Name = "TitleGleam",
 						AnchorPoint = Vector2.new(0.5, 0.5),
 						BackgroundTransparency = 1,
-						Image = "rbxassetid://86974214352692",
+						Image = "rbxassetid://131330315389596",
 						ImageColor3 = Color3.fromRGB(223, 205, 255),
 						ImageTransparency = 1,
 						Position = UDim2.fromScale(0.5, 0.5),
@@ -950,16 +936,17 @@ return function(props: Props)
 						Name = "Star",
 						AnchorPoint = Vector2.new(0.5, 0.5),
 						BackgroundTransparency = 1,
-						Image = "rbxassetid://100121381827138",
+						Image = "rbxassetid://100465735969820",
 						Position = UDim2.fromScale(STAR_START_POSITION.X, STAR_START_POSITION.Y),
-						Size = UDim2.fromScale(0.139757, 0.797365),
+						Size = UDim2.fromScale(0.24322, 0.912678),
 						ZIndex = 112,
+						create("UIAspectRatioConstraint")({}),
 						create("UIScale")({ Name = "MotionScale", Scale = 0.72 }),
 						create("ImageLabel")({
 							Name = "Glow",
 							AnchorPoint = Vector2.new(0.5, 0.5),
 							BackgroundTransparency = 1,
-							Image = "rbxassetid://100121381827138",
+							Image = "rbxassetid://100465735969820",
 							ImageColor3 = Color3.fromRGB(196, 126, 255),
 							ImageTransparency = 1,
 							Position = UDim2.fromScale(0.5, 0.5),
@@ -1177,7 +1164,7 @@ return function(props: Props)
 				create("TextLabel")({
 					Name = "LoadingText",
 					BackgroundTransparency = 1,
-					Font = Enum.Font.GothamBold,
+					FontFace = Font.new("rbxassetid://12188570269", Enum.FontWeight.Bold, Enum.FontStyle.Normal),
 					Position = UDim2.fromScale(0.465846, 0.659924),
 					Size = UDim2.fromScale(0.0683077, 0.034134),
 					Text = "Loading...",
@@ -1210,50 +1197,15 @@ return function(props: Props)
 					}),
 				}),
 
-				create("Frame")({
-					Name = "LoadingTrack",
-					AnchorPoint = Vector2.new(0.5, 0.5),
-					BackgroundColor3 = Color3.fromRGB(106, 70, 139),
-					BackgroundTransparency = 0.58,
-					BorderSizePixel = 0,
-					ClipsDescendants = true,
-					Position = UDim2.fromScale(0.5, 0.712),
-					Size = UDim2.fromScale(0.13, 0.0035),
-					ZIndex = 106,
-
-					create("UICorner")({ CornerRadius = UDim.new(1, 0) }),
-					create("Frame")({
-						Name = "Shimmer",
-						AnchorPoint = Vector2.new(0.5, 0.5),
-						BackgroundColor3 = Color3.fromRGB(230, 203, 255),
-						BackgroundTransparency = 0.08,
-						BorderSizePixel = 0,
-						Position = UDim2.fromScale(-0.24, 0.5),
-						Size = UDim2.fromScale(0.28, 1),
-						ZIndex = 107,
-						action(function(instance)
-							shimmerProgress(instance, visible)
-						end),
-						create("UICorner")({ CornerRadius = UDim.new(1, 0) }),
-						create("UIGradient")({
-							Transparency = NumberSequence.new({
-								NumberSequenceKeypoint.new(0, 1),
-								NumberSequenceKeypoint.new(0.5, 0),
-								NumberSequenceKeypoint.new(1, 1),
-							}),
-						}),
-					}),
-				}),
-
 				create("TextLabel")({
 					Name = "TipText",
 					BackgroundTransparency = 1,
-					Font = Enum.Font.GothamBold,
+					FontFace = Font.new("rbxassetid://12188570269", Enum.FontWeight.Bold, Enum.FontStyle.Normal),
 					Position = UDim2.fromScale(0, 0.905183),
 					Size = UDim2.fromScale(0.999385, 0.034134),
-					Text = "Tip: 유닛을 강화하고 배치 조합을 바꿔 더 강한 적에 대비하세요.",
-					TextColor3 = Color3.fromRGB(137, 126, 150),
-					TextTransparency = 0.12,
+					Text = "Tip: Hello",
+					TextColor3 = Color3.fromRGB(72, 72, 72),
+					TextTransparency = 0,
 					TextScaled = true,
 					action(function(instance)
 						animateTextReveal(
@@ -1263,7 +1215,7 @@ return function(props: Props)
 							0.52,
 							UDim2.fromScale(0, 0.934),
 							UDim2.fromScale(0, 0.905183),
-							0.12,
+							0,
 							0.0012
 						)
 					end),

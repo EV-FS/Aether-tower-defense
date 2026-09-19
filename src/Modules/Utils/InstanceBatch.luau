@@ -8,7 +8,10 @@ function InstanceBatch.Visit(roots, callback, step)
 		local instance = table.remove(stack)
 		if seen[instance] then continue end
 		seen[instance] = true
-		for _, child in instance:GetChildren() do table.insert(stack, child) end
+		for _, child in instance:GetChildren() do
+			table.insert(stack, child)
+			step()
+		end
 		callback(instance)
 		step()
 	end
@@ -18,19 +21,22 @@ function InstanceBatch.Plan(root, isAtomic, step)
 	local entries = {}
 	for _, child in root:GetChildren() do
 		table.insert(entries, { Instance = child, Parent = root })
+		step()
 	end
 	local index = 1
 	while index <= #entries do
 		local entry = entries[index]
 		local instance = entry.Instance
-		if instance:IsA("Model") then
+		local atomic = isAtomic(instance)
+		if not atomic and instance:IsA("Model") then
 			entry.IsModel = true
 			entry.PrimaryPart = instance.PrimaryPart
 			entry.WorldPivot = instance.WorldPivot
 		end
-		if not isAtomic(instance) then
+		if not atomic then
 			for _, child in instance:GetChildren() do
 				table.insert(entries, { Instance = child, Parent = instance })
+				step()
 			end
 		end
 		index += 1
@@ -39,10 +45,58 @@ function InstanceBatch.Plan(root, isAtomic, step)
 	return entries
 end
 
+-- Count ALL descendants, including trees parented beneath Parts/Attachments.
+-- Build once in breadth-first order, then sum bottom-up in O(n). Never call
+-- GetDescendants for every model (quadratic on deeply nested imported maps).
+function InstanceBatch.PlanBounded(root, maxNodes, step, visit)
+	assert(maxNodes >= 1, "Chunk size must be positive")
+	local nodes = { { Instance = root, Count = 1 } }
+	local index = 1
+	while index <= #nodes do
+		local node = nodes[index]
+		if index > 1 and visit then visit(node.Instance) end
+		for _, child in node.Instance:GetChildren() do
+			table.insert(nodes, { Instance = child, ParentIndex = index, Count = 1 })
+			step()
+		end
+		index += 1
+		step()
+	end
+	for i = #nodes, 2, -1 do
+		local node = nodes[i]
+		nodes[node.ParentIndex].Count += node.Count
+		step()
+	end
+	local entries = {}
+	nodes[1].Split = true
+	for i = 2, #nodes do
+		local node = nodes[i]
+		local parent = nodes[node.ParentIndex]
+		if parent.Split then
+			node.Split = node.Count > maxNodes
+			local entry = {
+				Instance = node.Instance,
+				Parent = parent.Instance,
+				-- Split containers are empty when mounted; intact subtrees cost
+				-- their entire node count, not just one Parent assignment.
+				Cost = if node.Split then 1 else node.Count,
+			}
+			if node.Split and node.Instance:IsA("Model") then
+				entry.IsModel = true
+				entry.PrimaryPart = node.Instance.PrimaryPart
+				entry.WorldPivot = node.Instance.WorldPivot
+			end
+			table.insert(entries, entry)
+		end
+		step()
+	end
+	return entries, nodes[1].Count - 1
+end
+
 function InstanceBatch.Detach(entries, step)
 	for index = #entries, 1, -1 do
 		entries[index].Instance.Parent = nil
-		step()
+		step(entries[index].Cost or 1)
 	end
 end
 
@@ -53,7 +107,7 @@ function InstanceBatch.Mount(root, destination, entries, step, prepareStep, deta
 	if not detached then InstanceBatch.Detach(entries, prepareStep) end
 	for _, entry in entries do
 		entry.Instance.Parent = if entry.Parent == root then destination else entry.Parent
-		step()
+		step(entry.Cost or 1)
 	end
 	-- Roblox can clear PrimaryPart when it is detached across simulation steps.
 	-- Restore model metadata after descendants exist; do NOT PivotTo/move geometry.
@@ -69,7 +123,10 @@ end
 function InstanceBatch.Destroy(roots, step, scanStep)
 	scanStep = scanStep or step
 	local stack, seen = {}, {}
-	for _, root in roots do table.insert(stack, { Instance = root }) end
+	for _, root in roots do
+		table.insert(stack, { Instance = root })
+		scanStep()
+	end
 	while #stack > 0 do
 		local entry = table.remove(stack)
 		local instance = entry.Instance
@@ -79,7 +136,10 @@ function InstanceBatch.Destroy(roots, step, scanStep)
 		elseif not seen[instance] then
 			seen[instance] = true
 			table.insert(stack, { Instance = instance, Expanded = true })
-			for _, child in instance:GetChildren() do table.insert(stack, { Instance = child }) end
+			for _, child in instance:GetChildren() do
+				table.insert(stack, { Instance = child })
+				scanStep()
+			end
 			scanStep()
 		end
 	end

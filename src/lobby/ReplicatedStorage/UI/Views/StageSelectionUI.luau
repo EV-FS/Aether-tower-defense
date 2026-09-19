@@ -9,6 +9,7 @@ local StageButton = require(script.Parent.Parent.Components.StageButton)
 
 local create = Vide.create
 local source = Vide.source
+local spring = Vide.spring
 local selectedMap = source("")
 local selectedDifficulty = source(Config.DefaultDifficulty)
 local party = source(nil)
@@ -236,6 +237,9 @@ end
 
 function StageSelection.RenderUI()
 	local cameraAnchor = source(nil :: BasePart?)
+	local difficultyExpanded = source(false)
+	local difficultyRevealToken = 0
+	local previousDifficultyMap = ""
 	local function findCameraAnchor()
 		local cams = workspace:FindFirstChild("Cams")
 		local anchor = cams and cams:FindFirstChild("StageCamera")
@@ -329,6 +333,33 @@ function StageSelection.RenderUI()
 		end
 	end)
 
+	-- Briefly collapse between selections so the panel feels attached to the
+	-- newly selected card instead of jumping through the list at full height.
+	Vide.effect(function()
+		local mapName = selectedMap()
+		difficultyRevealToken += 1
+		local revealToken = difficultyRevealToken
+
+		if mapName == "" then
+			previousDifficultyMap = ""
+			difficultyExpanded(false)
+			return
+		end
+
+		if mapName ~= previousDifficultyMap then
+			previousDifficultyMap = mapName
+			difficultyExpanded(false)
+			task.delay(0.07, function()
+				if difficultyRevealToken == revealToken and selectedMap() == mapName then
+					difficultyExpanded(true)
+				end
+			end)
+		end
+	end)
+	Vide.cleanup(function()
+		difficultyRevealToken += 1
+	end)
+
 	local stages = {}
 
 	for mapName, stage in MapData do
@@ -338,7 +369,7 @@ function StageSelection.RenderUI()
 				MapId = mapName,
 				MapName = stage.MapName or mapName,
 				MapImage = stage.MapImage,
-				LayoutOrder = stage.LayoutOrder or 1,
+				LayoutOrder = (stage.LayoutOrder or 1) * 10,
 				Interactable = canEdit,
 				Activated = function()
 					if not canEdit() then
@@ -407,15 +438,29 @@ function StageSelection.RenderUI()
 					PaddingTop = UDim.new(0.01, 0),
 				}),
 
-				create("Frame")({
+				create("CanvasGroup")({
 					Name = "DifficultySelection",
-					LayoutOrder = 10000,
-					BackgroundTransparency = 1,
-					Position = UDim2.fromScale(0.523439, 0.196455),
-					Size = UDim2.fromScale(0.47656, 0.3),
-					Visible = function()
-						return if selectedMap() ~= "" then true else false
+					LayoutOrder = function()
+						local definition = MapData[selectedMap()]
+						return if definition then (definition.LayoutOrder or 1) * 10 + 1 else 10000
 					end,
+					BackgroundTransparency = 1,
+					ClipsDescendants = true,
+					GroupTransparency = spring(function()
+						return if difficultyExpanded() then 0 else 1
+					end, 0.28, 0.9),
+					Position = UDim2.fromScale(0.523439, 0.196455),
+					Size = spring(function()
+						return if difficultyExpanded()
+							then UDim2.fromScale(0.47656, 0.3)
+							else UDim2.fromScale(0.47656, 0)
+					end, 0.38, 0.7),
+
+					create("UIScale")({
+						Scale = spring(function()
+							return if difficultyExpanded() then 1 else 0.965
+						end, 0.38, 0.72),
+					}),
 
 					create("ImageLabel")({
 						Name = "ImageLabel",
@@ -449,14 +494,18 @@ function StageSelection.RenderUI()
 						Activated = function()
 							chooseDifficulty(1)
 						end,
-						ImageTransparency = function()
+						ImageTransparency = spring(function()
 							return if selectedDifficulty() == difficultyAt(1) then 0 else 0.5
-						end,
+						end, 0.28, 0.85),
 						AnchorPoint = Vector2.new(0.5, 0.5),
 						BackgroundTransparency = 1,
 						Image = "rbxassetid://139274506988816",
 						Position = UDim2.fromScale(0.5, 0.3),
-						Size = UDim2.fromScale(1, 0.24),
+						Size = spring(function()
+							return if selectedDifficulty() == difficultyAt(1)
+								then UDim2.fromScale(1, 0.24)
+								else UDim2.fromScale(0.96, 0.22)
+						end, 0.3, 0.76),
 
 						create("TextLabel")({
 							Name = "Title",
@@ -496,6 +545,9 @@ function StageSelection.RenderUI()
 							Name = "UIShadow",
 							BlurRadius = UDim.new(0, 20),
 							Color = Color3.fromRGB(13, 255, 0),
+							Enabled = function()
+								return selectedDifficulty() == difficultyAt(1)
+							end,
 							Transparency = 0.5,
 						}),
 					}),
@@ -509,14 +561,18 @@ function StageSelection.RenderUI()
 						Activated = function()
 							chooseDifficulty(2)
 						end,
-						ImageTransparency = function()
+						ImageTransparency = spring(function()
 							return if selectedDifficulty() == difficultyAt(2) then 0 else 0.5
-						end,
+						end, 0.28, 0.85),
 						AnchorPoint = Vector2.new(0.5, 0.5),
 						BackgroundTransparency = 1,
 						Image = "rbxassetid://139274506988816",
 						Position = UDim2.fromScale(0.5, 0.6),
-						Size = UDim2.fromScale(1, 0.24),
+						Size = spring(function()
+							return if selectedDifficulty() == difficultyAt(2)
+								then UDim2.fromScale(1, 0.24)
+								else UDim2.fromScale(0.96, 0.22)
+						end, 0.3, 0.76),
 
 						create("TextLabel")({
 							Name = "Title",
@@ -556,7 +612,9 @@ function StageSelection.RenderUI()
 							Name = "UIShadow",
 							BlurRadius = UDim.new(0, 20),
 							Color = Color3.fromRGB(255, 216, 23),
-							Enabled = false,
+							Enabled = function()
+								return selectedDifficulty() == difficultyAt(2)
+							end,
 							Transparency = 0.5,
 						}),
 					}),
@@ -570,14 +628,18 @@ function StageSelection.RenderUI()
 						Activated = function()
 							chooseDifficulty(3)
 						end,
-						ImageTransparency = function()
+						ImageTransparency = spring(function()
 							return if selectedDifficulty() == difficultyAt(3) then 0 else 0.5
-						end,
+						end, 0.28, 0.85),
 						AnchorPoint = Vector2.new(0.5, 0.5),
 						BackgroundTransparency = 1,
 						Image = "rbxassetid://139274506988816",
 						Position = UDim2.fromScale(0.5, 0.9),
-						Size = UDim2.fromScale(1, 0.24),
+						Size = spring(function()
+							return if selectedDifficulty() == difficultyAt(3)
+								then UDim2.fromScale(1, 0.24)
+								else UDim2.fromScale(0.96, 0.22)
+						end, 0.3, 0.76),
 
 						create("TextLabel")({
 							Name = "Title",
@@ -617,7 +679,9 @@ function StageSelection.RenderUI()
 							Name = "UIShadow",
 							BlurRadius = UDim.new(0, 20),
 							Color = Color3.fromRGB(255, 48, 165),
-							Enabled = false,
+							Enabled = function()
+								return selectedDifficulty() == difficultyAt(3)
+							end,
 							Transparency = 0.5,
 						}),
 					}),

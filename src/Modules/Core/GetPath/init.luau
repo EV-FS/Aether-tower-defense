@@ -4,6 +4,7 @@ local HttpService = game:GetService("HttpService")
 
 local Guide = require(script.Guide)
 local PathCatalog = require(script.PathCatalog)
+local FrameBudget = require(script.Parent.Parent.Utils.FrameBudget)
 
 local GetPath = {}
 GetPath.CachedPath = nil
@@ -26,6 +27,7 @@ local function waitForAttribute(instance: Instance, name: string)
 end
 
 local function buildPath(folder: Instance, isLegacy: boolean)
+	local step = FrameBudget.new(task.wait, 128, 0.0015)
 	local positions = {}
 	local visited = {}
 	local node = waitForChild(folder, "Start")
@@ -48,10 +50,11 @@ local function buildPath(folder: Instance, isLegacy: boolean)
 			task.wait(0.1)
 		end
 		node = nextValue.Value
+		step()
 	end
 
 	assert(#positions >= 2, `경로에는 Start와 End 노드가 필요합니다: {folder:GetFullName()}`)
-	local path = BezierPath.new(positions, 3.5)
+	local path = BezierPath.new(positions, 3.5, step)
 	assert(path:GetPathLength() > 0, `경로 길이가 0보다 커야 합니다: {folder:GetFullName()}`)
 	return path
 end

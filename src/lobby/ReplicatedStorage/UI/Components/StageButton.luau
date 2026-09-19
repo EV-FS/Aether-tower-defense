@@ -2,6 +2,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Vide = require(ReplicatedStorage.Packages.Vide)
 
 local create = Vide.create
+local spring = Vide.spring
 
 return function(props)
 	return create("ImageButton")({
@@ -13,13 +14,12 @@ return function(props)
 		Size = UDim2.fromScale(0.476561, 0.280332),
 		Activated = props.Activated,
 		Interactable = props.Interactable,
-		Visible = function()
-			if props.SelectedMap() == "" then
-				return true
-			end
 
-			return props.SelectedMap() == props.MapId
-		end,
+		create("UIScale")({
+			Scale = spring(function()
+				return if props.SelectedMap() == props.MapId then 1.015 else 1
+			end, 0.35, 0.78),
+		}),
 
 		create("UIAspectRatioConstraint")({
 			Name = "UIAspectRatioConstraint",
@@ -36,13 +36,23 @@ return function(props)
 
 		create("UIStroke")({
 			Name = "UIStroke",
-			Thickness = 3,
+			Color = function()
+				return if props.SelectedMap() == props.MapId
+					then Color3.fromRGB(255, 231, 112)
+					else Color3.new(1, 1, 1)
+			end,
+			Thickness = spring(function()
+				return if props.SelectedMap() == props.MapId then 4 else 3
+			end, 0.35, 0.8),
+			Transparency = spring(function()
+				return if props.SelectedMap() == props.MapId then 0 else 0.2
+			end, 0.35, 0.85),
 		}),
 
 		create("Frame")({
 			Name = "OnSelected",
 			BackgroundColor3 = Color3.new(),
-			BackgroundTransparency = 0.5,
+			BackgroundTransparency = 0.7,
 			Size = UDim2.fromScale(1, 1),
 			Visible = function()
 				return props.SelectedMap() == props.MapId
@@ -57,10 +67,10 @@ return function(props)
 				Position = UDim2.fromScale(0.5, 0.5),
 				RichText = true,
 				Size = UDim2.fromScale(0.5, 0.3),
-				Text = "Tap to Unselect",
+				Text = "SELECTED  •  TAP TO CLOSE",
 				TextColor3 = Color3.new(1, 1, 1),
 				TextScaled = true,
-				TextTransparency = 0.5,
+				TextTransparency = 0.2,
 			}),
 		}),
 

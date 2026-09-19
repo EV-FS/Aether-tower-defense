@@ -124,6 +124,21 @@ function QuestService.Start()
 		DataService:GetChangedSignal("Blossom"):Connect(function(player, value)
 			QuestService.UpdateProgress(player, "Blossom", value)
 		end)
+
+		local function acceptStarterQuests(player: Player)
+			for questId, config in QuestData do
+				if config.AutoAccept then
+					QuestService.AcceptQuest(player, questId)
+				end
+			end
+		end
+
+		for _, player in Players:GetPlayers() do
+			task.spawn(acceptStarterQuests, player)
+		end
+		Players.PlayerAdded:Connect(function(player)
+			task.spawn(acceptStarterQuests, player)
+		end)
 	end
 end
 

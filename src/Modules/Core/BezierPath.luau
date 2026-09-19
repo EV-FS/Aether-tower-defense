@@ -26,7 +26,7 @@ export type Path = {
 } & Methods
 
 type Module = {
-	new: (Waypoints: { Vector3 }, CurveSize: number) -> Path,
+	new: (Waypoints: { Vector3 }, CurveSize: number | { number }, Step: (() -> ())?) -> Path,
 }
 
 local BezierPath: Module = {} :: Module
@@ -89,7 +89,7 @@ local function GetCurveSize(CurveSize: number | { number }, Index: number): numb
 	return CurveSize[Index] or DEFAULT_CURVE_SIZE
 end
 
-local function SetupWaypoints(InputtedWaypoints: { Vector3 }, CurveSize: number | { number }): { Vector3 }
+local function SetupWaypoints(InputtedWaypoints: { Vector3 }, CurveSize: number | { number }, step): { Vector3 }
 	local Waypoints = {}
 
 	table.insert(Waypoints, InputtedWaypoints[1])
@@ -110,6 +110,7 @@ local function SetupWaypoints(InputtedWaypoints: { Vector3 }, CurveSize: number 
 		table.insert(Waypoints, PreviousPosition)
 		table.insert(Waypoints, Position)
 		table.insert(Waypoints, NextPosition)
+		if step then step() end
 	end
 
 	table.insert(Waypoints, InputtedWaypoints[#InputtedWaypoints])
@@ -143,7 +144,7 @@ local function CalculatePathLength(Sections: { Section }): number
 	return TotalLength
 end
 
-local function CreateSectionsDistanceLookup(Sections: { Section })
+local function CreateSectionsDistanceLookup(Sections: { Section }, step)
 	for _, Section in Sections do
 		local AccumulatedDistance = Section.AccumulatedDistance
 
@@ -163,11 +164,12 @@ local function CreateSectionsDistanceLookup(Sections: { Section })
 			AccumulatedDistance += Distance
 			Section.DistanceLookup[i + 1] = AccumulatedDistance
 			PreviousPosition = Position
+			if step then step() end
 		end
 	end
 end
 
-local function CreateSections(BezierWaypoints: { Vector3 }): { Section }
+local function CreateSections(BezierWaypoints: { Vector3 }, step): { Section }
 	local Sections = {}
 
 	local Index = 2
@@ -205,6 +207,7 @@ local function CreateSections(BezierWaypoints: { Vector3 }): { Section }
 		Step = Step == 1 and 2 or 1
 
 		table.insert(Sections, newSection)
+		if step then step() end
 	end
 
 	return Sections
@@ -280,14 +283,14 @@ local function LoadMethods(Object: {})
 	end
 end
 
-function BezierPath.new(Waypoints: { Vector3 }, CurveSize: number | { number }): Path
-	local BezierWaypoints = SetupWaypoints(Waypoints, CurveSize)
+function BezierPath.new(Waypoints: { Vector3 }, CurveSize: number | { number }, step: (() -> ())?): Path
+	local BezierWaypoints = SetupWaypoints(Waypoints, CurveSize, step)
 
-	local Sections = CreateSections(BezierWaypoints)
+	local Sections = CreateSections(BezierWaypoints, step)
 	local PathLength = CalculatePathLength(Sections)
 	SetupSectionsT(PathLength, Sections)
 	SetupSectionsAccumulatedDistance(Sections)
-	CreateSectionsDistanceLookup(Sections)
+	CreateSectionsDistanceLookup(Sections, step)
 
 	local newPath: Path = {
 		Sections = Sections,

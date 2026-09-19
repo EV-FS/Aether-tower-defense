@@ -2,9 +2,11 @@ local Players = game:GetService("Players")
 local ProximityPromptService = game:GetService("ProximityPromptService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
+local ServerScriptService = game:GetService("ServerScriptService")
 local TeleportService = game:GetService("TeleportService")
 
 local Config = require(ReplicatedStorage.Settings.Game.AFKSettings)
+local DataService = require(ServerScriptService.Server.Services.DataService)
 
 local function getOrCreateRequestEvent(): RemoteEvent
 	local existing = ReplicatedStorage:FindFirstChild("RequestAFKTeleport")
@@ -63,8 +65,15 @@ attemptTeleport = function(player: Player)
 	end
 
 	state.Attempts += 1
+	local playerData = DataService:GetData(player)
+	DataService:SaveData(player)
 	local options = Instance.new("TeleportOptions")
-	options:SetTeleportData({ ReturnPlaceId = Config.LobbyPlaceId })
+	options:SetTeleportData({
+		ReturnPlaceId = Config.LobbyPlaceId,
+		HandoffVersion = 1,
+		CoinsSnapshot = if playerData then playerData.Coins else nil,
+		GemsSnapshot = if playerData then playerData.Gems else nil,
+	})
 
 	local success, err = pcall(function()
 		TeleportService:TeleportAsync(Config.AFKPlaceId, { player }, options)

@@ -2,7 +2,7 @@ return {
 	Name = "Kyukurarin",
 	Index = 1,
 	DisplayName = "Kyukurarin",
-	AnimationId = "rbxassetid://135619554552444",
+	AnimationId = "rbxassetid://140166738699243",
 	SoundId = "rbxassetid://75781288305318",
 	SoundVolume = 1,
 	SoundDistance = 80,

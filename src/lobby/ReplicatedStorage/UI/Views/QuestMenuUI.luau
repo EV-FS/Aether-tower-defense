@@ -18,9 +18,9 @@ local UIController
 
 local VIEW_ID = "Quest"
 
-local selectedCategory = source("EVENT")
+local selectedCategory = source("GUIDE")
 local selectedQuestIndex = source(1)
-local pinnedQuestKey = source(nil :: string?)
+local pinnedQuestKey = source("Chapter1Clear" :: string?)
 
 local isLast = false
 
@@ -33,6 +33,8 @@ type QuestDisplay = {
 	Progress: string,
 	RewardName: string,
 	RewardQuantity: string,
+	RewardText: string,
+	TextOnlyReward: boolean,
 }
 
 local EMPTY_QUEST: QuestDisplay = {
@@ -44,26 +46,47 @@ local EMPTY_QUEST: QuestDisplay = {
 	Progress = "",
 	RewardName = "",
 	RewardQuantity = "",
+	RewardText = "",
+	TextOnlyReward = false,
 }
 
-local function formatRewards(rewards): (string, string)
+local function formatRewards(rewards): (string, string, string)
 	local names = {}
 	local amounts = {}
+	local summary = {}
 	for _, rewardName in ipairs({ "Coins", "Gems", "Exp" }) do
 		local amount = rewards[rewardName]
 		if type(amount) == "number" and amount > 0 then
-			table.insert(names, if rewardName == "Exp" then "EXP" else rewardName)
+			local displayName = if rewardName == "Exp" then "EXP" else string.upper(rewardName)
+			table.insert(names, displayName)
 			table.insert(amounts, tostring(amount))
+			table.insert(summary, `{amount} {displayName}`)
 		end
 	end
-	return table.concat(names, " / "), table.concat(amounts, " / ")
+	return table.concat(names, " / "), table.concat(amounts, " / "), table.concat(summary, "  |  ")
+end
+
+local function getQuestState(questId: string, config)
+	local state = if DataClient then DataClient.Quests()[questId] else nil
+	if state or not config.AutoAccept then
+		return state
+	end
+	-- Auto-accepted quests must render immediately while the initial server
+	-- quest fetch is still in flight. Authoritative data replaces this fallback.
+	return {
+		Active = true,
+		Progress = 0,
+		Target = config.TargetAmount,
+		Completed = false,
+		Claimed = false,
+	}
 end
 
 local function getCategoryQuests(category: string): { QuestDisplay }
 	local displays = {}
 	local playerQuests = if DataClient then DataClient.Quests() else {}
 	for questId, config in QuestData do
-		local state = playerQuests[questId]
+		local state = playerQuests[questId] or getQuestState(questId, config)
 		if
 			config.Theme == category
 			and state
@@ -71,7 +94,7 @@ local function getCategoryQuests(category: string): { QuestDisplay }
 			and not state.Claimed
 		then
 			local current = math.clamp(tonumber(state.Progress) or 0, 0, config.TargetAmount)
-			local rewardName, rewardQuantity = formatRewards(config.Rewards)
+			local rewardName, rewardQuantity, rewardText = formatRewards(config.Rewards)
 			table.insert(displays, {
 				Id = questId,
 				Title = config.Title,
@@ -81,6 +104,8 @@ local function getCategoryQuests(category: string): { QuestDisplay }
 				Progress = `({current}/{config.TargetAmount})`,
 				RewardName = rewardName,
 				RewardQuantity = rewardQuantity,
+				RewardText = rewardText,
+				TextOnlyReward = questId == "Chapter1Clear",
 			})
 		end
 	end
@@ -106,7 +131,7 @@ function QuestMenuUI.GetPinnedQuest(): (QuestDisplay?, string?)
 	end
 
 	local config = QuestData[key]
-	local state = DataClient and DataClient.Quests()[key]
+	local state = config and getQuestState(key, config)
 	if config and state and (state.Active or state.Completed) and not state.Claimed then
 		for _, quest in getCategoryQuests(config.Theme) do
 			if quest.Id == key then
@@ -343,39 +368,32 @@ function QuestMenuUI.RenderUI()
 				}),
 			}),
 
-			create("ScrollingFrame")({
-				Name = "Quests",
-				Active = true,
+			create("CanvasGroup")({
+				Name = "QuestsCanvasGroup",
 				AnchorPoint = Vector2.new(0.5, 0.5),
 				BackgroundTransparency = 1,
+				ClipsDescendants = true,
 				Position = spring(function()
 					return if isVisible() then UDim2.fromScale(0.355792, 0.622506) else UDim2.fromScale(0.31, 0.622506)
 				end, 0.5, 0.8),
-				ScrollBarImageColor3 = Color3.new(),
-				ScrollBarThickness = 0,
-				Size = UDim2.fromScale(0.663523, 0.633252),
+				-- Leave a real gap for the pin button instead of letting it clip into
+				-- the Information panel on the right.
+				Size = UDim2.fromScale(0.635, 0.633252),
+
+				create("ScrollingFrame")({
+					Name = "Quests",
+					Active = true,
+					BackgroundTransparency = 1,
+					ClipsDescendants = true,
+					ScrollBarImageColor3 = Color3.new(),
+					ScrollBarThickness = 0,
+					Size = UDim2.fromScale(1, 1),
 
 				create("UIListLayout")({
 					Name = "UIListLayout",
 					HorizontalAlignment = Enum.HorizontalAlignment.Center,
 					Padding = UDim.new(0.01, 0),
 					SortOrder = Enum.SortOrder.LayoutOrder,
-				}),
-
-				create("TextLabel")({
-					Name = "EmptyState",
-					BackgroundTransparency = 1,
-					FontFace = Font.new("rbxasset://fonts/families/FredokaOne.json"),
-					LayoutOrder = -1,
-					Size = UDim2.fromScale(0.92, 0.16),
-					Text = "진행 중인 퀘스트가 없습니다.",
-					TextColor3 = Color3.fromRGB(161, 161, 161),
-					TextScaled = true,
-					Visible = function()
-						return #getCategoryQuests(selectedCategory()) == 0
-					end,
-
-					create("UIStroke")({ Transparency = 0.5 }),
 				}),
 
 				create("ImageButton")({
@@ -402,9 +420,7 @@ function QuestMenuUI.RenderUI()
 						FontFace = Font.new("rbxasset://fonts/families/FredokaOne.json"),
 						Position = UDim2.fromScale(0.0212704, 0.047321),
 						Size = UDim2.fromScale(0.485076, 0.191573),
-						Text = function()
-							return getQuest(1).Title
-						end,
+						Text = selectedCategory,
 						TextColor3 = Color3.new(1, 1, 1),
 						TextScaled = true,
 						TextXAlignment = Enum.TextXAlignment.Left,
@@ -488,15 +504,25 @@ function QuestMenuUI.RenderUI()
 						}),
 					}),
 
-					create("ScrollingFrame")({
-						Name = "ScrollingFrame",
-						Active = true,
+					create("CanvasGroup")({
+						Name = "RewardCanvasGroup",
 						BackgroundTransparency = 1,
-						CanvasSize = UDim2.fromScale(2, 0),
+						ClipsDescendants = true,
 						Position = UDim2.fromScale(0.024, 0.55),
-						ScrollBarImageColor3 = Color3.new(),
-						ScrollBarThickness = 0,
 						Size = UDim2.fromScale(0.949939, 0.428425),
+
+						create("ScrollingFrame")({
+							Name = "ScrollingFrame",
+							Active = true,
+							BackgroundTransparency = 1,
+							CanvasSize = UDim2.fromScale(2, 0),
+							ClipsDescendants = true,
+							ScrollBarImageColor3 = Color3.new(),
+							ScrollBarThickness = 0,
+							Size = UDim2.fromScale(1, 1),
+							Visible = function()
+								return not getQuest(1).TextOnlyReward
+							end,
 
 						create("ImageButton")({
 							Name = "ImageButton",
@@ -612,9 +638,35 @@ function QuestMenuUI.RenderUI()
 							}),
 						}),
 
-						create("UIListLayout")({
-							Name = "UIListLayout",
-							SortOrder = Enum.SortOrder.LayoutOrder,
+							create("UIListLayout")({
+								Name = "UIListLayout",
+								SortOrder = Enum.SortOrder.LayoutOrder,
+							}),
+						}),
+
+						create("TextLabel")({
+							Name = "RewardText",
+							BackgroundTransparency = 1,
+							FontFace = Font.new(
+								"rbxasset://fonts/families/SourceSansPro.json",
+								Enum.FontWeight.Bold,
+								Enum.FontStyle.Normal
+							),
+							Size = UDim2.fromScale(0.96, 1),
+							Text = function()
+								return getQuest(1).RewardText
+							end,
+							TextColor3 = Color3.fromRGB(255, 239, 128),
+							TextScaled = true,
+							TextWrapped = true,
+							Visible = function()
+								return getQuest(1).TextOnlyReward
+							end,
+
+							create("UIStroke")({
+								Color = Color3.fromRGB(65, 48, 24),
+								Thickness = 2,
+							}),
 						}),
 					}),
 
@@ -677,9 +729,7 @@ function QuestMenuUI.RenderUI()
 						FontFace = Font.new("rbxasset://fonts/families/FredokaOne.json"),
 						Position = UDim2.fromScale(0.0212704, 0.047321),
 						Size = UDim2.fromScale(0.485076, 0.191573),
-						Text = function()
-							return getQuest(2).Title
-						end,
+						Text = selectedCategory,
 						TextColor3 = Color3.new(1, 1, 1),
 						TextScaled = true,
 						TextXAlignment = Enum.TextXAlignment.Left,
@@ -763,15 +813,25 @@ function QuestMenuUI.RenderUI()
 						}),
 					}),
 
-					create("ScrollingFrame")({
-						Name = "ScrollingFrame",
-						Active = true,
+					create("CanvasGroup")({
+						Name = "RewardCanvasGroup",
 						BackgroundTransparency = 1,
-						CanvasSize = UDim2.fromScale(2, 0),
+						ClipsDescendants = true,
 						Position = UDim2.fromScale(0.024, 0.55),
-						ScrollBarImageColor3 = Color3.new(),
-						ScrollBarThickness = 0,
 						Size = UDim2.fromScale(0.949939, 0.428425),
+
+						create("ScrollingFrame")({
+							Name = "ScrollingFrame",
+							Active = true,
+							BackgroundTransparency = 1,
+							CanvasSize = UDim2.fromScale(2, 0),
+							ClipsDescendants = true,
+							ScrollBarImageColor3 = Color3.new(),
+							ScrollBarThickness = 0,
+							Size = UDim2.fromScale(1, 1),
+							Visible = function()
+								return not getQuest(2).TextOnlyReward
+							end,
 
 						create("ImageButton")({
 							Name = "ImageButton",
@@ -887,9 +947,35 @@ function QuestMenuUI.RenderUI()
 							}),
 						}),
 
-						create("UIListLayout")({
-							Name = "UIListLayout",
-							SortOrder = Enum.SortOrder.LayoutOrder,
+							create("UIListLayout")({
+								Name = "UIListLayout",
+								SortOrder = Enum.SortOrder.LayoutOrder,
+							}),
+						}),
+
+						create("TextLabel")({
+							Name = "RewardText",
+							BackgroundTransparency = 1,
+							FontFace = Font.new(
+								"rbxasset://fonts/families/SourceSansPro.json",
+								Enum.FontWeight.Bold,
+								Enum.FontStyle.Normal
+							),
+							Size = UDim2.fromScale(0.96, 1),
+							Text = function()
+								return getQuest(2).RewardText
+							end,
+							TextColor3 = Color3.fromRGB(255, 239, 128),
+							TextScaled = true,
+							TextWrapped = true,
+							Visible = function()
+								return getQuest(2).TextOnlyReward
+							end,
+
+							create("UIStroke")({
+								Color = Color3.fromRGB(65, 48, 24),
+								Thickness = 2,
+							}),
 						}),
 					}),
 
@@ -928,18 +1014,49 @@ function QuestMenuUI.RenderUI()
 					}),
 				}),
 			}),
+			}),
 
-			create("ScrollingFrame")({
-				Name = "Category",
-				Active = true,
+			-- Match UnitUI's empty search result: centered, independent of the
+			-- scrolling list layout, and outlined for readability.
+			create("TextLabel")({
+				Name = "EmptyQuestResult",
+				AnchorPoint = Vector2.new(0.5, 0.5),
 				BackgroundTransparency = 1,
-				CanvasSize = UDim2.fromScale(2, 0),
+				FontFace = Font.new("rbxasset://fonts/families/FredokaOne.json"),
+				Position = UDim2.fromScale(0.355792, 0.48),
+				Size = UDim2.fromScale(0.46, 0.064),
+				Text = "NO QUESTS FOUND",
+				TextColor3 = Color3.fromRGB(218, 218, 226),
+				TextScaled = true,
+				Visible = function()
+					return #getCategoryQuests(selectedCategory()) == 0
+				end,
+				ZIndex = 4,
+
+				create("UIStroke")({
+					Color = Color3.fromRGB(32, 28, 60),
+					Thickness = 2,
+				}),
+			}),
+
+			create("CanvasGroup")({
+				Name = "CategoryCanvasGroup",
+				BackgroundTransparency = 1,
+				ClipsDescendants = true,
 				Position = spring(function()
 					return if isVisible() then UDim2.fromScale(0.04044, 0.16577) else UDim2.fromScale(0.04044, 0.1)
 				end, 0.55, 0.75),
-				ScrollBarImageColor3 = Color3.new(),
-				ScrollBarThickness = 0,
 				Size = UDim2.fromScale(0.609926, 0.127536),
+
+				create("ScrollingFrame")({
+					Name = "Category",
+					Active = true,
+					BackgroundTransparency = 1,
+					CanvasSize = UDim2.fromScale(2, 0),
+					ClipsDescendants = true,
+					ScrollBarImageColor3 = Color3.new(),
+					ScrollBarThickness = 0,
+					Size = UDim2.fromScale(1, 1),
 
 				create("UIListLayout")({
 					Name = "UIListLayout",
@@ -948,17 +1065,18 @@ function QuestMenuUI.RenderUI()
 					SortOrder = Enum.SortOrder.LayoutOrder,
 					VerticalAlignment = Enum.VerticalAlignment.Center,
 				}),
+				createCategoryButton("GUIDE"),
+				createCategoryButton("WEEK"),
+				createCategoryButton("DAILY"),
 				createCategoryButton("EVENT"),
-				create("UIPadding")({ Name = "UIPadding", PaddingLeft = UDim.new(0, 2) }),
+					create("UIPadding")({ Name = "UIPadding", PaddingLeft = UDim.new(0, 2) }),
+				}),
 			}),
 
 			create("ImageLabel")({
 				Name = "Information",
 				BackgroundTransparency = 1,
 				Image = "rbxassetid://86773350223025",
-				Visible = function()
-					return getQuest(selectedQuestIndex()).Id ~= ""
-				end,
 				Position = spring(function()
 					return if isVisible() then UDim2.fromScale(0.674872, 0.184204) else UDim2.fromScale(0.74, 0.184204)
 				end, 0.55, 0.78),
@@ -1000,7 +1118,8 @@ function QuestMenuUI.RenderUI()
 					Position = UDim2.fromScale(0.0483644, 0.185836),
 					Size = UDim2.fromScale(0.916066, 0.290032),
 					Text = function()
-						return getQuest(selectedQuestIndex()).Description
+						local quest = getQuest(selectedQuestIndex())
+						return if quest.Id ~= "" then quest.Description else "SELECT A QUEST TO VIEW ITS DETAILS"
 					end,
 					TextColor3 = Color3.new(1, 1, 1),
 					TextSize = 14,
@@ -1029,15 +1148,25 @@ function QuestMenuUI.RenderUI()
 					}),
 				}),
 
-				create("ScrollingFrame")({
-					Name = "ScrollingFrame",
-					Active = true,
+				create("CanvasGroup")({
+					Name = "RewardCanvasGroup",
 					BackgroundTransparency = 1,
-					CanvasSize = UDim2.fromScale(2, 0),
+					ClipsDescendants = true,
 					Position = UDim2.fromScale(0.0239999, 0.760075),
-					ScrollBarImageColor3 = Color3.new(),
-					ScrollBarThickness = 0,
 					Size = UDim2.fromScale(0.949939, 0.209524),
+
+					create("ScrollingFrame")({
+						Name = "ScrollingFrame",
+						Active = true,
+						BackgroundTransparency = 1,
+						CanvasSize = UDim2.fromScale(2, 0),
+						ClipsDescendants = true,
+						ScrollBarImageColor3 = Color3.new(),
+						ScrollBarThickness = 0,
+						Size = UDim2.fromScale(1, 1),
+						Visible = function()
+							return not getQuest(selectedQuestIndex()).TextOnlyReward
+						end,
 
 					create("ImageButton")({
 						Name = "ImageButton",
@@ -1153,11 +1282,37 @@ function QuestMenuUI.RenderUI()
 						}),
 					}),
 
-					create("UIListLayout")({
-						Name = "UIListLayout",
-						FillDirection = Enum.FillDirection.Horizontal,
-						SortOrder = Enum.SortOrder.LayoutOrder,
-						VerticalAlignment = Enum.VerticalAlignment.Center,
+						create("UIListLayout")({
+							Name = "UIListLayout",
+							FillDirection = Enum.FillDirection.Horizontal,
+							SortOrder = Enum.SortOrder.LayoutOrder,
+							VerticalAlignment = Enum.VerticalAlignment.Center,
+						}),
+					}),
+
+					create("TextLabel")({
+						Name = "RewardText",
+						BackgroundTransparency = 1,
+						FontFace = Font.new(
+							"rbxasset://fonts/families/SourceSansPro.json",
+							Enum.FontWeight.Bold,
+							Enum.FontStyle.Normal
+						),
+						Size = UDim2.fromScale(0.96, 1),
+						Text = function()
+							return getQuest(selectedQuestIndex()).RewardText
+						end,
+						TextColor3 = Color3.fromRGB(255, 239, 128),
+						TextScaled = true,
+						TextWrapped = true,
+						Visible = function()
+							return getQuest(selectedQuestIndex()).TextOnlyReward
+						end,
+
+						create("UIStroke")({
+							Color = Color3.fromRGB(65, 48, 24),
+							Thickness = 2,
+						}),
 					}),
 				}),
 			}),

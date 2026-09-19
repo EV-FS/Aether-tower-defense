@@ -19,7 +19,14 @@ return TableUtils.DeepFreeze({
 			Crates = {},
 			Items = {},
 			Skins = {},
-			Emotes = {},
+			-- Every emote shown in the default radial menu is available to play.
+			-- Profile reconciliation adds missing entries for existing players too.
+			Emotes = {
+				Kyukurarin = 1,
+				["Take the L"] = 1,
+				Usagiflap = 1,
+				Grayzone = 1,
+			},
 		},
 		Collection = {
 			Units = {},
@@ -34,7 +41,19 @@ return TableUtils.DeepFreeze({
 			Mythic = 0,
 			Absolute = 0,
 		},
-		Quests = {},
+		Quests = {
+			Chapter1Clear = {
+				Active = true,
+				Progress = 0,
+				Target = 1,
+				Completed = false,
+				Claimed = false,
+			},
+		},
+		AFKRewards = {
+			Coins = 0,
+			Gems = 0,
+		},
 		_NextId = 1,
 		_StructureVersion = "v2",
 		_StarterTowerReceived = false,

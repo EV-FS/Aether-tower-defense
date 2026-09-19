@@ -6,6 +6,7 @@ local ServerScriptService = game:GetService("ServerScriptService")
 --/Modules
 local Signal = require(ReplicatedStorage.Packages.Signal)
 local DataConstants = require(ReplicatedStorage.Settings.Data.DataConstants)
+local AFKSettings = require(ReplicatedStorage.Settings.Game.AFKSettings)
 
 local Net = require(ReplicatedStorage.Shared.Net)
 local TowerData = require(ReplicatedStorage.Settings.Data.TowerData)
@@ -745,6 +746,29 @@ function DataService._PlayerAdded(player: Player)
 	profile:Reconcile()
 
 	DataService:_MigrateData(profile, player)
+
+	-- AFK rewards are persisted in the shared profile. Claim any remainder here
+	-- so a server shutdown or interrupted return teleport can never lose them.
+	local pendingAFK = profile.Data.AFKRewards
+	if type(pendingAFK) == "table" then
+		profile.Data.Coins = (tonumber(profile.Data.Coins) or 0) + math.max(tonumber(pendingAFK.Coins) or 0, 0)
+		profile.Data.Gems = (tonumber(profile.Data.Gems) or 0) + math.max(tonumber(pendingAFK.Gems) or 0, 0)
+		pendingAFK.Coins = 0
+		pendingAFK.Gems = 0
+	end
+
+	-- A small server-authored snapshot closes the release/save race between the
+	-- AFK place and lobby. Never accept it from an unrelated source place.
+	local joinData = player:GetJoinData()
+	local teleportData = joinData.TeleportData
+	if
+		joinData.SourcePlaceId == AFKSettings.AFKPlaceId
+		and type(teleportData) == "table"
+		and teleportData.HandoffVersion == 1
+	then
+		profile.Data.Coins = math.max(tonumber(profile.Data.Coins) or 0, tonumber(teleportData.CoinsSnapshot) or 0)
+		profile.Data.Gems = math.max(tonumber(profile.Data.Gems) or 0, tonumber(teleportData.GemsSnapshot) or 0)
+	end
 
 	profile.OnSessionEnd:Connect(function()
 		Profiles[player] = nil

@@ -1,10 +1,13 @@
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local TableUtils = require(ReplicatedStorage.Shared.Modules.Utils.TableUtils)
 
-local kyukurarinModule = script:FindFirstChild("Kyukurarin")
-local zaakoModule = script:FindFirstChild("Zaako")
-local usagiflapModule = script:FindFirstChild("Usagiflap")
-local grayzoneModule = script:FindFirstChild("Grayzone")
+-- The individual emote modules are siblings of this module in Settings.Data.
+-- Looking beneath `script` made every config silently use its stale fallback.
+local dataFolder = script.Parent
+local kyukurarinModule = dataFolder:FindFirstChild("Kyukurarin")
+local takeTheLModule = dataFolder:FindFirstChild("TakeTheL")
+local usagiflapModule = dataFolder:FindFirstChild("Usagiflap")
+local grayzoneModule = dataFolder:FindFirstChild("Grayzone")
 local Kyukurarin = if kyukurarinModule and kyukurarinModule:IsA("ModuleScript")
 	then require(kyukurarinModule)
 	else {
@@ -20,14 +23,14 @@ local Kyukurarin = if kyukurarinModule and kyukurarinModule:IsA("ModuleScript")
 		WalkSpeed = 4,
 		Priority = Enum.AnimationPriority.Action4,
 	}
-local Zaako = if zaakoModule and zaakoModule:IsA("ModuleScript")
-	then require(zaakoModule)
+local TakeTheL = if takeTheLModule and takeTheLModule:IsA("ModuleScript")
+	then require(takeTheLModule)
 	else {
-		Name = "Zaako",
+		Name = "Take the L",
 		Index = 2,
-		DisplayName = "Zaako",
-		AnimationId = "rbxassetid://136212709851148",
-		SoundId = "rbxassetid://130251752855636",
+		DisplayName = "Take the L",
+		AnimationId = "rbxassetid://88824884403975",
+		SoundId = "rbxassetid://120518826488481",
 		SoundVolume = 1,
 		SoundDistance = 80,
 		SoundLooped = true,
@@ -117,7 +120,7 @@ export type RawEmoteConfig = {
 
 local RawEmoteData: { [string]: RawEmoteConfig } = {
 	[Kyukurarin.Name] = Kyukurarin,
-	[Zaako.Name] = Zaako,
+	[TakeTheL.Name] = TakeTheL,
 	[Usagiflap.Name] = Usagiflap,
 	[Grayzone.Name] = Grayzone,
 }

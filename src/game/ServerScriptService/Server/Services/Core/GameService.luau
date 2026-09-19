@@ -11,6 +11,7 @@ local PartySettings = require(ReplicatedStorage.Settings.Game.PartySettings)
 local MatchProtocol = require(ReplicatedStorage.Shared.Modules.Core.MatchProtocol)
 local MapData = require(ReplicatedStorage.Settings.Data.MapData)
 local ServerCutscene = require(script.Parent.ServerCutscene)
+local MapLoadTrace = require(script.Parent.MapLoadTrace)
 local CharacterGuard = require(script.Parent.Parent.Parent.CharacterGuard)
 local SafeTeleport = require(ReplicatedStorage.Shared.Modules.Core.SafeTeleport)
 local Net = require(ReplicatedStorage.Shared.Net)
@@ -213,21 +214,24 @@ function GameService:PrepareMap()
 		end
 	end
 
-	local loaded, loadError = pcall(function()
+	local loaded, loadError = xpcall(function()
 		MapService:LoadMapAsync(self.SelectedMap, self.SelectedDifficulty, preparedMap)
 		local characterStarted = os.clock()
-		CharacterGuard.Release(mapFolder, self:GetMatchPlayers())
+		MapLoadTrace.new(self.SelectedMap, mapFolder):Run("Characters", function()
+			CharacterGuard.Release(mapFolder, self:GetMatchPlayers())
+		end)
 		mapFolder:SetAttribute("CharacterPrepareSeconds", os.clock() - characterStarted)
-	end)
+	end, debug.traceback)
 	if not loaded then
 		self.IsMapLoading = false
-		mapFolder:SetAttribute("LoadError", string.sub(tostring(loadError), 1, 500))
+		mapFolder:SetAttribute("LoadError", string.sub(tostring(loadError), 1, 1000))
 		warn("[GameService] Map preparation failed: " .. tostring(loadError))
 		return
 	end
 
 	self.IsMapLoaded = true
 	mapFolder:SetAttribute("GameplayReady", true)
+	mapFolder:SetAttribute("MapLoadPhase", "Ready")
 	local endedAt = ReplicatedStorage:GetAttribute("CutsceneEndedAt")
 	if endedAt then
 		ReplicatedStorage:SetAttribute("CutsceneTransitionSeconds", workspace:GetServerTimeNow() - endedAt)

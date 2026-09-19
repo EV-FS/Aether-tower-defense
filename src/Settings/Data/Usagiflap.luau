@@ -2,7 +2,7 @@ return {
 	Name = "Usagiflap",
 	Index = 3,
 	DisplayName = "Usagiflap",
-	AnimationId = "rbxassetid://102530144071852",
+	AnimationId = "rbxassetid://121114743371379",
 	SoundId = "rbxassetid://73854560511013",
 	SoundVolume = 1,
 	SoundDistance = 80,
