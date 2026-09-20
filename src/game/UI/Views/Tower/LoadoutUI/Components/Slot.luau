@@ -16,11 +16,11 @@ local spring = Vide.spring
 
 local EMPTY_GRADIENT = ColorSequence.new(Color3.fromRGB(72, 76, 86))
 
-local EFFECT_LEVELS = { Common = 1, Rare = 2, Epic = 3, Legendary = 4, Mythic = 5, Exclusive = 5, Absolute = 6 }
+local EFFECT_LEVELS = { Common = 1, Rare = 2, Epic = 3, Legendary = 4, Mythic = 5, Secret = 5, Absolute = 6 }
 local SHINE_COLORS = {
 	Common = Color3.fromRGB(178, 178, 178), Rare = Color3.fromRGB(38, 132, 255),
 	Epic = Color3.fromRGB(214, 52, 255), Legendary = Color3.fromRGB(255, 168, 24),
-	Mythic = Color3.fromRGB(255, 31, 92), Exclusive = Color3.fromRGB(255, 31, 92), Absolute = Color3.fromRGB(121, 225, 255),
+	Mythic = Color3.fromRGB(255, 31, 92), Secret = Color3.fromRGB(255, 31, 92), Absolute = Color3.fromRGB(121, 225, 255),
 }
 local SHINE_GRADIENTS = {
 	Common = ColorSequence.new(Color3.fromRGB(155, 155, 155), Color3.fromRGB(215, 215, 215)),
@@ -28,7 +28,7 @@ local SHINE_GRADIENTS = {
 	Epic = ColorSequence.new(Color3.fromRGB(126, 45, 255), Color3.fromRGB(255, 35, 185)),
 	Legendary = ColorSequence.new(Color3.fromRGB(255, 105, 18), Color3.fromRGB(255, 238, 61)),
 	Mythic = ColorSequence.new(Color3.fromRGB(255, 20, 27), Color3.fromRGB(255, 36, 185)),
-	Exclusive = ColorSequence.new(Color3.fromRGB(255, 20, 27), Color3.fromRGB(255, 36, 185)),
+	Secret = ColorSequence.new(Color3.fromRGB(255, 20, 27), Color3.fromRGB(255, 36, 185)),
 	Absolute = ColorSequence.new({
 		ColorSequenceKeypoint.new(0, Color3.fromRGB(73, 220, 255)),
 		ColorSequenceKeypoint.new(0.5, Color3.fromRGB(255, 244, 255)),

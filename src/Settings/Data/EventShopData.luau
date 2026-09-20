@@ -1,5 +1,7 @@
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local TableUtils = require(ReplicatedStorage.Shared.Modules.Utils.TableUtils)
+local ItemData = require(ReplicatedStorage.Settings.Data.ItemData)
+local RarityData = require(ReplicatedStorage.Settings.Data.RarityData)
 
 export type Product = {
 	Id: string,
@@ -14,65 +16,32 @@ export type Product = {
 	Gradient: ColorSequence,
 }
 
+local function itemProduct(
+	id: string,
+	title: string,
+	itemName: string,
+	price: number,
+	amount: number,
+	layoutOrder: number
+): Product
+	local item = assert(ItemData.ByName[itemName], `Event shop item "{itemName}" is missing from ItemData`)
+	return {
+		Id = id,
+		Title = title,
+		Price = price,
+		Image = item.ItemImage,
+		RewardCategory = "Items",
+		RewardName = itemName,
+		RewardAmount = amount,
+		LayoutOrder = layoutOrder,
+		Gradient = RarityData.Get(item.Rarity).Presentation.Gradient,
+	}
+end
+
 local products: { Product } = {
-	{
-		Id = "EventChest",
-		Title = "CHEST",
-		Price = 550,
-		Image = "rbxassetid://74082959709680",
-		RewardCategory = "Items",
-		RewardName = "Event Chest",
-		RewardAmount = 1,
-		LayoutOrder = 1,
-		Gradient = ColorSequence.new(Color3.fromRGB(255, 67, 246), Color3.fromRGB(255, 111, 173)),
-	},
-	{
-		Id = "PremiumEventChest",
-		Title = "CHEST -(PREMIUM)-",
-		Price = 2_000,
-		Image = "rbxassetid://74082959709680",
-		RewardCategory = "Items",
-		RewardName = "Premium Event Chest",
-		RewardAmount = 1,
-		LayoutOrder = 2,
-		Gradient = ColorSequence.new(Color3.fromRGB(255, 67, 246), Color3.fromRGB(255, 111, 173)),
-	},
-	{
-		Id = "KitsuneEmoticon",
-		Title = "Emoticon",
-		Price = 4_500,
-		Image = "rbxassetid://74082959709680",
-		RewardCategory = "Items",
-		RewardName = "Kitsune Emoticon",
-		RewardAmount = 1,
-		Unique = true,
-		LayoutOrder = 3,
-		Gradient = ColorSequence.new(Color3.fromRGB(255, 67, 246), Color3.fromRGB(255, 111, 173)),
-	},
-	{
-		Id = "KitsuneUnitFrame",
-		Title = "UNIT FRAME",
-		Price = 12_500,
-		Image = "rbxassetid://103789559110745",
-		RewardCategory = "Items",
-		RewardName = "Kitsune Unit Frame",
-		RewardAmount = 1,
-		Unique = true,
-		LayoutOrder = 4,
-		Gradient = ColorSequence.new(Color3.fromRGB(255, 67, 246), Color3.fromRGB(255, 111, 173)),
-	},
-	{
-		Id = "MaidKitsuneSkin",
-		Title = "Maid Kitune -(SKIN)-",
-		Price = 25_500,
-		Image = "rbxassetid://74082959709680",
-		RewardCategory = "Skins",
-		RewardName = "Maid Kitsune",
-		RewardAmount = 1,
-		Unique = true,
-		LayoutOrder = 5,
-		Gradient = ColorSequence.new(Color3.fromRGB(255, 32, 36), Color3.fromRGB(34, 15, 23)),
-	},
+	itemProduct("IronBundle", "IRON x10", "Iron", 550, 10, 1),
+	itemProduct("GoldBundle", "GOLD x5", "Gold", 2_000, 5, 2),
+	itemProduct("DragonHeart", "DRAGON'S HEART", "Dragon's Heart", 4_500, 1, 3),
 }
 
 local EventShopData = {

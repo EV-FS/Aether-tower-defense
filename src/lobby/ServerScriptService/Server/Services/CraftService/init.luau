@@ -6,6 +6,7 @@ local CraftRecipes = require(ReplicatedStorage.Settings.Data.CraftRecipes)
 local ItemData = require(ReplicatedStorage.Settings.Data.ItemData)
 local Net = require(ReplicatedStorage.Shared.Net.server)
 local DataService
+local invalidRecipes: { [string]: string } = {}
 
 -------------------------------------------------
 --// Local Functions
@@ -41,15 +42,33 @@ end
 -------------------------------------------------
 local CraftService = {}
 
+local function GetRecipeError(craftKey: string, craftInfo: CraftRecipes.Recipe): string?
+	if not ItemData.ByName[craftInfo.ResultName] then
+		return `Craft result "{craftInfo.ResultName}" in "{craftKey}" is missing from ItemData`
+	end
+	if typeof(craftInfo.ResultAmount) ~= "number" or craftInfo.ResultAmount <= 0 or craftInfo.ResultAmount % 1 ~= 0 then
+		return `Invalid result amount in "{craftKey}"`
+	end
+	for _, ingredient in craftInfo.Ingredients do
+		if not ItemData.ByName[ingredient.Name] then
+			return `Craft ingredient "{ingredient.Name}" in "{craftKey}" is missing from ItemData`
+		end
+		if typeof(ingredient.Amount) ~= "number" or ingredient.Amount <= 0 or ingredient.Amount % 1 ~= 0 then
+			return `Invalid ingredient amount in "{craftKey}"`
+		end
+	end
+	return nil
+end
+
 function CraftService.Init(services)
 	DataService = services:GetService("DataService")
 
+	table.clear(invalidRecipes)
 	for craftKey, craftInfo in CraftRecipes do
-		assert(ItemData.ByName[craftInfo.ResultName], `Craft result "{craftInfo.ResultName}" in "{craftKey}" is missing from ItemData`)
-		assert(craftInfo.ResultAmount > 0 and craftInfo.ResultAmount % 1 == 0, `Invalid result amount in "{craftKey}"`)
-		for _, ingredient in craftInfo.Ingredients do
-			assert(ItemData.ByName[ingredient.Name], `Craft ingredient "{ingredient.Name}" in "{craftKey}" is missing from ItemData`)
-			assert(ingredient.Amount > 0 and ingredient.Amount % 1 == 0, `Invalid ingredient amount in "{craftKey}"`)
+		local recipeError = GetRecipeError(craftKey, craftInfo)
+		if recipeError then
+			invalidRecipes[craftKey] = recipeError
+			warn(`[CraftService] Disabled invalid recipe: {recipeError}`)
 		end
 	end
 end
@@ -57,6 +76,9 @@ end
 function CraftService.Start()
 	Net.CraftService.Craft.On(
 		function(player: Player, data: { consumedTowers: { [string]: { string } }, craftKey: string })
+			if type(data) ~= "table" or type(data.craftKey) ~= "string" then
+				return false
+			end
 			return CraftService:Craft(player, data.craftKey)
 		end
 	)
@@ -64,6 +86,10 @@ end
 
 function CraftService:Craft(player: Player, craftKey: string): boolean
 	local craftInfo = CraftRecipes[craftKey]
+	if invalidRecipes[craftKey] then
+		warn(`[CraftService] Rejected disabled recipe "{craftKey}": {invalidRecipes[craftKey]}`)
+		return false
+	end
 	if not craftInfo then
 		warn(`{craftKey}에 해당하는 Recipe가 존재하지 않음.`)
 		return false

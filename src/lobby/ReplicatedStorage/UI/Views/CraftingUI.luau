@@ -4,7 +4,7 @@ local Vide = require(ReplicatedStorage.Packages.Vide)
 local useMenuMotion = require(ReplicatedStorage.Shared.Modules.UI.Hooks.useMenuMotion)
 local CraftRecipes = require(ReplicatedStorage.Settings.Data.CraftRecipes)
 local ItemData = require(ReplicatedStorage.Settings.Data.ItemData)
-local RarityGradient = require(ReplicatedStorage.Settings.Visuals.RarityGradient)
+local RarityData = require(ReplicatedStorage.Settings.Data.RarityData)
 local Net = require(ReplicatedStorage.Shared.Net.client)
 local ServiceRegistry = require(ReplicatedStorage.Shared.Modules.Core.ServiceRegistry)
 local useButtonEffect = require(ReplicatedStorage.Shared.Modules.UI.Hooks.useButtonEffect)
@@ -20,11 +20,24 @@ local UIController
 
 local VIEW_ID = "Crafting"
 local recipeKeys = {}
-for recipeKey in CraftRecipes do
-	table.insert(recipeKeys, recipeKey)
+for recipeKey, recipe in CraftRecipes do
+	local isValid = ItemData.ByName[recipe.ResultName] ~= nil
+	for _, ingredient in recipe.Ingredients do
+		isValid = isValid and ItemData.ByName[ingredient.Name] ~= nil
+	end
+	if isValid then
+		table.insert(recipeKeys, recipeKey)
+	else
+		warn(`[CraftingUI] Hiding invalid recipe "{recipeKey}" because its item data is incomplete`)
+	end
 end
 table.sort(recipeKeys, function(a, b)
-	return ItemData.ByName[CraftRecipes[a].ResultName].Index < ItemData.ByName[CraftRecipes[b].ResultName].Index
+	local left = ItemData.ByName[CraftRecipes[a].ResultName]
+	local right = ItemData.ByName[CraftRecipes[b].ResultName]
+	if left.Index == right.Index then
+		return a < b
+	end
+	return left.Index < right.Index
 end)
 
 local selectedRecipe = source(recipeKeys[1])
@@ -42,7 +55,7 @@ end
 
 local function itemGradient(itemName: string): ColorSequence
 	local info = itemInfo(itemName)
-	return RarityGradient.Gradients[if info then info.Rarity else "Common"] or RarityGradient.Gradients.Common
+	return RarityData.Get(if info then info.Rarity else "Common").Presentation.Gradient
 end
 
 local function ownedAmount(itemName: string): number

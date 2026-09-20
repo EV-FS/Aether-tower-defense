@@ -9,6 +9,7 @@ local DataConstants = require(ReplicatedStorage.Settings.Data.DataConstants)
 local AFKSettings = require(ReplicatedStorage.Settings.Game.AFKSettings)
 
 local Net = require(ReplicatedStorage.Shared.Net)
+local ItemData = require(ReplicatedStorage.Settings.Data.ItemData)
 local TowerData = require(ReplicatedStorage.Settings.Data.TowerData)
 local PurchaseData = require(ReplicatedStorage.Settings.Data.PurchaseData)
 local TableUtils = require(ReplicatedStorage.Shared.Modules.Utils.TableUtils)
@@ -154,6 +155,39 @@ local function patchTowerRenames(playerData: PlayerData)
 	end
 end
 
+local function normalizeItemKey(value: any): string
+	return string.lower(tostring(value)):gsub("^%s+", ""):gsub("%s+$", ""):gsub("%s+", " ")
+end
+
+local canonicalItemNames = {}
+for itemName in ItemData.ByName do
+	canonicalItemNames[normalizeItemKey(itemName)] = itemName
+end
+
+local function getCanonicalItemName(value: any): string?
+	if typeof(value) == "number" then
+		local itemInfo = ItemData.ByIndex[value]
+		return if itemInfo then itemInfo.Name else nil
+	end
+	return canonicalItemNames[normalizeItemKey(value)]
+end
+
+local function patchItemInventory(playerData: PlayerData)
+	playerData.Inventory = if type(playerData.Inventory) == "table" then playerData.Inventory else {}
+	local rawItems = if type(playerData.Inventory.Items) == "table" then playerData.Inventory.Items else {}
+
+	local mergedItems = {}
+	for rawName, rawAmount in rawItems do
+		local canonicalName = getCanonicalItemName(rawName)
+		local amount = tonumber(rawAmount)
+		if canonicalName and amount and amount > 0 then
+			mergedItems[canonicalName] = (mergedItems[canonicalName] or 0) + math.floor(amount)
+		end
+	end
+
+	playerData.Inventory.Items = mergedItems
+end
+
 -------------------------------------------------
 --// DataService
 -------------------------------------------------
@@ -186,7 +220,7 @@ function DataService.Start()
 		return playerData[valueName]
 	end)
 
-	for _, currencyName in { "Coins", "Gems", "Blossom", "Exp", "Level" } do
+	for _, currencyName in { "Coins", "Gems", "Blossom", "Exp", "Level", "Inventory" } do
 		DataService:GetChangedSignal(currencyName):Connect(function(player, value)
 			Net.DataService.CurrencyChanged.Fire(player, { CurrencyName = currencyName, CurrencyValue = value })
 		end)
@@ -281,6 +315,14 @@ function DataService:AddData(player: Player, mainKey: string, amount: number, ..
 
 	local totalValue
 	local subKeys = { ... }
+	if mainKey == "Inventory" and subKeys[1] == "Items" then
+		local canonicalName = getCanonicalItemName(subKeys[2])
+		if not canonicalName then
+			warn(`[DataService] Rejected unknown inventory item: {tostring(subKeys[2])}`)
+			return nil
+		end
+		subKeys[2] = canonicalName
+	end
 
 	if #subKeys == 0 then
 		if not check(playerData[mainKey]) then
@@ -298,8 +340,8 @@ function DataService:AddData(player: Player, mainKey: string, amount: number, ..
 		if not check(parentTable[lastKey]) then
 			return
 		end
-		parentTable[lastKey] = (parentTable[lastKey] or 0) + amount
-		totalValue = parentTable[lastKey]
+		totalValue = (parentTable[lastKey] or 0) + amount
+		parentTable[lastKey] = if mainKey == "Inventory" and totalValue == 0 then nil else totalValue
 	end
 
 	if string.upper(mainKey) == "EXP" then
@@ -686,6 +728,7 @@ function DataService:_MigrateData(profile: profile, player: Player)
 	end
 
 	patchTowerRenames(playerData)
+	patchItemInventory(playerData)
 end
 
 function DataService._SetLevel(player: Player, playerData: PlayerData)

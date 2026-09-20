@@ -2,6 +2,7 @@ local ContentProvider = game:GetService("ContentProvider")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Vide = require(ReplicatedStorage.Packages.Vide)
 local useMenuMotion = require(ReplicatedStorage.Shared.Modules.UI.Hooks.useMenuMotion)
+local RarityRegistry = require(ReplicatedStorage.Shared.Modules.Core.Rarity.RarityRegistry)
 local DataConstants = require(ReplicatedStorage.Settings.Data.DataConstants)
 local TowerData = require(ReplicatedStorage.Settings.Data.TowerData)
 local TraitData = require(ReplicatedStorage.Settings.Data.TraitData)
@@ -38,19 +39,10 @@ local SORT_CRITERIA = { "Rarity", "ABC", "Level" }
 local VIRTUAL_OVERSCAN_ROWS = 1
 local VIRTUAL_COLUMNS = 5
 local VIRTUAL_CELL_WIDTH = 0.192543
-local VIRTUAL_CELL_HEIGHT = 0.329466
 local VIRTUAL_PADDING_X = 0.0015
-local VIRTUAL_PADDING_Y = 0.012
-local RARITY_ORDER = {
-	Absolute = 1,
-	Exclusive = 2,
-	Mythic = 3,
-	Legendary = 4,
-	Epic = 5,
-	Rare = 6,
-	Common = 7,
-}
-
+local VIRTUAL_CARD_ASPECT_RATIO = 1.05
+local VIRTUAL_PADDING_Y_PIXELS = 6
+local VIRTUAL_FALLBACK_HEIGHT_PIXELS = 128
 local selectedName = source(nil)
 local selectedKey = source()
 local selectedDamage = source(0)
@@ -183,6 +175,7 @@ function UnitUI.RenderUI()
 	end)
 	local searchTextBox: TextBox? = nil
 	local scrollingFrame = source(nil :: ScrollingFrame?)
+	local virtualCellHeight = source(VIRTUAL_FALLBACK_HEIGHT_PIXELS)
 	local visibleStartRank = source(1)
 	local visibleEndRank = source(0)
 	local sellConfirmation = source(false)
@@ -240,7 +233,7 @@ function UnitUI.RenderUI()
 						Key = towerKey,
 						Data = towerData,
 						EquippedSlot = equippedSlot,
-						RarityOrder = RARITY_ORDER[rarity] or 999,
+						RarityOrder = RarityRegistry.GetOrder(rarity),
 						LowerName = string.lower(towerName),
 						Level = level,
 						SearchText = string.lower(`{towerName} {rarity} {towerKey} level {level} lv {level}`),
@@ -309,7 +302,9 @@ function UnitUI.RenderUI()
 			return
 		end
 
-		local rowStride = math.max(viewportSize.Y * (VIRTUAL_CELL_HEIGHT + VIRTUAL_PADDING_Y), 1)
+		local nextCellHeight = math.max(math.floor(viewportSize.X * VIRTUAL_CELL_WIDTH / VIRTUAL_CARD_ASPECT_RATIO + 0.5), 1)
+		virtualCellHeight(nextCellHeight)
+		local rowStride = nextCellHeight + VIRTUAL_PADDING_Y_PIXELS
 		local firstRow = math.max(math.floor(frame.CanvasPosition.Y / rowStride) - VIRTUAL_OVERSCAN_ROWS, 0)
 		local visibleRows = math.ceil(viewportSize.Y / rowStride) + VIRTUAL_OVERSCAN_ROWS * 2 + 1
 
@@ -734,9 +729,9 @@ function UnitUI.RenderUI()
 						CanvasSize = function()
 							local rows = math.ceil(unitListing().Count / VIRTUAL_COLUMNS)
 							local height = if rows > 0
-								then rows * VIRTUAL_CELL_HEIGHT + (rows - 1) * VIRTUAL_PADDING_Y
+								then rows * virtualCellHeight() + (rows - 1) * VIRTUAL_PADDING_Y_PIXELS
 								else 0
-							return UDim2.fromScale(0, height)
+							return UDim2.fromOffset(0, height)
 						end,
 						ClipsDescendants = true,
 						Position = UDim2.fromScale(0, 0),
@@ -768,12 +763,14 @@ function UnitUI.RenderUI()
 									local zeroBasedRank = math.max((rank() or 1) - 1, 0)
 									local column = zeroBasedRank % VIRTUAL_COLUMNS
 									local row = math.floor(zeroBasedRank / VIRTUAL_COLUMNS)
-									return UDim2.fromScale(
-										column * (VIRTUAL_CELL_WIDTH + VIRTUAL_PADDING_X),
-										row * (VIRTUAL_CELL_HEIGHT + VIRTUAL_PADDING_Y)
+									return UDim2.new(
+										column * (VIRTUAL_CELL_WIDTH + VIRTUAL_PADDING_X), 0,
+										0, row * (virtualCellHeight() + VIRTUAL_PADDING_Y_PIXELS)
 									)
 								end,
-								Size = UDim2.fromScale(VIRTUAL_CELL_WIDTH, VIRTUAL_CELL_HEIGHT),
+								Size = function()
+									return UDim2.new(VIRTUAL_CELL_WIDTH, 0, 0, virtualCellHeight())
+								end,
 								IsSelected = function()
 									return selectedName() == towerName and selectedKey() == towerKey
 								end,

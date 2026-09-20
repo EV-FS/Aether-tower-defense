@@ -20,22 +20,19 @@ export type Recipe = {
 --// CraftRecipes
 -------------------------------------------------
 local CraftRecipes: { [string]: Recipe } = {
-	-- Every recipe consumes inventory items and produces another inventory item.
-	-- Item visuals and descriptions are configured in ItemData.luau.
-	["Emperor's Cloak"] = {
-		ResultName = "Emperor's Cloak",
+	-- Add recipes here only when both the result and every ingredient exist in ItemData.
+	["Gold"] = {
+		ResultName = "Gold",
 		ResultAmount = 1,
 		Ingredients = {
-			{ Name = "Crown", Amount = 1 },
-			{ Name = "Warrior's helmet", Amount = 2 },
+			{ Name = "Iron", Amount = 5 },
 		},
 	},
-	["Dual Sword"] = {
-		ResultName = "Dual Sword",
+	["Dragon's Heart"] = {
+		ResultName = "Dragon's Heart",
 		ResultAmount = 1,
 		Ingredients = {
-			{ Name = "Blaster Gun", Amount = 1 },
-			{ Name = "Warrior's helmet", Amount = 1 },
+			{ Name = "Gold", Amount = 5 },
 		},
 	},
 }

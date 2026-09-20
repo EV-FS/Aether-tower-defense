@@ -8,5 +8,5 @@ return TableUtils.DeepFreeze({
 	Legendary = Color3.new(1, 1, 0),
 	Mythic = Color3.new(1, 0, 0),
 	Absolute = Color3.new(0.15, 0.15, 1),
-	Exclusive = Color3.new(1, 0, 1),
+	Secret = Color3.new(1, 0, 1),
 })

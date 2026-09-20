@@ -2,6 +2,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Vide = require(ReplicatedStorage.Packages.Vide)
 local useMenuMotion = require(ReplicatedStorage.Shared.Modules.UI.Hooks.useMenuMotion)
+local RarityRegistry = require(ReplicatedStorage.Shared.Modules.Core.Rarity.RarityRegistry)
 local ItemData = require(ReplicatedStorage.Settings.Data.ItemData)
 local RarityGradient = require(ReplicatedStorage.Settings.Visuals.RarityGradient)
 local UISFX = require(ReplicatedStorage.Settings.Visuals.UISFX)
@@ -16,7 +17,6 @@ local changed = Vide.changed
 local cleanup = Vide.cleanup
 local derive = Vide.derive
 local effect = Vide.effect
-local show = Vide.show
 local source = Vide.source
 local spring = Vide.spring
 local values = Vide.values
@@ -27,12 +27,11 @@ local UIController
 local VIEW_ID = "Inventory"
 local CATEGORIES = { "Material", "Skin" }
 local SORT_CRITERIA = { "Rarity", "ABC", "Quantity" }
-local RARITY_ORDER = { Absolute = 1, Exclusive = 2, Mythic = 3, Legendary = 4, Epic = 5, Rare = 6, Common = 7 }
-
 local selectedCategory = source("Material")
 local currentSort = source("Rarity")
 local searchQuery = source("")
 local selectedItemName = source(nil :: string?)
+local CATEGORY_BUTTON_ASPECT_RATIO = 5.7
 
 local isLast = false
 
@@ -48,7 +47,7 @@ local function getInfo(itemName: string, category: string?)
 	return ItemData.ByName[itemName]
 		or {
 			Name = itemName,
-			Rarity = if (category or selectedCategory()) == "Skin" then "Exclusive" else "Common",
+			Rarity = if (category or selectedCategory()) == "Skin" then "Secret" else "Common",
 			ItemImage = "",
 		}
 end
@@ -77,8 +76,8 @@ local function comesBefore(aName: string, aCount: number, bName: string, bCount:
 	if criterion == "Quantity" and aCount ~= bCount then
 		return aCount > bCount
 	elseif criterion == "Rarity" then
-		local aOrder = RARITY_ORDER[getInfo(aName).Rarity] or 999
-		local bOrder = RARITY_ORDER[getInfo(bName).Rarity] or 999
+		local aOrder = RarityRegistry.GetOrder(getInfo(aName).Rarity)
+		local bOrder = RarityRegistry.GetOrder(getInfo(bName).Rarity)
 		if aOrder ~= bOrder then
 			return aOrder < bOrder
 		end
@@ -127,7 +126,7 @@ local function categoryButton(category: string, layout: number, isVisible: () ->
 			if not isVisible() then
 				return UDim2.fromScale(0.72, 0.066)
 			end
-			return if isSelected() then UDim2.fromScale(0.94, 0.072) else UDim2.fromScale(0.903, 0.066)
+			return if isSelected() then UDim2.fromScale(0.94, 0.066) else UDim2.fromScale(0.903, 0.066)
 		end, 0.42 + layout * 0.08, 0.78),
 		Selectable = true,
 		Activated = function()
@@ -153,6 +152,10 @@ local function categoryButton(category: string, layout: number, isVisible: () ->
 			end,
 		}),
 		create("UICorner")({ Name = "UICorner", CornerRadius = UDim.new(0, 6) }),
+		create("UIAspectRatioConstraint")({
+			AspectRatio = CATEGORY_BUTTON_ASPECT_RATIO,
+			DominantAxis = Enum.DominantAxis.Width,
+		}),
 		create("UIStroke")({
 			Name = "StateStroke",
 			Color = function()
@@ -182,12 +185,25 @@ local function itemCard(itemName: string, count: number, category: string, layou
 		useButtonEffect(0.96, 1.025),
 		create("UIGradient")({ Name = "Rarity", Color = rarityGradient, Rotation = 45 }),
 		create("UIAspectRatioConstraint")({ Name = "UIAspectRatioConstraint" }),
-		create("UIStroke")({
+		create("UICorner")({ CornerRadius = UDim.new(0.06, 0) }),
+		create("Frame")({
 			Name = "Selection",
-			Color = Color3.new(1, 1, 1),
-			Thickness = function()
-				return if selectedItemName() == itemName then 3 else 0
-			end,
+			Active = false,
+			BackgroundTransparency = 1,
+			Position = UDim2.fromOffset(3, 3),
+			Size = UDim2.new(1, -6, 1, -6),
+			-- Keep the selection outline behind quantity/name overlays so the
+			-- inward stroke never crosses their text.
+			ZIndex = 8,
+			create("UICorner")({ CornerRadius = UDim.new(0.06, 0) }),
+			create("UIStroke")({
+				ApplyStrokeMode = Enum.ApplyStrokeMode.Border,
+				Color = Color3.new(1, 1, 1),
+				Thickness = 3,
+				Transparency = function()
+					return if selectedItemName() == itemName then 0 else 1
+				end,
+			}),
 		}),
 		create("ImageLabel")({
 			Name = "Item",
@@ -202,9 +218,9 @@ local function itemCard(itemName: string, count: number, category: string, layou
 			Name = "Quantity",
 			BackgroundTransparency = 1,
 			Image = "rbxassetid://104083646922843",
-			Position = UDim2.fromScale(-0.013, -0.05),
-			Size = UDim2.fromScale(0.653434, 0.238322),
-			ZIndex = 10,
+			Position = UDim2.fromScale(0.015, 0.015),
+			Size = UDim2.fromScale(0.62, 0.22),
+			ZIndex = 20,
 			create("UIAspectRatioConstraint")({ Name = "UIAspectRatioConstraint", AspectRatio = 3.2 }),
 			create("TextLabel")({
 				Name = "Amount",
@@ -216,6 +232,7 @@ local function itemCard(itemName: string, count: number, category: string, layou
 				Text = `{count}x`,
 				TextColor3 = Color3.new(1, 1, 1),
 				TextScaled = true,
+				ZIndex = 21,
 				create("UIStroke")({ Name = "UIStroke", Thickness = 2 }),
 			}),
 		}),
@@ -236,6 +253,11 @@ local function itemCard(itemName: string, count: number, category: string, layou
 end
 
 local function textButton(name: string, image: string, label: any, active: boolean, activated: (() -> ())?)
+	local strokeColors = {
+		SellButton = Color3.fromRGB(255, 2, 2),
+		LockButton = Color3.fromRGB(142, 134, 255),
+		SortButton = Color3.fromRGB(93, 78, 255),
+	}
 	return create("ImageButton")({
 		Name = name,
 		Active = active,
@@ -255,6 +277,8 @@ local function textButton(name: string, image: string, label: any, active: boole
 			TextColor3 = Color3.new(1, 1, 1),
 			TextScaled = true,
 		}),
+		create("UICorner")({}),
+		create("UIStroke")({ Color = strokeColors[name] or Color3.new(1, 1, 1) }),
 	})
 end
 
@@ -270,11 +294,16 @@ function InventoryUI.RenderUI()
 		local name = selectedItemName()
 		return if name then getInfo(name) else nil
 	end)
-	local sortedItemRanks = derive(function()
+	local visibleEntries = derive(function()
 		local entries = {}
+		if not isVisible() then
+			return entries
+		end
+
+		local category = selectedCategory()
 		for itemName, count in categoryStacks() do
-			if typeof(count) == "number" and count > 0 then
-				table.insert(entries, { Name = itemName, Count = count })
+			if typeof(count) == "number" and count > 0 and matchesSearch(itemName) then
+				table.insert(entries, { Name = itemName, Count = count, Category = category })
 			end
 		end
 
@@ -282,11 +311,7 @@ function InventoryUI.RenderUI()
 			return comesBefore(a.Name, a.Count, b.Name, b.Count)
 		end)
 
-		local ranks = {}
-		for rank, entry in entries do
-			ranks[entry.Name] = rank
-		end
-		return ranks
+		return entries
 	end)
 
 	effect(function()
@@ -345,18 +370,18 @@ function InventoryUI.RenderUI()
 		Visible = menuMotion.IsMounted,
 		create("ImageLabel")({
 			Name = "Main",
-			AnchorPoint = Vector2.new(0.5, 0),
+			AnchorPoint = Vector2.new(0.5, 0.5),
 			BackgroundTransparency = 1,
 			Image = "rbxassetid://107486254365437",
-			Position = UDim2.fromScale(0.5, 0.20195),
+			Position = UDim2.fromScale(0.501648, 0.499042),
 			Rotation = menuMotion:WindowRotation(),
-			Size = menuMotion:WindowSize(UDim2.fromScale(0.721698, 0.668872)),
+			Size = menuMotion:WindowSize(UDim2.fromScale(0.721698, 0.593865)),
 			create("ImageLabel")({
 				Name = "Header",
 				BackgroundTransparency = 1,
 				Image = "rbxassetid://95305627117639",
 				Position = menuMotion:HeaderPosition(UDim2.fromScale(-0.0573612, -0.111321)),
-				Size = UDim2.fromScale(0.692821, 0.28349),
+				Size = UDim2.fromScale(0.683091, 0.28349),
 				ZIndex = 10,
 				create("ImageLabel")({
 					Name = "Star",
@@ -372,8 +397,8 @@ function InventoryUI.RenderUI()
 					BackgroundTransparency = 1,
 					Image = "rbxassetid://96280313244013",
 					ImageTransparency = menuMotion:Fade(),
-					Position = menuMotion:CloudPosition(UDim2.fromScale(0.529887, 0.0551715)),
-					Size = UDim2.fromScale(0.537766, 1.06417),
+					Position = menuMotion:CloudPosition(UDim2.fromScale(0.529802, 0.048735)),
+					Size = UDim2.fromScale(0.507418, 1.06417),
 					create("UIAspectRatioConstraint")({ AspectRatio = 2.16 }),
 				}),
 				create("TextLabel")({
@@ -428,34 +453,19 @@ function InventoryUI.RenderUI()
 						ScrollBarThickness = 0,
 						Size = UDim2.fromScale(1, 1),
 						create("UIGridLayout")({
-							CellPadding = menuMotion:Spring(UDim2.fromScale(0.01, 0.015), UDim2.fromScale(-0.012, 0.015), "Header"),
+							CellPadding = UDim2.fromScale(0.012, 0.018),
 							CellSize = UDim2.fromScale(0.239841, 0.354932),
 							SortOrder = Enum.SortOrder.LayoutOrder,
 						}),
-						values(InventoryClient.Items, function(count, itemName)
-							local shouldMount = derive(function()
-								return isVisible()
-									and selectedCategory() == "Material"
-									and count > 0
-									and matchesSearch(itemName())
-							end)
-							return show(shouldMount, function()
-								return itemCard(itemName(), count, "Material", function()
-									return sortedItemRanks()[itemName()] or 999999
-								end)
-							end)
-						end),
-						values(InventoryClient.Skins, function(count, itemName)
-							local shouldMount = derive(function()
-								return isVisible()
-									and selectedCategory() == "Skin"
-									and count > 0
-									and matchesSearch(itemName())
-							end)
-							return show(shouldMount, function()
-								return itemCard(itemName(), count, "Skin", function()
-									return sortedItemRanks()[itemName()] or 999999
-								end)
+						create("UIPadding")({
+							PaddingTop = UDim.new(0, 4),
+							PaddingBottom = UDim.new(0, 4),
+							PaddingLeft = UDim.new(0, 4),
+							PaddingRight = UDim.new(0, 4),
+						}),
+						values(visibleEntries, function(entry, rank)
+							return itemCard(entry.Name, entry.Count, entry.Category, function()
+								return rank()
 							end)
 						end),
 					}),
@@ -549,7 +559,7 @@ function InventoryUI.RenderUI()
 						Name = "Category", AnchorPoint = Vector2.new(0, 0),
 						Active = true,
 						AutomaticCanvasSize = Enum.AutomaticSize.Y,
-						BackgroundColor3 = Color3.fromRGB(8, 8, 8),
+						BackgroundTransparency = 1,
 						BorderSizePixel = 0,
 						CanvasSize = UDim2.new(),
 						Position = UDim2.fromScale(0, 0),
@@ -560,7 +570,11 @@ function InventoryUI.RenderUI()
 							Padding = UDim.new(0.01, 0),
 							SortOrder = Enum.SortOrder.LayoutOrder,
 						}),
-						create("UIPadding")({ PaddingTop = UDim.new(0, 2) }),
+						create("UIPadding")({
+							PaddingTop = UDim.new(0, 4),
+							PaddingLeft = UDim.new(0, 3),
+							PaddingRight = UDim.new(0, 3),
+						}),
 						categoryButton("Material", 1, isVisible),
 						categoryButton("Skin", 2, isVisible),
 					}),
@@ -627,28 +641,15 @@ function InventoryUI.RenderUI()
 				}),
 				create("ImageLabel")({
 					Name = "Item",
+					AnchorPoint = Vector2.new(0.5, 0.5),
 					BackgroundTransparency = 1,
 					Image = function()
 						local info = selectedInfo()
 						return if info then info.ItemImage or "" else ""
 					end,
-					Position = UDim2.fromScale(0.18, 0.18),
+					Position = UDim2.fromScale(0.501848, 0.494182),
 					ScaleType = Enum.ScaleType.Fit,
-					Size = UDim2.fromScale(0.64, 0.64),
-				}),
-				create("TextLabel")({
-					Name = "Description",
-					BackgroundTransparency = 1,
-					FontFace = Font.new("rbxasset://fonts/families/SourceSansPro.json", Enum.FontWeight.Bold),
-					Position = UDim2.fromScale(0.1, 0.82),
-					Size = UDim2.fromScale(0.8, 0.1),
-					Text = function()
-						local info = selectedInfo()
-						return if info then info.Description or "" else ""
-					end,
-					TextColor3 = Color3.fromRGB(235, 235, 235),
-					TextScaled = true,
-					TextWrapped = true,
+					Size = UDim2.fromScale(0.558716, 0.578273),
 				}),
 			}),
 			create("ImageButton")({
@@ -677,6 +678,8 @@ function InventoryUI.RenderUI()
 					Color = ColorSequence.new(Color3.fromRGB(32, 255, 88), Color3.fromRGB(230, 255, 1)),
 					Rotation = 90,
 				}),
+				create("UICorner")({}),
+				create("UIStroke")({ Color = Color3.new(1, 1, 1) }),
 			}),
 			create("ImageButton")({
 				Name = "CancelButton",
@@ -685,7 +688,7 @@ function InventoryUI.RenderUI()
 				Image = "rbxassetid://92651860309635",
 				Rotation = menuMotion:CloseRotation(),
 				Position = menuMotion:ClosePosition(UDim2.fromScale(0.980096, 0.0289194)),
-				Size = UDim2.fromScale(0.102144, 0.15458),
+				Size = UDim2.fromScale(0.0822234, 0.15458),
 				Activated = function()
 					UIController:Close(VIEW_ID)
 				end,

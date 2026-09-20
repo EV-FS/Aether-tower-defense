@@ -15,7 +15,7 @@ local SHINE_COLORS = {
 	Epic = Color3.fromRGB(68, 59, 170),
 	Legendary = Color3.fromRGB(158, 63, 153),
 	Mythic = Color3.fromRGB(106, 67, 28),
-	Exclusive = Color3.fromRGB(17, 0, 1),
+	Secret = Color3.fromRGB(17, 0, 1),
 	Absolute = Color3.fromRGB(233, 93, 224),
 }
 

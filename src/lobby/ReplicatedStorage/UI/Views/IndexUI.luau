@@ -2,6 +2,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Vide = require(ReplicatedStorage.Packages.Vide)
 local useMenuMotion = require(ReplicatedStorage.Shared.Modules.UI.Hooks.useMenuMotion)
+local RarityRegistry = require(ReplicatedStorage.Shared.Modules.Core.Rarity.RarityRegistry)
 local ItemData = require(ReplicatedStorage.Settings.Data.ItemData)
 local TowerData = require(ReplicatedStorage.Settings.Data.TowerData)
 local RarityGradient = require(ReplicatedStorage.Settings.Visuals.RarityGradient)
@@ -22,8 +23,6 @@ local values = Vide.values
 
 local VIEW_ID = "Index"
 local CATEGORIES = { "Unit", "Item" }
-local RARITY_ORDER = { Absolute = 1, Exclusive = 2, Mythic = 3, Legendary = 4, Epic = 5, Rare = 6, Common = 7 }
-
 local UIController
 local IndexClient
 local selectedCategory = source("Unit")
@@ -56,7 +55,7 @@ end
 
 local function layoutOrder(category: string, name: string): number
 	local rarity = getRarity(category, name)
-	local rarityRank = RARITY_ORDER[rarity] or 99
+	local rarityRank = RarityRegistry.GetOrder(rarity)
 	local dataIndex = if category == "Unit" and TowerData.ByName[name] then TowerData.ByName[name].Index else 999
 	return rarityRank * 10_000 + dataIndex
 end
