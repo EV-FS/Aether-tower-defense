@@ -166,6 +166,12 @@ local RawTowerData: {
 			MaxTowers = 1818,
 			SellPrice = 1818,
 		},
+		["Saint"] = {
+			Index = 19,
+			Rarity = "Mythic",
+			TowerImage = "rbxassetid://130148747698173",
+			MaxTowers = 2,
+		},
 		["Ranger Super Tower"] = {
 			Index = 31,
 			Rarity = "Absolute",

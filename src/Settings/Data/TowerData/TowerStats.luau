@@ -1791,6 +1791,54 @@ return TableUtils.DeepFreeze({
 			AttackType = "Splash",
 		},
 	},
+	["Saint"] = {
+		[0] = {
+			DamageBuff = 10,
+			Range = 12,
+			Cost = 1500,
+		},
+		[1] = {
+			DamageBuff = 12,
+			Range = 14,
+			Cost = 2500,
+		},
+		[2] = {
+			DamageBuff = 15,
+			Range = 14,
+			Cost = 4000,
+		},
+		[3] = {
+			DamageBuff = 15,
+			Range = 16,
+			Cost = 5500,
+		},
+		[4] = {
+			DamageBuff = 20,
+			Range = 16,
+			Cost = 9500,
+
+			Skills = {
+				["Heavenly Grace"] = {
+					Cooldown = 30,
+					Duration = 10,
+					Amount = 30,
+				},
+			},
+		},
+		[5] = {
+			DamageBuff = 25,
+			Range = 20,
+			Cost = 12000,
+
+			Skills = {
+				["Heavenly Grace"] = {
+					Cooldown = 30,
+					Duration = 10,
+					Amount = 40,
+				},
+			},
+		},
+	},
 
 	-- Premium (Robux)
 	["Wizard"] = {
