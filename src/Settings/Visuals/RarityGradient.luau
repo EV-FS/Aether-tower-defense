@@ -4,32 +4,43 @@ local TableUtils = require(ReplicatedStorage.Shared.Modules.Utils.TableUtils)
 return TableUtils.DeepFreeze({
 	Gradients = {
 		Common = ColorSequence.new({
-			ColorSequenceKeypoint.new(0, Color3.fromRGB(199, 199, 199)),
-			ColorSequenceKeypoint.new(1, Color3.fromRGB(160, 160, 160)),
+			ColorSequenceKeypoint.new(0, Color3.fromRGB(177, 158, 158)),
+			ColorSequenceKeypoint.new(0.508503, Color3.fromRGB(255, 228, 228)),
+			ColorSequenceKeypoint.new(1, Color3.fromRGB(177, 158, 158)),
 		}),
 		Rare = ColorSequence.new({
-			ColorSequenceKeypoint.new(0, Color3.fromRGB(42, 106, 255)),
-			ColorSequenceKeypoint.new(1, Color3.fromRGB(30, 34, 255)),
+			ColorSequenceKeypoint.new(0, Color3.fromRGB(53, 76, 231)),
+			ColorSequenceKeypoint.new(0.518707, Color3.fromRGB(58, 212, 255)),
+			ColorSequenceKeypoint.new(1, Color3.fromRGB(53, 76, 231)),
 		}),
 		Epic = ColorSequence.new({
-			ColorSequenceKeypoint.new(0, Color3.fromRGB(235, 85, 255)),
-			ColorSequenceKeypoint.new(1, Color3.fromRGB(255, 32, 170)),
+			ColorSequenceKeypoint.new(0, Color3.fromRGB(131, 0, 131)),
+			ColorSequenceKeypoint.new(0.508503, Color3.fromRGB(255, 99, 255)),
+			ColorSequenceKeypoint.new(1, Color3.fromRGB(131, 0, 131)),
 		}),
 		Legendary = ColorSequence.new({
-			ColorSequenceKeypoint.new(0, Color3.fromRGB(255, 194, 52)),
-			ColorSequenceKeypoint.new(1, Color3.fromRGB(255, 126, 61)),
+			ColorSequenceKeypoint.new(0, Color3.fromRGB(226, 88, 46)),
+			ColorSequenceKeypoint.new(0.510204, Color3.fromRGB(255, 255, 30)),
+			ColorSequenceKeypoint.new(1, Color3.fromRGB(226, 88, 46)),
 		}),
 		Mythic = ColorSequence.new({
-			ColorSequenceKeypoint.new(0, Color3.fromRGB(255, 14, 18)),
-			ColorSequenceKeypoint.new(1, Color3.fromRGB(189, 0, 3)),
+			ColorSequenceKeypoint.new(0, Color3.fromRGB(202, 0, 7)),
+			ColorSequenceKeypoint.new(0.511905, Color3.fromRGB(255, 0, 234)),
+			ColorSequenceKeypoint.new(1, Color3.fromRGB(218, 0, 4)),
 		}),
 		Exclusive = ColorSequence.new({
 			ColorSequenceKeypoint.new(0, Color3.fromRGB(255, 38, 154)),
 			ColorSequenceKeypoint.new(1, Color3.fromRGB(139, 32, 255)),
 		}),
 		Absolute = ColorSequence.new({
-			ColorSequenceKeypoint.new(0, Color3.fromRGB(185, 255, 255)),
-			ColorSequenceKeypoint.new(1, Color3.fromRGB(239, 189, 255)),
+			ColorSequenceKeypoint.new(0, Color3.fromRGB(107, 255, 255)),
+			ColorSequenceKeypoint.new(0.513605, Color3.new(1, 1, 1)),
+			ColorSequenceKeypoint.new(1, Color3.fromRGB(107, 255, 255)),
+		}),
+		Secret = ColorSequence.new({
+			ColorSequenceKeypoint.new(0, Color3.fromRGB(62, 0, 2)),
+			ColorSequenceKeypoint.new(0.498299, Color3.fromRGB(255, 0, 8)),
+			ColorSequenceKeypoint.new(1, Color3.fromRGB(62, 0, 2)),
 		}),
 	},
 
@@ -41,6 +52,7 @@ return TableUtils.DeepFreeze({
 		Mythic = Color3.fromRGB(255, 60, 60),
 		Exclusive = Color3.fromRGB(255, 64, 190),
 		Absolute = Color3.fromRGB(180, 220, 255),
+		Secret = Color3.fromRGB(62, 0, 2),
 	},
 
 	ShimmerSpeed = {
@@ -51,5 +63,6 @@ return TableUtils.DeepFreeze({
 		Mythic = 1.45,
 		Exclusive = 1.5,
 		Absolute = 1.6,
+		Secret = 1.6,
 	},
 })
