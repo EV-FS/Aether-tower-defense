@@ -5,27 +5,27 @@ return TableUtils.DeepFreeze({
 	Gradients = {
 		Common = ColorSequence.new({
 			ColorSequenceKeypoint.new(0, Color3.fromRGB(177, 158, 158)),
-			ColorSequenceKeypoint.new(0.508503, Color3.fromRGB(255, 228, 228)),
+			ColorSequenceKeypoint.new(0.5, Color3.fromRGB(255, 228, 228)),
 			ColorSequenceKeypoint.new(1, Color3.fromRGB(177, 158, 158)),
 		}),
 		Rare = ColorSequence.new({
 			ColorSequenceKeypoint.new(0, Color3.fromRGB(53, 76, 231)),
-			ColorSequenceKeypoint.new(0.518707, Color3.fromRGB(58, 212, 255)),
+			ColorSequenceKeypoint.new(0.5, Color3.fromRGB(58, 212, 255)),
 			ColorSequenceKeypoint.new(1, Color3.fromRGB(53, 76, 231)),
 		}),
 		Epic = ColorSequence.new({
 			ColorSequenceKeypoint.new(0, Color3.fromRGB(131, 0, 131)),
-			ColorSequenceKeypoint.new(0.508503, Color3.fromRGB(255, 99, 255)),
+			ColorSequenceKeypoint.new(0.5, Color3.fromRGB(255, 99, 255)),
 			ColorSequenceKeypoint.new(1, Color3.fromRGB(131, 0, 131)),
 		}),
 		Legendary = ColorSequence.new({
 			ColorSequenceKeypoint.new(0, Color3.fromRGB(226, 88, 46)),
-			ColorSequenceKeypoint.new(0.510204, Color3.fromRGB(255, 255, 30)),
+			ColorSequenceKeypoint.new(0.5, Color3.fromRGB(255, 255, 30)),
 			ColorSequenceKeypoint.new(1, Color3.fromRGB(226, 88, 46)),
 		}),
 		Mythic = ColorSequence.new({
 			ColorSequenceKeypoint.new(0, Color3.fromRGB(202, 0, 7)),
-			ColorSequenceKeypoint.new(0.511905, Color3.fromRGB(255, 0, 234)),
+			ColorSequenceKeypoint.new(0.5, Color3.fromRGB(255, 0, 234)),
 			ColorSequenceKeypoint.new(1, Color3.fromRGB(218, 0, 4)),
 		}),
 		Exclusive = ColorSequence.new({
@@ -33,13 +33,13 @@ return TableUtils.DeepFreeze({
 			ColorSequenceKeypoint.new(1, Color3.fromRGB(139, 32, 255)),
 		}),
 		Absolute = ColorSequence.new({
-			ColorSequenceKeypoint.new(0, Color3.fromRGB(83, 46, 250)),
-			ColorSequenceKeypoint.new(0.513605, Color3.new(0, 0.568627, 1)),
-			ColorSequenceKeypoint.new(1, Color3.fromRGB(83, 46, 250)),
+			ColorSequenceKeypoint.new(0, Color3.fromRGB(239, 189, 255)),
+			ColorSequenceKeypoint.new(0.5, Color3.fromRGB(185, 255, 255)),
+			ColorSequenceKeypoint.new(1, Color3.fromRGB(239, 189, 255)),
 		}),
 		Secret = ColorSequence.new({
 			ColorSequenceKeypoint.new(0, Color3.fromRGB(62, 0, 2)),
-			ColorSequenceKeypoint.new(0.498299, Color3.fromRGB(255, 0, 8)),
+			ColorSequenceKeypoint.new(0.5, Color3.fromRGB(255, 0, 8)),
 			ColorSequenceKeypoint.new(1, Color3.fromRGB(62, 0, 2)),
 		}),
 	},
@@ -62,7 +62,7 @@ return TableUtils.DeepFreeze({
 		Legendary = 1.8,
 		Mythic = 3,
 		Exclusive = 3,
-		Absolute = 4.5,
-		Secret = 3,
+		Absolute = 3,
+		Secret = 4.5,
 	},
 })
