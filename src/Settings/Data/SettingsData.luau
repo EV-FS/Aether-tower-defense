@@ -71,7 +71,7 @@ local RawSettingsData = {
 	AS_Epic = newBoolean(false, "Auto Sell", "Epic", 3),
 	AS_Legendary = newBoolean(false, "Auto Sell", "Legendary", 4),
 	AS_Mythic = newBoolean(false, "Auto Sell", "Mythic", 5),
-	AS_Exclusive = newBoolean(false, "Auto Sell", "Exclusive", 6),
+	AS_Secret = newBoolean(false, "Auto Sell", "Secret", 6),
 	AS_Absolute = newBoolean(false, "Auto Sell", "Absolute", 7),
 }
 

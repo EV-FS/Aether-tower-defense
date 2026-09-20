@@ -1533,7 +1533,7 @@ return function(target: Instance)
 						FontFace = Font.new("rbxasset://fonts/families/FredokaOne.json"),
 						Position = UDim2.fromScale(0.49695, 0.200005),
 						Size = UDim2.fromScale(0.83363, 0.0479085),
-						Text = "EXCLUSIVE",
+						Text = "SECRET",
 						TextColor3 = Color3.new(1, 1, 1),
 						TextScaled = true,
 						TextXAlignment = Enum.TextXAlignment.Left,
