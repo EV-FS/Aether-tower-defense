@@ -1,6 +1,7 @@
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Vide = require(ReplicatedStorage.Packages.Vide)
+local useMenuMotion = require(ReplicatedStorage.Shared.Modules.UI.Hooks.useMenuMotion)
 local ItemData = require(ReplicatedStorage.Settings.Data.ItemData)
 local TowerData = require(ReplicatedStorage.Settings.Data.TowerData)
 local RarityGradient = require(ReplicatedStorage.Settings.Visuals.RarityGradient)
@@ -169,6 +170,9 @@ end
 
 function IndexUI.RenderUI()
 	local isVisible = UIController:IsVisible(VIEW_ID)
+	local menuMotion = useMenuMotion(isVisible, function()
+		return UIController:GetActiveView()
+	end)
 	local resultCount = derive(function()
 		local entries = if selectedCategory() == "Unit" then IndexClient.Units() else IndexClient.Items()
 		local count = 0
@@ -207,52 +211,46 @@ function IndexUI.RenderUI()
 		end
 	end)
 
-	return create("Frame")({
+	return create("CanvasGroup")({
+		GroupTransparency = menuMotion.Transparency,
+		Interactable = isVisible,
 		Name = VIEW_ID,
 		AnchorPoint = Vector2.new(0.5, 0.5),
 		BackgroundTransparency = 1,
 		Position = UDim2.fromScale(0.5, 0.5),
 		Size = UDim2.fromScale(0.753032, 1),
-		Visible = isVisible,
+		Visible = menuMotion.IsMounted,
 		create("ImageLabel")({
-			Name = "Main",
+			Name = "Main", Rotation = menuMotion:WindowRotation(), AnchorPoint = Vector2.new(0.5, 0),
 			BackgroundTransparency = 1,
 			Image = "rbxassetid://114669990960052",
-			Position = spring(function()
-				return if isVisible() then UDim2.fromScale(0.13799, 0.20195) else UDim2.fromScale(0.13799, 0.24)
-			end, 0.5, 0.82),
-			Size = spring(function()
-				return if isVisible() then UDim2.fromScale(0.721698, 0.593865) else UDim2.fromScale(0.68, 0.56)
-			end, 0.5, 0.72),
+			Position = UDim2.fromScale(0.498839, 0.20195),
+			Size = menuMotion:WindowSize(UDim2.fromScale(0.721698, 0.593865)),
 			create("ImageLabel")({
 				Name = "Header",
 				BackgroundTransparency = 1,
 				Image = "rbxassetid://109769135793340",
-				Position = spring(function()
-					return if isVisible()
-						then UDim2.fromScale(-0.0573612, -0.111321)
-						else UDim2.fromScale(-0.12, -0.111321)
-				end, 0.55, 0.8),
+				Position = menuMotion:HeaderPosition(UDim2.fromScale(-0.0573612, -0.111321)),
 				Size = UDim2.fromScale(0.683091, 0.28349),
 				ZIndex = 10,
 				create("ImageLabel")({
-					Name = "Icon",
+					Name = "Icon", Rotation = menuMotion:IconRotation(), AnchorPoint = Vector2.new(0.5, 0.5),
 					BackgroundTransparency = 1,
 					Image = "rbxassetid://78448968235913",
-					Position = UDim2.fromScale(0.0271911, 0.0964203),
-					Size = UDim2.fromScale(0.230096, 0.734038),
+					Position = UDim2.fromScale(0.1422391, 0.4634393),
+					Size = menuMotion:IconSize(UDim2.fromScale(0.230096, 0.734038)),
 					create("UIAspectRatioConstraint")({ AspectRatio = 1.42 }),
 				}),
 				create("ImageLabel")({
-					Name = "Cloud",
+					Name = "Cloud", ImageTransparency = menuMotion:Fade(),
 					BackgroundTransparency = 1,
 					Image = "rbxassetid://74102163197737",
-					Position = UDim2.fromScale(0.529887, 0.0551715),
+					Position = menuMotion:CloudPosition(UDim2.fromScale(0.529887, 0.0551715)),
 					Size = UDim2.fromScale(0.507418, 1.06417),
 					create("UIAspectRatioConstraint")({ AspectRatio = 2.16 }),
 				}),
 				create("TextLabel")({
-					Name = "Title",
+					Name = "Title", TextTransparency = menuMotion:Fade(),
 					BackgroundTransparency = 1,
 					FontFace = Font.new("rbxasset://fonts/families/FredokaOne.json"),
 					Position = UDim2.fromScale(0.265238, 0.435573),
@@ -270,10 +268,8 @@ function IndexUI.RenderUI()
 				AnchorPoint = Vector2.new(0.5, 0.5),
 				BackgroundTransparency = 1,
 				Image = "rbxassetid://92651860309635",
-				Position = UDim2.fromScale(0.980096, 0.0289194),
-				Rotation = spring(function()
-					return if isVisible() then 0 else -1080
-				end, 0.7, 0.7),
+				Position = menuMotion:ClosePosition(UDim2.fromScale(0.980096, 0.0289194)),
+				Rotation = menuMotion:CloseRotation(),
 				Size = UDim2.fromScale(0.0822234, 0.15458),
 				Activated = function()
 					UIController:Close(VIEW_ID)
@@ -286,7 +282,7 @@ function IndexUI.RenderUI()
 				BackgroundTransparency = 1,
 				Image = "rbxassetid://98711334217794",
 				Position = UDim2.fromScale(0.625, 0.073),
-				Size = UDim2.fromScale(0.345239, 0.0911058),
+				Size = menuMotion:SearchSize(UDim2.fromScale(0.345239, 0.0911058)),
 				create("TextBox")({
 					Name = "TextBox",
 					BackgroundTransparency = 1,
@@ -303,29 +299,38 @@ function IndexUI.RenderUI()
 					end),
 				}),
 			}),
-			create("ScrollingFrame")({
-				Name = "Category",
-				Active = true,
-				AutomaticCanvasSize = Enum.AutomaticSize.Y,
+			create("CanvasGroup")({
+				Name = "CategoryClip",
 				BackgroundTransparency = 1,
-				CanvasSize = UDim2.new(),
-				Position = UDim2.fromScale(0.023325, 0.168533),
-				ScrollBarThickness = 0,
+				ClipsDescendants = true,
+				AnchorPoint = Vector2.new(0, 0),
+				Position = menuMotion:ContentPosition(UDim2.fromScale(0.023325, 0.168533)),
 				Size = UDim2.fromScale(0.226938, 0.779961),
-				create("UIListLayout")({
-					HorizontalAlignment = Enum.HorizontalAlignment.Center,
-					Padding = UDim.new(0.01, 0),
-					SortOrder = Enum.SortOrder.LayoutOrder,
+				ZIndex = 1,
+				create("ScrollingFrame")({
+					Name = "Category", AnchorPoint = Vector2.new(0, 0),
+					Active = true,
+					AutomaticCanvasSize = Enum.AutomaticSize.Y,
+					BackgroundTransparency = 1,
+					CanvasSize = UDim2.new(),
+					Position = UDim2.fromScale(0, 0),
+					ScrollBarThickness = 0,
+					Size = UDim2.fromScale(1, 1),
+					create("UIListLayout")({
+						HorizontalAlignment = Enum.HorizontalAlignment.Center,
+						Padding = UDim.new(0.01, 0),
+						SortOrder = Enum.SortOrder.LayoutOrder,
+					}),
+					categoryButton(CATEGORIES[1], 1, isVisible),
+					categoryButton(CATEGORIES[2], 2, isVisible),
 				}),
-				categoryButton(CATEGORIES[1], 1, isVisible),
-				categoryButton(CATEGORIES[2], 2, isVisible),
 			}),
 			create("CanvasGroup")({
 				Name = "ItemsClip",
 				AnchorPoint = Vector2.new(0.5, 0.5),
 				BackgroundTransparency = 1,
 				ClipsDescendants = true,
-				Position = UDim2.fromScale(0.608833, 0.555042),
+				Position = menuMotion:ContentPosition(UDim2.fromScale(0.608833, 0.555042)),
 				Size = UDim2.fromScale(0.717141, 0.765746),
 				create("ScrollingFrame")({
 					Name = "Items",

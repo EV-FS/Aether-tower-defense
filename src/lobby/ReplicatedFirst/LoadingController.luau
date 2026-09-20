@@ -6,6 +6,9 @@ local LoadingScreen = require(script.Parent.LoadingScreen)
 
 local EXIT_DURATION = 1.05
 local MIN_VISIBLE_DURATION = 2.1
+-- Normal boot now prepares every UI asset behind the cover. This is only a
+-- deadlock escape hatch, not the expected loading duration.
+local MAX_VISIBLE_DURATION = 30
 
 local visible = Vide.source(false)
 local loadingUnmount: (() -> ())? = nil
@@ -13,6 +16,16 @@ local transitionToken = 0
 local shownAt = 0
 
 local LoadingController = {}
+
+local function scheduleFailsafe(token: number)
+	task.delay(MAX_VISIBLE_DURATION, function()
+		if transitionToken ~= token or not loadingUnmount then
+			return
+		end
+		warn(`[LoadingController] Loading exceeded {MAX_VISIBLE_DURATION}s; releasing the cover`)
+		LoadingController.Hide(true)
+	end)
+end
 
 local function mountLoadingScreen()
 	if loadingUnmount then
@@ -36,6 +49,7 @@ function LoadingController.ReleaseBoot()
 	mountLoadingScreen()
 	shownAt = os.clock()
 	visible(true)
+	scheduleFailsafe(transitionToken)
 end
 
 function LoadingController.Show()
@@ -46,6 +60,7 @@ function LoadingController.Show()
 		shownAt = os.clock()
 	end
 	visible(true)
+	scheduleFailsafe(transitionToken)
 end
 
 function LoadingController.Hide(skipMinimum: boolean?, skipExit: boolean?)

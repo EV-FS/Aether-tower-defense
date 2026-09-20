@@ -1,11 +1,9 @@
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
-local Net = require(ReplicatedStorage.Shared.Net)
 local QuestData = require(ReplicatedStorage.Settings.Data.QuestData)
 
 local DataService
-local NotificationService
 
 local QuestService = {}
 
@@ -21,7 +19,7 @@ function QuestService.GetPlayerQuests(player: Player)
 end
 
 function QuestService.AcceptQuest(player: Player, questId: string): boolean
-	local config = QuestData[questId]
+	local config = QuestData.Get(questId)
 	if not config or not DataService then
 		return false
 	end
@@ -41,8 +39,9 @@ function QuestService.AcceptQuest(player: Player, questId: string): boolean
 	end
 
 	local initialProgress = 0
-	if config.TargetCurrency and playerData[config.TargetCurrency] then
-		initialProgress = math.min(playerData[config.TargetCurrency], config.TargetAmount)
+	local objective = config.Entity.Objective
+	if objective.Kind == "Currency" and playerData[objective.Target] then
+		initialProgress = math.min(playerData[objective.Target], objective.Amount)
 	end
 
 	local questState = {
@@ -54,11 +53,14 @@ function QuestService.AcceptQuest(player: Player, questId: string): boolean
 	}
 
 	DataService:UpdateData(player, "Quests", questState, questId)
+	if questState.Completed and config.Entity.Lifecycle.AutoClaim then
+		QuestService.ClaimQuest(player, questId)
+	end
 	return true
 end
 
 function QuestService.ClaimQuest(player: Player, questId: string): boolean
-	local config = QuestData[questId]
+	local config = QuestData.Get(questId)
 	if not config or not DataService then
 		return false
 	end
@@ -77,21 +79,16 @@ function QuestService.ClaimQuest(player: Player, questId: string): boolean
 	quest.Active = false
 	DataService:UpdateData(player, "Quests", quest, questId)
 
-	-- 보상 지급
-	if config.Rewards.Coins and config.Rewards.Coins > 0 then
-		DataService:AddData(player, "Coins", config.Rewards.Coins)
-	end
-	if config.Rewards.Gems and config.Rewards.Gems > 0 then
-		DataService:AddData(player, "Gems", config.Rewards.Gems)
-	end
-	if config.Rewards.Exp and config.Rewards.Exp > 0 then
-		DataService:AddData(player, "Exp", config.Rewards.Exp)
+	for rewardName, amount in config.Rewards do
+		if type(amount) == "number" and amount > 0 then
+			DataService:AddData(player, rewardName, amount)
+		end
 	end
 
 	return true
 end
 
-function QuestService.UpdateProgress(player: Player, currencyName: string, amount: number)
+function QuestService.SetObjectiveProgress(player: Player, objectiveKind: string, target: string, amount: number)
 	if not DataService then
 		return
 	end
@@ -100,36 +97,49 @@ function QuestService.UpdateProgress(player: Player, currencyName: string, amoun
 		return
 	end
 
-	for questId, quest in pairs(playerData.Quests) do
-		local config = QuestData[questId]
-		if config and config.TargetCurrency == currencyName and quest.Active and not quest.Claimed then
-			local newProgress = math.min(amount, config.TargetAmount)
+	for _, config in QuestData.QueryObjective(objectiveKind, target) do
+		local questId = config.Id
+		local quest = playerData.Quests[questId]
+		if quest and quest.Active and not quest.Claimed then
+			local newProgress = math.min(amount, config.Entity.Objective.Amount)
 			local completed = newProgress >= config.TargetAmount
 			if quest.Progress ~= newProgress or quest.Completed ~= completed then
 				quest.Progress = newProgress
 				quest.Completed = completed
 				DataService:UpdateData(player, "Quests", quest, questId)
+				if completed and config.Entity.Lifecycle.AutoClaim then
+					QuestService.ClaimQuest(player, questId)
+				end
 			end
 		end
 	end
 end
 
+function QuestService.UpdateProgress(player: Player, currencyName: string, amount: number)
+	QuestService.SetObjectiveProgress(player, "Currency", currencyName, amount)
+end
+
 function QuestService.Init(services)
 	DataService = services:GetService("DataService")
-	NotificationService = services:GetService("NotificationService")
 end
 
 function QuestService.Start()
 	if DataService then
-		DataService:GetChangedSignal("Blossom"):Connect(function(player, value)
-			QuestService.UpdateProgress(player, "Blossom", value)
-		end)
+		local subscribedCurrencies = {}
+		for _, config in QuestData.QueryObjective("Currency") do
+			local currencyName = config.Entity.Objective.Target
+			if not subscribedCurrencies[currencyName] then
+				subscribedCurrencies[currencyName] = true
+				local capturedCurrency = currencyName
+				DataService:GetChangedSignal(capturedCurrency):Connect(function(player, value)
+					QuestService.SetObjectiveProgress(player, "Currency", capturedCurrency, value)
+				end)
+			end
+		end
 
 		local function acceptStarterQuests(player: Player)
-			for questId, config in QuestData do
-				if config.AutoAccept then
-					QuestService.AcceptQuest(player, questId)
-				end
+			for _, config in QuestData.QueryLifecycle("AutoAccept") do
+				QuestService.AcceptQuest(player, config.Id)
 			end
 		end
 

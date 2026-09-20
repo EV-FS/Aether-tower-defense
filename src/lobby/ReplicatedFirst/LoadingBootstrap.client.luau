@@ -1,4 +1,3 @@
-local ContentProvider = game:GetService("ContentProvider")
 local Players = game:GetService("Players")
 local ReplicatedFirst = game:GetService("ReplicatedFirst")
 local RunService = game:GetService("RunService")
@@ -38,17 +37,11 @@ LoadingController.Prepare()
 RunService.RenderStepped:Wait()
 local loadingGui = playerGui:FindFirstChild("LoadingScreen")
 if loadingGui then
-	local finished = false
-	local preload = task.spawn(function()
+	-- Loading art is decorative; never hold the boot cover on asset delivery.
+	task.spawn(function()
+		local ContentProvider = game:GetService("ContentProvider")
 		pcall(function() ContentProvider:PreloadAsync({ loadingGui }) end)
-		finished = true
 	end)
-	local deadline = os.clock() + 3
-	while not finished and os.clock() < deadline do RunService.Heartbeat:Wait() end
-	if not finished then
-		pcall(task.cancel, preload)
-		warn("[LoadingBootstrap] Loading art preload timed out; continuing with the cover")
-	end
 end
 
 LoadingController.ReleaseBoot()

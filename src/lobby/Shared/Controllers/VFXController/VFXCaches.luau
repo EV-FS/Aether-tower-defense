@@ -2,8 +2,11 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local ObjectCache = require(ReplicatedStorage.Packages.ObjectCache)
 
-local VFX_FOLDER = ReplicatedStorage:WaitForChild("Assets"):WaitForChild("VFX")
-local CACHE_FOLDER = workspace:WaitForChild("Caches")
+local assets = ReplicatedStorage:FindFirstChild("Assets")
+local VFX_FOLDER: Instance? = assets and assets:FindFirstChild("VFX")
+local CACHE_FOLDER = workspace:FindFirstChild("Caches") or Instance.new("Folder")
+CACHE_FOLDER.Name = "Caches"
+CACHE_FOLDER.Parent = workspace
 
 local DEFAULT_POOL_SIZE = 50
 
@@ -79,6 +82,14 @@ local function show(effect: Instance)
 end
 
 function VFXCaches.GetTemplate(effectPath: string): Instance?
+	if not VFX_FOLDER then
+		local currentAssets = ReplicatedStorage:FindFirstChild("Assets")
+		VFX_FOLDER = currentAssets and currentAssets:FindFirstChild("VFX")
+	end
+	if not VFX_FOLDER then
+		warn(`[VFXCaches] Assets.VFX is not available; skipped {effectPath}`)
+		return nil
+	end
 	local current: Instance? = VFX_FOLDER
 
 	for name in string.gmatch(effectPath, "[^/]+") do

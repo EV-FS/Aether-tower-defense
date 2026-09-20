@@ -2,6 +2,7 @@ local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Vide = require(ReplicatedStorage.Packages.Vide)
+local useMenuMotion = require(ReplicatedStorage.Shared.Modules.UI.Hooks.useMenuMotion)
 local TraitData = require(ReplicatedStorage.Settings.Data.TraitData)
 local UnitCatalog = require(ReplicatedStorage.Settings.Data.UnitCatalog)
 local ServiceRegistry = require(ReplicatedStorage.Shared.Modules.Core.ServiceRegistry)
@@ -169,6 +170,9 @@ end
 
 function TraitUI.RenderUI()
 	local isVisible = UIController:IsVisible(VIEW_ID)
+	local menuMotion = useMenuMotion(isVisible, function()
+		return UIController:GetActiveView()
+	end)
 	local selectedTower = derive(function()
 		local selection = selectedUnit()
 		return if selection then InventoryClient.GetTower(selection.Name, selection.Key) else nil
@@ -190,25 +194,25 @@ function TraitUI.RenderUI()
 	local rows = table.create(#TraitData.ByIndex)
 	for _, trait in TraitData.ByIndex do table.insert(rows, traitRow(trait)) end
 
-	return create("Frame")({
-		Name = "Container", AnchorPoint = Vector2.new(0.5, 0.5), BackgroundTransparency = 1,
-		Position = UDim2.fromScale(0.5, 0.5), Size = UDim2.fromScale(0.753032, 1), Visible = isVisible,
+	return create("CanvasGroup")({
+		Name = "Container", GroupTransparency = menuMotion.Transparency, Interactable = isVisible, AnchorPoint = Vector2.new(0.5, 0.5), BackgroundTransparency = 1,
+		Position = UDim2.fromScale(0.5, 0.5), Size = UDim2.fromScale(0.753032, 1), Visible = menuMotion.IsMounted,
 		create("ImageLabel")({
-			Name = "Main", BackgroundTransparency = 1, Image = "rbxassetid://96882538048826",
-			Position = spring(function() return if isVisible() then UDim2.fromScale(0.13799, 0.20195) else UDim2.fromScale(0.13799, 0.235) end, 0.5, 0.82),
-			Rotation = spring(function() return if isVisible() then 0 else -3 end, 0.5, 0.82),
-			Size = spring(function() return if isVisible() then UDim2.fromScale(0.721698, 0.593865) else UDim2.fromScale(0.68, 0.56) end, 0.5, 0.7),
+			Name = "Main", AnchorPoint = Vector2.new(0.5, 0), BackgroundTransparency = 1, Image = "rbxassetid://96882538048826",
+			Position = UDim2.fromScale(0.498839, 0.20195),
+			Rotation = menuMotion:WindowRotation(),
+			Size = menuMotion:WindowSize(UDim2.fromScale(0.721698, 0.593865)),
 			create("UIAspectRatioConstraint")({ AspectRatio = 1.88 }),
 			create("ImageLabel")({
 				Name = "Header", BackgroundTransparency = 1, Image = "rbxassetid://130457374557135",
-				Position = spring(function() return if isVisible() then UDim2.fromScale(-0.057, -0.111) else UDim2.fromScale(-0.12, -0.111) end, 0.55, 0.8),
+				Position = menuMotion:HeaderPosition(UDim2.fromScale(-0.057, -0.111)),
 				Size = UDim2.fromScale(0.683091, 0.28349), ZIndex = 10,
-				create("ImageLabel")({ Name = "Icon", BackgroundTransparency = 1, Image = "rbxassetid://126800652570353", Position = UDim2.fromScale(0.04, -0.054), Size = UDim2.fromScale(0.189824, 1.16203), create("UIAspectRatioConstraint")({ AspectRatio = 0.74 }) }),
-				create("ImageLabel")({ Name = "Cloud", BackgroundTransparency = 1, Image = "rbxassetid://108560268349568", ImageTransparency = spring(function() return if isVisible() then 0 else 1 end, 0.5, 1), Position = UDim2.fromScale(0.604824, 0.043466), Size = UDim2.fromScale(0.507418, 1.06417), create("UIAspectRatioConstraint")({ AspectRatio = 2.16 }) }),
-				create("TextLabel")({ Name = "Title", BackgroundTransparency = 1, FontFace = Font.new("rbxasset://fonts/families/FredokaOne.json"), Position = UDim2.fromScale(0.265238, 0.435573), Size = UDim2.fromScale(0.283423, 0.290134), Text = "TRAITS", TextColor3 = Color3.new(1, 1, 1), TextScaled = true }),
+				create("ImageLabel")({ Name = "Icon", Rotation = menuMotion:IconRotation(), AnchorPoint = Vector2.new(0.5, 0.5), BackgroundTransparency = 1, Image = "rbxassetid://126800652570353", Position = UDim2.fromScale(0.134912, 0.527015), Size = menuMotion:IconSize(UDim2.fromScale(0.189824, 1.16203)), create("UIAspectRatioConstraint")({ AspectRatio = 0.74 }) }),
+				create("ImageLabel")({ Name = "Cloud", BackgroundTransparency = 1, Image = "rbxassetid://108560268349568", ImageTransparency = menuMotion:Fade(), Position = menuMotion:CloudPosition(UDim2.fromScale(0.604824, 0.043466)), Size = UDim2.fromScale(0.507418, 1.06417), create("UIAspectRatioConstraint")({ AspectRatio = 2.16 }) }),
+				create("TextLabel")({ Name = "Title", TextTransparency = menuMotion:Fade(), BackgroundTransparency = 1, FontFace = Font.new("rbxasset://fonts/families/FredokaOne.json"), Position = UDim2.fromScale(0.265238, 0.435573), Size = UDim2.fromScale(0.283423, 0.290134), Text = "TRAITS", TextColor3 = Color3.new(1, 1, 1), TextScaled = true }),
 				create("UIAspectRatioConstraint")({ AspectRatio = 4.53 }),
 			}),
-			create("ImageButton")({ Name = "CancelButton", AnchorPoint = Vector2.new(0.5, 0.5), BackgroundTransparency = 1, Image = "rbxassetid://92651860309635", Position = UDim2.fromScale(0.980096, 0.0289194), Rotation = spring(function() return if isVisible() then 0 else -1080 end, 0.7, 0.7), Size = UDim2.fromScale(0.0822234, 0.15458), ZIndex = 10, Activated = function() UIController:Close(VIEW_ID) end, useButtonEffect(nil, 1.1), create("UIAspectRatioConstraint")({}) }),
+			create("ImageButton")({ Name = "CancelButton", AnchorPoint = Vector2.new(0.5, 0.5), BackgroundTransparency = 1, Image = "rbxassetid://92651860309635", Position = menuMotion:ClosePosition(UDim2.fromScale(0.980096, 0.0289194)), Rotation = menuMotion:CloseRotation(), Size = UDim2.fromScale(0.0822234, 0.15458), ZIndex = 10, Activated = function() UIController:Close(VIEW_ID) end, useButtonEffect(nil, 1.1), create("UIAspectRatioConstraint")({}) }),
 			create("ImageLabel")({ Name = "BGdecoLeft", BackgroundTransparency = 1, Image = "rbxassetid://83809640524117", Position = UDim2.fromScale(0.0297514, 0.0680275), Size = UDim2.fromScale(0.270332, 0.388118) }),
 			create("ImageLabel")({ Name = "BGdecoRight", BackgroundTransparency = 1, Image = "rbxassetid://136182191255134", Position = UDim2.fromScale(0.556767, 0.418054), Size = UDim2.fromScale(0.431686, 0.545469) }),
 			create("ImageLabel")({
@@ -250,22 +254,40 @@ function TraitUI.RenderUI()
 					create("UICorner")({ CornerRadius = UDim.new(0.04, 0) }), create("UIStroke")({ Color = Color3.fromRGB(178, 151, 255), Thickness = 2.5 }),
 					create("TextLabel")({ Name = "Title", BackgroundTransparency = 1, FontFace = Font.new("rbxasset://fonts/families/FredokaOne.json"), Position = UDim2.fromScale(0.05, 0.04), Size = UDim2.fromScale(0.7, 0.1), Text = "SELECT A UNIT", TextColor3 = Color3.new(1, 1, 1), TextScaled = true, TextXAlignment = Enum.TextXAlignment.Left, ZIndex = 42, create("UIStroke")({ Thickness = 2 }) }),
 					create("TextButton")({ Name = "Back", AnchorPoint = Vector2.new(1, 0), AutoButtonColor = false, BackgroundColor3 = Color3.fromRGB(106, 82, 156), Position = UDim2.fromScale(0.95, 0.04), Size = UDim2.fromScale(0.16, 0.1), FontFace = Font.new("rbxasset://fonts/families/FredokaOne.json"), Text = "BACK", TextColor3 = Color3.new(1, 1, 1), TextScaled = true, ZIndex = 42, Activated = function() isUnitPickerOpen(false) end, useButtonEffect(0.92, 1.06), create("UICorner")({ CornerRadius = UDim.new(0.2, 0) }), create("UIStroke")({ Color = Color3.fromRGB(211, 195, 255), Thickness = 1.5 }) }),
-					create("ScrollingFrame")({
-						Name = "OwnedUnits", Active = true, AutomaticCanvasSize = Enum.AutomaticSize.Y, BackgroundTransparency = 1, CanvasSize = UDim2.new(), ClipsDescendants = true,
-						Position = UDim2.fromScale(0.04, 0.17), Size = UDim2.fromScale(0.92, 0.78), ScrollBarThickness = 3, ScrollBarImageColor3 = Color3.fromRGB(205, 183, 255), ZIndex = 41,
-						create("UIGridLayout")({ CellPadding = UDim2.fromScale(0.02, 0.025), CellSize = UDim2.fromScale(0.225, 0.34), SortOrder = Enum.SortOrder.Name }),
-						values(InventoryClient.Towers, function(towers, towerName) local cards = {} for towerKey, tower in towers do table.insert(cards, unitPickerCard(towerName(), towerKey, tower)) end return cards end),
+					create("CanvasGroup")({
+						Name = "OwnedUnitsClip",
+						BackgroundTransparency = 1,
+						ClipsDescendants = true,
+						AnchorPoint = Vector2.new(0, 0),
+						Position = UDim2.fromScale(0.04, 0.17),
+						Size = UDim2.fromScale(0.92, 0.78),
+						ZIndex = 41,
+						create("ScrollingFrame")({
+							Name = "OwnedUnits", AnchorPoint = Vector2.new(0, 0), Active = true, AutomaticCanvasSize = Enum.AutomaticSize.Y, BackgroundTransparency = 1, CanvasSize = UDim2.new(), ClipsDescendants = true,
+							Position = UDim2.fromScale(0, 0), Size = UDim2.fromScale(1, 1), ScrollBarThickness = 3, ScrollBarImageColor3 = Color3.fromRGB(205, 183, 255), ZIndex = 41,
+							create("UIGridLayout")({ CellPadding = UDim2.fromScale(0.02, 0.025), CellSize = UDim2.fromScale(0.225, 0.34), SortOrder = Enum.SortOrder.Name }),
+							values(InventoryClient.Towers, function(towers, towerName) local cards = {} for towerKey, tower in towers do table.insert(cards, unitPickerCard(towerName(), towerKey, tower)) end return cards end),
+						}),
 					}),
 					create("TextLabel")({ Name = "Empty", AnchorPoint = Vector2.new(0.5, 0.5), BackgroundTransparency = 1, FontFace = Font.new("rbxasset://fonts/families/FredokaOne.json"), Position = UDim2.fromScale(0.5, 0.52), Size = UDim2.fromScale(0.75, 0.1), Text = "NO UNITS OWNED", TextColor3 = Color3.fromRGB(218, 210, 233), TextScaled = true, Visible = function() return #getUnits() == 0 end, ZIndex = 43 }),
 				}),
 			}),
-			create("ScrollingFrame")({
-				Name = "ScrollingFrame", Active = true, AutomaticCanvasSize = Enum.AutomaticSize.Y, BackgroundTransparency = 1,
-				CanvasSize = UDim2.new(), ClipsDescendants = true, Position = UDim2.fromScale(0.0317382, 0.106916),
-				ScrollBarImageColor3 = Color3.new(), ScrollBarThickness = 0, ScrollingDirection = Enum.ScrollingDirection.Y,
-				Size = UDim2.fromScale(0.404726, 0.848434), ZIndex = 2,
-				create("UIListLayout")({ Padding = UDim.new(0.01, 0), SortOrder = Enum.SortOrder.LayoutOrder }),
-				create("UIPadding")({ PaddingTop = UDim.new(0.03, 0) }), unpack(rows),
+			create("CanvasGroup")({
+				Name = "ScrollingFrameClip",
+				BackgroundTransparency = 1,
+				ClipsDescendants = true,
+				AnchorPoint = Vector2.new(0, 0),
+				Position = UDim2.fromScale(0.0317382, 0.106916),
+				Size = UDim2.fromScale(0.404726, 0.848434),
+				ZIndex = 2,
+				create("ScrollingFrame")({
+					Name = "ScrollingFrame", AnchorPoint = Vector2.new(0, 0), Active = true, AutomaticCanvasSize = Enum.AutomaticSize.Y, BackgroundTransparency = 1,
+					CanvasSize = UDim2.new(), ClipsDescendants = true, Position = UDim2.fromScale(0, 0),
+					ScrollBarImageColor3 = Color3.new(), ScrollBarThickness = 0, ScrollingDirection = Enum.ScrollingDirection.Y,
+					Size = UDim2.fromScale(1, 1), ZIndex = 2,
+					create("UIListLayout")({ Padding = UDim.new(0.01, 0), SortOrder = Enum.SortOrder.LayoutOrder }),
+					create("UIPadding")({ PaddingTop = UDim.new(0.03, 0) }), unpack(rows),
+				}),
 			}),
 		}),
 		create("UIAspectRatioConstraint")({ AspectRatio = 1.547, AspectType = Enum.AspectType.ScaleWithParentSize }),

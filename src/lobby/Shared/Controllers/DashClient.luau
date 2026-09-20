@@ -10,7 +10,6 @@ local DASH_COOLDOWN = 0.8
 
 local DashTracks = {}
 local LastDashTime = 0
-local DASH_VFX = ReplicatedStorage:WaitForChild("Assets"):WaitForChild("VFX"):WaitForChild("Dash")
 local DASH_VFX_LIFETIME = 2
 
 type DashDirection = "Forward" | "Backward" | "Left" | "Right"
@@ -55,7 +54,14 @@ local function LoadDashTracks(character: Model)
 end
 
 local function PlayDashVFX(rootPart: BasePart, dashVector: Vector2)
-	local effect = DASH_VFX:Clone()
+	local assets = ReplicatedStorage:FindFirstChild("Assets")
+	local vfx = assets and assets:FindFirstChild("VFX")
+	local template = vfx and vfx:FindFirstChild("Dash")
+	if not template then
+		return
+	end
+
+	local effect = template:Clone()
 	if not effect:IsA("PVInstance") then
 		warn("[DashClient] Assets.VFX.Dash must be a Model or BasePart")
 		effect:Destroy()

@@ -4,6 +4,7 @@ local TweenService = game:GetService("TweenService")
 local UserInputService = game:GetService("UserInputService")
 
 local Vide = require(ReplicatedStorage.Packages.Vide)
+local useMenuMotion = require(ReplicatedStorage.Shared.Modules.UI.Hooks.useMenuMotion)
 local UISFX = require(ReplicatedStorage.Settings.Visuals.UISFX)
 local ServiceRegistry = require(ReplicatedStorage.Shared.Modules.Core.ServiceRegistry)
 local useAudio = require(ReplicatedStorage.Shared.Modules.UI.Hooks.useAudio)
@@ -19,7 +20,6 @@ local action = Vide.action
 local effect = Vide.effect
 
 local VIEW_ID = "Settings"
-local WINDOW_EXIT_DURATION = SettingsMotion.WindowExitDuration
 local BACKDROP_BLUR_SIZE = 10
 local BLUR_IN_DURATION = 0.26
 local BLUR_OUT_DURATION = SettingsMotion.BlurOutDuration
@@ -201,50 +201,15 @@ function SettingsUI.RenderUI()
 		end)
 	end)
 
-	local isWindowMounted = source(false)
-	local isWindowOpen = source(false)
-	local isMounted = false
-	local visibilityToken = 0
-
-	effect(function()
-		local shouldOpen = isVisible()
-		visibilityToken += 1
-		local token = visibilityToken
-
-		if shouldOpen then
-			if not isMounted then
-				isMounted = true
-				isWindowOpen(false)
-				isWindowMounted(true)
-				task.defer(function()
-					if token == visibilityToken and isMounted then
-						isWindowOpen(true)
-					end
-				end)
-			else
-				isWindowOpen(true)
-			end
-			return
-		end
-
-		isWindowOpen(false)
-		isCodeFrameOpen(false)
-		if not isMounted then
-			return
-		end
-
-		task.delay(WINDOW_EXIT_DURATION, function()
-			if token ~= visibilityToken or isWindowOpen() then
-				return
-			end
-
-			isMounted = false
-			isWindowMounted(false)
-		end)
+	local menuMotion = useMenuMotion(isVisible, function()
+		return UIController:GetActiveView()
 	end)
-
-	cleanup(function()
-		visibilityToken += 1
+	local isWindowMounted = menuMotion.IsMounted
+	local isWindowOpen = menuMotion.IsOpen
+	effect(function()
+		if not isVisible() then
+			isCodeFrameOpen(false)
+		end
 	end)
 
 	local backdropBlur = Instance.new("BlurEffect")
@@ -284,20 +249,6 @@ function SettingsUI.RenderUI()
 		end)
 	end)
 
-	local windowScale = spring(function()
-		return if isWindowOpen() then 1 else SettingsMotion.WindowScale.Closed
-	end, SettingsMotion.WindowScale.Speed, SettingsMotion.WindowScale.Damping)
-	local windowPosition = spring(function()
-		return if isWindowOpen() then SettingsMotion.WindowPosition.Open else SettingsMotion.WindowPosition.Closed
-	end, SettingsMotion.WindowPosition.Speed, SettingsMotion.WindowPosition.Damping)
-	local windowRotation = spring(function()
-		return if isWindowOpen() then SettingsMotion.WindowRotation.Open else SettingsMotion.WindowRotation.Closed
-	end, SettingsMotion.WindowRotation.Speed, SettingsMotion.WindowRotation.Damping)
-	local windowTransparency = spring(function()
-		return if isWindowOpen()
-			then SettingsMotion.WindowTransparency.Open
-			else SettingsMotion.WindowTransparency.Closed
-	end, SettingsMotion.WindowTransparency.Speed, SettingsMotion.WindowTransparency.Damping)
 	local codeFrameScale = spring(function()
 		return if isCodeFrameOpen() then SettingsMotion.CodeFrameScale.Open else SettingsMotion.CodeFrameScale.Closed
 	end, SettingsMotion.CodeFrameScale.Speed, SettingsMotion.CodeFrameScale.Damping)
@@ -340,8 +291,8 @@ function SettingsUI.RenderUI()
 		Name = "Setting",
 		AnchorPoint = Vector2.new(0.5, 0.5),
 		BackgroundTransparency = 1,
-		GroupTransparency = windowTransparency,
-		Interactable = isWindowOpen,
+		GroupTransparency = menuMotion.Transparency,
+		Interactable = isVisible,
 		Position = UDim2.fromScale(0.5, 0.5),
 		Size = UDim2.fromScale(1, 1),
 		Visible = isWindowMounted,
@@ -351,14 +302,9 @@ function SettingsUI.RenderUI()
 			AnchorPoint = Vector2.new(0.5, 0.5),
 			BackgroundTransparency = 1,
 			Image = "rbxassetid://129320583643853",
-			Position = windowPosition,
-			Rotation = windowRotation,
-			Size = UDim2.fromScale(0.721698, 0.668872),
-
-			create("UIScale")({
-				Name = "UIScale",
-				Scale = windowScale,
-			}),
+			Position = UDim2.fromScale(0.498839, 0.536386),
+			Rotation = menuMotion:WindowRotation(),
+			Size = menuMotion:WindowSize(UDim2.fromScale(0.721698, 0.668872)),
 
 			create("UIAspectRatioConstraint")({
 				Name = "UIAspectRatioConstraint",
@@ -369,11 +315,7 @@ function SettingsUI.RenderUI()
 				Name = "Header",
 				BackgroundTransparency = 1,
 				Image = "rbxassetid://96923630520876",
-				Position = spring(function()
-					return if isWindowOpen()
-						then SettingsMotion.HeaderPosition.Open
-						else SettingsMotion.HeaderPosition.Closed
-				end, SettingsMotion.HeaderPosition.Speed, SettingsMotion.HeaderPosition.Damping),
+				Position = menuMotion:HeaderPosition(UDim2.fromScale(-0.0573612, -0.111321)),
 				Size = UDim2.fromScale(0.692821, 0.28349),
 				ZIndex = 10,
 
@@ -383,12 +325,8 @@ function SettingsUI.RenderUI()
 					BackgroundTransparency = 1,
 					Image = "rbxassetid://131771458383625",
 					Position = UDim2.fromScale(0.129065, 0.438255),
-					Rotation = spring(function()
-						return if isWindowOpen()
-							then SettingsMotion.GearRotation.Open
-							else SettingsMotion.GearRotation.Closed
-					end, SettingsMotion.GearRotation.Speed, SettingsMotion.GearRotation.Damping),
-					Size = UDim2.fromScale(0.168507, 0.766167),
+					Rotation = menuMotion:IconRotation(),
+					Size = menuMotion:IconSize(UDim2.fromScale(0.168507, 0.766167)),
 
 					create("UIAspectRatioConstraint")({
 						Name = "UIAspectRatioConstraint",
@@ -399,14 +337,8 @@ function SettingsUI.RenderUI()
 					Name = "Cloud",
 					BackgroundTransparency = 1,
 					Image = "rbxassetid://108560268349568",
-					Position = spring(function()
-						return if isWindowOpen()
-							then SettingsMotion.CloudPosition.Open
-							else SettingsMotion.CloudPosition.Closed
-					end, SettingsMotion.CloudPosition.Speed, SettingsMotion.CloudPosition.Damping),
-					ImageTransparency = spring(function()
-						return if isWindowOpen() then 0 else 1
-					end, 0.5, 1),
+					Position = menuMotion:CloudPosition(UDim2.fromScale(0.529887, 0.0551715)),
+					ImageTransparency = menuMotion:Fade(),
 					Size = UDim2.fromScale(0.537766, 1.06417),
 
 					create("UIAspectRatioConstraint")({
@@ -424,9 +356,7 @@ function SettingsUI.RenderUI()
 					Text = "SETTINGS",
 					TextColor3 = Color3.new(1, 1, 1),
 					TextScaled = true,
-					TextTransparency = spring(function()
-						return if isWindowOpen() then 0 else 1
-					end, 0.5, 1),
+					TextTransparency = menuMotion:Fade(),
 
 					create("UIAspectRatioConstraint")({
 						Name = "UIAspectRatioConstraint",
@@ -440,16 +370,8 @@ function SettingsUI.RenderUI()
 				AnchorPoint = Vector2.new(0.5, 0.5),
 				BackgroundTransparency = 1,
 				Image = "rbxassetid://92651860309635",
-				Position = spring(function()
-					return if isWindowOpen()
-						then SettingsMotion.CancelPosition.Open
-						else SettingsMotion.CancelPosition.Closed
-				end, SettingsMotion.CancelPosition.Speed, SettingsMotion.CancelPosition.Damping),
-				Rotation = spring(function()
-					return if isWindowOpen()
-						then SettingsMotion.CancelRotation.Open
-						else SettingsMotion.CancelRotation.Closed
-				end, SettingsMotion.CancelRotation.Speed, SettingsMotion.CancelRotation.Damping),
+				Position = menuMotion:ClosePosition(UDim2.fromScale(0.980096, 0.0289194)),
+				Rotation = menuMotion:CloseRotation(),
 				Size = UDim2.fromScale(0.102144, 0.15458),
 
 				Activated = function()
@@ -470,14 +392,8 @@ function SettingsUI.RenderUI()
 				Name = "Buttons",
 				BackgroundTransparency = 1,
 				Image = "rbxassetid://130249132653728",
-				Position = spring(function()
-					return if isWindowOpen()
-						then UDim2.fromScale(0.019, 0.142896)
-						else UDim2.fromScale(-0.075, 0.142896)
-				end, 0.5, 1),
-				Rotation = spring(function()
-					return if isWindowOpen() then 0 else -5
-				end, 0.4, 0.72),
+				Position = menuMotion:ContentPosition(UDim2.fromScale(0.019, 0.142896)),
+				Rotation = menuMotion:Spring(0, -5, "Rotation"),
 				Size = UDim2.fromScale(0.248173, 0.824884),
 
 				create("Frame")({
@@ -657,699 +573,723 @@ function SettingsUI.RenderUI()
 			}),
 
 			-- Sound Tab Content
-			create("ScrollingFrame")({
-				Name = "SoundScrollingFrame",
-				Active = true,
+			create("CanvasGroup")({
+				Name = "SoundScrollingFrameClip",
 				BackgroundTransparency = 1,
-				BorderSizePixel = 0,
-				Position = spring(function()
-					return if isWindowOpen() then UDim2.fromScale(0.262, 0.172) else UDim2.fromScale(0.34, 0.195)
-				end, 0.36, 0.74),
-				ScrollBarImageColor3 = Color3.new(),
+				ClipsDescendants = true,
+				AnchorPoint = Vector2.new(0, 0),
+				Position = menuMotion:ContentPosition(UDim2.fromScale(0.262, 0.172)),
 				Size = UDim2.fromScale(0.714, 0.799),
-				Visible = function()
-					return activeTab() == "Sound"
-				end,
+				ZIndex = 1,
 
-				create("UIListLayout")({
-					Name = "UIListLayout",
-					HorizontalAlignment = Enum.HorizontalAlignment.Center,
-					Padding = UDim.new(0.01, 0),
-					SortOrder = Enum.SortOrder.LayoutOrder,
-				}),
-
-				-- Background Music Slider
-				create("ImageLabel")({
-					Name = "SettingSubFrame",
+				create("ScrollingFrame")({
+					Name = "SoundScrollingFrame", AnchorPoint = Vector2.new(0, 0),
+					Active = true,
 					BackgroundTransparency = 1,
-					Image = "rbxassetid://100233894637143",
-					LayoutOrder = 1,
-					Position = UDim2.fromScale(0.0680607, 0.026384),
-					Size = UDim2.fromScale(0.876982, 0.40148),
-					ZIndex = 10,
+					BorderSizePixel = 0,
+					Position = UDim2.fromScale(0, 0),
+					ScrollBarImageColor3 = Color3.new(),
+					Size = UDim2.fromScale(1, 1),
+					Visible = function()
+						return activeTab() == "Sound"
+					end,
 
-					create("TextLabel")({
-						Name = "Title",
-						BackgroundTransparency = 1,
-						FontFace = Font.new("rbxasset://fonts/families/FredokaOne.json"),
-						Position = UDim2.fromScale(0.0336405, 0.142266),
-						Size = UDim2.fromScale(0.494039, 0.290134),
-						Text = "BACKGROUND MUSIC",
-						TextColor3 = Color3.new(1, 1, 1),
-						TextScaled = true,
-						TextXAlignment = Enum.TextXAlignment.Left,
-
-						create("UIStroke")({
-							Name = "UIStroke",
-						}),
+					create("UIListLayout")({
+						Name = "UIListLayout",
+						HorizontalAlignment = Enum.HorizontalAlignment.Center,
+						Padding = UDim.new(0.01, 0),
+						SortOrder = Enum.SortOrder.LayoutOrder,
 					}),
 
-					create("UIAspectRatioConstraint")({
-						Name = "UIAspectRatioConstraint",
-						AspectRatio = 4.8,
-					}),
-
-					create("TextLabel")({
-						Name = "Description",
+					-- Background Music Slider
+					create("ImageLabel")({
+						Name = "SettingSubFrame",
 						BackgroundTransparency = 1,
-						FontFace = Font.new("rbxasset://fonts/families/FredokaOne.json"),
-						Position = UDim2.fromScale(0.0336405, 0.424292),
-						Size = UDim2.fromScale(0.477107, 0.276873),
-						Text = "Adjust Background Music Volume.",
-						TextColor3 = Color3.new(1, 1, 1),
-						TextScaled = true,
-						TextXAlignment = Enum.TextXAlignment.Left,
+						Image = "rbxassetid://100233894637143",
+						LayoutOrder = 1,
+						Position = UDim2.fromScale(0.0680607, 0.026384),
+						Size = UDim2.fromScale(0.876982, 0.40148),
+						ZIndex = 10,
 
-						create("UIStroke")({
-							Name = "UIStroke",
-						}),
+						create("TextLabel")({
+							Name = "Title",
+							BackgroundTransparency = 1,
+							FontFace = Font.new("rbxasset://fonts/families/FredokaOne.json"),
+							Position = UDim2.fromScale(0.0336405, 0.142266),
+							Size = UDim2.fromScale(0.494039, 0.290134),
+							Text = "BACKGROUND MUSIC",
+							TextColor3 = Color3.new(1, 1, 1),
+							TextScaled = true,
+							TextXAlignment = Enum.TextXAlignment.Left,
 
-						create("UIGradient")({
-							Name = "UIGradient",
-							Color = ColorSequence.new({
-								ColorSequenceKeypoint.new(0, Color3.fromRGB(167, 167, 167)),
-								ColorSequenceKeypoint.new(1, Color3.fromRGB(167, 167, 167)),
+							create("UIStroke")({
+								Name = "UIStroke",
 							}),
 						}),
-					}),
-
-					create("ImageLabel")({
-						Name = "BarBG",
-						BackgroundTransparency = 1,
-						Image = "rbxassetid://111497714681866",
-						Position = UDim2.fromScale(0.550592, 0.424999),
-						Size = UDim2.fromScale(0.428057, 0.133863),
-
-						bindSlider(musicVolume, "MusicVolume"),
-
-						create("UIGradient")({
-							Name = "UIGradient",
-							Color = ColorSequence.new({
-								ColorSequenceKeypoint.new(0, Color3.fromRGB(44, 36, 28)),
-								ColorSequenceKeypoint.new(1, Color3.fromRGB(44, 36, 28)),
-							}),
-						}),
-					}),
-
-					create("ImageLabel")({
-						Name = "BarFill",
-						BackgroundTransparency = 1,
-						Image = "rbxassetid://111497714681866",
-						Position = UDim2.fromScale(0.550592, 0.424999),
-						Size = function()
-							local ratio = math.clamp(musicVolume() / 100, 0, 1)
-							return UDim2.fromScale(0.428057 * ratio, 0.133863)
-						end,
-
-						create("UIGradient")({
-							Name = "UIGradient",
-							Color = ColorSequence.new({
-								ColorSequenceKeypoint.new(0, Color3.fromRGB(62, 73, 147)),
-								ColorSequenceKeypoint.new(0.517007, Color3.fromRGB(52, 58, 147)),
-								ColorSequenceKeypoint.new(1, Color3.fromRGB(202, 197, 255)),
-							}),
-						}),
-					}),
-
-					create("ImageLabel")({
-						Name = "BarToggle",
-						BackgroundTransparency = 1,
-						Image = "rbxassetid://116700506653527",
-						Position = function()
-							local ratio = math.clamp(musicVolume() / 100, 0, 1)
-							return UDim2.fromScale(0.550592 + (0.95 - 0.550592) * ratio, 0.398)
-						end,
-						Size = UDim2.fromScale(0.0431976, 0.184385),
-						ZIndex = 12,
 
 						create("UIAspectRatioConstraint")({
 							Name = "UIAspectRatioConstraint",
-						}),
-					}),
-				}),
-
-				-- SFX Sound Slider
-				create("ImageLabel")({
-					Name = "SettingSubFrame",
-					BackgroundTransparency = 1,
-					Image = "rbxassetid://100233894637143",
-					LayoutOrder = 2,
-					Position = UDim2.fromScale(0.0680607, 0.026384),
-					Size = UDim2.fromScale(0.876982, 0.40148),
-					ZIndex = 10,
-
-					create("TextLabel")({
-						Name = "Title",
-						BackgroundTransparency = 1,
-						FontFace = Font.new("rbxasset://fonts/families/FredokaOne.json"),
-						Position = UDim2.fromScale(0.0336405, 0.142266),
-						Size = UDim2.fromScale(0.494039, 0.290134),
-						Text = "SFX SOUND",
-						TextColor3 = Color3.new(1, 1, 1),
-						TextScaled = true,
-						TextXAlignment = Enum.TextXAlignment.Left,
-
-						create("UIStroke")({
-							Name = "UIStroke",
-						}),
-					}),
-
-					create("UIAspectRatioConstraint")({
-						Name = "UIAspectRatioConstraint",
-						AspectRatio = 4.8,
-					}),
-
-					create("TextLabel")({
-						Name = "Description",
-						BackgroundTransparency = 1,
-						FontFace = Font.new("rbxasset://fonts/families/FredokaOne.json"),
-						Position = UDim2.fromScale(0.0336405, 0.424292),
-						Size = UDim2.fromScale(0.477107, 0.276873),
-						Text = "Adjust Every SFX Sound of Game.",
-						TextColor3 = Color3.new(1, 1, 1),
-						TextScaled = true,
-						TextXAlignment = Enum.TextXAlignment.Left,
-
-						create("UIStroke")({
-							Name = "UIStroke",
+							AspectRatio = 4.8,
 						}),
 
-						create("UIGradient")({
-							Name = "UIGradient",
-							Color = ColorSequence.new({
-								ColorSequenceKeypoint.new(0, Color3.fromRGB(167, 167, 167)),
-								ColorSequenceKeypoint.new(1, Color3.fromRGB(167, 167, 167)),
+						create("TextLabel")({
+							Name = "Description",
+							BackgroundTransparency = 1,
+							FontFace = Font.new("rbxasset://fonts/families/FredokaOne.json"),
+							Position = UDim2.fromScale(0.0336405, 0.424292),
+							Size = UDim2.fromScale(0.477107, 0.276873),
+							Text = "Adjust Background Music Volume.",
+							TextColor3 = Color3.new(1, 1, 1),
+							TextScaled = true,
+							TextXAlignment = Enum.TextXAlignment.Left,
+
+							create("UIStroke")({
+								Name = "UIStroke",
+							}),
+
+							create("UIGradient")({
+								Name = "UIGradient",
+								Color = ColorSequence.new({
+									ColorSequenceKeypoint.new(0, Color3.fromRGB(167, 167, 167)),
+									ColorSequenceKeypoint.new(1, Color3.fromRGB(167, 167, 167)),
+								}),
+							}),
+						}),
+
+						create("ImageLabel")({
+							Name = "BarBG",
+							BackgroundTransparency = 1,
+							Image = "rbxassetid://111497714681866",
+							Position = UDim2.fromScale(0.550592, 0.424999),
+							Size = UDim2.fromScale(0.428057, 0.133863),
+
+							bindSlider(musicVolume, "MusicVolume"),
+
+							create("UIGradient")({
+								Name = "UIGradient",
+								Color = ColorSequence.new({
+									ColorSequenceKeypoint.new(0, Color3.fromRGB(44, 36, 28)),
+									ColorSequenceKeypoint.new(1, Color3.fromRGB(44, 36, 28)),
+								}),
+							}),
+						}),
+
+						create("ImageLabel")({
+							Name = "BarFill",
+							BackgroundTransparency = 1,
+							Image = "rbxassetid://111497714681866",
+							Position = UDim2.fromScale(0.550592, 0.424999),
+							Size = function()
+								local ratio = math.clamp(musicVolume() / 100, 0, 1)
+								return UDim2.fromScale(0.428057 * ratio, 0.133863)
+							end,
+
+							create("UIGradient")({
+								Name = "UIGradient",
+								Color = ColorSequence.new({
+									ColorSequenceKeypoint.new(0, Color3.fromRGB(62, 73, 147)),
+									ColorSequenceKeypoint.new(0.517007, Color3.fromRGB(52, 58, 147)),
+									ColorSequenceKeypoint.new(1, Color3.fromRGB(202, 197, 255)),
+								}),
+							}),
+						}),
+
+						create("ImageLabel")({
+							Name = "BarToggle",
+							BackgroundTransparency = 1,
+							Image = "rbxassetid://116700506653527",
+							Position = function()
+								local ratio = math.clamp(musicVolume() / 100, 0, 1)
+								return UDim2.fromScale(0.550592 + (0.95 - 0.550592) * ratio, 0.398)
+							end,
+							Size = UDim2.fromScale(0.0431976, 0.184385),
+							ZIndex = 12,
+
+							create("UIAspectRatioConstraint")({
+								Name = "UIAspectRatioConstraint",
 							}),
 						}),
 					}),
 
+					-- SFX Sound Slider
 					create("ImageLabel")({
-						Name = "BarBG",
+						Name = "SettingSubFrame",
 						BackgroundTransparency = 1,
-						Image = "rbxassetid://111497714681866",
-						Position = UDim2.fromScale(0.550592, 0.424999),
-						Size = UDim2.fromScale(0.428057, 0.133863),
+						Image = "rbxassetid://100233894637143",
+						LayoutOrder = 2,
+						Position = UDim2.fromScale(0.0680607, 0.026384),
+						Size = UDim2.fromScale(0.876982, 0.40148),
+						ZIndex = 10,
 
-						bindSlider(sfxVolume, "SFXVolume"),
+						create("TextLabel")({
+							Name = "Title",
+							BackgroundTransparency = 1,
+							FontFace = Font.new("rbxasset://fonts/families/FredokaOne.json"),
+							Position = UDim2.fromScale(0.0336405, 0.142266),
+							Size = UDim2.fromScale(0.494039, 0.290134),
+							Text = "SFX SOUND",
+							TextColor3 = Color3.new(1, 1, 1),
+							TextScaled = true,
+							TextXAlignment = Enum.TextXAlignment.Left,
 
-						create("UIGradient")({
-							Name = "UIGradient",
-							Color = ColorSequence.new({
-								ColorSequenceKeypoint.new(0, Color3.fromRGB(44, 36, 28)),
-								ColorSequenceKeypoint.new(1, Color3.fromRGB(44, 36, 28)),
+							create("UIStroke")({
+								Name = "UIStroke",
 							}),
 						}),
-					}),
-
-					create("ImageLabel")({
-						Name = "BarFill",
-						BackgroundTransparency = 1,
-						Image = "rbxassetid://111497714681866",
-						Position = UDim2.fromScale(0.550592, 0.424999),
-						Size = function()
-							local ratio = math.clamp(sfxVolume() / 100, 0, 1)
-							return UDim2.fromScale(0.428057 * ratio, 0.133863)
-						end,
-
-						create("UIGradient")({
-							Name = "UIGradient",
-							Color = ColorSequence.new({
-								ColorSequenceKeypoint.new(0, Color3.fromRGB(62, 73, 147)),
-								ColorSequenceKeypoint.new(0.517007, Color3.fromRGB(52, 58, 147)),
-								ColorSequenceKeypoint.new(1, Color3.fromRGB(202, 197, 255)),
-							}),
-						}),
-					}),
-
-					create("ImageLabel")({
-						Name = "BarToggle",
-						BackgroundTransparency = 1,
-						Image = "rbxassetid://116700506653527",
-						Position = function()
-							local ratio = math.clamp(sfxVolume() / 100, 0, 1)
-							return UDim2.fromScale(0.550592 + (0.95 - 0.550592) * ratio, 0.398)
-						end,
-						Size = UDim2.fromScale(0.0431976, 0.184385),
-						ZIndex = 12,
 
 						create("UIAspectRatioConstraint")({
 							Name = "UIAspectRatioConstraint",
+							AspectRatio = 4.8,
+						}),
+
+						create("TextLabel")({
+							Name = "Description",
+							BackgroundTransparency = 1,
+							FontFace = Font.new("rbxasset://fonts/families/FredokaOne.json"),
+							Position = UDim2.fromScale(0.0336405, 0.424292),
+							Size = UDim2.fromScale(0.477107, 0.276873),
+							Text = "Adjust Every SFX Sound of Game.",
+							TextColor3 = Color3.new(1, 1, 1),
+							TextScaled = true,
+							TextXAlignment = Enum.TextXAlignment.Left,
+
+							create("UIStroke")({
+								Name = "UIStroke",
+							}),
+
+							create("UIGradient")({
+								Name = "UIGradient",
+								Color = ColorSequence.new({
+									ColorSequenceKeypoint.new(0, Color3.fromRGB(167, 167, 167)),
+									ColorSequenceKeypoint.new(1, Color3.fromRGB(167, 167, 167)),
+								}),
+							}),
+						}),
+
+						create("ImageLabel")({
+							Name = "BarBG",
+							BackgroundTransparency = 1,
+							Image = "rbxassetid://111497714681866",
+							Position = UDim2.fromScale(0.550592, 0.424999),
+							Size = UDim2.fromScale(0.428057, 0.133863),
+
+							bindSlider(sfxVolume, "SFXVolume"),
+
+							create("UIGradient")({
+								Name = "UIGradient",
+								Color = ColorSequence.new({
+									ColorSequenceKeypoint.new(0, Color3.fromRGB(44, 36, 28)),
+									ColorSequenceKeypoint.new(1, Color3.fromRGB(44, 36, 28)),
+								}),
+							}),
+						}),
+
+						create("ImageLabel")({
+							Name = "BarFill",
+							BackgroundTransparency = 1,
+							Image = "rbxassetid://111497714681866",
+							Position = UDim2.fromScale(0.550592, 0.424999),
+							Size = function()
+								local ratio = math.clamp(sfxVolume() / 100, 0, 1)
+								return UDim2.fromScale(0.428057 * ratio, 0.133863)
+							end,
+
+							create("UIGradient")({
+								Name = "UIGradient",
+								Color = ColorSequence.new({
+									ColorSequenceKeypoint.new(0, Color3.fromRGB(62, 73, 147)),
+									ColorSequenceKeypoint.new(0.517007, Color3.fromRGB(52, 58, 147)),
+									ColorSequenceKeypoint.new(1, Color3.fromRGB(202, 197, 255)),
+								}),
+							}),
+						}),
+
+						create("ImageLabel")({
+							Name = "BarToggle",
+							BackgroundTransparency = 1,
+							Image = "rbxassetid://116700506653527",
+							Position = function()
+								local ratio = math.clamp(sfxVolume() / 100, 0, 1)
+								return UDim2.fromScale(0.550592 + (0.95 - 0.550592) * ratio, 0.398)
+							end,
+							Size = UDim2.fromScale(0.0431976, 0.184385),
+							ZIndex = 12,
+
+							create("UIAspectRatioConstraint")({
+								Name = "UIAspectRatioConstraint",
+							}),
 						}),
 					}),
 				}),
 			}),
 
 			-- Graphics Tab Content
-			create("ScrollingFrame")({
-				Name = "GraphicsScrollingFrame",
-				Active = true,
+			create("CanvasGroup")({
+				Name = "GraphicsScrollingFrameClip",
 				BackgroundTransparency = 1,
-				BorderSizePixel = 0,
-				Position = spring(function()
-					return if isWindowOpen() then UDim2.fromScale(0.262, 0.172) else UDim2.fromScale(0.34, 0.195)
-				end, 0.36, 0.74),
-				ScrollBarImageColor3 = Color3.new(),
+				ClipsDescendants = true,
+				AnchorPoint = Vector2.new(0, 0),
+				Position = menuMotion:ContentPosition(UDim2.fromScale(0.262, 0.172)),
 				Size = UDim2.fromScale(0.714, 0.799),
-				Visible = function()
-					return activeTab() == "Graphics"
-				end,
+				ZIndex = 1,
 
-				create("UIListLayout")({
-					Name = "UIListLayout",
-					HorizontalAlignment = Enum.HorizontalAlignment.Center,
-					Padding = UDim.new(0.01, 0),
-					SortOrder = Enum.SortOrder.LayoutOrder,
-				}),
-
-				-- Set Night Toggle
-				create("ImageLabel")({
-					Name = "SettingSubFrame",
+				create("ScrollingFrame")({
+					Name = "GraphicsScrollingFrame", AnchorPoint = Vector2.new(0, 0),
+					Active = true,
 					BackgroundTransparency = 1,
-					Image = "rbxassetid://100233894637143",
-					LayoutOrder = 1,
-					Position = UDim2.fromScale(0.0527731, 0.00586313),
-					Size = UDim2.fromScale(0.876982, 0.40148),
-					ZIndex = 10,
+					BorderSizePixel = 0,
+					Position = UDim2.fromScale(0, 0),
+					ScrollBarImageColor3 = Color3.new(),
+					Size = UDim2.fromScale(1, 1),
+					Visible = function()
+						return activeTab() == "Graphics"
+					end,
 
-					create("TextLabel")({
-						Name = "Title",
-						BackgroundTransparency = 1,
-						FontFace = Font.new("rbxasset://fonts/families/FredokaOne.json"),
-						Position = UDim2.fromScale(0.0336405, 0.142266),
-						Size = UDim2.fromScale(0.494039, 0.290134),
-						Text = "Set Night",
-						TextColor3 = Color3.new(1, 1, 1),
-						TextScaled = true,
-						TextXAlignment = Enum.TextXAlignment.Left,
-
-						create("UIStroke")({
-							Name = "UIStroke",
-						}),
+					create("UIListLayout")({
+						Name = "UIListLayout",
+						HorizontalAlignment = Enum.HorizontalAlignment.Center,
+						Padding = UDim.new(0.01, 0),
+						SortOrder = Enum.SortOrder.LayoutOrder,
 					}),
 
-					create("UIAspectRatioConstraint")({
-						Name = "UIAspectRatioConstraint",
-						AspectRatio = 4.8,
-					}),
-
-					create("TextLabel")({
-						Name = "Description",
+					-- Set Night Toggle
+					create("ImageLabel")({
+						Name = "SettingSubFrame",
 						BackgroundTransparency = 1,
-						FontFace = Font.new("rbxasset://fonts/families/FredokaOne.json"),
-						Position = UDim2.fromScale(0.0336404, 0.424292),
-						Size = UDim2.fromScale(0.322276, 0.276873),
-						Text = "Set Game Time Night.",
-						TextColor3 = Color3.new(1, 1, 1),
-						TextScaled = true,
-						TextXAlignment = Enum.TextXAlignment.Left,
+						Image = "rbxassetid://100233894637143",
+						LayoutOrder = 1,
+						Position = UDim2.fromScale(0.0527731, 0.00586313),
+						Size = UDim2.fromScale(0.876982, 0.40148),
+						ZIndex = 10,
 
-						create("UIStroke")({
-							Name = "UIStroke",
+						create("TextLabel")({
+							Name = "Title",
+							BackgroundTransparency = 1,
+							FontFace = Font.new("rbxasset://fonts/families/FredokaOne.json"),
+							Position = UDim2.fromScale(0.0336405, 0.142266),
+							Size = UDim2.fromScale(0.494039, 0.290134),
+							Text = "Set Night",
+							TextColor3 = Color3.new(1, 1, 1),
+							TextScaled = true,
+							TextXAlignment = Enum.TextXAlignment.Left,
+
+							create("UIStroke")({
+								Name = "UIStroke",
+							}),
 						}),
 
-						create("UIGradient")({
-							Name = "UIGradient",
-							Color = ColorSequence.new({
-								ColorSequenceKeypoint.new(0, Color3.fromRGB(167, 167, 167)),
-								ColorSequenceKeypoint.new(1, Color3.fromRGB(167, 167, 167)),
+						create("UIAspectRatioConstraint")({
+							Name = "UIAspectRatioConstraint",
+							AspectRatio = 4.8,
+						}),
+
+						create("TextLabel")({
+							Name = "Description",
+							BackgroundTransparency = 1,
+							FontFace = Font.new("rbxasset://fonts/families/FredokaOne.json"),
+							Position = UDim2.fromScale(0.0336404, 0.424292),
+							Size = UDim2.fromScale(0.322276, 0.276873),
+							Text = "Set Game Time Night.",
+							TextColor3 = Color3.new(1, 1, 1),
+							TextScaled = true,
+							TextXAlignment = Enum.TextXAlignment.Left,
+
+							create("UIStroke")({
+								Name = "UIStroke",
+							}),
+
+							create("UIGradient")({
+								Name = "UIGradient",
+								Color = ColorSequence.new({
+									ColorSequenceKeypoint.new(0, Color3.fromRGB(167, 167, 167)),
+									ColorSequenceKeypoint.new(1, Color3.fromRGB(167, 167, 167)),
+								}),
+							}),
+						}),
+
+						create("ImageButton")({
+							Name = "NightToggle",
+							AnchorPoint = Vector2.new(0.5, 0.5),
+							BackgroundTransparency = 1,
+							Image = function()
+								return if night() then ICON_ON else ICON_OFF
+							end,
+							Position = UDim2.fromScale(0.910334, 0.492328),
+							Size = UDim2.fromScale(0.122286, 0.594306),
+							ZIndex = 12,
+
+							Activated = function()
+								local newNight = not night()
+								night(newNight)
+								if SettingsClient then
+									SettingsClient.ApplySetting("Night", newNight)
+								end
+							end,
+
+							useButtonEffect(0.9, 1.1),
+
+							create("UIAspectRatioConstraint")({
+								Name = "UIAspectRatioConstraint",
 							}),
 						}),
 					}),
 
-					create("ImageButton")({
-						Name = "NightToggle",
-						AnchorPoint = Vector2.new(0.5, 0.5),
+					-- Set Shadow Toggle
+					create("ImageLabel")({
+						Name = "SettingSubFrame",
 						BackgroundTransparency = 1,
-						Image = function()
-							return if night() then ICON_ON else ICON_OFF
-						end,
-						Position = UDim2.fromScale(0.910334, 0.492328),
-						Size = UDim2.fromScale(0.122286, 0.594306),
-						ZIndex = 12,
+						Image = "rbxassetid://100233894637143",
+						LayoutOrder = 2,
+						Position = UDim2.fromScale(0.0527731, 0.00586313),
+						Size = UDim2.fromScale(0.876982, 0.40148),
+						ZIndex = 10,
 
-						Activated = function()
-							local newNight = not night()
-							night(newNight)
-							if SettingsClient then
-								SettingsClient.ApplySetting("Night", newNight)
-							end
-						end,
+						create("TextLabel")({
+							Name = "Title",
+							BackgroundTransparency = 1,
+							FontFace = Font.new("rbxasset://fonts/families/FredokaOne.json"),
+							Position = UDim2.fromScale(0.0336405, 0.142266),
+							Size = UDim2.fromScale(0.494039, 0.290134),
+							Text = "Set Shadow",
+							TextColor3 = Color3.new(1, 1, 1),
+							TextScaled = true,
+							TextXAlignment = Enum.TextXAlignment.Left,
 
-						useButtonEffect(0.9, 1.1),
+							create("UIStroke")({
+								Name = "UIStroke",
+							}),
+						}),
 
 						create("UIAspectRatioConstraint")({
 							Name = "UIAspectRatioConstraint",
-						}),
-					}),
-				}),
-
-				-- Set Shadow Toggle
-				create("ImageLabel")({
-					Name = "SettingSubFrame",
-					BackgroundTransparency = 1,
-					Image = "rbxassetid://100233894637143",
-					LayoutOrder = 2,
-					Position = UDim2.fromScale(0.0527731, 0.00586313),
-					Size = UDim2.fromScale(0.876982, 0.40148),
-					ZIndex = 10,
-
-					create("TextLabel")({
-						Name = "Title",
-						BackgroundTransparency = 1,
-						FontFace = Font.new("rbxasset://fonts/families/FredokaOne.json"),
-						Position = UDim2.fromScale(0.0336405, 0.142266),
-						Size = UDim2.fromScale(0.494039, 0.290134),
-						Text = "Set Shadow",
-						TextColor3 = Color3.new(1, 1, 1),
-						TextScaled = true,
-						TextXAlignment = Enum.TextXAlignment.Left,
-
-						create("UIStroke")({
-							Name = "UIStroke",
-						}),
-					}),
-
-					create("UIAspectRatioConstraint")({
-						Name = "UIAspectRatioConstraint",
-						AspectRatio = 4.8,
-					}),
-
-					create("TextLabel")({
-						Name = "Description",
-						BackgroundTransparency = 1,
-						FontFace = Font.new("rbxasset://fonts/families/FredokaOne.json"),
-						Position = UDim2.fromScale(0.0336404, 0.424292),
-						Size = UDim2.fromScale(0.477107, 0.276873),
-						Text = "Turn on/off Shadow in Games.",
-						TextColor3 = Color3.new(1, 1, 1),
-						TextScaled = true,
-						TextXAlignment = Enum.TextXAlignment.Left,
-
-						create("UIStroke")({
-							Name = "UIStroke",
+							AspectRatio = 4.8,
 						}),
 
-						create("UIGradient")({
-							Name = "UIGradient",
-							Color = ColorSequence.new({
-								ColorSequenceKeypoint.new(0, Color3.fromRGB(167, 167, 167)),
-								ColorSequenceKeypoint.new(1, Color3.fromRGB(167, 167, 167)),
+						create("TextLabel")({
+							Name = "Description",
+							BackgroundTransparency = 1,
+							FontFace = Font.new("rbxasset://fonts/families/FredokaOne.json"),
+							Position = UDim2.fromScale(0.0336404, 0.424292),
+							Size = UDim2.fromScale(0.477107, 0.276873),
+							Text = "Turn on/off Shadow in Games.",
+							TextColor3 = Color3.new(1, 1, 1),
+							TextScaled = true,
+							TextXAlignment = Enum.TextXAlignment.Left,
+
+							create("UIStroke")({
+								Name = "UIStroke",
+							}),
+
+							create("UIGradient")({
+								Name = "UIGradient",
+								Color = ColorSequence.new({
+									ColorSequenceKeypoint.new(0, Color3.fromRGB(167, 167, 167)),
+									ColorSequenceKeypoint.new(1, Color3.fromRGB(167, 167, 167)),
+								}),
+							}),
+						}),
+
+						create("ImageButton")({
+							Name = "ShadowToggle",
+							AnchorPoint = Vector2.new(0.5, 0.5),
+							BackgroundTransparency = 1,
+							Image = function()
+								return if shadows() then ICON_ON else ICON_OFF
+							end,
+							Position = UDim2.fromScale(0.910334, 0.492328),
+							Size = UDim2.fromScale(0.122286, 0.594306),
+							ZIndex = 12,
+
+							Activated = function()
+								local newShadows = not shadows()
+								shadows(newShadows)
+								if SettingsClient then
+									SettingsClient.ApplySetting("Shadows", newShadows)
+								end
+							end,
+
+							useButtonEffect(0.9, 1.1),
+
+							create("UIAspectRatioConstraint")({
+								Name = "UIAspectRatioConstraint",
 							}),
 						}),
 					}),
 
-					create("ImageButton")({
-						Name = "ShadowToggle",
-						AnchorPoint = Vector2.new(0.5, 0.5),
+					-- Set VFX Toggle
+					create("ImageLabel")({
+						Name = "SettingSubFrame",
 						BackgroundTransparency = 1,
-						Image = function()
-							return if shadows() then ICON_ON else ICON_OFF
-						end,
-						Position = UDim2.fromScale(0.910334, 0.492328),
-						Size = UDim2.fromScale(0.122286, 0.594306),
-						ZIndex = 12,
+						Image = "rbxassetid://100233894637143",
+						LayoutOrder = 3,
+						Position = UDim2.fromScale(0.0527731, 0.00586313),
+						Size = UDim2.fromScale(0.876982, 0.40148),
+						ZIndex = 10,
 
-						Activated = function()
-							local newShadows = not shadows()
-							shadows(newShadows)
-							if SettingsClient then
-								SettingsClient.ApplySetting("Shadows", newShadows)
-							end
-						end,
+						create("TextLabel")({
+							Name = "Title",
+							BackgroundTransparency = 1,
+							FontFace = Font.new("rbxasset://fonts/families/FredokaOne.json"),
+							Position = UDim2.fromScale(0.0336405, 0.142266),
+							Size = UDim2.fromScale(0.494039, 0.290134),
+							Text = "Set VFX",
+							TextColor3 = Color3.new(1, 1, 1),
+							TextScaled = true,
+							TextXAlignment = Enum.TextXAlignment.Left,
 
-						useButtonEffect(0.9, 1.1),
-
-						create("UIAspectRatioConstraint")({
-							Name = "UIAspectRatioConstraint",
-						}),
-					}),
-				}),
-
-				-- Set VFX Toggle
-				create("ImageLabel")({
-					Name = "SettingSubFrame",
-					BackgroundTransparency = 1,
-					Image = "rbxassetid://100233894637143",
-					LayoutOrder = 3,
-					Position = UDim2.fromScale(0.0527731, 0.00586313),
-					Size = UDim2.fromScale(0.876982, 0.40148),
-					ZIndex = 10,
-
-					create("TextLabel")({
-						Name = "Title",
-						BackgroundTransparency = 1,
-						FontFace = Font.new("rbxasset://fonts/families/FredokaOne.json"),
-						Position = UDim2.fromScale(0.0336405, 0.142266),
-						Size = UDim2.fromScale(0.494039, 0.290134),
-						Text = "Set VFX",
-						TextColor3 = Color3.new(1, 1, 1),
-						TextScaled = true,
-						TextXAlignment = Enum.TextXAlignment.Left,
-
-						create("UIStroke")({
-							Name = "UIStroke",
-						}),
-					}),
-
-					create("UIAspectRatioConstraint")({
-						Name = "UIAspectRatioConstraint",
-						AspectRatio = 4.8,
-					}),
-
-					create("TextLabel")({
-						Name = "Description",
-						BackgroundTransparency = 1,
-						FontFace = Font.new("rbxasset://fonts/families/FredokaOne.json"),
-						Position = UDim2.fromScale(0.0336404, 0.424292),
-						Size = UDim2.fromScale(0.459675, 0.276873),
-						Text = "Turn on/off VFX in Games.",
-						TextColor3 = Color3.new(1, 1, 1),
-						TextScaled = true,
-						TextXAlignment = Enum.TextXAlignment.Left,
-
-						create("UIStroke")({
-							Name = "UIStroke",
-						}),
-
-						create("UIGradient")({
-							Name = "UIGradient",
-							Color = ColorSequence.new({
-								ColorSequenceKeypoint.new(0, Color3.fromRGB(167, 167, 167)),
-								ColorSequenceKeypoint.new(1, Color3.fromRGB(167, 167, 167)),
+							create("UIStroke")({
+								Name = "UIStroke",
 							}),
 						}),
-					}),
-
-					create("ImageButton")({
-						Name = "VFXToggle",
-						AnchorPoint = Vector2.new(0.5, 0.5),
-						BackgroundTransparency = 1,
-						Image = function()
-							return if vfx() then ICON_ON else ICON_OFF
-						end,
-						Position = UDim2.fromScale(0.910334, 0.492328),
-						Size = UDim2.fromScale(0.122286, 0.594306),
-						ZIndex = 12,
-
-						Activated = function()
-							local newVfx = not vfx()
-							vfx(newVfx)
-							if SettingsClient then
-								SettingsClient.ApplySetting("VFX", newVfx)
-							end
-						end,
-
-						useButtonEffect(0.9, 1.1),
 
 						create("UIAspectRatioConstraint")({
 							Name = "UIAspectRatioConstraint",
+							AspectRatio = 4.8,
+						}),
+
+						create("TextLabel")({
+							Name = "Description",
+							BackgroundTransparency = 1,
+							FontFace = Font.new("rbxasset://fonts/families/FredokaOne.json"),
+							Position = UDim2.fromScale(0.0336404, 0.424292),
+							Size = UDim2.fromScale(0.459675, 0.276873),
+							Text = "Turn on/off VFX in Games.",
+							TextColor3 = Color3.new(1, 1, 1),
+							TextScaled = true,
+							TextXAlignment = Enum.TextXAlignment.Left,
+
+							create("UIStroke")({
+								Name = "UIStroke",
+							}),
+
+							create("UIGradient")({
+								Name = "UIGradient",
+								Color = ColorSequence.new({
+									ColorSequenceKeypoint.new(0, Color3.fromRGB(167, 167, 167)),
+									ColorSequenceKeypoint.new(1, Color3.fromRGB(167, 167, 167)),
+								}),
+							}),
+						}),
+
+						create("ImageButton")({
+							Name = "VFXToggle",
+							AnchorPoint = Vector2.new(0.5, 0.5),
+							BackgroundTransparency = 1,
+							Image = function()
+								return if vfx() then ICON_ON else ICON_OFF
+							end,
+							Position = UDim2.fromScale(0.910334, 0.492328),
+							Size = UDim2.fromScale(0.122286, 0.594306),
+							ZIndex = 12,
+
+							Activated = function()
+								local newVfx = not vfx()
+								vfx(newVfx)
+								if SettingsClient then
+									SettingsClient.ApplySetting("VFX", newVfx)
+								end
+							end,
+
+							useButtonEffect(0.9, 1.1),
+
+							create("UIAspectRatioConstraint")({
+								Name = "UIAspectRatioConstraint",
+							}),
 						}),
 					}),
 				}),
 			}),
 
 			-- Gameplay Tab Content
-			create("ScrollingFrame")({
-				Name = "GameplayScrollingFrame",
-				Active = true,
+			create("CanvasGroup")({
+				Name = "GameplayScrollingFrameClip",
 				BackgroundTransparency = 1,
-				BorderSizePixel = 0,
-				Position = spring(function()
-					return if isWindowOpen() then UDim2.fromScale(0.262, 0.172) else UDim2.fromScale(0.34, 0.195)
-				end, 0.36, 0.74),
-				ScrollBarImageColor3 = Color3.new(),
+				ClipsDescendants = true,
+				AnchorPoint = Vector2.new(0, 0),
+				Position = menuMotion:ContentPosition(UDim2.fromScale(0.262, 0.172)),
 				Size = UDim2.fromScale(0.714, 0.799),
-				Visible = function()
-					return activeTab() == "Gameplay"
-				end,
+				ZIndex = 1,
 
-				create("UIListLayout")({
-					Name = "UIListLayout",
-					HorizontalAlignment = Enum.HorizontalAlignment.Center,
-					Padding = UDim.new(0.01, 0),
-					SortOrder = Enum.SortOrder.LayoutOrder,
-				}),
-
-				-- Auto Skip Toggle
-				create("ImageLabel")({
-					Name = "SettingSubFrame",
+				create("ScrollingFrame")({
+					Name = "GameplayScrollingFrame", AnchorPoint = Vector2.new(0, 0),
+					Active = true,
 					BackgroundTransparency = 1,
-					Image = "rbxassetid://100233894637143",
-					LayoutOrder = 1,
-					Position = UDim2.fromScale(0.0527731, 0.00586313),
-					Size = UDim2.fromScale(0.876982, 0.40148),
-					ZIndex = 10,
+					BorderSizePixel = 0,
+					Position = UDim2.fromScale(0, 0),
+					ScrollBarImageColor3 = Color3.new(),
+					Size = UDim2.fromScale(1, 1),
+					Visible = function()
+						return activeTab() == "Gameplay"
+					end,
 
-					create("TextLabel")({
-						Name = "Title",
-						BackgroundTransparency = 1,
-						FontFace = Font.new("rbxasset://fonts/families/FredokaOne.json"),
-						Position = UDim2.fromScale(0.0336405, 0.142266),
-						Size = UDim2.fromScale(0.494039, 0.290134),
-						Text = "Auto Skip",
-						TextColor3 = Color3.new(1, 1, 1),
-						TextScaled = true,
-						TextXAlignment = Enum.TextXAlignment.Left,
-
-						create("UIStroke")({
-							Name = "UIStroke",
-						}),
+					create("UIListLayout")({
+						Name = "UIListLayout",
+						HorizontalAlignment = Enum.HorizontalAlignment.Center,
+						Padding = UDim.new(0.01, 0),
+						SortOrder = Enum.SortOrder.LayoutOrder,
 					}),
 
-					create("UIAspectRatioConstraint")({
-						Name = "UIAspectRatioConstraint",
-						AspectRatio = 4.8,
-					}),
-
-					create("TextLabel")({
-						Name = "Description",
+					-- Auto Skip Toggle
+					create("ImageLabel")({
+						Name = "SettingSubFrame",
 						BackgroundTransparency = 1,
-						FontFace = Font.new("rbxasset://fonts/families/FredokaOne.json"),
-						Position = UDim2.fromScale(0.0336404, 0.424292),
-						Size = UDim2.fromScale(0.368069, 0.378335),
-						Text = "Turn on/off Auto skip in Games.",
-						TextColor3 = Color3.new(1, 1, 1),
-						TextScaled = true,
-						TextXAlignment = Enum.TextXAlignment.Left,
+						Image = "rbxassetid://100233894637143",
+						LayoutOrder = 1,
+						Position = UDim2.fromScale(0.0527731, 0.00586313),
+						Size = UDim2.fromScale(0.876982, 0.40148),
+						ZIndex = 10,
 
-						create("UIStroke")({
-							Name = "UIStroke",
+						create("TextLabel")({
+							Name = "Title",
+							BackgroundTransparency = 1,
+							FontFace = Font.new("rbxasset://fonts/families/FredokaOne.json"),
+							Position = UDim2.fromScale(0.0336405, 0.142266),
+							Size = UDim2.fromScale(0.494039, 0.290134),
+							Text = "Auto Skip",
+							TextColor3 = Color3.new(1, 1, 1),
+							TextScaled = true,
+							TextXAlignment = Enum.TextXAlignment.Left,
+
+							create("UIStroke")({
+								Name = "UIStroke",
+							}),
 						}),
 
-						create("UIGradient")({
-							Name = "UIGradient",
-							Color = ColorSequence.new({
-								ColorSequenceKeypoint.new(0, Color3.fromRGB(167, 167, 167)),
-								ColorSequenceKeypoint.new(1, Color3.fromRGB(167, 167, 167)),
+						create("UIAspectRatioConstraint")({
+							Name = "UIAspectRatioConstraint",
+							AspectRatio = 4.8,
+						}),
+
+						create("TextLabel")({
+							Name = "Description",
+							BackgroundTransparency = 1,
+							FontFace = Font.new("rbxasset://fonts/families/FredokaOne.json"),
+							Position = UDim2.fromScale(0.0336404, 0.424292),
+							Size = UDim2.fromScale(0.368069, 0.378335),
+							Text = "Turn on/off Auto skip in Games.",
+							TextColor3 = Color3.new(1, 1, 1),
+							TextScaled = true,
+							TextXAlignment = Enum.TextXAlignment.Left,
+
+							create("UIStroke")({
+								Name = "UIStroke",
+							}),
+
+							create("UIGradient")({
+								Name = "UIGradient",
+								Color = ColorSequence.new({
+									ColorSequenceKeypoint.new(0, Color3.fromRGB(167, 167, 167)),
+									ColorSequenceKeypoint.new(1, Color3.fromRGB(167, 167, 167)),
+								}),
+							}),
+						}),
+
+						create("ImageButton")({
+							Name = "AutoSkipToggle",
+							AnchorPoint = Vector2.new(0.5, 0.5),
+							BackgroundTransparency = 1,
+							Image = function()
+								return if autoSkip() then ICON_ON else ICON_OFF
+							end,
+							Position = UDim2.fromScale(0.910334, 0.492328),
+							Size = UDim2.fromScale(0.122286, 0.594306),
+							ZIndex = 12,
+
+							Activated = function()
+								local newAutoSkip = not autoSkip()
+								autoSkip(newAutoSkip)
+								if SettingsClient then
+									SettingsClient.ApplySetting("AutoSkip", newAutoSkip)
+								end
+							end,
+
+							useButtonEffect(0.9, 1.1),
+
+							create("UIAspectRatioConstraint")({
+								Name = "UIAspectRatioConstraint",
 							}),
 						}),
 					}),
 
-					create("ImageButton")({
-						Name = "AutoSkipToggle",
-						AnchorPoint = Vector2.new(0.5, 0.5),
+					-- Trade Enable Toggle
+					create("ImageLabel")({
+						Name = "SettingSubFrame",
 						BackgroundTransparency = 1,
-						Image = function()
-							return if autoSkip() then ICON_ON else ICON_OFF
-						end,
-						Position = UDim2.fromScale(0.910334, 0.492328),
-						Size = UDim2.fromScale(0.122286, 0.594306),
-						ZIndex = 12,
+						Image = "rbxassetid://100233894637143",
+						LayoutOrder = 2,
+						Position = UDim2.fromScale(0.0527731, 0.00586313),
+						Size = UDim2.fromScale(0.876982, 0.40148),
+						ZIndex = 10,
 
-						Activated = function()
-							local newAutoSkip = not autoSkip()
-							autoSkip(newAutoSkip)
-							if SettingsClient then
-								SettingsClient.ApplySetting("AutoSkip", newAutoSkip)
-							end
-						end,
+						create("TextLabel")({
+							Name = "Title",
+							BackgroundTransparency = 1,
+							FontFace = Font.new("rbxasset://fonts/families/FredokaOne.json"),
+							Position = UDim2.fromScale(0.0336405, 0.142266),
+							Size = UDim2.fromScale(0.494039, 0.290134),
+							Text = "Trade enable",
+							TextColor3 = Color3.new(1, 1, 1),
+							TextScaled = true,
+							TextXAlignment = Enum.TextXAlignment.Left,
 
-						useButtonEffect(0.9, 1.1),
-
-						create("UIAspectRatioConstraint")({
-							Name = "UIAspectRatioConstraint",
-						}),
-					}),
-				}),
-
-				-- Trade Enable Toggle
-				create("ImageLabel")({
-					Name = "SettingSubFrame",
-					BackgroundTransparency = 1,
-					Image = "rbxassetid://100233894637143",
-					LayoutOrder = 2,
-					Position = UDim2.fromScale(0.0527731, 0.00586313),
-					Size = UDim2.fromScale(0.876982, 0.40148),
-					ZIndex = 10,
-
-					create("TextLabel")({
-						Name = "Title",
-						BackgroundTransparency = 1,
-						FontFace = Font.new("rbxasset://fonts/families/FredokaOne.json"),
-						Position = UDim2.fromScale(0.0336405, 0.142266),
-						Size = UDim2.fromScale(0.494039, 0.290134),
-						Text = "Trade enable",
-						TextColor3 = Color3.new(1, 1, 1),
-						TextScaled = true,
-						TextXAlignment = Enum.TextXAlignment.Left,
-
-						create("UIStroke")({
-							Name = "UIStroke",
-						}),
-					}),
-
-					create("UIAspectRatioConstraint")({
-						Name = "UIAspectRatioConstraint",
-						AspectRatio = 4.8,
-					}),
-
-					create("TextLabel")({
-						Name = "Description",
-						BackgroundTransparency = 1,
-						FontFace = Font.new("rbxasset://fonts/families/FredokaOne.json"),
-						Position = UDim2.fromScale(0.0336404, 0.424292),
-						Size = UDim2.fromScale(0.459675, 0.276873),
-						Text = "Turn on/off Trade in Games.",
-						TextColor3 = Color3.new(1, 1, 1),
-						TextScaled = true,
-						TextXAlignment = Enum.TextXAlignment.Left,
-
-						create("UIStroke")({
-							Name = "UIStroke",
-						}),
-
-						create("UIGradient")({
-							Name = "UIGradient",
-							Color = ColorSequence.new({
-								ColorSequenceKeypoint.new(0, Color3.fromRGB(167, 167, 167)),
-								ColorSequenceKeypoint.new(1, Color3.fromRGB(167, 167, 167)),
+							create("UIStroke")({
+								Name = "UIStroke",
 							}),
 						}),
-					}),
-
-					create("ImageButton")({
-						Name = "TradeToggle",
-						AnchorPoint = Vector2.new(0.5, 0.5),
-						BackgroundTransparency = 1,
-						Image = function()
-							return if trade() then ICON_ON else ICON_OFF
-						end,
-						Position = UDim2.fromScale(0.910334, 0.492328),
-						Size = UDim2.fromScale(0.122286, 0.594306),
-						ZIndex = 12,
-
-						Activated = function()
-							local newTrade = not trade()
-							trade(newTrade)
-							if SettingsClient then
-								SettingsClient.ApplySetting("Trade", newTrade)
-							end
-						end,
-
-						useButtonEffect(0.9, 1.1),
 
 						create("UIAspectRatioConstraint")({
 							Name = "UIAspectRatioConstraint",
+							AspectRatio = 4.8,
+						}),
+
+						create("TextLabel")({
+							Name = "Description",
+							BackgroundTransparency = 1,
+							FontFace = Font.new("rbxasset://fonts/families/FredokaOne.json"),
+							Position = UDim2.fromScale(0.0336404, 0.424292),
+							Size = UDim2.fromScale(0.459675, 0.276873),
+							Text = "Turn on/off Trade in Games.",
+							TextColor3 = Color3.new(1, 1, 1),
+							TextScaled = true,
+							TextXAlignment = Enum.TextXAlignment.Left,
+
+							create("UIStroke")({
+								Name = "UIStroke",
+							}),
+
+							create("UIGradient")({
+								Name = "UIGradient",
+								Color = ColorSequence.new({
+									ColorSequenceKeypoint.new(0, Color3.fromRGB(167, 167, 167)),
+									ColorSequenceKeypoint.new(1, Color3.fromRGB(167, 167, 167)),
+								}),
+							}),
+						}),
+
+						create("ImageButton")({
+							Name = "TradeToggle",
+							AnchorPoint = Vector2.new(0.5, 0.5),
+							BackgroundTransparency = 1,
+							Image = function()
+								return if trade() then ICON_ON else ICON_OFF
+							end,
+							Position = UDim2.fromScale(0.910334, 0.492328),
+							Size = UDim2.fromScale(0.122286, 0.594306),
+							ZIndex = 12,
+
+							Activated = function()
+								local newTrade = not trade()
+								trade(newTrade)
+								if SettingsClient then
+									SettingsClient.ApplySetting("Trade", newTrade)
+								end
+							end,
+
+							useButtonEffect(0.9, 1.1),
+
+							create("UIAspectRatioConstraint")({
+								Name = "UIAspectRatioConstraint",
+							}),
 						}),
 					}),
 				}),

@@ -1,9 +1,8 @@
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
-local RunService = game:GetService("RunService")
-local TweenService = game:GetService("TweenService")
 
 local Vide = require(ReplicatedStorage.Packages.Vide)
+local useMenuMotion = require(ReplicatedStorage.Shared.Modules.UI.Hooks.useMenuMotion)
 local ServiceRegistry = require(ReplicatedStorage.Shared.Modules.Core.ServiceRegistry)
 local useButtonEffect = require(ReplicatedStorage.Shared.Modules.UI.Hooks.useButtonEffect)
 local TouchZone = require(ReplicatedStorage.Shared.Modules.Utils.TouchZone)
@@ -31,8 +30,6 @@ local cutsceneSFX
 local bookTurnSFX
 
 local VIEW_ID = "Summon"
-local ENTER_DURATION = 0.42
-local EXIT_DURATION = 0.18
 local ONE_PULL_COST = SummonConfig.Prices[1]
 local TEN_PULL_COST = SummonConfig.Prices[10]
 local BANNER_TIMER_DURATION = SummonConfig.BannerTimerDuration
@@ -574,12 +571,6 @@ function SummonUI.Summon(number: number)
 			return
 		end
 
-		-- The server also pushes OwnedTowersAdded, but a refresh here makes the
-		-- inventory deterministic even if that event arrives before UI startup.
-		InventoryClient.RefreshTowers():catch(function(err)
-			warn(`[SummonUI] Failed to refresh units after summon: {err}`)
-		end)
-
 		local pulledUnits = result.PulledUnits
 		if type(pulledUnits) == "table" and #pulledUnits > 0 then
 			isProbabilityOpen(false)
@@ -601,6 +592,13 @@ function SummonUI.Summon(number: number)
 				end,
 			}
 			local pauseFrames = {}
+
+			-- Start the cutscene immediately; inventory synchronization can happen in parallel.
+			task.spawn(function()
+				InventoryClient.RefreshTowers():catch(function(err)
+					warn(`[SummonUI] Failed to refresh units after summon: {err}`)
+				end)
+			end)
 
 			for resultIndex = 1, math.min(#pulledUnits, #RESULT_REVEAL_FRAMES) do
 				local capturedIndex = resultIndex
@@ -656,10 +654,9 @@ function SummonUI.Summon(number: number)
 end
 
 function SummonUI.RenderUI()
-	local isMounted = source(false)
-	local motion = source(0)
-	local reveal = source(0)
-	local opacity = source(0)
+	local menuMotion = useMenuMotion(isOpen, function()
+		return UIController:GetActiveView()
+	end)
 
 	local openSFX = useAudio({
 		Id = UISFX.SummonOpen.Id,
@@ -707,55 +704,13 @@ function SummonUI.RenderUI()
 	end)
 
 	effect(function()
-		local shouldOpen = isOpen()
-		if not shouldOpen then
+		if not isOpen() then
 			isProbabilityOpen(false)
 		end
-		if not shouldOpen and not untrack(isMounted) then
-			return
-		end
-
-		-- Resume from the current frame when a transition is interrupted.
-		-- Disconnecting the previous animation also prevents a stale close from hiding a reopened window.
-		local startMotion = untrack(motion)
-		local startReveal = untrack(reveal)
-		local startOpacity = untrack(opacity)
-		local target = if shouldOpen then 1 else 0
-		local duration = if shouldOpen then ENTER_DURATION else EXIT_DURATION
-		local elapsed = 0
-		isMounted(true)
-
-		local connection: RBXScriptConnection
-		connection = RunService.RenderStepped:Connect(function(deltaTime)
-			elapsed += deltaTime
-			local progress = math.min(elapsed / duration, 1)
-			local eased = TweenService:GetValue(
-				progress,
-				if shouldOpen then Enum.EasingStyle.Back else Enum.EasingStyle.Quad,
-				if shouldOpen then Enum.EasingDirection.Out else Enum.EasingDirection.In
-			)
-			motion(startMotion + (target - startMotion) * eased)
-			reveal(startReveal + (target - startReveal) * progress)
-			local fade = if shouldOpen then math.min(elapsed / 0.14, 1) else progress
-			opacity(startOpacity + (target - startOpacity) * fade)
-
-			if progress == 1 then
-				connection:Disconnect()
-				isMounted(shouldOpen)
-			end
-		end)
-		cleanup(connection)
 	end)
 
-	local function stagger(delay: number): () -> number
-		return function()
-			local progress = math.clamp((reveal() * ENTER_DURATION - delay) / (ENTER_DURATION - delay), 0, 1)
-			return TweenService:GetValue(progress, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
-		end
-	end
-	local headerReveal = stagger(0.025)
-	local ornamentReveal = stagger(0.06)
-	local footerReveal = stagger(0.1)
+	local contentReveal = menuMotion:Spring(1, 0, "Content")
+	local footerReveal = menuMotion:Spring(1, 0, "Action")
 	local ratesTransparency = spring(function()
 		return if isOpen() and isProbabilityOpen() then 0 else 1
 	end, 0.2, 0.9)
@@ -769,14 +724,12 @@ function SummonUI.RenderUI()
 		BackgroundTransparency = 1,
 		Position = UDim2.fromScale(0.5, 0.5),
 		Size = UDim2.fromScale(1, 1),
-		GroupTransparency = function()
-			return 1 - opacity()
-		end,
+		GroupTransparency = menuMotion.Transparency,
 		Interactable = function()
 			return isOpen() and not isCutscenePlaying()
 		end,
 		Visible = function()
-			return isMounted() and not isCutscenePlaying()
+			return menuMotion.IsMounted() and not isCutscenePlaying()
 		end,
 
 		create("ImageLabel")({
@@ -784,19 +737,9 @@ function SummonUI.RenderUI()
 			AnchorPoint = Vector2.new(0.5, 0.5),
 			BackgroundTransparency = 1,
 			Image = MAIN_IMAGE,
-			Position = function()
-				return UDim2.fromScale(0.5, 0.5 + 0.06 * (1 - motion()))
-			end,
-			Rotation = function()
-				return -4 * (1 - motion())
-			end,
-			Size = UDim2.fromScale(0.721698, 0.668872),
-
-			create("UIScale")({
-				Scale = function()
-					return 0.88 + 0.12 * motion()
-				end,
-			}),
+			Position = UDim2.fromScale(0.5, 0.5),
+			Rotation = menuMotion:WindowRotation(),
+			Size = menuMotion:WindowSize(UDim2.fromScale(0.721698, 0.668872)),
 
 			create("UIAspectRatioConstraint")({
 				AspectRatio = 1.88,
@@ -806,9 +749,7 @@ function SummonUI.RenderUI()
 				Name = "Header",
 				BackgroundTransparency = 1,
 				Image = HEADER_IMAGE,
-				Position = function()
-					return UDim2.fromScale(-0.0573612 - 0.065 * (1 - headerReveal()), -0.111321)
-				end,
+				Position = menuMotion:HeaderPosition(UDim2.fromScale(-0.0573612, -0.111321)),
 				Size = UDim2.fromScale(0.692821, 0.28349),
 				ZIndex = 10,
 
@@ -818,14 +759,12 @@ function SummonUI.RenderUI()
 
 				create("ImageLabel")({
 					Name = "Helmet",
-					AnchorPoint = Vector2.new(0, 0),
+					AnchorPoint = Vector2.new(0.5, 0.5),
 					BackgroundTransparency = 1,
 					Image = HELMET_IMAGE,
-					Rotation = function()
-						return -18 * (1 - ornamentReveal())
-					end,
-					Position = UDim2.fromScale(0.0623672, 0.17661),
-					Size = UDim2.fromScale(0.125872, 0.58156),
+					Rotation = menuMotion:IconRotation(),
+					Position = UDim2.fromScale(0.1253032, 0.46739),
+					Size = menuMotion:IconSize(UDim2.fromScale(0.125872, 0.58156)),
 
 					create("UIAspectRatioConstraint")({}),
 				}),
@@ -834,12 +773,8 @@ function SummonUI.RenderUI()
 					Name = "Cloud",
 					BackgroundTransparency = 1,
 					Image = CLOUD_IMAGE,
-					Position = function()
-						return UDim2.fromScale(0.529887 - 0.15 * (1 - ornamentReveal()), 0.0551715)
-					end,
-					ImageTransparency = function()
-						return 1 - ornamentReveal()
-					end,
+					Position = menuMotion:CloudPosition(UDim2.fromScale(0.529887, 0.0551715)),
+					ImageTransparency = menuMotion:Fade(),
 					Size = UDim2.fromScale(0.537766, 1.06417),
 
 					create("UIAspectRatioConstraint")({
@@ -854,9 +789,7 @@ function SummonUI.RenderUI()
 					Position = UDim2.fromScale(0.265238, 0.435573),
 					Size = UDim2.fromScale(0.283423, 0.290134),
 					Text = "SUMMON",
-					TextTransparency = function()
-						return 1 - headerReveal()
-					end,
+					TextTransparency = menuMotion:Fade(),
 					TextColor3 = Color3.new(1, 1, 1),
 					TextScaled = true,
 					TextXAlignment = Enum.TextXAlignment.Left,
@@ -866,12 +799,8 @@ function SummonUI.RenderUI()
 					Name = "Sword",
 					BackgroundTransparency = 1,
 					Image = SWORD_IMAGE,
-					Rotation = function()
-						return -24 * (1 - ornamentReveal())
-					end,
-					Position = function()
-						return UDim2.fromScale(0.01, -0.312 - 0.15 * (1 - ornamentReveal()))
-					end,
+					Rotation = menuMotion:Spring(0, -24, "IconRotation"),
+					Position = menuMotion:Spring(UDim2.fromScale(0.01, -0.312), UDim2.fromScale(0.01, -0.462), "Header"),
 					Size = UDim2.fromScale(0.251814, 1.53914),
 
 					create("UIAspectRatioConstraint")({
@@ -881,11 +810,11 @@ function SummonUI.RenderUI()
 			}),
 
 			create("ImageButton")({
-				Name = "CancelButton",
+				Name = "CancelButton", Rotation = menuMotion:CloseRotation(),
 				AnchorPoint = Vector2.new(0.5, 0.5),
 				BackgroundTransparency = 1,
 				Image = CLOSE_IMAGE,
-				Position = UDim2.fromScale(0.980096, 0.0289194),
+				Position = menuMotion:ClosePosition(UDim2.fromScale(0.980096, 0.0289194)),
 				Size = UDim2.fromScale(0.102144, 0.15458),
 
 				Activated = function()
@@ -893,7 +822,7 @@ function SummonUI.RenderUI()
 					UIController:Close(VIEW_ID)
 				end,
 
-				useButtonEffect(0.88, 1.08),
+				useButtonEffect(nil, 1.1, true),
 
 				create("UIAspectRatioConstraint")({}),
 			}),
@@ -912,9 +841,9 @@ function SummonUI.RenderUI()
 					VerticalAlignment = Enum.VerticalAlignment.Center,
 				}),
 
-				createUnitCard(FEATURED_RARITIES[1], 1, stagger(0.045)),
-				createUnitCard(FEATURED_RARITIES[2], 2, stagger(0.085)),
-				createUnitCard(FEATURED_RARITIES[3], 3, stagger(0.125)),
+				createUnitCard(FEATURED_RARITIES[1], 1, contentReveal),
+				createUnitCard(FEATURED_RARITIES[2], 2, contentReveal),
+				createUnitCard(FEATURED_RARITIES[3], 3, contentReveal),
 			}),
 
 			createPurchaseButton("PurchaseButton", 1, "SUMMON", ONE_PULL_COST, function()
@@ -1005,7 +934,7 @@ function SummonUI.RenderUI()
 				GroupTransparency = ratesTransparency,
 				Interactable = isProbabilityOpen,
 				Visible = function()
-					return isMounted() and (isProbabilityOpen() or ratesTransparency() < 0.995)
+					return menuMotion.IsMounted() and (isProbabilityOpen() or ratesTransparency() < 0.995)
 				end,
 				Position = spring(function()
 					return if isProbabilityOpen() then UDim2.fromScale(0.78, 0.475) else UDim2.fromScale(0.82, 0.475)

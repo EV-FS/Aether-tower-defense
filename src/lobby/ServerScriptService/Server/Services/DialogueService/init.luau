@@ -2,8 +2,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Net = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Net"))
 local NpcDialogueData = require(ReplicatedStorage:WaitForChild("Settings"):WaitForChild("Data"):WaitForChild("NpcDialogueData"))
-local ServiceRegistry = require(ReplicatedStorage.Shared.Modules.Core.ServiceRegistry)
-
+local QuestData = require(ReplicatedStorage.Settings.Data.QuestData)
 local DialogueService = {}
 local QuestService
 local DataService
@@ -58,10 +57,16 @@ function DialogueService.HandleChoice(player, data)
 
 	-- WanderingMerchant 퀘스트 분기 동적 처리
 	if data.NpcId == "WanderingMerchant" then
+		local npcQuests = QuestData.QueryNpc(data.NpcId)
+		local questConfig = npcQuests[1]
+		local questId = questConfig and questConfig.Id
+		if not questId then
+			return
+		end
 		if nextId == "Quest_Check" and QuestService and DataService then
 			local playerData = DataService:GetData(player)
 			local quests = playerData and playerData.Quests or {}
-			local quest = quests["BlossomCollector"]
+			local quest = quests[questId]
 
 			if not quest or (not quest.Active and not quest.Claimed) then
 				nextId = "Quest_Check"
@@ -73,9 +78,9 @@ function DialogueService.HandleChoice(player, data)
 				nextId = "Quest_AlreadyDone"
 			end
 		elseif nextId == "Quest_Accepted" and QuestService then
-			QuestService.AcceptQuest(player, "BlossomCollector")
+			QuestService.AcceptQuest(player, questId)
 		elseif nextId == "Quest_Completed" and QuestService then
-			QuestService.ClaimQuest(player, "BlossomCollector")
+			QuestService.ClaimQuest(player, questId)
 		end
 	end
 

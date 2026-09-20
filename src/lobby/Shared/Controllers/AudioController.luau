@@ -7,11 +7,18 @@ local RunService = game:GetService("RunService")
 local InstanceCache = require(ReplicatedStorage.Shared.Modules.Core.InstanceCache)
 
 --/Variables
-local Caches = workspace:WaitForChild("Caches")
-local DeviceOutput = SoundService:WaitForChild("AudioDeviceOutput") or Instance.new("AudioDeviceOutput")
+local Caches = workspace:FindFirstChild("Caches") or Instance.new("Folder")
+Caches.Name = "Caches"
+Caches.Parent = workspace
+
+-- These objects are client-owned infrastructure. Waiting indefinitely for a
+-- server copy here can stall every controller that is loaded after audio.
+local DeviceOutput = SoundService:FindFirstChild("AudioDeviceOutput") or Instance.new("AudioDeviceOutput")
+DeviceOutput.Name = "AudioDeviceOutput"
 DeviceOutput.Parent = SoundService
 
-local AudioFolder = SoundService:WaitForChild("Audio") or Instance.new("Folder")
+local AudioFolder = SoundService:FindFirstChild("Audio") or Instance.new("Folder")
+AudioFolder.Name = "Audio"
 AudioFolder.Parent = SoundService
 
 --/Constants
@@ -297,7 +304,12 @@ function AudioController.PlayOn3D(
 end
 
 function AudioController.SetBGMState(playing: boolean?, volume: number?, newBGMId)
-	local bgmSound: Sound = SoundService:WaitForChild("BGM")
+	local bgmSound = SoundService:FindFirstChild("BGM") :: Sound?
+	if not bgmSound then
+		bgmSound = Instance.new("Sound")
+		bgmSound.Name = "BGM"
+		bgmSound.Parent = SoundService
+	end
 	if newBGMId then
 		newBGMId = typeof(newBGMId) == "string" and newBGMId or `rbxassetid://{newBGMId}`
 		bgmSound.TimePosition = 0
@@ -317,10 +329,12 @@ function AudioController.SetBGMState(playing: boolean?, volume: number?, newBGMI
 end
 
 function AudioController.Init()
-	PlayerStorage = InstanceCache.new(Instance.new("AudioPlayer"), 30, Caches)
-	EmitterStorage = InstanceCache.new(Instance.new("AudioEmitter"), 30, Caches)
-	WireStorage = InstanceCache.new(Instance.new("Wire"), 60, Caches)
-	FaderStorage = InstanceCache.new(Instance.new("AudioFader"), 30, Caches)
+	-- Pools grow automatically. A small warm pool removes a large allocation
+	-- spike from the loading screen without changing peak capacity.
+	PlayerStorage = InstanceCache.new(Instance.new("AudioPlayer"), 6, Caches)
+	EmitterStorage = InstanceCache.new(Instance.new("AudioEmitter"), 4, Caches)
+	WireStorage = InstanceCache.new(Instance.new("Wire"), 12, Caches)
+	FaderStorage = InstanceCache.new(Instance.new("AudioFader"), 4, Caches)
 
 	setupAudioListener()
 	workspace:GetPropertyChangedSignal("CurrentCamera"):Connect(setupAudioListener)

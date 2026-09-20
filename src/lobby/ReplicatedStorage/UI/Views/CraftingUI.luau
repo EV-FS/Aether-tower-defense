@@ -1,6 +1,7 @@
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Vide = require(ReplicatedStorage.Packages.Vide)
+local useMenuMotion = require(ReplicatedStorage.Shared.Modules.UI.Hooks.useMenuMotion)
 local CraftRecipes = require(ReplicatedStorage.Settings.Data.CraftRecipes)
 local ItemData = require(ReplicatedStorage.Settings.Data.ItemData)
 local RarityGradient = require(ReplicatedStorage.Settings.Visuals.RarityGradient)
@@ -340,6 +341,9 @@ end
 
 function CraftingUI.RenderUI()
 	local isVisible = UIController:IsVisible(VIEW_ID)
+	local menuMotion = useMenuMotion(isVisible, function()
+		return UIController:GetActiveView()
+	end)
 	local cards = {}
 	local informationPanels = {}
 	for index, recipeKey in recipeKeys do
@@ -347,41 +351,50 @@ function CraftingUI.RenderUI()
 		table.insert(informationPanels, recipeInformation(recipeKey))
 	end
 
-	return create("Frame")({
-		Name = "CraftingContainer",
+	return create("CanvasGroup")({
+		Name = "CraftingContainer", GroupTransparency = menuMotion.Transparency, Interactable = isVisible,
 		AnchorPoint = Vector2.new(0.5, 0.5),
 		BackgroundTransparency = 1,
 		Position = UDim2.fromScale(0.5, 0.5),
 		Size = UDim2.fromScale(0.753032, 1),
-		Visible = isVisible,
+		Visible = menuMotion.IsMounted,
 		create("ImageLabel")({
-			Name = "Main",
+			Name = "Main", Rotation = menuMotion:WindowRotation(), AnchorPoint = Vector2.new(0.5, 0),
 			BackgroundTransparency = 1,
 			Image = "rbxassetid://140081374666771",
-			Position = spring(function() return if isVisible() then UDim2.fromScale(0.13799, 0.20195) else UDim2.fromScale(0.13799, 0.24) end, 0.5, 0.82),
-			Size = spring(function() return if isVisible() then UDim2.fromScale(0.721698, 0.668872) else UDim2.fromScale(0.68, 0.63) end, 0.5, 0.72),
+			Position = UDim2.fromScale(0.498839, 0.20195),
+			Size = menuMotion:WindowSize(UDim2.fromScale(0.721698, 0.668872)),
 			create("ImageLabel")({
 				Name = "Header", BackgroundTransparency = 1, Image = "rbxassetid://86877608635653",
-				Position = spring(function() return if isVisible() then UDim2.fromScale(-0.0573612, -0.111321) else UDim2.fromScale(-0.12, -0.111321) end, 0.55, 0.8),
+				Position = menuMotion:HeaderPosition(UDim2.fromScale(-0.0573612, -0.111321)),
 				Size = UDim2.fromScale(0.692821, 0.28349), ZIndex = 10,
-				create("ImageLabel")({ Name = "Icon", BackgroundTransparency = 1, Image = "rbxassetid://137141565690695", Position = UDim2.fromScale(0.023, 0.153), Size = UDim2.fromScale(0.230035, 0.720816), create("UIAspectRatioConstraint")({ AspectRatio = 1.42 }) }),
-				create("ImageLabel")({ Name = "Cloud", BackgroundTransparency = 1, Image = "rbxassetid://128371081570035", Position = UDim2.fromScale(0.529887, 0.0551715), Size = UDim2.fromScale(0.537766, 1.06417), create("UIAspectRatioConstraint")({ AspectRatio = 2.16 }) }),
-				create("TextLabel")({ Name = "Title", BackgroundTransparency = 1, FontFace = Font.new("rbxasset://fonts/families/FredokaOne.json"), Position = UDim2.fromScale(0.265238, 0.435573), Size = UDim2.fromScale(0.354292, 0.290134), Text = "CRAFTING", TextColor3 = Color3.new(1, 1, 1), TextScaled = true, TextXAlignment = Enum.TextXAlignment.Left }),
+				create("ImageLabel")({ Name = "Icon", Rotation = menuMotion:IconRotation(), AnchorPoint = Vector2.new(0.5, 0.5), BackgroundTransparency = 1, Image = "rbxassetid://137141565690695", Position = UDim2.fromScale(0.1380175, 0.513408), Size = menuMotion:IconSize(UDim2.fromScale(0.230035, 0.720816)), create("UIAspectRatioConstraint")({ AspectRatio = 1.42 }) }),
+				create("ImageLabel")({ Name = "Cloud", ImageTransparency = menuMotion:Fade(), BackgroundTransparency = 1, Image = "rbxassetid://128371081570035", Position = menuMotion:CloudPosition(UDim2.fromScale(0.529887, 0.0551715)), Size = UDim2.fromScale(0.537766, 1.06417), create("UIAspectRatioConstraint")({ AspectRatio = 2.16 }) }),
+				create("TextLabel")({ Name = "Title", TextTransparency = menuMotion:Fade(), BackgroundTransparency = 1, FontFace = Font.new("rbxasset://fonts/families/FredokaOne.json"), Position = UDim2.fromScale(0.265238, 0.435573), Size = UDim2.fromScale(0.354292, 0.290134), Text = "CRAFTING", TextColor3 = Color3.new(1, 1, 1), TextScaled = true, TextXAlignment = Enum.TextXAlignment.Left }),
 				create("UIAspectRatioConstraint")({ AspectRatio = 4.53 }),
 			}),
 			create("UIAspectRatioConstraint")({ AspectRatio = 1.88 }),
-			create("ImageButton")({ Name = "CancelButton", AnchorPoint = Vector2.new(0.5, 0.5), AutoButtonColor = false, BackgroundTransparency = 1, Image = "rbxassetid://92651860309635", Position = UDim2.fromScale(0.980096, 0.0289194), Rotation = spring(function() return if isVisible() then 0 else -1080 end, 0.7, 0.7), Size = UDim2.fromScale(0.102144, 0.15458), Activated = function() UIController:Close(VIEW_ID) end, useButtonEffect(nil, 1.1), create("UIAspectRatioConstraint")({}) }),
+			create("ImageButton")({ Name = "CancelButton", AnchorPoint = Vector2.new(0.5, 0.5), AutoButtonColor = false, BackgroundTransparency = 1, Image = "rbxassetid://92651860309635", Position = menuMotion:ClosePosition(UDim2.fromScale(0.980096, 0.0289194)), Rotation = menuMotion:CloseRotation(), Size = UDim2.fromScale(0.102144, 0.15458), Activated = function() UIController:Close(VIEW_ID) end, useButtonEffect(nil, 1.1), create("UIAspectRatioConstraint")({}) }),
 			create("ImageLabel")({
-				Name = "Searchbox", BackgroundTransparency = 1, Image = "rbxassetid://110042619462357", Position = UDim2.fromScale(0.0311001, 0.157864), Size = UDim2.fromScale(0.345239, 0.0911058),
+				Name = "Searchbox", BackgroundTransparency = 1, Image = "rbxassetid://110042619462357", Position = UDim2.fromScale(0.0311001, 0.157864), Size = menuMotion:SearchSize(UDim2.fromScale(0.345239, 0.0911058)),
 				create("TextBox")({ Name = "TextBox", BackgroundTransparency = 1, ClearTextOnFocus = false, FontFace = Font.new("rbxasset://fonts/families/FredokaOne.json"), PlaceholderText = "SEARCH...", Position = UDim2.fromScale(0.0270247, 0.0962657), Size = UDim2.fromScale(0.942547, 0.775506), Text = searchQuery, TextColor3 = Color3.fromRGB(125, 125, 125), TextSize = 14, changed("Text", function(value: string) searchQuery(value) end) }),
 			}),
-			create("ScrollingFrame")({
-				Name = "Items", Active = true, AutomaticCanvasSize = Enum.AutomaticSize.Y, AnchorPoint = Vector2.new(0.5, 0.5), BackgroundTransparency = 1, CanvasSize = UDim2.new(), Position = UDim2.fromScale(0.2, 0.604), ScrollBarThickness = 0, Size = UDim2.fromScale(0.352309, 0.690162),
-				create("UIPadding")({ PaddingBottom = UDim.new(0, 6), PaddingLeft = UDim.new(0, 6), PaddingRight = UDim.new(0, 6), PaddingTop = UDim.new(0, 6) }),
-				create("UIListLayout")({ FillDirection = Enum.FillDirection.Horizontal, Padding = UDim.new(0, 7), SortOrder = Enum.SortOrder.LayoutOrder, Wraps = true }),
-				unpack(cards),
+			create("CanvasGroup")({
+				Name = "ItemsClip",
+				BackgroundTransparency = 1,
+				ClipsDescendants = true,
+				AnchorPoint = Vector2.new(0.5, 0.5),
+				Position = UDim2.fromScale(0.2, 0.604),
+				Size = UDim2.fromScale(0.352309, 0.690162),
+				ZIndex = 1,
+				create("ScrollingFrame")({
+					Name = "Items", Active = true, AutomaticCanvasSize = Enum.AutomaticSize.Y, AnchorPoint = Vector2.new(0, 0), BackgroundTransparency = 1, CanvasSize = UDim2.new(), Position = UDim2.fromScale(0, 0), ScrollBarThickness = 0, Size = UDim2.fromScale(1, 1),
+					create("UIPadding")({ PaddingBottom = UDim.new(0, 6), PaddingLeft = UDim.new(0, 6), PaddingRight = UDim.new(0, 6), PaddingTop = UDim.new(0, 6) }),
+					create("UIListLayout")({ FillDirection = Enum.FillDirection.Horizontal, Padding = UDim.new(0, 7), SortOrder = Enum.SortOrder.LayoutOrder, Wraps = true }),
+					unpack(cards),
+				}),
 			}),
-			create("ImageLabel")({ Name = "Information", BackgroundTransparency = 1, Image = "rbxassetid://100386829313680", Position = UDim2.fromScale(0.387762, 0.157864), Size = UDim2.fromScale(0.579556, 0.79063), unpack(informationPanels) }),
+			create("ImageLabel")({ Name = "Information", BackgroundTransparency = 1, Image = "rbxassetid://100386829313680", Position = menuMotion:Spring(UDim2.fromScale(0.387762, 0.157864), UDim2.fromScale(0.387762, 0.157864) + UDim2.fromScale(0.028999, 0), "Detail"), Size = UDim2.fromScale(0.579556, 0.79063), unpack(informationPanels) }),
 			create("ImageButton")({ Name = "PlusButton", AnchorPoint = Vector2.new(0.5, 0.5), AutoButtonColor = false, BackgroundTransparency = 1, Image = "rbxassetid://81723758791115", Position = UDim2.fromScale(0.574838, 0.868508), Size = UDim2.fromScale(0.0582918, 0.118359), ZIndex = 6, Activated = function() craftAmount(math.min(craftAmount() + 1, 99)); statusText("") end, useButtonEffect(0.92, 1.08), create("UIAspectRatioConstraint")({}) }),
 			create("ImageButton")({ Name = "MinusButton", AnchorPoint = Vector2.new(0.5, 0.5), AutoButtonColor = false, BackgroundTransparency = 1, Image = "rbxassetid://117612042912132", Position = UDim2.fromScale(0.638593, 0.868508), Size = UDim2.fromScale(0.0582918, 0.118359), ZIndex = 6, Activated = function() craftAmount(math.max(craftAmount() - 1, 1)); statusText("") end, useButtonEffect(0.92, 1.08), create("UIAspectRatioConstraint")({}) }),
 			create("TextLabel")({ Name = "Status", BackgroundTransparency = 1, FontFace = Font.new("rbxasset://fonts/families/FredokaOne.json"), Position = UDim2.fromScale(0.39, 0.944), Size = UDim2.fromScale(0.56, 0.04), Text = statusText, TextColor3 = Color3.new(1, 1, 1), TextScaled = true, create("UIStroke")({ Thickness = 2 }) }),

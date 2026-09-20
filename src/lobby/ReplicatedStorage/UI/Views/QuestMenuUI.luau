@@ -1,6 +1,7 @@
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Vide = require(ReplicatedStorage.Packages.Vide)
+local useMenuMotion = require(ReplicatedStorage.Shared.Modules.UI.Hooks.useMenuMotion)
 local QuestData = require(ReplicatedStorage.Settings.Data.QuestData)
 local UISFX = require(ReplicatedStorage.Settings.Visuals.UISFX)
 local ServiceRegistry = require(ReplicatedStorage.Shared.Modules.Core.ServiceRegistry)
@@ -20,7 +21,7 @@ local VIEW_ID = "Quest"
 
 local selectedCategory = source("GUIDE")
 local selectedQuestIndex = source(1)
-local pinnedQuestKey = source("Chapter1Clear" :: string?)
+local pinnedQuestKeys = source({ Chapter1Clear = 1 } :: { [string]: number })
 
 local isLast = false
 
@@ -31,10 +32,7 @@ type QuestDisplay = {
 	Current: number,
 	Target: number,
 	Progress: string,
-	RewardName: string,
-	RewardQuantity: string,
-	RewardText: string,
-	TextOnlyReward: boolean,
+	Rewards: { [string]: number },
 }
 
 local EMPTY_QUEST: QuestDisplay = {
@@ -44,27 +42,8 @@ local EMPTY_QUEST: QuestDisplay = {
 	Current = 0,
 	Target = 1,
 	Progress = "",
-	RewardName = "",
-	RewardQuantity = "",
-	RewardText = "",
-	TextOnlyReward = false,
+	Rewards = {},
 }
-
-local function formatRewards(rewards): (string, string, string)
-	local names = {}
-	local amounts = {}
-	local summary = {}
-	for _, rewardName in ipairs({ "Coins", "Gems", "Exp" }) do
-		local amount = rewards[rewardName]
-		if type(amount) == "number" and amount > 0 then
-			local displayName = if rewardName == "Exp" then "EXP" else string.upper(rewardName)
-			table.insert(names, displayName)
-			table.insert(amounts, tostring(amount))
-			table.insert(summary, `{amount} {displayName}`)
-		end
-	end
-	return table.concat(names, " / "), table.concat(amounts, " / "), table.concat(summary, "  |  ")
-end
 
 local function getQuestState(questId: string, config)
 	local state = if DataClient then DataClient.Quests()[questId] else nil
@@ -85,7 +64,7 @@ end
 local function getCategoryQuests(category: string): { QuestDisplay }
 	local displays = {}
 	local playerQuests = if DataClient then DataClient.Quests() else {}
-	for questId, config in QuestData do
+	for questId, config in QuestData.ById do
 		local state = playerQuests[questId] or getQuestState(questId, config)
 		if
 			config.Theme == category
@@ -94,7 +73,6 @@ local function getCategoryQuests(category: string): { QuestDisplay }
 			and not state.Claimed
 		then
 			local current = math.clamp(tonumber(state.Progress) or 0, 0, config.TargetAmount)
-			local rewardName, rewardQuantity, rewardText = formatRewards(config.Rewards)
 			table.insert(displays, {
 				Id = questId,
 				Title = config.Title,
@@ -102,10 +80,7 @@ local function getCategoryQuests(category: string): { QuestDisplay }
 				Current = current,
 				Target = config.TargetAmount,
 				Progress = `({current}/{config.TargetAmount})`,
-				RewardName = rewardName,
-				RewardQuantity = rewardQuantity,
-				RewardText = rewardText,
-				TextOnlyReward = questId == "Chapter1Clear",
+				Rewards = config.Rewards,
 			})
 		end
 	end
@@ -124,22 +99,61 @@ local function getQuestKey(index: number): string?
 	return if questId ~= "" then questId else nil
 end
 
-function QuestMenuUI.GetPinnedQuest(): (QuestDisplay?, string?)
-	local key = pinnedQuestKey()
-	if not key then
+local function getQuestById(questId: string): (QuestDisplay?, string?)
+	local config = QuestData.Get(questId)
+	local state = config and getQuestState(questId, config)
+	if not config or not state or not (state.Active or state.Completed) or state.Claimed then
 		return nil, nil
 	end
 
-	local config = QuestData[key]
-	local state = config and getQuestState(key, config)
-	if config and state and (state.Active or state.Completed) and not state.Claimed then
-		for _, quest in getCategoryQuests(config.Theme) do
-			if quest.Id == key then
-				return quest, config.Theme
-			end
+	for _, quest in getCategoryQuests(config.Theme) do
+		if quest.Id == questId then
+			return quest, config.Theme
 		end
 	end
 	return nil, nil
+end
+
+function QuestMenuUI.GetPinnedQuestKeys()
+	return pinnedQuestKeys
+end
+
+function QuestMenuUI.GetQuestById(questId: string): (QuestDisplay?, string?)
+	return getQuestById(questId)
+end
+
+function QuestMenuUI.GetPinnedQuest(): (QuestDisplay?, string?)
+	local firstKey: string? = nil
+	local firstOrder = math.huge
+	for questId, order in pinnedQuestKeys() do
+		if order < firstOrder and getQuestById(questId) ~= nil then
+			firstKey = questId
+			firstOrder = order
+		end
+	end
+	if firstKey then
+		return getQuestById(firstKey)
+	end
+	return nil, nil
+end
+
+function QuestMenuUI.HasPinnedQuests(): boolean
+	for questId in pinnedQuestKeys() do
+		if getQuestById(questId) ~= nil then
+			return true
+		end
+	end
+	return false
+end
+
+function QuestMenuUI.UnpinQuest(questId: string)
+	local current = pinnedQuestKeys()
+	if not current[questId] then
+		return
+	end
+	local nextPinned = table.clone(current)
+	nextPinned[questId] = nil
+	pinnedQuestKeys(nextPinned)
 end
 
 local function selectCategory(category: string)
@@ -158,7 +172,7 @@ local function createCategoryButton(category: string)
 		AutoButtonColor = false,
 		BackgroundTransparency = 1,
 		Image = "rbxassetid://139274506988816",
-		Size = UDim2.fromScale(0.0941507, 0.710921),
+		Size = UDim2.fromScale(0.235, 0.78),
 
 		Activated = function()
 			selectCategory(category)
@@ -201,12 +215,133 @@ local function createCategoryButton(category: string)
 			end,
 		}),
 		create("UICorner")({ Name = "UICorner" }),
-		create("UIAspectRatioConstraint")({ Name = "UIAspectRatioConstraint", AspectRatio = 3.9 }),
+
+	})
+end
+
+local REWARD_ICONS = {
+	Coins = "rbxassetid://117112996963807",
+	Gems = "rbxassetid://104268323693949",
+}
+
+local function createRewardCard(getDisplay: () -> QuestDisplay, rewardName: string, layoutOrder: number)
+	local displayName = if rewardName == "Exp" then "EXP" else string.upper(rewardName)
+	local icon = REWARD_ICONS[rewardName]
+
+	return create("ImageLabel")({
+		Name = `{rewardName}Reward`,
+		BackgroundTransparency = 1,
+		Image = "rbxassetid://87496848270095",
+		LayoutOrder = layoutOrder,
+		Size = UDim2.fromScale(0.30, 0.92),
+		Visible = function()
+			return (getDisplay().Rewards[rewardName] or 0) > 0
+		end,
+
+		create("UIAspectRatioConstraint")({}),
+
+		if icon then create("ImageLabel")({
+			Name = "Icon",
+			BackgroundTransparency = 1,
+			Image = icon,
+			Position = UDim2.fromScale(0.1, 0.18),
+			ScaleType = Enum.ScaleType.Fit,
+			Size = UDim2.fromScale(0.8, 0.57),
+		}) else create("TextLabel")({
+			Name = "Icon",
+			BackgroundTransparency = 1,
+			FontFace = Font.new("rbxasset://fonts/families/FredokaOne.json"),
+			Position = UDim2.fromScale(0.1, 0.13),
+			Size = UDim2.fromScale(0.8, 0.55),
+			Text = "XP",
+			TextColor3 = Color3.fromRGB(98, 228, 255),
+			TextScaled = true,
+			create("UIStroke")({ Thickness = 2 }),
+		}),
+
+		create("ImageLabel")({
+			Name = "Quantity",
+			BackgroundTransparency = 1,
+			Image = "rbxassetid://104083646922843",
+			Position = UDim2.fromScale(0.02, 0.02),
+			Size = UDim2.fromScale(0.82, 0.24),
+			ZIndex = 10,
+
+			create("UIAspectRatioConstraint")({ AspectRatio = 3.2 }),
+			create("TextLabel")({
+				Name = "Amount",
+				AnchorPoint = Vector2.new(0.5, 0.5),
+				BackgroundTransparency = 1,
+				FontFace = Font.new(
+					"rbxasset://fonts/families/SourceSansPro.json",
+					Enum.FontWeight.Bold,
+					Enum.FontStyle.Normal
+				),
+				Position = UDim2.fromScale(0.48, 0.48),
+				Size = UDim2.fromScale(0.86, 0.82),
+				Text = function()
+					return tostring(getDisplay().Rewards[rewardName] or 0)
+				end,
+				TextColor3 = Color3.new(1, 1, 1),
+				TextScaled = true,
+				ZIndex = 11,
+				create("UIStroke")({ Thickness = 2 }),
+			}),
+		}),
+
+		create("TextLabel")({
+			Name = "Name",
+			BackgroundTransparency = 1,
+			FontFace = Font.new(
+				"rbxasset://fonts/families/SourceSansPro.json",
+				Enum.FontWeight.Bold,
+				Enum.FontStyle.Normal
+			),
+			Position = UDim2.fromScale(0.076, 0.73),
+			Size = UDim2.fromScale(0.85, 0.173),
+			Text = displayName,
+			TextColor3 = Color3.new(1, 1, 1),
+			TextScaled = true,
+			TextXAlignment = Enum.TextXAlignment.Left,
+			ZIndex = 10,
+			create("UIStroke")({ Thickness = 2 }),
+		}),
+
+		create("UIGradient")({
+			Color = ColorSequence.new({
+				ColorSequenceKeypoint.new(0, Color3.fromRGB(226, 88, 46)),
+				ColorSequenceKeypoint.new(1, Color3.fromRGB(255, 255, 30)),
+			}),
+			Rotation = 45,
+		}),
+	})
+end
+
+
+local function createRewardRow(getDisplay: () -> QuestDisplay, position: UDim2, size: UDim2)
+	return create("Frame")({
+		Name = "Rewards",
+		BackgroundTransparency = 1,
+		Position = position,
+		Size = size,
+		create("UIListLayout")({
+			FillDirection = Enum.FillDirection.Horizontal,
+			HorizontalAlignment = Enum.HorizontalAlignment.Left,
+			VerticalAlignment = Enum.VerticalAlignment.Center,
+			Padding = UDim.new(0.025, 0),
+			SortOrder = Enum.SortOrder.LayoutOrder,
+		}),
+		createRewardCard(getDisplay, "Coins", 1),
+		createRewardCard(getDisplay, "Gems", 2),
+		createRewardCard(getDisplay, "Exp", 3),
 	})
 end
 
 function QuestMenuUI.RenderUI()
 	local isVisible = UIController:IsVisible(VIEW_ID)
+	local menuMotion = useMenuMotion(isVisible, function()
+		return UIController:GetActiveView()
+	end)
 
 	local openSFX = useAudio({
 		Id = UISFX.QuestOpen.Id,
@@ -230,13 +365,145 @@ function QuestMenuUI.RenderUI()
 		if not key then
 			return
 		end
-		if pinnedQuestKey() == key then
-			pinnedQuestKey(nil)
+		local nextPinned = table.clone(pinnedQuestKeys())
+		if nextPinned[key] then
+			nextPinned[key] = nil
+			pinnedQuestKeys(nextPinned)
 			untrackSFX:Play()
 		else
-			pinnedQuestKey(key)
+			local nextOrder = 1
+			for _, order in nextPinned do
+				nextOrder = math.max(nextOrder, order + 1)
+			end
+			nextPinned[key] = nextOrder
+			pinnedQuestKeys(nextPinned)
 			trackSFX:Play()
 		end
+	end
+
+
+	local function createQuestCard(index: number)
+		local display = function()
+			return getQuest(index)
+		end
+		return create("ImageButton")({
+			Name = `Quest{index}`,
+			LayoutOrder = index,
+			AutoButtonColor = false,
+			BackgroundColor3 = Color3.fromRGB(255, 210, 52),
+			BackgroundTransparency = function()
+				return if selectedQuestIndex() == index then 0.42 else 1
+			end,
+			Image = "rbxassetid://103014172048487",
+			Size = UDim2.fromScale(0.95, 0.48),
+			create("UIAspectRatioConstraint")({
+				AspectRatio = 3.4,
+				AspectType = Enum.AspectType.ScaleWithParentSize,
+				DominantAxis = Enum.DominantAxis.Width,
+			}),
+			Visible = function()
+				return display().Id ~= ""
+			end,
+			ImageTransparency = function()
+				return if selectedQuestIndex() == index then 0 else 0.12
+			end,
+			ImageColor3 = function()
+				return if selectedQuestIndex() == index
+					then Color3.fromRGB(255, 215, 75)
+					else Color3.fromRGB(255, 255, 255)
+			end,
+			Activated = function()
+				selectedQuestIndex(index)
+			end,
+			create("UICorner")({ CornerRadius = UDim.new(0, 8) }),
+			create("UIStroke")({
+				ApplyStrokeMode = Enum.ApplyStrokeMode.Border,
+				Color = function()
+					return if selectedQuestIndex() == index
+						then Color3.fromRGB(255, 239, 139)
+						else Color3.fromRGB(65, 60, 78)
+				end,
+				Thickness = function()
+					return if selectedQuestIndex() == index then 3 else 1
+				end,
+			}),
+			create("TextLabel")({
+				Name = "Title",
+				BackgroundTransparency = 1,
+				FontFace = Font.new("rbxasset://fonts/families/FredokaOne.json"),
+				Position = UDim2.fromScale(0.04, 0.05),
+				Size = UDim2.fromScale(0.77, 0.18),
+				Text = function() return display().Title end,
+				TextColor3 = Color3.fromRGB(255, 236, 148),
+				TextScaled = true,
+				TextXAlignment = Enum.TextXAlignment.Left,
+				create("UIStroke")({ Thickness = 1.5 }),
+			}),
+			create("TextLabel")({
+				Name = "Description",
+				BackgroundTransparency = 1,
+				FontFace = Font.new("rbxasset://fonts/families/SourceSansPro.json", Enum.FontWeight.Bold),
+				Position = UDim2.fromScale(0.04, 0.25),
+				Size = UDim2.fromScale(0.91, 0.22),
+				Text = function() return display().Description end,
+				TextColor3 = Color3.new(1, 1, 1),
+				TextScaled = true,
+				TextWrapped = true,
+				TextXAlignment = Enum.TextXAlignment.Left,
+				create("UITextSizeConstraint")({ MaxTextSize = 18, MinTextSize = 8 }),
+				create("UIStroke")({ Thickness = 1 }),
+			}),
+			create("ImageButton")({
+				Name = "PinButton",
+				AnchorPoint = Vector2.new(1, 0),
+				Position = UDim2.fromScale(0.96, 0.05),
+				Size = UDim2.fromScale(0.09, 0.22),
+				BackgroundTransparency = 1,
+				Image = "rbxassetid://128325259577735",
+				ImageColor3 = function()
+					local key = getQuestKey(index)
+					return if key and pinnedQuestKeys()[key]
+						then Color3.fromRGB(255, 227, 75) else Color3.fromRGB(155, 155, 155)
+				end,
+				Activated = function()
+					selectedQuestIndex(index)
+					togglePinnedQuest(index)
+				end,
+				create("UIAspectRatioConstraint")({}),
+				useButtonEffect(0.94, 1.04),
+			}),
+			createRewardRow(display, UDim2.fromScale(0.04, 0.51), UDim2.fromScale(0.57, 0.44)),
+			create("TextLabel")({
+				Name = "Progress",
+				BackgroundTransparency = 1,
+				FontFace = Font.new("rbxasset://fonts/families/FredokaOne.json"),
+				Position = UDim2.fromScale(0.64, 0.60),
+				Size = UDim2.fromScale(0.30, 0.18),
+				Text = function() return display().Progress end,
+				TextColor3 = Color3.new(1, 1, 1),
+				TextScaled = true,
+				TextXAlignment = Enum.TextXAlignment.Right,
+				create("UIStroke")({ Thickness = 1.5 }),
+			}),
+			create("Frame")({
+				Name = "ProgressTrack",
+				BorderSizePixel = 0,
+				BackgroundColor3 = Color3.fromRGB(40, 35, 57),
+				Position = UDim2.fromScale(0.64, 0.83),
+				Size = UDim2.fromScale(0.30, 0.055),
+				create("UICorner")({ CornerRadius = UDim.new(0.5, 0) }),
+				create("Frame")({
+					Name = "Fill",
+					BorderSizePixel = 0,
+					BackgroundColor3 = Color3.fromRGB(162, 234, 89),
+					Size = function()
+						local quest = display()
+						return UDim2.fromScale(math.clamp(quest.Current / math.max(quest.Target, 1), 0, 1), 1)
+					end,
+					create("UICorner")({ CornerRadius = UDim.new(0.5, 0) }),
+				}),
+			}),
+		})
 	end
 
 	effect(function()
@@ -249,49 +516,37 @@ function QuestMenuUI.RenderUI()
 		end
 	end)
 
-	return create("Frame")({
-		Name = "Container",
+	return create("CanvasGroup")({
+		Name = "Container", GroupTransparency = menuMotion.Transparency, Interactable = isVisible,
 		AnchorPoint = Vector2.new(0.5, 0.5),
 		BackgroundTransparency = 1,
 		Position = UDim2.fromScale(0.5, 0.5),
 		Size = UDim2.fromScale(0.753032, 1),
-		Visible = isVisible,
+		Visible = menuMotion.IsMounted,
 
 		create("ImageLabel")({
-			Name = "Main",
+			Name = "Main", AnchorPoint = Vector2.new(0.5, 0),
 			BackgroundTransparency = 1,
 			Image = "rbxassetid://140081374666771",
-			Position = UDim2.fromScale(0.13799, 0.20195),
-			Rotation = spring(function()
-				return if isVisible() then 0 else -4
-			end, 0.5, 1),
-			Size = spring(function()
-				return if isVisible() then UDim2.fromScale(0.721698, 0.593865) else UDim2.fromScale(0.68, 0.56)
-			end, 0.5, 0.55),
+			Position = UDim2.fromScale(0.498839, 0.20195),
+			Rotation = menuMotion:WindowRotation(),
+			Size = menuMotion:WindowSize(UDim2.fromScale(0.721698, 0.593865)),
 
 			create("ImageLabel")({
 				Name = "Header",
 				BackgroundTransparency = 1,
 				Image = "rbxassetid://107093261949144",
-				Position = spring(function()
-					return if isVisible()
-						then UDim2.fromScale(-0.0573612, -0.111321)
-						else UDim2.fromScale(-0.12, -0.111321)
-				end, 0.5, 0.8),
+				Position = menuMotion:HeaderPosition(UDim2.fromScale(-0.0573612, -0.111321)),
 				Size = UDim2.fromScale(0.683091, 0.28349),
 				ZIndex = 10,
 
 				create("ImageLabel")({
-					Name = "Icon",
+					Name = "Icon", AnchorPoint = Vector2.new(0.5, 0.5),
 					BackgroundTransparency = 1,
 					Image = "rbxassetid://99846717806579",
-					Position = UDim2.fromScale(0.0250407, 0.0277501),
-					Rotation = spring(function()
-						return if isVisible() then 0 else -90
-					end, 0.5, 0.7),
-					Size = spring(function()
-						return if isVisible() then UDim2.fromScale(0.224464, 0.918458) else UDim2.fromScale(0.32, 1.25)
-					end, 0.5, 0.8),
+					Position = UDim2.fromScale(0.1372727, 0.4869791),
+					Rotation = menuMotion:IconRotation(),
+					Size = menuMotion:IconSize(UDim2.fromScale(0.224464, 0.918458)),
 
 					create("UIAspectRatioConstraint")({
 						Name = "UIAspectRatioConstraint",
@@ -302,14 +557,8 @@ function QuestMenuUI.RenderUI()
 					Name = "Cloud",
 					BackgroundTransparency = 1,
 					Image = "rbxassetid://128371081570035",
-					ImageTransparency = spring(function()
-						return if isVisible() then 0 else 1
-					end, 0.5, 1),
-					Position = spring(function()
-						return if isVisible()
-							then UDim2.fromScale(0.529887, 0.0551715)
-							else UDim2.fromScale(0.375, 0.0551715)
-					end, 0.7, 0.8),
+					ImageTransparency = menuMotion:Fade(),
+					Position = menuMotion:CloudPosition(UDim2.fromScale(0.529887, 0.0551715)),
 					Size = UDim2.fromScale(0.537766, 1.06417),
 
 					create("UIAspectRatioConstraint")({
@@ -327,9 +576,7 @@ function QuestMenuUI.RenderUI()
 					Text = "QUEST",
 					TextColor3 = Color3.new(1, 1, 1),
 					TextScaled = true,
-					TextTransparency = spring(function()
-						return if isVisible() then 0 else 1
-					end, 0.5, 1),
+					TextTransparency = menuMotion:Fade(),
 					TextXAlignment = Enum.TextXAlignment.Left,
 				}),
 
@@ -349,12 +596,8 @@ function QuestMenuUI.RenderUI()
 				AnchorPoint = Vector2.new(0.5, 0.5),
 				BackgroundTransparency = 1,
 				Image = "rbxassetid://92651860309635",
-				Position = spring(function()
-					return if isVisible() then UDim2.fromScale(0.980096, 0.0289194) else UDim2.fromScale(0.2, 0.0289194)
-				end, 1, 0.85),
-				Rotation = spring(function()
-					return if isVisible() then 0 else -1800
-				end, 1, 0.8),
+				Position = menuMotion:ClosePosition(UDim2.fromScale(0.980096, 0.0289194)),
+				Rotation = menuMotion:CloseRotation(),
 				Size = UDim2.fromScale(0.0822234, 0.15458),
 
 				Activated = function()
@@ -369,651 +612,37 @@ function QuestMenuUI.RenderUI()
 			}),
 
 			create("CanvasGroup")({
-				Name = "QuestsCanvasGroup",
-				AnchorPoint = Vector2.new(0.5, 0.5),
+				Name = "QuestsClip",
 				BackgroundTransparency = 1,
 				ClipsDescendants = true,
-				Position = spring(function()
-					return if isVisible() then UDim2.fromScale(0.355792, 0.622506) else UDim2.fromScale(0.31, 0.622506)
-				end, 0.5, 0.8),
-				-- Leave a real gap for the pin button instead of letting it clip into
-				-- the Information panel on the right.
-				Size = UDim2.fromScale(0.635, 0.633252),
-
+				AnchorPoint = Vector2.new(0, 0),
+				Position = UDim2.fromScale(0.04, 0.31),
+				Size = UDim2.fromScale(0.615, 0.63),
+				ZIndex = 1,
 				create("ScrollingFrame")({
-					Name = "Quests",
-					Active = true,
+					Name = "Quests", AnchorPoint = Vector2.new(0, 0),
 					BackgroundTransparency = 1,
-					ClipsDescendants = true,
-					ScrollBarImageColor3 = Color3.new(),
-					ScrollBarThickness = 0,
+					BorderSizePixel = 0,
+					Position = UDim2.fromScale(0, 0),
 					Size = UDim2.fromScale(1, 1),
-
-				create("UIListLayout")({
-					Name = "UIListLayout",
-					HorizontalAlignment = Enum.HorizontalAlignment.Center,
-					Padding = UDim.new(0.01, 0),
-					SortOrder = Enum.SortOrder.LayoutOrder,
+					CanvasSize = UDim2.fromScale(0, 0),
+					AutomaticCanvasSize = Enum.AutomaticSize.Y,
+					ScrollingDirection = Enum.ScrollingDirection.Y,
+					ScrollBarThickness = 3,
+					ScrollBarImageColor3 = Color3.fromRGB(255, 225, 130),
+					ClipsDescendants = true,
+					create("UIPadding")({
+						PaddingTop = UDim.new(0, 4),
+						PaddingBottom = UDim.new(0, 4),
+					}),
+					create("UIListLayout")({
+						HorizontalAlignment = Enum.HorizontalAlignment.Center,
+						Padding = UDim.new(0, 8),
+						SortOrder = Enum.SortOrder.LayoutOrder,
+					}),
+					createQuestCard(1),
+					createQuestCard(2),
 				}),
-
-				create("ImageButton")({
-					Name = "Quest",
-					AutoButtonColor = false,
-					BackgroundTransparency = 1,
-					Image = "rbxassetid://103014172048487",
-					Position = UDim2.fromScale(0.0475516, 0),
-					Size = UDim2.fromScale(0.949, 0.16),
-					Visible = function()
-						return getQuest(1).Id ~= ""
-					end,
-					ImageTransparency = function()
-						return if selectedQuestIndex() == 1 then 0 else 0.12
-					end,
-					Activated = function()
-						selectedQuestIndex(1)
-					end,
-					useButtonEffect(0.985, 1.012),
-
-					create("TextLabel")({
-						Name = "Title",
-						BackgroundTransparency = 1,
-						FontFace = Font.new("rbxasset://fonts/families/FredokaOne.json"),
-						Position = UDim2.fromScale(0.0212704, 0.047321),
-						Size = UDim2.fromScale(0.485076, 0.191573),
-						Text = selectedCategory,
-						TextColor3 = Color3.new(1, 1, 1),
-						TextScaled = true,
-						TextXAlignment = Enum.TextXAlignment.Left,
-
-						create("UIStroke")({
-							Name = "UIStroke",
-							Thickness = 3,
-						}),
-
-						create("UIGradient")({
-							Name = "UIGradient",
-							Color = ColorSequence.new({
-								ColorSequenceKeypoint.new(0, Color3.fromRGB(85, 255, 47)),
-								ColorSequenceKeypoint.new(1, Color3.fromRGB(172, 255, 39)),
-							}),
-							Rotation = 90,
-						}),
-					}),
-
-					create("TextLabel")({
-						Name = "Description",
-						BackgroundTransparency = 1,
-						FontFace = Font.new("rbxasset://fonts/families/FredokaOne.json"),
-						Position = UDim2.fromScale(0.0192173, 0.263003),
-						Size = UDim2.fromScale(0.770465, 0.149422),
-						Text = function()
-							return getQuest(1).Description
-						end,
-						TextColor3 = Color3.new(1, 1, 1),
-						TextScaled = true,
-						TextXAlignment = Enum.TextXAlignment.Left,
-
-						create("UIStroke")({
-							Name = "UIStroke",
-							Thickness = 2,
-						}),
-
-						create("UIGradient")({
-							Name = "UIGradient",
-							Rotation = 90,
-						}),
-					}),
-
-					create("ImageButton")({
-						Name = "PinButton",
-						AnchorPoint = Vector2.new(0.5, 0.5),
-						BackgroundColor3 = function()
-							return if pinnedQuestKey() == getQuestKey(1)
-								then Color3.fromRGB(255, 213, 35)
-								else Color3.fromRGB(91, 91, 91)
-						end,
-						BackgroundTransparency = 0,
-						Image = "rbxassetid://128325259577735",
-						ImageColor3 = function()
-							return if pinnedQuestKey() == getQuestKey(1)
-								then Color3.fromRGB(255, 241, 84)
-								else Color3.fromRGB(91, 91, 91)
-						end,
-						Position = UDim2.fromScale(0.934471, 0.193828),
-						Size = UDim2.fromScale(0.228367, 0.249376),
-						Activated = function()
-							selectedQuestIndex(1)
-							togglePinnedQuest(1)
-						end,
-						useButtonEffect(0.9, 1.08),
-
-						create("UIStroke")({
-							Name = "UIStroke",
-						}),
-
-						create("UIAspectRatioConstraint")({
-							Name = "UIAspectRatioConstraint",
-						}),
-
-						create("UICorner")({
-							Name = "UICorner",
-							BottomLeftRadius = UDim.new(0, 5),
-							BottomRightRadius = UDim.new(0, 5),
-							TopLeftRadius = UDim.new(0, 5),
-							TopRightRadius = UDim.new(0, 5),
-						}),
-					}),
-
-					create("CanvasGroup")({
-						Name = "RewardCanvasGroup",
-						BackgroundTransparency = 1,
-						ClipsDescendants = true,
-						Position = UDim2.fromScale(0.024, 0.55),
-						Size = UDim2.fromScale(0.949939, 0.428425),
-
-						create("ScrollingFrame")({
-							Name = "ScrollingFrame",
-							Active = true,
-							BackgroundTransparency = 1,
-							CanvasSize = UDim2.fromScale(2, 0),
-							ClipsDescendants = true,
-							ScrollBarImageColor3 = Color3.new(),
-							ScrollBarThickness = 0,
-							Size = UDim2.fromScale(1, 1),
-							Visible = function()
-								return not getQuest(1).TextOnlyReward
-							end,
-
-						create("ImageButton")({
-							Name = "ImageButton",
-							BackgroundTransparency = 1,
-							Image = "rbxassetid://87496848270095",
-							LayoutOrder = 6,
-							Position = UDim2.fromScale(7.53632e-08, 0),
-							Size = UDim2.fromScale(0.126464, 1.03237),
-
-							useButtonEffect(0.94, 1.04),
-
-							create("ViewportFrame")({
-								Name = "ViewportFrame",
-								BackgroundTransparency = 1,
-								Position = UDim2.fromScale(0.11, 0.102),
-								Size = UDim2.fromScale(0.784, 0.781),
-								ZIndex = 5,
-							}),
-
-							create("CanvasGroup")({
-								Name = "CanvasGroup",
-								AnchorPoint = Vector2.new(0.5, 0.5),
-								BackgroundTransparency = 1,
-								Position = UDim2.fromScale(0.489217, 0.489218),
-								Size = UDim2.fromScale(0.935304, 0.935304),
-
-								create("LocalScript")({
-									Name = "LocalScript",
-								}),
-							}),
-
-							create("UIGradient")({
-								Name = "UIGradient",
-								Color = ColorSequence.new({
-									ColorSequenceKeypoint.new(0, Color3.fromRGB(69, 154, 69)),
-									ColorSequenceKeypoint.new(1, Color3.fromRGB(34, 128, 154)),
-								}),
-								Rotation = 45,
-							}),
-
-							create("UIAspectRatioConstraint")({
-								Name = "UIAspectRatioConstraint",
-							}),
-
-							create("ImageLabel")({
-								Name = "Quantity",
-								BackgroundTransparency = 1,
-								Image = "rbxassetid://104083646922843",
-								Position = UDim2.fromScale(-0.0129994, -0.05),
-								Size = UDim2.fromScale(0.653434, 0.238322),
-								ZIndex = 10,
-
-								create("UIAspectRatioConstraint")({
-									Name = "UIAspectRatioConstraint",
-									AspectRatio = 3.2,
-								}),
-
-								create("TextLabel")({
-									Name = "TextLabel",
-									AnchorPoint = Vector2.new(0.5, 0.5),
-									BackgroundTransparency = 1,
-									FontFace = Font.new(
-										"rbxasset://fonts/families/SourceSansPro.json",
-										Enum.FontWeight.Bold,
-										Enum.FontStyle.Normal
-									),
-									Position = UDim2.fromScale(0.364926, 0.399472),
-									Size = UDim2.fromScale(0.607627, 0.888569),
-									Text = function()
-										return getQuest(1).RewardQuantity
-									end,
-									TextColor3 = Color3.new(1, 1, 1),
-									TextScaled = true,
-
-									create("UIStroke")({
-										Name = "UIStroke",
-										Thickness = 2,
-									}),
-
-									create("UIGradient")({
-										Name = "UIGradient",
-										Color = ColorSequence.new({
-											ColorSequenceKeypoint.new(0, Color3.new(1, 1, 1)),
-											ColorSequenceKeypoint.new(1, Color3.fromRGB(188, 188, 255)),
-										}),
-										Rotation = 90,
-									}),
-								}),
-							}),
-
-							create("TextLabel")({
-								Name = "Name",
-								BackgroundTransparency = 1,
-								FontFace = Font.new(
-									"rbxasset://fonts/families/SourceSansPro.json",
-									Enum.FontWeight.Bold,
-									Enum.FontStyle.Normal
-								),
-								Position = UDim2.fromScale(0.076095, 0.730419),
-								Size = UDim2.fromScale(0.84887, 0.172688),
-								Text = function()
-									return getQuest(1).RewardName
-								end,
-								TextColor3 = Color3.new(1, 1, 1),
-								TextScaled = true,
-								TextXAlignment = Enum.TextXAlignment.Left,
-								ZIndex = 10,
-
-								create("UIStroke")({
-									Name = "UIStroke",
-									Thickness = 2,
-								}),
-							}),
-						}),
-
-							create("UIListLayout")({
-								Name = "UIListLayout",
-								SortOrder = Enum.SortOrder.LayoutOrder,
-							}),
-						}),
-
-						create("TextLabel")({
-							Name = "RewardText",
-							BackgroundTransparency = 1,
-							FontFace = Font.new(
-								"rbxasset://fonts/families/SourceSansPro.json",
-								Enum.FontWeight.Bold,
-								Enum.FontStyle.Normal
-							),
-							Size = UDim2.fromScale(0.96, 1),
-							Text = function()
-								return getQuest(1).RewardText
-							end,
-							TextColor3 = Color3.fromRGB(255, 239, 128),
-							TextScaled = true,
-							TextWrapped = true,
-							Visible = function()
-								return getQuest(1).TextOnlyReward
-							end,
-
-							create("UIStroke")({
-								Color = Color3.fromRGB(65, 48, 24),
-								Thickness = 2,
-							}),
-						}),
-					}),
-
-					create("TextLabel")({
-						Name = "Description",
-						BackgroundTransparency = 1,
-						FontFace = Font.new("rbxasset://fonts/families/FredokaOne.json"),
-						Position = UDim2.fromScale(0.661288, 0.372631),
-						Size = UDim2.fromScale(0.316076, 0.149422),
-						Text = function()
-							return getQuest(1).Progress
-						end,
-						TextColor3 = Color3.fromRGB(161, 161, 161),
-						TextScaled = true,
-						TextXAlignment = Enum.TextXAlignment.Right,
-
-						create("UIStroke")({
-							Name = "UIStroke",
-							Thickness = 2,
-						}),
-
-						create("UIGradient")({
-							Name = "UIGradient",
-							Rotation = 90,
-						}),
-					}),
-
-					create("UIGradient")({
-						Name = "UIGradient",
-						Color = function()
-							local color = if pinnedQuestKey() == getQuestKey(1)
-								then Color3.fromRGB(255, 241, 84)
-								else Color3.fromRGB(91, 91, 91)
-							return ColorSequence.new(color)
-						end,
-					}),
-				}),
-
-				create("ImageButton")({
-					Name = "Quest",
-					AutoButtonColor = false,
-					BackgroundTransparency = 1,
-					Image = "rbxassetid://103014172048487",
-					Position = UDim2.fromScale(0.0475516, 0),
-					Size = UDim2.fromScale(0.949, 0.16),
-					Visible = function()
-						return getQuest(2).Id ~= ""
-					end,
-					ImageTransparency = function()
-						return if selectedQuestIndex() == 2 then 0 else 0.12
-					end,
-					Activated = function()
-						selectedQuestIndex(2)
-					end,
-					useButtonEffect(0.985, 1.012),
-
-					create("TextLabel")({
-						Name = "Title",
-						BackgroundTransparency = 1,
-						FontFace = Font.new("rbxasset://fonts/families/FredokaOne.json"),
-						Position = UDim2.fromScale(0.0212704, 0.047321),
-						Size = UDim2.fromScale(0.485076, 0.191573),
-						Text = selectedCategory,
-						TextColor3 = Color3.new(1, 1, 1),
-						TextScaled = true,
-						TextXAlignment = Enum.TextXAlignment.Left,
-
-						create("UIStroke")({
-							Name = "UIStroke",
-							Thickness = 3,
-						}),
-
-						create("UIGradient")({
-							Name = "UIGradient",
-							Color = ColorSequence.new({
-								ColorSequenceKeypoint.new(0, Color3.fromRGB(85, 255, 47)),
-								ColorSequenceKeypoint.new(1, Color3.fromRGB(172, 255, 39)),
-							}),
-							Rotation = 90,
-						}),
-					}),
-
-					create("TextLabel")({
-						Name = "Description",
-						BackgroundTransparency = 1,
-						FontFace = Font.new("rbxasset://fonts/families/FredokaOne.json"),
-						Position = UDim2.fromScale(0.0192173, 0.263003),
-						Size = UDim2.fromScale(0.770465, 0.149422),
-						Text = function()
-							return getQuest(2).Description
-						end,
-						TextColor3 = Color3.new(1, 1, 1),
-						TextScaled = true,
-						TextXAlignment = Enum.TextXAlignment.Left,
-
-						create("UIStroke")({
-							Name = "UIStroke",
-							Thickness = 2,
-						}),
-
-						create("UIGradient")({
-							Name = "UIGradient",
-							Rotation = 90,
-						}),
-					}),
-
-					create("ImageButton")({
-						Name = "PinButton",
-						AnchorPoint = Vector2.new(0.5, 0.5),
-						BackgroundColor3 = function()
-							return if pinnedQuestKey() == getQuestKey(2)
-								then Color3.fromRGB(255, 213, 35)
-								else Color3.fromRGB(91, 91, 91)
-						end,
-						BackgroundTransparency = 0,
-						Image = "rbxassetid://128325259577735",
-						ImageColor3 = function()
-							return if pinnedQuestKey() == getQuestKey(2)
-								then Color3.fromRGB(255, 241, 84)
-								else Color3.fromRGB(91, 91, 91)
-						end,
-						Position = UDim2.fromScale(0.934471, 0.193828),
-						Size = UDim2.fromScale(0.228367, 0.249376),
-						Activated = function()
-							selectedQuestIndex(2)
-							togglePinnedQuest(2)
-						end,
-						useButtonEffect(0.9, 1.08),
-
-						create("UIStroke")({
-							Name = "UIStroke",
-						}),
-
-						create("UIAspectRatioConstraint")({
-							Name = "UIAspectRatioConstraint",
-						}),
-
-						create("UICorner")({
-							Name = "UICorner",
-							BottomLeftRadius = UDim.new(0, 5),
-							BottomRightRadius = UDim.new(0, 5),
-							TopLeftRadius = UDim.new(0, 5),
-							TopRightRadius = UDim.new(0, 5),
-						}),
-					}),
-
-					create("CanvasGroup")({
-						Name = "RewardCanvasGroup",
-						BackgroundTransparency = 1,
-						ClipsDescendants = true,
-						Position = UDim2.fromScale(0.024, 0.55),
-						Size = UDim2.fromScale(0.949939, 0.428425),
-
-						create("ScrollingFrame")({
-							Name = "ScrollingFrame",
-							Active = true,
-							BackgroundTransparency = 1,
-							CanvasSize = UDim2.fromScale(2, 0),
-							ClipsDescendants = true,
-							ScrollBarImageColor3 = Color3.new(),
-							ScrollBarThickness = 0,
-							Size = UDim2.fromScale(1, 1),
-							Visible = function()
-								return not getQuest(2).TextOnlyReward
-							end,
-
-						create("ImageButton")({
-							Name = "ImageButton",
-							BackgroundTransparency = 1,
-							Image = "rbxassetid://87496848270095",
-							LayoutOrder = 6,
-							Position = UDim2.fromScale(7.53632e-08, 0),
-							Size = UDim2.fromScale(0.126464, 1.03237),
-
-							useButtonEffect(0.94, 1.04),
-
-							create("ViewportFrame")({
-								Name = "ViewportFrame",
-								BackgroundTransparency = 1,
-								Position = UDim2.fromScale(0.11, 0.102),
-								Size = UDim2.fromScale(0.784, 0.781),
-								ZIndex = 5,
-							}),
-
-							create("CanvasGroup")({
-								Name = "CanvasGroup",
-								AnchorPoint = Vector2.new(0.5, 0.5),
-								BackgroundTransparency = 1,
-								Position = UDim2.fromScale(0.489217, 0.489218),
-								Size = UDim2.fromScale(0.935304, 0.935304),
-
-								create("LocalScript")({
-									Name = "LocalScript",
-								}),
-							}),
-
-							create("UIGradient")({
-								Name = "UIGradient",
-								Color = ColorSequence.new({
-									ColorSequenceKeypoint.new(0, Color3.fromRGB(69, 154, 69)),
-									ColorSequenceKeypoint.new(1, Color3.fromRGB(34, 128, 154)),
-								}),
-								Rotation = 45,
-							}),
-
-							create("UIAspectRatioConstraint")({
-								Name = "UIAspectRatioConstraint",
-							}),
-
-							create("ImageLabel")({
-								Name = "Quantity",
-								BackgroundTransparency = 1,
-								Image = "rbxassetid://104083646922843",
-								Position = UDim2.fromScale(-0.0129994, -0.05),
-								Size = UDim2.fromScale(0.653434, 0.238322),
-								ZIndex = 10,
-
-								create("UIAspectRatioConstraint")({
-									Name = "UIAspectRatioConstraint",
-									AspectRatio = 3.2,
-								}),
-
-								create("TextLabel")({
-									Name = "TextLabel",
-									AnchorPoint = Vector2.new(0.5, 0.5),
-									BackgroundTransparency = 1,
-									FontFace = Font.new(
-										"rbxasset://fonts/families/SourceSansPro.json",
-										Enum.FontWeight.Bold,
-										Enum.FontStyle.Normal
-									),
-									Position = UDim2.fromScale(0.364926, 0.399472),
-									Size = UDim2.fromScale(0.607627, 0.888569),
-									Text = function()
-										return getQuest(2).RewardQuantity
-									end,
-									TextColor3 = Color3.new(1, 1, 1),
-									TextScaled = true,
-
-									create("UIStroke")({
-										Name = "UIStroke",
-										Thickness = 2,
-									}),
-
-									create("UIGradient")({
-										Name = "UIGradient",
-										Color = ColorSequence.new({
-											ColorSequenceKeypoint.new(0, Color3.new(1, 1, 1)),
-											ColorSequenceKeypoint.new(1, Color3.fromRGB(188, 188, 255)),
-										}),
-										Rotation = 90,
-									}),
-								}),
-							}),
-
-							create("TextLabel")({
-								Name = "Name",
-								BackgroundTransparency = 1,
-								FontFace = Font.new(
-									"rbxasset://fonts/families/SourceSansPro.json",
-									Enum.FontWeight.Bold,
-									Enum.FontStyle.Normal
-								),
-								Position = UDim2.fromScale(0.076095, 0.730419),
-								Size = UDim2.fromScale(0.84887, 0.172688),
-								Text = function()
-									return getQuest(2).RewardName
-								end,
-								TextColor3 = Color3.new(1, 1, 1),
-								TextScaled = true,
-								TextXAlignment = Enum.TextXAlignment.Left,
-								ZIndex = 10,
-
-								create("UIStroke")({
-									Name = "UIStroke",
-									Thickness = 2,
-								}),
-							}),
-						}),
-
-							create("UIListLayout")({
-								Name = "UIListLayout",
-								SortOrder = Enum.SortOrder.LayoutOrder,
-							}),
-						}),
-
-						create("TextLabel")({
-							Name = "RewardText",
-							BackgroundTransparency = 1,
-							FontFace = Font.new(
-								"rbxasset://fonts/families/SourceSansPro.json",
-								Enum.FontWeight.Bold,
-								Enum.FontStyle.Normal
-							),
-							Size = UDim2.fromScale(0.96, 1),
-							Text = function()
-								return getQuest(2).RewardText
-							end,
-							TextColor3 = Color3.fromRGB(255, 239, 128),
-							TextScaled = true,
-							TextWrapped = true,
-							Visible = function()
-								return getQuest(2).TextOnlyReward
-							end,
-
-							create("UIStroke")({
-								Color = Color3.fromRGB(65, 48, 24),
-								Thickness = 2,
-							}),
-						}),
-					}),
-
-					create("TextLabel")({
-						Name = "Description",
-						BackgroundTransparency = 1,
-						FontFace = Font.new("rbxasset://fonts/families/FredokaOne.json"),
-						Position = UDim2.fromScale(0.661288, 0.372631),
-						Size = UDim2.fromScale(0.316076, 0.149422),
-						Text = function()
-							return getQuest(2).Progress
-						end,
-						TextColor3 = Color3.fromRGB(161, 161, 161),
-						TextScaled = true,
-						TextXAlignment = Enum.TextXAlignment.Right,
-
-						create("UIStroke")({
-							Name = "UIStroke",
-							Thickness = 2,
-						}),
-
-						create("UIGradient")({
-							Name = "UIGradient",
-							Rotation = 90,
-						}),
-					}),
-
-					create("UIGradient")({
-						Name = "UIGradient",
-						Color = function()
-							local color = if pinnedQuestKey() == getQuestKey(2)
-								then Color3.fromRGB(255, 241, 84)
-								else Color3.fromRGB(91, 91, 91)
-							return ColorSequence.new(color)
-						end,
-					}),
-				}),
-			}),
 			}),
 
 			-- Match UnitUI's empty search result: centered, independent of the
@@ -1024,8 +653,14 @@ function QuestMenuUI.RenderUI()
 				BackgroundTransparency = 1,
 				FontFace = Font.new("rbxasset://fonts/families/FredokaOne.json"),
 				Position = UDim2.fromScale(0.355792, 0.48),
-				Size = UDim2.fromScale(0.46, 0.064),
-				Text = "NO QUESTS FOUND",
+				Size = UDim2.fromScale(0.50, 0.14),
+				Text = function()
+					return if selectedCategory() == "EVENT"
+						then "NO ACTIVE EVENT QUESTS\nTalk to the Wandering Merchant."
+						else "NO QUESTS FOUND"
+				end,
+				TextWrapped = true,
+				create("UITextSizeConstraint")({ MaxTextSize = 20, MinTextSize = 8 }),
 				TextColor3 = Color3.fromRGB(218, 218, 226),
 				TextScaled = true,
 				Visible = function()
@@ -1043,16 +678,16 @@ function QuestMenuUI.RenderUI()
 				Name = "CategoryCanvasGroup",
 				BackgroundTransparency = 1,
 				ClipsDescendants = true,
-				Position = spring(function()
-					return if isVisible() then UDim2.fromScale(0.04044, 0.16577) else UDim2.fromScale(0.04044, 0.1)
-				end, 0.55, 0.75),
+				Position = menuMotion:Spring(UDim2.fromScale(0.04044, 0.16577), UDim2.fromScale(0.04044, 0.1), "Content"),
 				Size = UDim2.fromScale(0.609926, 0.127536),
 
 				create("ScrollingFrame")({
 					Name = "Category",
 					Active = true,
 					BackgroundTransparency = 1,
-					CanvasSize = UDim2.fromScale(2, 0),
+					CanvasSize = UDim2.fromScale(0, 0),
+					ScrollingEnabled = false,
+					BorderSizePixel = 0,
 					ClipsDescendants = true,
 					ScrollBarImageColor3 = Color3.new(),
 					ScrollBarThickness = 0,
@@ -1077,9 +712,7 @@ function QuestMenuUI.RenderUI()
 				Name = "Information",
 				BackgroundTransparency = 1,
 				Image = "rbxassetid://86773350223025",
-				Position = spring(function()
-					return if isVisible() then UDim2.fromScale(0.674872, 0.184204) else UDim2.fromScale(0.74, 0.184204)
-				end, 0.55, 0.78),
+				Position = menuMotion:Spring(UDim2.fromScale(0.674872, 0.184204), UDim2.fromScale(0.74, 0.184204), "Content"),
 				Size = UDim2.fromScale(0.300221, 0.76429),
 
 				create("ImageLabel")({
@@ -1116,13 +749,14 @@ function QuestMenuUI.RenderUI()
 					BackgroundTransparency = 1,
 					FontFace = Font.new("rbxasset://fonts/families/FredokaOne.json"),
 					Position = UDim2.fromScale(0.0483644, 0.185836),
-					Size = UDim2.fromScale(0.916066, 0.290032),
+					Size = UDim2.fromScale(0.90, 0.38),
 					Text = function()
 						local quest = getQuest(selectedQuestIndex())
 						return if quest.Id ~= "" then quest.Description else "SELECT A QUEST TO VIEW ITS DETAILS"
 					end,
 					TextColor3 = Color3.new(1, 1, 1),
-					TextSize = 14,
+					TextScaled = true,
+					create("UITextSizeConstraint")({ MaxTextSize = 19, MinTextSize = 8 }),
 					TextWrapped = true,
 					TextXAlignment = Enum.TextXAlignment.Left,
 					TextYAlignment = Enum.TextYAlignment.Top,
@@ -1148,173 +782,10 @@ function QuestMenuUI.RenderUI()
 					}),
 				}),
 
-				create("CanvasGroup")({
-					Name = "RewardCanvasGroup",
-					BackgroundTransparency = 1,
-					ClipsDescendants = true,
-					Position = UDim2.fromScale(0.0239999, 0.760075),
-					Size = UDim2.fromScale(0.949939, 0.209524),
+				createRewardRow(function()
+					return getQuest(selectedQuestIndex())
+				end, UDim2.fromScale(0.04, 0.74), UDim2.fromScale(0.92, 0.22)),
 
-					create("ScrollingFrame")({
-						Name = "ScrollingFrame",
-						Active = true,
-						BackgroundTransparency = 1,
-						CanvasSize = UDim2.fromScale(2, 0),
-						ClipsDescendants = true,
-						ScrollBarImageColor3 = Color3.new(),
-						ScrollBarThickness = 0,
-						Size = UDim2.fromScale(1, 1),
-						Visible = function()
-							return not getQuest(selectedQuestIndex()).TextOnlyReward
-						end,
-
-					create("ImageButton")({
-						Name = "ImageButton",
-						BackgroundTransparency = 1,
-						Image = "rbxassetid://87496848270095",
-						LayoutOrder = 6,
-						Position = UDim2.fromScale(7.53632e-08, 0),
-						Size = UDim2.fromScale(0.126464, 1.03237),
-
-						useButtonEffect(0.94, 1.04),
-
-						create("ViewportFrame")({
-							Name = "ViewportFrame",
-							BackgroundTransparency = 1,
-							Position = UDim2.fromScale(0.11, 0.102),
-							Size = UDim2.fromScale(0.784, 0.781),
-							ZIndex = 5,
-						}),
-
-						create("CanvasGroup")({
-							Name = "CanvasGroup",
-							AnchorPoint = Vector2.new(0.5, 0.5),
-							BackgroundTransparency = 1,
-							Position = UDim2.fromScale(0.489217, 0.489218),
-							Size = UDim2.fromScale(0.935304, 0.935304),
-
-							create("LocalScript")({
-								Name = "LocalScript",
-							}),
-						}),
-
-						create("UIGradient")({
-							Name = "UIGradient",
-							Color = ColorSequence.new({
-								ColorSequenceKeypoint.new(0, Color3.fromRGB(69, 154, 69)),
-								ColorSequenceKeypoint.new(1, Color3.fromRGB(34, 128, 154)),
-							}),
-							Rotation = 45,
-						}),
-
-						create("UIAspectRatioConstraint")({
-							Name = "UIAspectRatioConstraint",
-						}),
-
-						create("ImageLabel")({
-							Name = "Quantity",
-							BackgroundTransparency = 1,
-							Image = "rbxassetid://104083646922843",
-							Position = UDim2.fromScale(-0.0129994, -0.05),
-							Size = UDim2.fromScale(0.653434, 0.238322),
-							ZIndex = 10,
-
-							create("UIAspectRatioConstraint")({
-								Name = "UIAspectRatioConstraint",
-								AspectRatio = 3.2,
-							}),
-
-							create("TextLabel")({
-								Name = "TextLabel",
-								AnchorPoint = Vector2.new(0.5, 0.5),
-								BackgroundTransparency = 1,
-								FontFace = Font.new(
-									"rbxasset://fonts/families/SourceSansPro.json",
-									Enum.FontWeight.Bold,
-									Enum.FontStyle.Normal
-								),
-								Position = UDim2.fromScale(0.364926, 0.399472),
-								Size = UDim2.fromScale(0.607627, 0.888569),
-								Text = function()
-									return getQuest(selectedQuestIndex()).RewardQuantity
-								end,
-								TextColor3 = Color3.new(1, 1, 1),
-								TextScaled = true,
-
-								create("UIStroke")({
-									Name = "UIStroke",
-									Thickness = 2,
-								}),
-
-								create("UIGradient")({
-									Name = "UIGradient",
-									Color = ColorSequence.new({
-										ColorSequenceKeypoint.new(0, Color3.new(1, 1, 1)),
-										ColorSequenceKeypoint.new(1, Color3.fromRGB(188, 188, 255)),
-									}),
-									Rotation = 90,
-								}),
-							}),
-						}),
-
-						create("TextLabel")({
-							Name = "Name",
-							BackgroundTransparency = 1,
-							FontFace = Font.new(
-								"rbxasset://fonts/families/SourceSansPro.json",
-								Enum.FontWeight.Bold,
-								Enum.FontStyle.Normal
-							),
-							Position = UDim2.fromScale(0.076095, 0.730419),
-							Size = UDim2.fromScale(0.84887, 0.172688),
-							Text = function()
-								return getQuest(selectedQuestIndex()).RewardName
-							end,
-							TextColor3 = Color3.new(1, 1, 1),
-							TextScaled = true,
-							TextXAlignment = Enum.TextXAlignment.Left,
-							ZIndex = 10,
-
-							create("UIStroke")({
-								Name = "UIStroke",
-								Thickness = 2,
-							}),
-						}),
-					}),
-
-						create("UIListLayout")({
-							Name = "UIListLayout",
-							FillDirection = Enum.FillDirection.Horizontal,
-							SortOrder = Enum.SortOrder.LayoutOrder,
-							VerticalAlignment = Enum.VerticalAlignment.Center,
-						}),
-					}),
-
-					create("TextLabel")({
-						Name = "RewardText",
-						BackgroundTransparency = 1,
-						FontFace = Font.new(
-							"rbxasset://fonts/families/SourceSansPro.json",
-							Enum.FontWeight.Bold,
-							Enum.FontStyle.Normal
-						),
-						Size = UDim2.fromScale(0.96, 1),
-						Text = function()
-							return getQuest(selectedQuestIndex()).RewardText
-						end,
-						TextColor3 = Color3.fromRGB(255, 239, 128),
-						TextScaled = true,
-						TextWrapped = true,
-						Visible = function()
-							return getQuest(selectedQuestIndex()).TextOnlyReward
-						end,
-
-						create("UIStroke")({
-							Color = Color3.fromRGB(65, 48, 24),
-							Thickness = 2,
-						}),
-					}),
-				}),
 			}),
 		}),
 

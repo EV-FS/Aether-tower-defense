@@ -12,10 +12,20 @@ local create = Vide.create
 local spring = Vide.spring
 
 return function(props)
+	local performanceMode = props.PerformanceMode == true
 	local towerInfo = TowerData.ByName[props.TowerName]
 	local rarity = UnitCatalog.GetRarity(props.TowerName)
 	local unitImage = UnitCatalog.GetImage(props.TowerName)
 	local isInWindow = props.IsInWindow or function() return true end
+	local animateWindowVisibility = props.IsInWindow ~= nil
+	local function windowSpring(openValue, closedValue, period: number, damping: number)
+		if not animateWindowVisibility then
+			return openValue
+		end
+		return spring(function()
+			return if isInWindow() then openValue else closedValue
+		end, period, damping)
+	end
 	local cost = if towerInfo
 			and towerInfo.Stats
 			and towerInfo.Stats[0]
@@ -37,12 +47,13 @@ return function(props)
 	return create("ImageButton")({
 		props.Bind,
 
-		Name = "ImageButton",
+		Name = props.Name or "ImageButton",
 		BackgroundTransparency = 1,
 		Image = "",
 
 		LayoutOrder = props.LayoutOrder or 0,
-		Size = UDim2.fromScale(0.186, 0.125),
+		Position = props.Position,
+		Size = props.Size or UDim2.fromScale(0.186, 0.125),
 		MouseButton1Click = props.OnActivated,
 		ZIndex = function()
 			if props.IsSelected() then
@@ -54,7 +65,11 @@ return function(props)
 			return 1
 		end,
 
-		useButtonEffect(),
+
+		-- Inventory grids can mount dozens of cards at once. The full button effect
+		-- allocates two AudioPlayers/Wires and a spring for every card, so keep it
+		-- for standalone buttons only.
+		if performanceMode then nil else useButtonEffect(),
 
 		create("UICorner")({
 			CornerRadius = UDim.new(0.08),
@@ -65,46 +80,37 @@ return function(props)
 			AnchorPoint = Vector2.new(0.5, 0.5),
 			BackgroundTransparency = 1,
 
-			Position = spring(function()
-				return if isInWindow() then UDim2.fromScale(0.5, 0.5) else UDim2.fromScale(0.5, 0.7)
-			end, 0.3, 0.9),
+			Position = windowSpring(UDim2.fromScale(0.5, 0.5), UDim2.fromScale(0.5, 0.7), 0.3, 0.9),
 			Size = UDim2.fromScale(1, 1),
 
 			Image = unitImage,
 			ScaleType = Enum.ScaleType.Fit,
 			ZIndex = 5,
-			ImageTransparency = spring(function()
-				return if isInWindow() then 0 else 1
-			end, 0.5, 1),
+			ImageTransparency = windowSpring(0, 1, 0.5, 1),
 		}),
 
 		create("ImageLabel")({
 			Name = "BG",
 			AnchorPoint = Vector2.new(0.5, 0.5),
 			BackgroundTransparency = 1,
-			Rotation = spring(function()
-				return if isInWindow() then 0 else -10
-			end, 0.5, 1),
+			Rotation = windowSpring(0, -10, 0.5, 1),
 
-			Size = spring(function()
-				return if isInWindow() then UDim2.fromScale(1, 1) else UDim2.fromScale(0.8, 0.8)
-			end, 0.5, 1),
+			Size = windowSpring(UDim2.fromScale(1, 1), UDim2.fromScale(0.8, 0.8), 0.5, 1),
 
 			Position = UDim2.fromScale(0.5, 0.5),
 			Image = "rbxassetid://87496848270095",
-			ImageTransparency = spring(function()
-				return if isInWindow() then 0 else 1
-			end, 0.5, 1),
+			ImageTransparency = windowSpring(0, 1, 0.5, 1),
 			ZIndex = -1,
 
 			create("UIGradient")({
 				Name = "UIGradient",
+				Color = gradient,
 				Rotation = 45,
 
-				useColorSequenceCycle(gradient, shimmerSpeed, isInWindow),
+				if performanceMode then nil else useColorSequenceCycle(gradient, shimmerSpeed, isInWindow),
 			}),
 
-			create("UIShadow")({
+			if performanceMode then nil else create("UIShadow")({
 				BlurRadius = UDim.new(0.075),
 				Color = function()
 					return if props.IsEquipped() then Color3.new(0, 1, 0) else Color3.new(1, 1, 1)
@@ -131,9 +137,13 @@ return function(props)
 						return if props.IsEquipped() then Color3.new(0, 1, 0) else Color3.new(1, 1, 1)
 					end,
 					Thickness = 3,
-					Transparency = spring(function()
-						return if props.IsSelected() or props.IsEquipped() then 0 else 1
-					end, 0.2, 1),
+					Transparency = if performanceMode
+						then function()
+							return if props.IsSelected() or props.IsEquipped() then 0 else 1
+						end
+						else spring(function()
+							return if props.IsSelected() or props.IsEquipped() then 0 else 1
+						end, 0.2, 1),
 				}),
 			}),
 		}),

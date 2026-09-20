@@ -1,6 +1,7 @@
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Vide = require(ReplicatedStorage.Packages.Vide)
+local useMenuMotion = require(ReplicatedStorage.Shared.Modules.UI.Hooks.useMenuMotion)
 local EventShopData = require(ReplicatedStorage.Settings.Data.EventShopData)
 local ServiceRegistry = require(ReplicatedStorage.Shared.Modules.Core.ServiceRegistry)
 local useButtonEffect = require(ReplicatedStorage.Shared.Modules.UI.Hooks.useButtonEffect)
@@ -291,49 +292,52 @@ end
 
 function EventShopUI.RenderUI()
 	local isVisible = UIController:IsVisible(VIEW_ID)
+	local menuMotion = useMenuMotion(isVisible, function()
+		return UIController:GetActiveView()
+	end)
 	local cards = {}
 	for _, product in EventShopData.Products do
 		table.insert(cards, productCard(product))
 	end
 
-	return create("Frame")({
-		Name = "EventShopContainer",
+	return create("CanvasGroup")({
+		Name = "EventShopContainer", GroupTransparency = menuMotion.Transparency, Interactable = isVisible,
 		AnchorPoint = Vector2.new(0.5, 0.5),
 		BackgroundTransparency = 1,
 		Position = UDim2.fromScale(0.5, 0.5),
 		Size = UDim2.fromScale(1, 1),
-		Visible = isVisible,
+		Visible = menuMotion.IsMounted,
 		create("ImageLabel")({
-			Name = "Main",
+			Name = "Main", Rotation = menuMotion:WindowRotation(), AnchorPoint = Vector2.new(0.5, 0),
 			BackgroundTransparency = 1,
 			Image = "rbxassetid://127375273648665",
-			Position = UDim2.fromScale(0.13799, 0.20195),
-			Size = UDim2.fromScale(0.721698, 0.668872),
+			Position = UDim2.fromScale(0.498839, 0.20195),
+			Size = menuMotion:WindowSize(UDim2.fromScale(0.721698, 0.668872)),
 			create("ImageLabel")({
 				Name = "Header",
 				BackgroundTransparency = 1,
 				Image = "rbxassetid://119392120885995",
-				Position = UDim2.fromScale(-0.0573612, -0.111321),
+				Position = menuMotion:HeaderPosition(UDim2.fromScale(-0.0573612, -0.111321)),
 				Size = UDim2.fromScale(0.692821, 0.28349),
 				ZIndex = 10,
 				create("ImageLabel")({
-					Name = "Icon",
+					Name = "Icon", Rotation = menuMotion:IconRotation(), AnchorPoint = Vector2.new(0.5, 0.5),
 					BackgroundTransparency = 1,
 					Image = "rbxassetid://135492889002201",
-					Position = UDim2.fromScale(0.0322726, 0.0656761),
-					Size = UDim2.fromScale(0.211002, 0.747055),
+					Position = UDim2.fromScale(0.1377736, 0.4392036),
+					Size = menuMotion:IconSize(UDim2.fromScale(0.211002, 0.747055)),
 					create("UIAspectRatioConstraint")({ AspectRatio = 1.13 }),
 				}),
 				create("ImageLabel")({
-					Name = "Cloud",
+					Name = "Cloud", ImageTransparency = menuMotion:Fade(),
 					BackgroundTransparency = 1,
 					Image = "rbxassetid://97738986977654",
-					Position = UDim2.fromScale(0.529887, 0.0551715),
+					Position = menuMotion:CloudPosition(UDim2.fromScale(0.529887, 0.0551715)),
 					Size = UDim2.fromScale(0.537766, 1.06417),
 					create("UIAspectRatioConstraint")({ AspectRatio = 2.16 }),
 				}),
 				create("TextLabel")({
-					Name = "Title",
+					Name = "Title", TextTransparency = menuMotion:Fade(),
 					BackgroundTransparency = 1,
 					FontFace = Font.new("rbxasset://fonts/families/FredokaOne.json"),
 					Position = UDim2.fromScale(0.265238, 0.435573),
@@ -347,12 +351,12 @@ function EventShopUI.RenderUI()
 			}),
 			create("UIAspectRatioConstraint")({ AspectRatio = 1.88 }),
 			create("ImageButton")({
-				Name = "CancelButton",
+				Name = "CancelButton", Rotation = menuMotion:CloseRotation(),
 				AnchorPoint = Vector2.new(0.5, 0.5),
 				AutoButtonColor = false,
 				BackgroundTransparency = 1,
 				Image = "rbxassetid://92651860309635",
-				Position = UDim2.fromScale(0.980096, 0.0289194),
+				Position = menuMotion:ClosePosition(UDim2.fromScale(0.980096, 0.0289194)),
 				Size = UDim2.fromScale(0.102144, 0.15458),
 				Activated = function()
 					UIController:Close(VIEW_ID)
@@ -360,23 +364,33 @@ function EventShopUI.RenderUI()
 				useButtonEffect(nil, 1.1),
 				create("UIAspectRatioConstraint")({}),
 			}),
-			create("ScrollingFrame")({
-				Name = "ScrollingFrame",
-				Active = true,
+			create("CanvasGroup")({
+				Name = "ScrollingFrameClip",
 				BackgroundTransparency = 1,
-				CanvasSize = UDim2.fromScale(2, 0),
-				Position = UDim2.fromScale(0.0369541, 0.187277),
-				ScrollBarImageColor3 = Color3.new(),
-				ScrollBarThickness = 0,
-				ScrollingDirection = Enum.ScrollingDirection.X,
+				ClipsDescendants = true,
+				AnchorPoint = Vector2.new(0, 0),
+				Position = menuMotion:ContentPosition(UDim2.fromScale(0.0369541, 0.187277)),
 				Size = UDim2.fromScale(0.924581, 0.735607),
+				ZIndex = 1,
 				create("UIAspectRatioConstraint")({ AspectRatio = 2.37 }),
-				create("UIListLayout")({
-					FillDirection = Enum.FillDirection.Horizontal,
-					Padding = UDim.new(0.01, 0),
-					SortOrder = Enum.SortOrder.LayoutOrder,
+				create("ScrollingFrame")({
+					Name = "ScrollingFrame", AnchorPoint = Vector2.new(0, 0),
+					Active = true,
+					BackgroundTransparency = 1,
+					CanvasSize = UDim2.fromScale(2, 0),
+					Position = UDim2.fromScale(0, 0),
+					ScrollBarImageColor3 = Color3.new(),
+					ScrollBarThickness = 0,
+					ScrollingDirection = Enum.ScrollingDirection.X,
+					Size = UDim2.fromScale(1, 1),
+
+					create("UIListLayout")({
+						FillDirection = Enum.FillDirection.Horizontal,
+						Padding = UDim.new(0.01, 0),
+						SortOrder = Enum.SortOrder.LayoutOrder,
+					}),
+					unpack(cards),
 				}),
-				unpack(cards),
 			}),
 		}),
 		create("UIAspectRatioConstraint")({

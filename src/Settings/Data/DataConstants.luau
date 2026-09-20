@@ -39,15 +39,7 @@ return TableUtils.DeepFreeze({
 			Mythic = 0,
 			Absolute = 0,
 		},
-		Quests = {
-			Chapter1Clear = {
-				Active = true,
-				Progress = 0,
-				Target = 1,
-				Completed = false,
-				Claimed = false,
-			},
-		},
+		Quests = {},
 		AFKRewards = {
 			Coins = 0,
 			Gems = 0,

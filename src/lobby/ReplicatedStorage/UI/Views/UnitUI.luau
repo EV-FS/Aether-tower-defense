@@ -1,5 +1,7 @@
+local ContentProvider = game:GetService("ContentProvider")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Vide = require(ReplicatedStorage.Packages.Vide)
+local useMenuMotion = require(ReplicatedStorage.Shared.Modules.UI.Hooks.useMenuMotion)
 local DataConstants = require(ReplicatedStorage.Settings.Data.DataConstants)
 local TowerData = require(ReplicatedStorage.Settings.Data.TowerData)
 local TraitData = require(ReplicatedStorage.Settings.Data.TraitData)
@@ -22,7 +24,6 @@ local changed = Vide.changed
 local cleanup = Vide.cleanup
 local derive = Vide.derive
 local effect = Vide.effect
-local show = Vide.show
 local source = Vide.source
 local spring = Vide.spring
 local values = Vide.values
@@ -34,6 +35,12 @@ local searchQuery = source("")
 local VIEW_ID = "Units"
 
 local SORT_CRITERIA = { "Rarity", "ABC", "Level" }
+local VIRTUAL_OVERSCAN_ROWS = 1
+local VIRTUAL_COLUMNS = 5
+local VIRTUAL_CELL_WIDTH = 0.192543
+local VIRTUAL_CELL_HEIGHT = 0.329466
+local VIRTUAL_PADDING_X = 0.0015
+local VIRTUAL_PADDING_Y = 0.012
 local RARITY_ORDER = {
 	Absolute = 1,
 	Exclusive = 2,
@@ -55,6 +62,7 @@ local unitActionFeedback = source("")
 local unitActionSucceeded = source(true)
 
 local isLast = false
+local preloadedUnitImages = {}
 
 local function normalizeSearch(value: string): string
 	return string.lower(value):gsub("^%s+", ""):gsub("%s+$", "")
@@ -73,30 +81,6 @@ local function getOwnedTower(towerName: string?, towerKey: string | number?): an
 	local keyText = tostring(towerKey)
 	local keyId = keyText:match("^t_(%d+)$") or keyText:match("^(%d+)$")
 	return towers[towerKey] or towers[keyText] or (keyId and towers[`t_{keyId}`]) or nil
-end
-
-local function matchesSearch(towerName: string, towerKey: string | number, towerData): boolean
-	local query = normalizeSearch(searchQuery())
-	if query == "" then
-		return true
-	end
-
-	local rarity = UnitCatalog.GetRarity(towerName)
-	local level = if towerData and typeof(towerData.Lv) == "number" then towerData.Lv else 0
-	local searchableText = string.lower(`{towerName} {rarity} {towerKey} level {level} lv {level}`)
-	return string.find(searchableText, query, 1, true) ~= nil
-end
-
-local function matchingUnitCount(): number
-	local count = 0
-	for towerName, towers in towerInventory() do
-		for towerKey, towerData in towers do
-			if matchesSearch(towerName, towerKey, towerData) then
-				count += 1
-			end
-		end
-	end
-	return count
 end
 
 local function storageCount(): number
@@ -121,20 +105,11 @@ end
 
 local function compareByCriterion(a, b, criterion: string): boolean?
 	if criterion == "Rarity" then
-		local aOrder = RARITY_ORDER[UnitCatalog.GetRarity(a.Name)] or 999
-		local bOrder = RARITY_ORDER[UnitCatalog.GetRarity(b.Name)] or 999
-
-		return if aOrder ~= bOrder then aOrder < bOrder else nil
+		return if a.RarityOrder ~= b.RarityOrder then a.RarityOrder < b.RarityOrder else nil
 	elseif criterion == "ABC" then
-		local aName = string.lower(a.Name)
-		local bName = string.lower(b.Name)
-
-		return if aName ~= bName then aName < bName else nil
+		return if a.LowerName ~= b.LowerName then a.LowerName < b.LowerName else nil
 	elseif criterion == "Level" then
-		local aLevel = a.Data.Lv or 0
-		local bLevel = b.Data.Lv or 0
-
-		return if aLevel ~= bLevel then aLevel > bLevel else nil
+		return if a.Level ~= b.Level then a.Level > b.Level else nil
 	end
 
 	return nil
@@ -203,7 +178,15 @@ end
 
 function UnitUI.RenderUI()
 	local isInventoryVisible = UIController:IsVisible(VIEW_ID)
+	local menuMotion = useMenuMotion(isInventoryVisible, function()
+		return UIController:GetActiveView()
+	end)
 	local searchTextBox: TextBox? = nil
+	local scrollingFrame = source(nil :: ScrollingFrame?)
+	local visibleStartRank = source(1)
+	local visibleEndRank = source(0)
+	local sellConfirmation = source(false)
+	local unitEntryCache = {}
 	local selectedTowerData = derive(function()
 		return getOwnedTower(selectedName(), selectedKey())
 	end)
@@ -232,10 +215,11 @@ function UnitUI.RenderUI()
 		local towerData = selectedTowerData()
 		return towerData ~= nil and towerData.Locked == true
 	end)
-	local sortedUnitRanks = derive(function()
+	local sortedUnits = derive(function()
 		local primaryCriterion = currentSort()
 		local priorities = { primaryCriterion }
 		local units = {}
+		local seenUnitIds = {}
 
 		for _, criterion in SORT_CRITERIA do
 			if criterion ~= primaryCriterion then
@@ -245,12 +229,31 @@ function UnitUI.RenderUI()
 
 		for towerName, towers in towerInventory() do
 			for towerKey, towerData in towers do
-				table.insert(units, {
-					Name = towerName,
-					Key = towerKey,
-					Data = towerData,
-					EquippedSlot = InventoryClient.FindEquippedSlot(towerName, towerKey),
-				})
+				local unitId = getUnitId(towerName, towerKey)
+				local equippedSlot = InventoryClient.FindEquippedSlot(towerName, towerKey)
+				local unit = unitEntryCache[unitId]
+				if not unit or unit.Data ~= towerData or unit.EquippedSlot ~= equippedSlot then
+					local rarity = UnitCatalog.GetRarity(towerName)
+					local level = if typeof(towerData.Lv) == "number" then towerData.Lv else 0
+					unit = {
+						Name = towerName,
+						Key = towerKey,
+						Data = towerData,
+						EquippedSlot = equippedSlot,
+						RarityOrder = RARITY_ORDER[rarity] or 999,
+						LowerName = string.lower(towerName),
+						Level = level,
+						SearchText = string.lower(`{towerName} {rarity} {towerKey} level {level} lv {level}`),
+					}
+					unitEntryCache[unitId] = unit
+				end
+				seenUnitIds[unitId] = true
+				table.insert(units, unit)
+			end
+		end
+		for unitId in unitEntryCache do
+			if not seenUnitIds[unitId] then
+				unitEntryCache[unitId] = nil
 			end
 		end
 
@@ -258,11 +261,90 @@ function UnitUI.RenderUI()
 			return comesBefore(a, b, priorities)
 		end)
 
-		local ranks = {}
-		for rank, unit in units do
-			ranks[getUnitId(unit.Name, unit.Key)] = rank
+		return units
+	end)
+	local unitListing = derive(function()
+		local query = normalizeSearch(searchQuery())
+		local filtered = {}
+		for _, unit in sortedUnits() do
+			if query == "" or string.find(unit.SearchText, query, 1, true) ~= nil then
+				table.insert(filtered, unit)
+			end
 		end
-		return ranks
+		return {
+			Count = #filtered,
+			Units = filtered,
+		}
+	end)
+	local visibleUnits = derive(function()
+		local listing = unitListing()
+		local visible = {}
+		local lastRank = math.min(visibleEndRank(), listing.Count)
+		for rank = visibleStartRank(), lastRank do
+			local unit = listing.Units[rank]
+			if unit then
+				visible[rank] = unit
+			end
+		end
+		return visible
+	end)
+
+	local function updateVirtualWindow()
+		if not isInventoryVisible() then
+			-- Keep the small rendered pool alive while closed so reopening is free.
+			return
+		end
+
+		local frame = scrollingFrame()
+		if not frame then
+			visibleStartRank(1)
+			visibleEndRank(25)
+			return
+		end
+
+		local viewportSize = frame.AbsoluteWindowSize
+		if viewportSize.X <= 0 or viewportSize.Y <= 0 then
+			visibleStartRank(1)
+			visibleEndRank(25)
+			return
+		end
+
+		local rowStride = math.max(viewportSize.Y * (VIRTUAL_CELL_HEIGHT + VIRTUAL_PADDING_Y), 1)
+		local firstRow = math.max(math.floor(frame.CanvasPosition.Y / rowStride) - VIRTUAL_OVERSCAN_ROWS, 0)
+		local visibleRows = math.ceil(viewportSize.Y / rowStride) + VIRTUAL_OVERSCAN_ROWS * 2 + 1
+
+		visibleStartRank(firstRow * VIRTUAL_COLUMNS + 1)
+		visibleEndRank((firstRow + visibleRows) * VIRTUAL_COLUMNS)
+	end
+
+	effect(function()
+		local frame = scrollingFrame()
+		local _listing = unitListing()
+		local _isVisible = isInventoryVisible()
+		updateVirtualWindow()
+		if not frame then
+			return
+		end
+
+		local connections = {
+			frame:GetPropertyChangedSignal("CanvasPosition"):Connect(updateVirtualWindow),
+			frame:GetPropertyChangedSignal("AbsoluteWindowSize"):Connect(updateVirtualWindow),
+		}
+		cleanup(function()
+			for _, connection in connections do
+				connection:Disconnect()
+			end
+		end)
+	end)
+
+	local previousListMode = `{currentSort()}\0{normalizeSearch(searchQuery())}`
+	effect(function()
+		local listMode = `{currentSort()}\0{normalizeSearch(searchQuery())}`
+		local frame = scrollingFrame()
+		if frame and listMode ~= previousListMode then
+			frame.CanvasPosition = Vector2.new(frame.CanvasPosition.X, 0)
+		end
+		previousListMode = listMode
 	end)
 
 	local openSFX = useAudio({
@@ -293,6 +375,84 @@ function UnitUI.RenderUI()
 		Id = UISFX.Sort.Id,
 		Volume = UISFX.Sort.Volume,
 	})
+	local feedbackToken = 0
+	local sellConfirmationToken = 0
+	local function runUnitAction(actionName: "ToggleUnitLock" | "SellUnit", successSFX)
+		if unitActionPending() then
+			return
+		end
+
+		local towerName = selectedName()
+		local towerKey = selectedKey()
+		if type(towerName) ~= "string" or (type(towerKey) ~= "string" and type(towerKey) ~= "number") then
+			return
+		end
+
+		sellConfirmationToken += 1
+		sellConfirmation(false)
+		feedbackToken += 1
+		unitActionPending(true)
+		unitActionSucceeded(true)
+		unitActionFeedback(if actionName == "SellUnit" then "SELLING..." else "UPDATING...")
+
+		InventoryClient.PerformUnitAction(actionName, towerName, towerKey)
+			:andThen(function(result)
+				local succeeded = result.Success == true
+				unitActionSucceeded(succeeded)
+				unitActionFeedback(result.Message or (if succeeded then "DONE" else "ACTION FAILED"))
+				if succeeded then
+					successSFX:Play()
+					if actionName == "SellUnit" then
+						selectedName(nil)
+						selectedKey(nil)
+					end
+				end
+			end)
+			:catch(function(err)
+				unitActionSucceeded(false)
+				unitActionFeedback(tostring(err))
+			end)
+			:finally(function()
+				unitActionPending(false)
+				feedbackToken += 1
+				local token = feedbackToken
+				task.delay(2.5, function()
+					if feedbackToken == token then
+						unitActionFeedback("")
+					end
+				end)
+			end)
+	end
+	local function requestSell()
+		if unitActionPending() then
+			return
+		end
+		if sellConfirmation() then
+			sellConfirmation(false)
+			runUnitAction("SellUnit", sellSFX)
+			return
+		end
+
+		sellConfirmation(true)
+		sellConfirmationToken += 1
+		local token = sellConfirmationToken
+		feedbackToken += 1
+		unitActionSucceeded(false)
+		unitActionFeedback("PRESS SELL AGAIN TO CONFIRM")
+		task.delay(2.5, function()
+			if sellConfirmationToken == token and sellConfirmation() then
+				sellConfirmation(false)
+				unitActionFeedback("")
+			end
+		end)
+	end
+
+	effect(function()
+		local _towerName = selectedName()
+		local _towerKey = selectedKey()
+		sellConfirmationToken += 1
+		sellConfirmation(false)
+	end)
 
 	effect(function()
 		local towerName = selectedName()
@@ -304,6 +464,31 @@ function UnitUI.RenderUI()
 		selectedDamage(if currentStats then currentStats.Damage or 0 else 0)
 		selectedCooldown(if currentStats then currentStats.Cooldown or 0 else 0)
 		selectedRange(if currentStats then currentStats.Range or 0 else 0)
+	end)
+
+	-- Preload one thumbnail per owned unit type in the background. Duplicate
+	-- copies never create duplicate network work, even with thousands of units.
+	effect(function()
+		local targets = {}
+		for towerName in towerInventory() do
+			if not preloadedUnitImages[towerName] then
+				local image = UnitCatalog.GetImage(towerName)
+				if type(image) == "string" and image ~= "" then
+					preloadedUnitImages[towerName] = true
+					table.insert(targets, image)
+				end
+			end
+		end
+		if #targets > 0 then
+			task.spawn(function()
+				local success, err = pcall(function()
+					ContentProvider:PreloadAsync(targets)
+				end)
+				if not success then
+					warn(`[UnitUI] Failed to preload unit thumbnails: {err}`)
+				end
+			end)
+		end
 	end)
 
 	effect(function()
@@ -322,39 +507,29 @@ function UnitUI.RenderUI()
 	local animatedRange = spring(selectedRange, 0.5, 1)
 	local animatedMaxTower = spring(selectedMaxTower, 0.5, 1)
 
-	return create("Frame")({
-		Name = "Units",
+	return create("CanvasGroup")({
+		Name = "Units", GroupTransparency = menuMotion.Transparency, Interactable = isInventoryVisible,
 		AnchorPoint = Vector2.new(0.5, 0.5),
 		BackgroundTransparency = 1,
 		Position = UDim2.fromScale(0.5, 0.5),
 		Size = UDim2.fromScale(1, 1),
-		Visible = UIController:IsVisible(VIEW_ID),
+		Visible = menuMotion.IsMounted,
 
 		create("ImageLabel")({
 			Name = "Main",
 			AnchorPoint = Vector2.new(0.5, 0),
 			BackgroundTransparency = 1,
 			Image = "rbxassetid://86505261925755",
-			Rotation = spring(function()
-				return if UIController:IsVisible(VIEW_ID)() then 0 else -4
-			end, 0.5, 1),
+			Rotation = menuMotion:WindowRotation(),
 
 			Position = UDim2.fromScale(0.5, 0.20195),
-			Size = spring(function()
-				return if UIController:IsVisible(VIEW_ID)()
-					then UDim2.fromScale(0.721698, 0.668872)
-					else UDim2.fromScale(0.675, 0.668872)
-			end, 0.5, 0.5),
+			Size = menuMotion:WindowSize(UDim2.fromScale(0.721698, 0.668872)),
 
 			create("ImageLabel")({
 				Name = "Header",
 				BackgroundTransparency = 1,
 				Image = "rbxassetid://79038669500555",
-				Position = spring(function()
-					return if UIController:IsVisible(VIEW_ID)()
-						then UDim2.fromScale(-0.0573612, -0.111321)
-						else UDim2.fromScale(-0.1, -0.111321)
-				end, 0.5, 1),
+				Position = menuMotion:HeaderPosition(UDim2.fromScale(-0.0573612, -0.111321)),
 				Size = UDim2.fromScale(0.692821, 0.28349),
 				ZIndex = 10,
 
@@ -363,15 +538,9 @@ function UnitUI.RenderUI()
 					AnchorPoint = Vector2.new(0.5, 0.5),
 					BackgroundTransparency = 1,
 					Image = "rbxassetid://111343804919469",
-					Rotation = spring(function()
-						return if UIController:IsVisible(VIEW_ID)() then 0 else -90
-					end, 0.5, 0.7),
+					Rotation = menuMotion:IconRotation(),
 					Position = UDim2.fromScale(0.133, 0.478),
-					Size = spring(function()
-						return if UIController:IsVisible(VIEW_ID)()
-							then UDim2.fromScale(0.184974, 0.837933)
-							else UDim2.fromScale(0.346017, 1.56746)
-					end, 0.5, 0.8),
+					Size = menuMotion:IconSize(UDim2.fromScale(0.184974, 0.837933)),
 
 					create("UIAspectRatioConstraint")({
 						Name = "UIAspectRatioConstraint",
@@ -382,15 +551,9 @@ function UnitUI.RenderUI()
 					Name = "Cloud",
 					BackgroundTransparency = 1,
 					Image = "rbxassetid://122017999272407",
-					ImageTransparency = spring(function()
-						return if UIController:IsVisible(VIEW_ID)() then 0 else 1
-					end, 0.5, 1),
+					ImageTransparency = menuMotion:Fade(),
 
-					Position = spring(function()
-						return if UIController:IsVisible(VIEW_ID)()
-							then UDim2.fromScale(0.529887, 0.0551715)
-							else UDim2.fromScale(0.375, 0.0551715)
-					end, 0.7, 0.8),
+					Position = menuMotion:CloudPosition(UDim2.fromScale(0.529887, 0.0551715)),
 					Size = UDim2.fromScale(0.537766, 1.06417),
 
 					create("UIAspectRatioConstraint")({
@@ -408,9 +571,7 @@ function UnitUI.RenderUI()
 					Text = "UNITS",
 					TextColor3 = Color3.new(1, 1, 1),
 					TextScaled = true,
-					TextTransparency = spring(function()
-						return if UIController:IsVisible(VIEW_ID)() then 0 else 1
-					end, 0.5, 1),
+					TextTransparency = menuMotion:Fade(),
 				}),
 
 				create("UIAspectRatioConstraint")({
@@ -446,15 +607,11 @@ function UnitUI.RenderUI()
 						ImageTransparency = function()
 							return if hasSelectedUnit() then 0 else 0.45
 						end,
-						Position = spring(function()
-							return if UIController:IsVisible(VIEW_ID)()
-								then UDim2.fromScale(0.24, 0.5)
-								else UDim2.fromScale(0.24, 1.2)
-						end, 0.35, 0.5),
+						Position = menuMotion:Spring(UDim2.fromScale(0.24, 0.5), UDim2.fromScale(0.24, 1.2), "Content"),
 						Size = UDim2.fromScale(0.251482, 0.782844),
 						ZIndex = 21,
-						MouseButton1Click = function()
-							sellSFX:Play()
+						Activated = function()
+							requestSell()
 						end,
 
 						useButtonEffect(nil, nil, true),
@@ -465,7 +622,9 @@ function UnitUI.RenderUI()
 							FontFace = Font.new("rbxasset://fonts/families/FredokaOne.json"),
 							Position = UDim2.fromScale(0.265238, 0.237766),
 							Size = UDim2.fromScale(0.467855, 0.487941),
-							Text = "SELL",
+							Text = function()
+								return if sellConfirmation() then "CONFIRM" else "SELL"
+							end,
 							TextColor3 = Color3.new(1, 1, 1),
 							TextScaled = true,
 						}),
@@ -480,15 +639,11 @@ function UnitUI.RenderUI()
 						ImageTransparency = function()
 							return if hasSelectedUnit() then 0 else 0.45
 						end,
-						Position = spring(function()
-							return if UIController:IsVisible(VIEW_ID)()
-								then UDim2.fromScale(0.5, 0.5)
-								else UDim2.fromScale(0.5, 1.4)
-						end, 0.5, 0.5),
+						Position = menuMotion:Spring(UDim2.fromScale(0.5, 0.5), UDim2.fromScale(0.5, 1.4), "Content"),
 						Size = UDim2.fromScale(0.251482, 0.782844),
 						ZIndex = 21,
-						MouseButton1Click = function()
-							lockSFX:Play()
+						Activated = function()
+							runUnitAction("ToggleUnitLock", lockSFX)
 						end,
 
 						useButtonEffect(nil, nil, true),
@@ -499,7 +654,9 @@ function UnitUI.RenderUI()
 							FontFace = Font.new("rbxasset://fonts/families/FredokaOne.json"),
 							Position = UDim2.fromScale(0.265238, 0.237766),
 							Size = UDim2.fromScale(0.467855, 0.487941),
-							Text = "LOCK",
+							Text = function()
+								return if selectedLocked() then "UNLOCK" else "LOCK"
+							end,
 							TextColor3 = Color3.new(1, 1, 1),
 							TextScaled = true,
 						}),
@@ -512,11 +669,7 @@ function UnitUI.RenderUI()
 						AutoButtonColor = false,
 						BackgroundTransparency = 1,
 						Image = "rbxassetid://128977854458302",
-						Position = spring(function()
-							return if UIController:IsVisible(VIEW_ID)()
-								then UDim2.fromScale(0.76, 0.5)
-								else UDim2.fromScale(0.76, 1.6)
-						end, 0.65, 0.5),
+						Position = menuMotion:Spring(UDim2.fromScale(0.76, 0.5), UDim2.fromScale(0.76, 1.6), "Content"),
 						Size = UDim2.fromScale(0.251482, 0.782844),
 						Selectable = true,
 						ZIndex = 21,
@@ -542,82 +695,101 @@ function UnitUI.RenderUI()
 							TextScaled = true,
 						}),
 					}),
+
+					create("TextLabel")({
+						Name = "ActionFeedback",
+						AnchorPoint = Vector2.new(0.5, 1),
+						BackgroundTransparency = 1,
+						FontFace = Font.new("rbxasset://fonts/families/FredokaOne.json"),
+						Position = UDim2.fromScale(0.5, -0.08),
+						Size = UDim2.fromScale(0.85, 0.3),
+						Text = unitActionFeedback,
+						TextColor3 = function()
+							return if unitActionSucceeded()
+								then Color3.fromRGB(163, 255, 126)
+								else Color3.fromRGB(255, 113, 113)
+						end,
+						TextScaled = true,
+						Visible = function()
+							return unitActionFeedback() ~= ""
+						end,
+						ZIndex = 25,
+
+						create("UIStroke")({ Thickness = 1.5 }),
+					}),
 				}),
 
 				create("CanvasGroup")({
 					Name = "ScrollBackground",
 					BackgroundTransparency = 1,
 					ClipsDescendants = true,
-					Position = spring(function()
-						return if UIController:IsVisible(VIEW_ID)()
-							then UDim2.fromScale(0.0339824, 0.124035)
-							else UDim2.fromScale(-0.03, 0.124035)
-					end, 0.5, 0.8),
+					Position = menuMotion:Spring(UDim2.fromScale(0.0339824, 0.124035), UDim2.fromScale(-0.03, 0.124035), "Content"),
 					Size = UDim2.fromScale(0.966018, 0.758802),
 
 					create("ScrollingFrame")({
 						Name = "ScrollingFrame",
 						Active = true,
-						AutomaticCanvasSize = Enum.AutomaticSize.Y,
+						AutomaticCanvasSize = Enum.AutomaticSize.None,
 						BackgroundTransparency = 1,
-						CanvasSize = UDim2.new(),
+						CanvasSize = function()
+							local rows = math.ceil(unitListing().Count / VIRTUAL_COLUMNS)
+							local height = if rows > 0
+								then rows * VIRTUAL_CELL_HEIGHT + (rows - 1) * VIRTUAL_PADDING_Y
+								else 0
+							return UDim2.fromScale(0, height)
+						end,
 						ClipsDescendants = true,
 						Position = UDim2.fromScale(0, 0),
 						ScrollBarImageColor3 = Color3.new(),
 						ScrollBarThickness = 0,
+						ScrollingDirection = Enum.ScrollingDirection.Y,
 						Size = UDim2.fromScale(1, 1),
 
-						create("UIGridLayout")({
-							Name = "UIGridLayout",
-							CellPadding = spring(function()
-								return if UIController:IsVisible(VIEW_ID)()
-									then UDim2.fromScale(0.0015, 0.012)
-									else UDim2.fromScale(-0.015, 0.012)
-							end, 0.5, 1),
-							CellSize = UDim2.fromScale(0.192543, 0.329466),
-							SortOrder = Enum.SortOrder.LayoutOrder,
-						}),
-
-						values(towerInventory, function(towers, towerName)
-							local buttons = {}
-
-							for towerKey, towerData in towers do
-								local layoutOrder = function()
-									return sortedUnitRanks()[getUnitId(towerName(), towerKey)] or 999999
+						action(function(instance: ScrollingFrame)
+							scrollingFrame(instance)
+							cleanup(function()
+								if scrollingFrame() == instance then
+									scrollingFrame(nil)
 								end
-								local shouldMount = derive(function()
-									return isInventoryVisible() and matchesSearch(towerName(), towerKey, towerData)
-								end)
+							end)
+						end),
 
-								table.insert(
-									buttons,
-									show(shouldMount, function()
-										return TowerButton({
-											TowerName = towerName(),
-											TowerKey = towerKey,
-											TowerData = towerData,
-											IsSelected = function()
-												return if selectedName() == towerName()
-														and selectedKey() == towerKey
-													then true
-													else false
-											end,
-											IsEquipped = function()
-												return InventoryClient.IsEquipped(towerName(), towerKey)
-											end,
-											EquippedSlot = function()
-												return InventoryClient.FindEquippedSlot(towerName(), towerKey)
-											end,
-											LayoutOrder = layoutOrder,
-											OnActivated = function()
-												UnitUI.OnSelected(towerName(), towerKey, towerData)
-											end,
-										})
-									end)
-								)
-							end
-
-							return buttons
+						values(visibleUnits, function(unit, rank)
+							local towerName = unit.Name
+							local towerKey = unit.Key
+							local towerData = unit.Data
+							return TowerButton({
+								Name = `Unit_{towerName}_{tostring(towerKey)}`,
+								TowerName = towerName,
+								TowerKey = towerKey,
+								TowerData = towerData,
+								PerformanceMode = true,
+								Position = function()
+									local zeroBasedRank = math.max((rank() or 1) - 1, 0)
+									local column = zeroBasedRank % VIRTUAL_COLUMNS
+									local row = math.floor(zeroBasedRank / VIRTUAL_COLUMNS)
+									return UDim2.fromScale(
+										column * (VIRTUAL_CELL_WIDTH + VIRTUAL_PADDING_X),
+										row * (VIRTUAL_CELL_HEIGHT + VIRTUAL_PADDING_Y)
+									)
+								end,
+								Size = UDim2.fromScale(VIRTUAL_CELL_WIDTH, VIRTUAL_CELL_HEIGHT),
+								IsSelected = function()
+									return selectedName() == towerName and selectedKey() == towerKey
+								end,
+								IsEquipped = function()
+									return InventoryClient.IsEquipped(towerName, towerKey)
+								end,
+								EquippedSlot = function()
+									return InventoryClient.FindEquippedSlot(towerName, towerKey)
+								end,
+								IsLocked = function()
+									return towerData.Locked == true
+								end,
+								OnActivated = function()
+									UnitUI.OnSelected(towerName, towerKey, towerData)
+								end,
+							})
 						end),
 					}),
 
@@ -628,11 +800,13 @@ function UnitUI.RenderUI()
 						FontFace = Font.new("rbxasset://fonts/families/FredokaOne.json"),
 						Position = UDim2.fromScale(0.5, 0.48),
 						Size = UDim2.fromScale(0.72, 0.1),
-						Text = "NO UNITS FOUND",
+						Text = function()
+							return if normalizeSearch(searchQuery()) == "" then "NO UNITS OWNED" else "NO UNITS FOUND"
+						end,
 						TextColor3 = Color3.fromRGB(218, 218, 226),
 						TextScaled = true,
 						Visible = function()
-							return normalizeSearch(searchQuery()) ~= "" and matchingUnitCount() == 0
+							return unitListing().Count == 0
 						end,
 						ZIndex = 4,
 
@@ -671,11 +845,7 @@ function UnitUI.RenderUI()
 					BackgroundTransparency = 1,
 					Image = "rbxassetid://102610083488834",
 					Position = UDim2.fromScale(0.123512, 0.0172543),
-					Size = spring(function()
-						return if UIController:IsVisible(VIEW_ID)()
-							then UDim2.fromScale(0.702835, 0.0921883)
-							else UDim2.fromScale(0, 0.0921883)
-					end, 0.5, 0.9),
+					Size = menuMotion:SearchSize(UDim2.fromScale(0.702835, 0.0921883)),
 
 					create("TextBox")({
 						Name = "TextBox",
@@ -740,7 +910,7 @@ function UnitUI.RenderUI()
 						Text = function()
 							local total = math.round(animatedCount())
 							if normalizeSearch(searchQuery()) ~= "" then
-								return `{matchingUnitCount()}/{total}`
+								return `{unitListing().Count}/{total}`
 							end
 							return `{total}/100`
 						end,
@@ -775,16 +945,8 @@ function UnitUI.RenderUI()
 				Name = "Avatar",
 				BackgroundTransparency = 1,
 				Image = "rbxassetid://121523581447419",
-				Position = spring(function()
-					return if UIController:IsVisible(VIEW_ID)()
-						then UDim2.fromScale(0.596001, 0.170108)
-						else UDim2.fromScale(0.625, 0.170108)
-				end, 0.4, 0.5),
-				Size = spring(function()
-					return if UIController:IsVisible(VIEW_ID)()
-						then UDim2.fromScale(0.382446, 0.697631)
-						else UDim2.fromScale(0.425, 0.697631)
-				end, 0.4, 0.5),
+				Position = menuMotion:Spring(UDim2.fromScale(0.596001, 0.170108), UDim2.fromScale(0.625, 0.170108), "Detail"),
+				Size = menuMotion:Spring(UDim2.fromScale(0.382446, 0.697631), UDim2.fromScale(0.425, 0.697631), "Detail"),
 				ZIndex = 10,
 
 				create("UIGradient")({
@@ -1052,12 +1214,13 @@ function UnitUI.RenderUI()
 							return if towerName
 								then RarityGradient.ShimmerSpeed[UnitCatalog.GetRarity(towerName)] or 1
 								else 1
-						end),
+						end, nil, isInventoryVisible),
 					}),
 				}),
 
 				TowerViewport({
 					TowerName = selectedName,
+					Active = isInventoryVisible,
 					AnimationName = "Idle",
 					AnimationLevel = selectedLevel,
 					AnimationFadeTime = 0,
@@ -1115,11 +1278,7 @@ function UnitUI.RenderUI()
 				AnchorPoint = Vector2.new(0.5, 0.5),
 				BackgroundTransparency = 1,
 				Image = "rbxassetid://83967774994235",
-				Position = spring(function()
-					return if UIController:IsVisible(VIEW_ID)()
-						then UDim2.fromScale(0.787698, 0.920119)
-						else UDim2.fromScale(0.787698, 1.05)
-				end, 0.75, 0.65),
+				Position = menuMotion:Spring(UDim2.fromScale(0.787698, 0.920119), UDim2.fromScale(0.787698, 1.05), "Action"),
 				Size = UDim2.fromScale(0.337246, 0.0842378),
 				ZIndex = 11,
 
@@ -1180,14 +1339,8 @@ function UnitUI.RenderUI()
 				AnchorPoint = Vector2.new(0.5, 0.5),
 				BackgroundTransparency = 1,
 				Image = "rbxassetid://92651860309635",
-				Rotation = spring(function()
-					return if UIController:IsVisible(VIEW_ID)() then 0 else -1800
-				end, 1, 0.8),
-				Position = spring(function()
-					return if UIController:IsVisible(VIEW_ID)()
-						then UDim2.fromScale(0.980096, 0.0289194)
-						else UDim2.fromScale(0.2, 0.0289194)
-				end, 1, 0.85),
+				Rotation = menuMotion:CloseRotation(),
+				Position = menuMotion:ClosePosition(UDim2.fromScale(0.980096, 0.0289194)),
 				Size = UDim2.fromScale(0.102144, 0.15458),
 
 				MouseButton1Click = function()

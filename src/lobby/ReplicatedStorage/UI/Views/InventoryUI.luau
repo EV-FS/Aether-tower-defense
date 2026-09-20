@@ -1,6 +1,7 @@
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Vide = require(ReplicatedStorage.Packages.Vide)
+local useMenuMotion = require(ReplicatedStorage.Shared.Modules.UI.Hooks.useMenuMotion)
 local ItemData = require(ReplicatedStorage.Settings.Data.ItemData)
 local RarityGradient = require(ReplicatedStorage.Settings.Visuals.RarityGradient)
 local UISFX = require(ReplicatedStorage.Settings.Visuals.UISFX)
@@ -261,6 +262,9 @@ local InventoryUI = {}
 
 function InventoryUI.RenderUI()
 	local isVisible = UIController:IsVisible(VIEW_ID)
+	local menuMotion = useMenuMotion(isVisible, function()
+		return UIController:GetActiveView()
+	end)
 	local searchTextBox: TextBox? = nil
 	local selectedInfo = derive(function()
 		local name = selectedItemName()
@@ -330,34 +334,28 @@ function InventoryUI.RenderUI()
 		end
 	end)
 
-	return create("Frame")({
+	return create("CanvasGroup")({
+		GroupTransparency = menuMotion.Transparency,
+		Interactable = isVisible,
 		Name = VIEW_ID,
 		AnchorPoint = Vector2.new(0.5, 0.5),
 		BackgroundTransparency = 1,
 		Position = UDim2.fromScale(0.5, 0.5),
 		Size = UDim2.fromScale(1, 1),
-		Visible = isVisible,
+		Visible = menuMotion.IsMounted,
 		create("ImageLabel")({
 			Name = "Main",
 			AnchorPoint = Vector2.new(0.5, 0),
 			BackgroundTransparency = 1,
 			Image = "rbxassetid://107486254365437",
 			Position = UDim2.fromScale(0.5, 0.20195),
-			Rotation = spring(function()
-				return if isVisible() then 0 else -4
-			end, 0.5, 1),
-			Size = spring(function()
-				return if isVisible() then UDim2.fromScale(0.721698, 0.668872) else UDim2.fromScale(0.675, 0.668872)
-			end, 0.5, 0.5),
+			Rotation = menuMotion:WindowRotation(),
+			Size = menuMotion:WindowSize(UDim2.fromScale(0.721698, 0.668872)),
 			create("ImageLabel")({
 				Name = "Header",
 				BackgroundTransparency = 1,
 				Image = "rbxassetid://95305627117639",
-				Position = spring(function()
-					return if isVisible()
-						then UDim2.fromScale(-0.0573612, -0.111321)
-						else UDim2.fromScale(-0.1, -0.111321)
-				end, 0.5, 1),
+				Position = menuMotion:HeaderPosition(UDim2.fromScale(-0.0573612, -0.111321)),
 				Size = UDim2.fromScale(0.692821, 0.28349),
 				ZIndex = 10,
 				create("ImageLabel")({
@@ -366,27 +364,15 @@ function InventoryUI.RenderUI()
 					BackgroundTransparency = 1,
 					Image = "rbxassetid://111343804919469",
 					Position = UDim2.fromScale(0.133, 0.478),
-					Rotation = spring(function()
-						return if isVisible() then 0 else -90
-					end, 0.5, 0.7),
-					Size = spring(function()
-						return if isVisible()
-							then UDim2.fromScale(0.184974, 0.837933)
-							else UDim2.fromScale(0.346017, 1.56746)
-					end, 0.5, 0.8),
+					Rotation = menuMotion:IconRotation(),
+					Size = menuMotion:IconSize(UDim2.fromScale(0.184974, 0.837933)),
 				}),
 				create("ImageLabel")({
 					Name = "Cloud",
 					BackgroundTransparency = 1,
 					Image = "rbxassetid://96280313244013",
-					ImageTransparency = spring(function()
-						return if isVisible() then 0 else 1
-					end, 0.5, 1),
-					Position = spring(function()
-						return if isVisible()
-							then UDim2.fromScale(0.529887, 0.0551715)
-							else UDim2.fromScale(0.375, 0.0551715)
-					end, 0.7, 0.8),
+					ImageTransparency = menuMotion:Fade(),
+					Position = menuMotion:CloudPosition(UDim2.fromScale(0.529887, 0.0551715)),
 					Size = UDim2.fromScale(0.537766, 1.06417),
 					create("UIAspectRatioConstraint")({ AspectRatio = 2.16 }),
 				}),
@@ -399,9 +385,7 @@ function InventoryUI.RenderUI()
 					Text = "INVENTORY",
 					TextColor3 = Color3.new(1, 1, 1),
 					TextScaled = true,
-					TextTransparency = spring(function()
-						return if isVisible() then 0 else 1
-					end, 0.5, 1),
+					TextTransparency = menuMotion:Fade(),
 				}),
 				create("UIAspectRatioConstraint")({ AspectRatio = 4.53 }),
 			}),
@@ -414,11 +398,7 @@ function InventoryUI.RenderUI()
 					Name = "Bottom",
 					BackgroundTransparency = 1,
 					Image = "rbxassetid://101405228511471",
-					Position = spring(function()
-						return if isVisible()
-							then UDim2.fromScale(-0.00261403, 0.882837)
-							else UDim2.fromScale(-0.00261403, 1.08)
-					end, 0.55, 0.65),
+					Position = menuMotion:Spring(UDim2.fromScale(-0.00261403, 0.882837), UDim2.fromScale(-0.00261403, 1.08), "Action"),
 					Size = UDim2.fromScale(1, 0.117596),
 					ZIndex = 20,
 					create("UIListLayout")({
@@ -437,11 +417,7 @@ function InventoryUI.RenderUI()
 					Name = "ScrollBackground",
 					BackgroundTransparency = 1,
 					ClipsDescendants = true,
-					Position = spring(function()
-						return if isVisible()
-							then UDim2.fromScale(0.261138, 0.0364527)
-							else UDim2.fromScale(0.31, 0.0364527)
-					end, 0.5, 0.8),
+					Position = menuMotion:Spring(UDim2.fromScale(0.261138, 0.0364527), UDim2.fromScale(0.31, 0.0364527), "Content"),
 					Size = UDim2.fromScale(0.738862, 0.846385),
 					create("ScrollingFrame")({
 						Name = "Items",
@@ -452,11 +428,7 @@ function InventoryUI.RenderUI()
 						ScrollBarThickness = 0,
 						Size = UDim2.fromScale(1, 1),
 						create("UIGridLayout")({
-							CellPadding = spring(function()
-								return if isVisible()
-									then UDim2.fromScale(0.01, 0.015)
-									else UDim2.fromScale(-0.012, 0.015)
-							end, 0.5, 1),
+							CellPadding = menuMotion:Spring(UDim2.fromScale(0.01, 0.015), UDim2.fromScale(-0.012, 0.015), "Header"),
 							CellSize = UDim2.fromScale(0.239841, 0.354932),
 							SortOrder = Enum.SortOrder.LayoutOrder,
 						}),
@@ -514,11 +486,7 @@ function InventoryUI.RenderUI()
 					BackgroundTransparency = 1,
 					Image = "rbxassetid://107178039915972",
 					Position = UDim2.fromScale(1.006, -0.09),
-					Size = spring(function()
-						return if isVisible()
-							then UDim2.fromScale(0.565461, 0.0921883)
-							else UDim2.fromScale(0, 0.0921883)
-					end, 0.5, 0.9),
+					Size = menuMotion:SearchSize(UDim2.fromScale(0.565461, 0.0921883)),
 					create("TextBox")({
 						Name = "TextBox",
 						BackgroundTransparency = 1,
@@ -569,38 +537,41 @@ function InventoryUI.RenderUI()
 					Position = UDim2.fromScale(0.265911, 0.671846),
 					Size = UDim2.fromScale(0.734089, 0.211848),
 				}),
-				create("ScrollingFrame")({
-					Name = "Category",
-					Active = true,
-					AutomaticCanvasSize = Enum.AutomaticSize.Y,
-					BackgroundColor3 = Color3.fromRGB(8, 8, 8),
-					BorderSizePixel = 0,
-					CanvasSize = UDim2.new(),
-					Position = spring(function()
-						return if isVisible() then UDim2.fromScale(0, 0.0172544) else UDim2.fromScale(-0.08, 0.0172544)
-					end, 0.5, 0.82),
-					ScrollBarThickness = 0,
+				create("CanvasGroup")({
+					Name = "CategoryClip",
+					BackgroundTransparency = 1,
+					ClipsDescendants = true,
+					AnchorPoint = Vector2.new(0, 0),
+					Position = menuMotion:Spring(UDim2.fromScale(0, 0.0172544), UDim2.fromScale(-0.08, 0.0172544), "Content"),
 					Size = UDim2.fromScale(0.259, 0.865746),
-					create("UIListLayout")({
-						HorizontalAlignment = Enum.HorizontalAlignment.Center,
-						Padding = UDim.new(0.01, 0),
-						SortOrder = Enum.SortOrder.LayoutOrder,
+					ZIndex = 1,
+					create("ScrollingFrame")({
+						Name = "Category", AnchorPoint = Vector2.new(0, 0),
+						Active = true,
+						AutomaticCanvasSize = Enum.AutomaticSize.Y,
+						BackgroundColor3 = Color3.fromRGB(8, 8, 8),
+						BorderSizePixel = 0,
+						CanvasSize = UDim2.new(),
+						Position = UDim2.fromScale(0, 0),
+						ScrollBarThickness = 0,
+						Size = UDim2.fromScale(1, 1),
+						create("UIListLayout")({
+							HorizontalAlignment = Enum.HorizontalAlignment.Center,
+							Padding = UDim.new(0.01, 0),
+							SortOrder = Enum.SortOrder.LayoutOrder,
+						}),
+						create("UIPadding")({ PaddingTop = UDim.new(0, 2) }),
+						categoryButton("Material", 1, isVisible),
+						categoryButton("Skin", 2, isVisible),
 					}),
-					create("UIPadding")({ PaddingTop = UDim.new(0, 2) }),
-					categoryButton("Material", 1, isVisible),
-					categoryButton("Skin", 2, isVisible),
 				}),
 			}),
 			create("ImageLabel")({
 				Name = "Avatar",
 				BackgroundTransparency = 1,
 				Image = "rbxassetid://121523581447419",
-				Position = spring(function()
-					return if isVisible() then UDim2.fromScale(0.596001, 0.170108) else UDim2.fromScale(0.625, 0.170108)
-				end, 0.4, 0.5),
-				Size = spring(function()
-					return if isVisible() then UDim2.fromScale(0.382446, 0.697631) else UDim2.fromScale(0.425, 0.697631)
-				end, 0.4, 0.5),
+				Position = menuMotion:Spring(UDim2.fromScale(0.596001, 0.170108), UDim2.fromScale(0.625, 0.170108), "Detail"),
+				Size = menuMotion:Spring(UDim2.fromScale(0.382446, 0.697631), UDim2.fromScale(0.425, 0.697631), "Detail"),
 				ZIndex = 10,
 				create("UIGradient")({
 					Color = function()
@@ -689,9 +660,7 @@ function InventoryUI.RenderUI()
 				ImageTransparency = function()
 					return if selectedCategory() == "Skin" and selectedItemName() then 0 else 0.45
 				end,
-				Position = spring(function()
-					return if isVisible() then UDim2.fromScale(0.787698, 0.920119) else UDim2.fromScale(0.787698, 1.05)
-				end, 0.75, 0.65),
+				Position = menuMotion:Spring(UDim2.fromScale(0.787698, 0.920119), UDim2.fromScale(0.787698, 1.05), "Action"),
 				Size = UDim2.fromScale(0.337246, 0.0842378),
 				ZIndex = 11,
 				create("TextLabel")({
@@ -714,12 +683,8 @@ function InventoryUI.RenderUI()
 				AnchorPoint = Vector2.new(0.5, 0.5),
 				BackgroundTransparency = 1,
 				Image = "rbxassetid://92651860309635",
-				Rotation = spring(function()
-					return if isVisible() then 0 else -1800
-				end, 1, 0.8),
-				Position = spring(function()
-					return if isVisible() then UDim2.fromScale(0.980096, 0.0289194) else UDim2.fromScale(0.2, 0.0289194)
-				end, 1, 0.85),
+				Rotation = menuMotion:CloseRotation(),
+				Position = menuMotion:ClosePosition(UDim2.fromScale(0.980096, 0.0289194)),
 				Size = UDim2.fromScale(0.102144, 0.15458),
 				Activated = function()
 					UIController:Close(VIEW_ID)

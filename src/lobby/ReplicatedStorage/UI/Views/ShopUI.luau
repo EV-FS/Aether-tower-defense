@@ -3,6 +3,7 @@ local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Vide = require(ReplicatedStorage.Packages.Vide)
+local useMenuMotion = require(ReplicatedStorage.Shared.Modules.UI.Hooks.useMenuMotion)
 local PurchaseData = require(ReplicatedStorage.Settings.Data.PurchaseData)
 local UISFX = require(ReplicatedStorage.Settings.Visuals.UISFX)
 local ServiceRegistry = require(ReplicatedStorage.Shared.Modules.Core.ServiceRegistry)
@@ -26,7 +27,9 @@ local PRODUCTS = {
 		PurchaseName = "VIP",
 		Title = "VIP",
 		Price = 199,
-		Description = "VIP TAG\n+25% COINS\n20% BANNER DISCOUNT\n+100% AFK REWARDS",
+		Description = "VIP유저 전용칭호+\n코인 획득량 25% 증가\n배너 비용할인 20% 할인\nAfk 보상 100% 증가",
+		TitleSize = UDim2.fromScale(0.0827651, 0.240001),
+		DescriptionSize = UDim2.fromScale(0.264445, 0.606204),
 		Background = "rbxassetid://133871780628906",
 		Icon = "rbxassetid://123749123428448",
 		Gradient = ColorSequence.new(Color3.fromRGB(255, 207, 34), Color3.fromRGB(255, 91, 26)),
@@ -38,7 +41,9 @@ local PRODUCTS = {
 		PurchaseName = "+500 Backpack",
 		Title = "INVENTORY +",
 		Price = 79,
-		Description = "+500 UNIT INVENTORY CAPACITY",
+		Description = "유닛 인벤토리 칸 갯수 200개 증가",
+		TitleSize = UDim2.fromScale(0.331405, 0.240001),
+		DescriptionSize = UDim2.fromScale(0.227433, 0.359308),
 		Background = "rbxassetid://105641848752305",
 		Icon = "rbxassetid://130689328733111",
 		Gradient = ColorSequence.new(Color3.fromRGB(98, 70, 22), Color3.fromRGB(255, 91, 26)),
@@ -50,11 +55,13 @@ local PRODUCTS = {
 		PurchaseName = "Double Coins",
 		Title = "COIN 2X",
 		Price = 199,
-		Description = "EARN 2X COINS",
+		Description = "획득하는 코인의 양 2배로 증가",
+		TitleSize = UDim2.fromScale(0.213931, 0.240001),
+		DescriptionSize = UDim2.fromScale(0.248993, 0.359308),
 		Background = "rbxassetid://90822099076746",
 		Icon = "rbxassetid://129529718006323",
 		Gradient = ColorSequence.new(Color3.fromRGB(255, 247, 16), Color3.fromRGB(203, 255, 32)),
-		Glow = Color3.fromRGB(108, 255, 125),
+		Glow = Color3.fromRGB(210, 255, 64),
 		LayoutOrder = 3,
 	},
 	{
@@ -62,7 +69,9 @@ local PRODUCTS = {
 		PurchaseName = "Lucky",
 		Title = "LUCK 2X",
 		Price = 299,
-		Description = "2X SUMMON LUCK",
+		Description = "행운이 2배로 상승",
+		TitleSize = UDim2.fromScale(0.235257, 0.240001),
+		DescriptionSize = UDim2.fromScale(0.248993, 0.359308),
 		Background = "rbxassetid://103389399438277",
 		Icon = "rbxassetid://112209565451582",
 		Gradient = ColorSequence.new(Color3.fromRGB(255, 247, 16), Color3.fromRGB(203, 255, 32)),
@@ -74,7 +83,9 @@ local PRODUCTS = {
 		PurchaseName = "Absolute Hunter",
 		Title = "ABSOLUTE HUNTER",
 		Price = 799,
-		Description = "+100% ABSOLUTE UNIT ODDS\nIN THE COIN BANNER",
+		Description = "코인배너에서 앱솔루트 등급 유닛을 획득할 확률이 100% 증가",
+		TitleSize = UDim2.fromScale(0.485076, 0.240001),
+		DescriptionSize = UDim2.fromScale(0.264445, 0.606204),
 		Background = "rbxassetid://99037659221779",
 		Icon = "rbxassetid://101324511525362",
 		Gradient = ColorSequence.new(Color3.fromRGB(144, 249, 255), Color3.fromRGB(235, 125, 255)),
@@ -157,7 +168,8 @@ local function productCard(config)
 		BackgroundTransparency = 1,
 		Image = config.Background,
 		LayoutOrder = config.LayoutOrder,
-		Size = UDim2.fromScale(0.96, 0.54),
+		Size = UDim2.fromScale(0.91547, 0.191786),
+		create("UIAspectRatioConstraint")({ AspectRatio = 4.27133 }),
 		create("ImageLabel")({
 			Name = "Highlight",
 			BackgroundTransparency = 1,
@@ -180,7 +192,7 @@ local function productCard(config)
 			BackgroundTransparency = 1,
 			FontFace = Font.new("rbxasset://fonts/families/FredokaOne.json"),
 			Position = UDim2.fromScale(0.263282, 0.0929992),
-			Size = UDim2.fromScale(0.42, 0.240001),
+			Size = config.TitleSize,
 			Text = config.Title,
 			TextColor3 = Color3.new(1, 1, 1),
 			TextScaled = true,
@@ -194,14 +206,13 @@ local function productCard(config)
 			BackgroundTransparency = 1,
 			FontFace = Font.new("rbxasset://fonts/families/FredokaOne.json"),
 			Position = UDim2.fromScale(0.271106, 0.326952),
-			Size = UDim2.fromScale(0.31, 0.55),
+			Size = config.DescriptionSize,
 			Text = config.Description,
 			TextColor3 = Color3.new(1, 1, 1),
 			TextScaled = true,
-			TextWrapped = true,
 			TextXAlignment = Enum.TextXAlignment.Left,
 			create("UIStroke")({ Thickness = 2 }),
-			create("UIGradient")({ Color = config.Gradient, Rotation = 90 }),
+			create("UIGradient")({ Rotation = 90 }),
 			create("UIShadow")({ BlurRadius = UDim.new(0, 20), Color = config.Glow, Transparency = 0.5 }),
 		}),
 		priceLabel(config.Price),
@@ -212,7 +223,6 @@ local function productCard(config)
 			AnchorPoint = Vector2.new(0.5, 0.5),
 			BackgroundTransparency = 1,
 			Image = "rbxassetid://98844680499099",
-			ImageTransparency = 0.25,
 			Position = UDim2.fromScale(0.963224, 0.842459),
 			Size = UDim2.fromScale(0.221037, 0.249376),
 			create("UIGradient")({
@@ -225,13 +235,12 @@ local function productCard(config)
 				AnchorPoint = Vector2.new(0.5, 0.5),
 				BackgroundTransparency = 1,
 				Image = "rbxassetid://128557996574921",
-				ImageTransparency = 0.25,
 				Position = UDim2.fromScale(0.5, 0.5),
 				Size = UDim2.fromScale(0.70253, 0.687405),
 				ZIndex = 10,
 				create("UIAspectRatioConstraint")({ AspectRatio = 0.83 }),
 			}),
-			create("UIStroke")({ Color = Color3.new(1, 1, 1), Transparency = 0.35 }),
+			create("UIStroke")({ Color = Color3.new(1, 1, 1) }),
 			create("UICorner")({}),
 		}),
 		create("ImageButton")({
@@ -266,6 +275,9 @@ end
 
 function ShopUI.RenderUI()
 	local isVisible = UIController:IsVisible(VIEW_ID)
+	local menuMotion = useMenuMotion(isVisible, function()
+		return UIController:GetActiveView()
+	end)
 	local cards = table.create(#PRODUCTS)
 	for _, config in PRODUCTS do
 		table.insert(cards, productCard(config))
@@ -290,55 +302,45 @@ function ShopUI.RenderUI()
 		end
 	end)
 
-	return create("Frame")({
-		Name = "Container",
+	return create("CanvasGroup")({
+		Name = "Container", GroupTransparency = menuMotion.Transparency, Interactable = isVisible,
 		AnchorPoint = Vector2.new(0.5, 0.5),
 		BackgroundTransparency = 1,
 		Position = UDim2.fromScale(0.5, 0.5),
 		Size = UDim2.fromScale(0.753032, 1),
-		Visible = isVisible,
+		Visible = menuMotion.IsMounted,
 		create("ImageLabel")({
-			Name = "Main",
+			Name = "Main", AnchorPoint = Vector2.new(0.5, 0),
 			BackgroundTransparency = 1,
 			Image = "rbxassetid://127375273648665",
-			Position = spring(function()
-				return if isVisible() then UDim2.fromScale(0.13799, 0.20195) else UDim2.fromScale(0.13799, 0.24)
-			end, 0.5, 0.82),
-			-- Rotated ancestors can make Roblox GUI clipping leak at the viewport edge.
-			-- Keep the shop body axis-aligned; the header/close animations remain independent.
-			Rotation = 0,
-			Size = spring(function()
-				return if isVisible() then UDim2.fromScale(0.721698, 0.593865) else UDim2.fromScale(0.68, 0.56)
-			end, 0.5, 0.72),
+			Position = UDim2.fromScale(0.498839, 0.20195),
+			Rotation = menuMotion:WindowRotation(),
+			Size = menuMotion:WindowSize(UDim2.fromScale(0.721698, 0.593865)),
 			create("ImageLabel")({
 				Name = "Header",
 				BackgroundTransparency = 1,
 				Image = "rbxassetid://75329771755132",
-				Position = spring(function()
-					return if isVisible()
-						then UDim2.fromScale(-0.0573612, -0.111321)
-						else UDim2.fromScale(-0.12, -0.111321)
-				end, 0.55, 0.8),
+				Position = menuMotion:HeaderPosition(UDim2.fromScale(-0.0573612, -0.111321)),
 				Size = UDim2.fromScale(0.683091, 0.28349),
 				ZIndex = 10,
 				create("ImageLabel")({
-					Name = "Icon",
+					Name = "Icon", Rotation = menuMotion:IconRotation(), AnchorPoint = Vector2.new(0.5, 0.5),
 					BackgroundTransparency = 1,
 					Image = "rbxassetid://103167904612614",
-					Position = UDim2.fromScale(0.0299205, 0.161809),
-					Size = UDim2.fromScale(0.157055, 0.629612),
+					Position = UDim2.fromScale(0.108448, 0.476615),
+					Size = menuMotion:IconSize(UDim2.fromScale(0.157055, 0.629612)),
 					create("UIAspectRatioConstraint")({ AspectRatio = 1.13 }),
 				}),
 				create("ImageLabel")({
-					Name = "Cloud",
+					Name = "Cloud", ImageTransparency = menuMotion:Fade(),
 					BackgroundTransparency = 1,
 					Image = "rbxassetid://97738986977654",
-					Position = UDim2.fromScale(0.529887, 0.0551715),
+					Position = menuMotion:CloudPosition(UDim2.fromScale(0.529887, 0.0551715)),
 					Size = UDim2.fromScale(0.507418, 1.06417),
 					create("UIAspectRatioConstraint")({ AspectRatio = 2.16 }),
 				}),
 				create("TextLabel")({
-					Name = "Title",
+					Name = "Title", TextTransparency = menuMotion:Fade(),
 					BackgroundTransparency = 1,
 					FontFace = Font.new("rbxasset://fonts/families/FredokaOne.json"),
 					Position = UDim2.fromScale(0.265238, 0.435573),
@@ -356,10 +358,8 @@ function ShopUI.RenderUI()
 				AnchorPoint = Vector2.new(0.5, 0.5),
 				BackgroundTransparency = 1,
 				Image = "rbxassetid://92651860309635",
-				Position = UDim2.fromScale(0.980096, 0.0289194),
-				Rotation = spring(function()
-					return if isVisible() then 0 else -1080
-				end, 0.7, 0.7),
+				Position = menuMotion:ClosePosition(UDim2.fromScale(0.980096, 0.0289194)),
+				Rotation = menuMotion:CloseRotation(),
 				Size = UDim2.fromScale(0.0822234, 0.15458),
 				Activated = function()
 					UIController:Close(VIEW_ID)
@@ -373,7 +373,7 @@ function ShopUI.RenderUI()
 				BackgroundTransparency = 1,
 				ClipsDescendants = true,
 				GroupTransparency = 0,
-				Position = UDim2.fromScale(0.5, 0.55462),
+				Position = menuMotion:ContentPosition(UDim2.fromScale(0.5, 0.55462)),
 				Size = UDim2.fromScale(0.951938, 0.769024),
 				create("ScrollingFrame")({
 					Name = "ScrollingFrame",

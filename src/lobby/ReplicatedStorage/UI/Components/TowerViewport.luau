@@ -32,6 +32,7 @@ export type Props = {
 	Position: Reactive<UDim2>?,
 	Size: Reactive<UDim2>?,
 	Visible: Reactive<boolean>?,
+	Active: Reactive<boolean>?,
 	ZIndex: Reactive<number>?,
 	BackgroundColor3: Reactive<Color3>?,
 	BackgroundTransparency: Reactive<number>?,
@@ -322,7 +323,8 @@ return function(props: Props)
 			if frame.AbsoluteSize.X <= 0 or frame.AbsoluteSize.Y <= 0 or viewportFitter() ~= fitter then
 				return
 			end
-			fitter:Calibrate()
+			-- The camera effect performs calibration after this revision changes.
+			-- Doing it here as well doubled the work throughout window-size springs.
 			viewportFitterRevision(viewportFitterRevision() + 1)
 		end)
 
@@ -336,6 +338,10 @@ return function(props: Props)
 
 	-- Spring updates only transform the existing clone and its camera.
 	effect(function()
+		if read(props.Active) == false then
+			return
+		end
+
 		local state = modelState()
 		if not state then
 			return
@@ -382,6 +388,10 @@ return function(props: Props)
 
 	-- Reload only when the model or selected animation changes.
 	effect(function()
+		if read(props.Active) == false then
+			return
+		end
+
 		local state = modelState()
 		if not state then
 			return

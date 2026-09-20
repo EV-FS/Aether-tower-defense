@@ -352,10 +352,6 @@ local function loadAnimations(
 		animationTargets[animation] = target
 	end
 
-	pcall(function()
-		ContentProvider:PreloadAsync(animationInstances)
-	end)
-
 	for _, animation in ipairs(animationInstances) do
 		local target = animationTargets[animation]
 		local targetName = target.Name
@@ -443,7 +439,7 @@ function CutscenePlayer.Play(cutsceneName: string, options: PlaybackOptions?): b
 	end
 	-- This is normally already complete from the lobby startup preload. Waiting
 	-- here closes the race when a player summons immediately after joining.
-	CutscenePlayer.Preload(cutsceneName)
+	local wasPreloaded = CutscenePlayer.Preload(cutsceneName)
 
 	CutscenePlayer.Stop()
 	local token = activeToken
@@ -466,13 +462,15 @@ function CutscenePlayer.Play(cutsceneName: string, options: PlaybackOptions?): b
 		print(`[CutscenePlayer] Loaded {#sceneRoots} objects for "{cutsceneName}" into Workspace.`)
 	end
 
-	local sceneReady, sceneError = pcall(function()
-		ContentProvider:PreloadAsync(sceneRoots)
-	end)
-	if not sceneReady then
-		warn(`[CutscenePlayer] Scene assets for "{cutsceneName}" failed to preload: {sceneError}`)
-		cleanActiveCutscene()
-		return false
+	if not wasPreloaded then
+		local sceneReady, sceneError = pcall(function()
+			ContentProvider:PreloadAsync(sceneRoots)
+		end)
+		if not sceneReady then
+			warn(`[CutscenePlayer] Scene assets for "{cutsceneName}" failed to preload: {sceneError}`)
+			cleanActiveCutscene()
+			return false
+		end
 	end
 
 	local cameraModel = findInScene(sceneRoots, config.Camera.Model)
