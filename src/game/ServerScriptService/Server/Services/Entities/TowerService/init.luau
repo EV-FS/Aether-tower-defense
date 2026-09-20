@@ -183,6 +183,23 @@ function TowerService.SetTargetMode(player: Player, data: { towerId: number, tar
 	return true
 end
 
+function TowerService.UseSkill(player: Player, towerId: number, skillName: string)
+	local tower = TowerRegistry.get(towerId)
+	local skillComponent = if tower and tower.Owner == player then tower.Components.Skills else nil
+	if not skillComponent then
+		return {
+			success = false,
+			sendTimeMs = math.floor(workspace:GetServerTimeNow() * 1000) % 65536,
+			revision = 0,
+		}
+	end
+
+	local success = skillComponent:UseSkill(skillName)
+	local response = skillComponent:GetCooldownState(skillName)
+	response.success = success
+	return response
+end
+
 function TowerService:DestroyAll()
 	for _, tower in TowerRegistry.getAll() do
 		tower:Destroy()
@@ -282,6 +299,10 @@ function TowerService.Start()
 
 	Net.TowerService.SetTargetMode.On(function(player: Player, data)
 		return TowerService.SetTargetMode(player, data)
+	end)
+
+	Net.TowerService.UseSkill.On(function(player: Player, data: { skillName: string, towerId: number })
+		return TowerService.UseSkill(player, data.towerId, data.skillName)
 	end)
 end
 

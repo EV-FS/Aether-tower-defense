@@ -20,6 +20,7 @@ function BuffComponent.new(tower)
 	local self = setmetatable({}, BuffComponent)
 	self.Tower = tower
 	self.BuffedTowers = {}
+	self.IsDestroyed = false
 
 	if not self.Tower.ActiveBuffs then
 		self.Tower.ActiveBuffs = {}
@@ -39,6 +40,7 @@ function BuffComponent:Start()
 			return
 		end
 		timeLeft = CHECK_INTERVAL
+		self:_UpdateBuff()
 	end)
 end
 
@@ -48,17 +50,18 @@ end
 
 function BuffComponent:_UpdateBuff(refreshExisting)
 	local towersCurrentlyInRange = {}
+	local range = self.Tower.Stats.Range or 0
 
 	TowerService = TowerService or ServiceRegistry:GetService("TowerService")
 
 	for _, tower in TowerService.GetAll() do
-		if tower == self.Tower then
+		if tower == self.Tower or tower.IsDestroyed then
 			continue
 		end
 
 		local offset = tower.Position - self.Tower.Position
 
-		if offset.X ^ 2 + offset.Z ^ 2 <= self.Tower.Stats.Range ^ 2 then
+		if offset.X ^ 2 + offset.Z ^ 2 <= range ^ 2 then
 			towersCurrentlyInRange[tower] = true
 
 			if refreshExisting or not self.BuffedTowers[tower] then
@@ -70,17 +73,34 @@ function BuffComponent:_UpdateBuff(refreshExisting)
 
 	for buffedTower, _ in pairs(self.BuffedTowers) do
 		if not towersCurrentlyInRange[buffedTower] then
-			self:_RemoveBuff(buffedTower)
 			self.BuffedTowers[buffedTower] = nil
+			self:_RemoveBuff(buffedTower)
 		end
 	end
 end
 
 function BuffComponent:_ApplyBuff(targetTower)
+	if self.IsDestroyed or targetTower.IsDestroyed then
+		return
+	end
+
+	local damage = self.Tower.Stats.DamageBuff or 0
+	local range = self.Tower.Stats.RangeBuff or 0
+	local cooldown = self.Tower.Stats.CooldownBuff or 0
+	local previous = targetTower.ActiveBuffs[self.Tower]
+	if
+		previous
+		and previous.DamageBuff == damage
+		and previous.RangeBuff == range
+		and previous.CooldownBuff == cooldown
+	then
+		return
+	end
+
 	targetTower.ActiveBuffs[self.Tower] = {
-		DamageBuff = self.Tower.Stats.DamageBuff or 0,
-		RangeBuff = self.Tower.Stats.RangeBuff or 0,
-		CooldownBuff = self.Tower.Stats.CooldownBuff or 0,
+		DamageBuff = damage,
+		RangeBuff = range,
+		CooldownBuff = cooldown,
 	}
 
 	targetTower:_ApplyNewStats()
@@ -97,7 +117,14 @@ function BuffComponent:_ApplyBuff(targetTower)
 end
 
 function BuffComponent:_RemoveBuff(targetTower)
+	if not targetTower.ActiveBuffs[self.Tower] then
+		return
+	end
 	targetTower.ActiveBuffs[self.Tower] = nil
+
+	if targetTower.IsDestroyed then
+		return
+	end
 
 	targetTower:_ApplyNewStats()
 
@@ -112,12 +139,18 @@ function BuffComponent:_RemoveBuff(targetTower)
 end
 
 function BuffComponent:Destroy()
+	if self.IsDestroyed then
+		return
+	end
+	self.IsDestroyed = true
+
 	if self.HeartbeatConnection then
 		self.HeartbeatConnection:Disconnect()
 		self.HeartbeatConnection = nil
 	end
 
 	for buffedTower, _ in pairs(self.BuffedTowers) do
+		self.BuffedTowers[buffedTower] = nil
 		self:_RemoveBuff(buffedTower)
 	end
 	table.clear(self.BuffedTowers)

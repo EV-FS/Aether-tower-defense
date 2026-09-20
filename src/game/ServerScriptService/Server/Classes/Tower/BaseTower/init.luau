@@ -55,6 +55,7 @@ function BaseTower.new(player: Player, towerId: number, towerName: string, tower
 	DataService = DataService or ServiceRegistry:GetService("DataService")
 	local playerData = DataService and DataService:GetData(player)
 	local ownedTower = playerData and playerData.OwnedTowers[towerName] and playerData.OwnedTowers[towerName][towerKey]
+	self.TowerProfile = ownedTower
 	self.Trait = if ownedTower then ownedTower.Trait else nil
 
 	self.Destroyed = Signal.new()
@@ -62,6 +63,7 @@ function BaseTower.new(player: Player, towerId: number, towerName: string, tower
 	self.Components = {}
 	self.EventSignals = {}
 	self.ActiveBuffs = {}
+	self.StatsOverride = {}
 
 	self:_ApplyNewStats()
 	self:_AddTowerExp()
@@ -137,6 +139,12 @@ function BaseTower:_AddTowerExp()
 	end
 end
 
+function BaseTower:OverrideStats(statName: string, statValue: any)
+	self.StatsOverride = self.StatsOverride or {}
+	self.StatsOverride[statName] = statValue
+	self:_ApplyNewStats()
+end
+
 function BaseTower:_RecalculateStats()
 	self.Stats = TableUtils.DeepCopy(TowerData.ByName[self.Name].Stats[self.Level])
 
@@ -148,6 +156,14 @@ function BaseTower:_RecalculateStats()
 				handler(self, effect.Value)
 			end
 		end
+	end
+
+	local level = (self.TowerProfile and self.TowerProfile.Lv) or 0
+	if self.Stats.Damage then
+		self.Stats.Damage *= 1 + level * 0.006
+	end
+	if self.Stats.Range then
+		self.Stats.Range *= 1 + level * 0.0025
 	end
 
 	if self.ActiveBuffs then
@@ -172,6 +188,10 @@ function BaseTower:_RecalculateStats()
 		end
 	end
 
+	for statName, statValue in self.StatsOverride do
+		self.Stats[statName] = statValue
+	end
+
 	if self.Stats.Damage then
 		self.Stats.Damage = math.floor(self.Stats.Damage)
 	end
@@ -189,6 +209,9 @@ function BaseTower:_ApplyNewStats()
 	end
 
 	self:_RecalculateStats()
+
+	local skills = self.Stats.Skills or {}
+	self:_SyncComponent("Skills", "SkillComponent", TableUtils.Length(skills) > 0, skills)
 
 	local needsAttack = self.Stats.AttackType and self.Stats.Damage
 	local needsSecondaryAttack = self.Stats.Secondary and self.Stats.Secondary.AttackType
@@ -238,8 +261,8 @@ function BaseTower:_SyncComponent(key: string, componentName: string, shouldExis
 	end
 
 	if component then
-		component:Destroy()
 		self.Components[key] = nil
+		component:Destroy()
 	end
 end
 

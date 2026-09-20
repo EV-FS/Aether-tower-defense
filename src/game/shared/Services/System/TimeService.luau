@@ -39,6 +39,7 @@ end
 local TimeService = {}
 TimeService.GameSpeed = 1
 TimeService.GameTime = 0
+TimeService.ClockTime = 0
 TimeService.RealGameTime = 0
 TimeService.IsTimerRunning = false
 
@@ -88,6 +89,10 @@ function TimeService.DeltaDelay(duration: number)
 	end)
 end
 
+function TimeService:Now(): number
+	return self.ClockTime
+end
+
 function TimeService:StartGameTimer()
 	TimeService.GameTime = 0
 	TimeService.RealGameTime = 0
@@ -103,11 +108,6 @@ function TimeService:_RecordGameTime()
 		return
 	end
 	self.IsTimerRunning = true
-
-	TimerConnection = RunService.Heartbeat:Connect(function(dt)
-		self.GameTime += dt * self.GameSpeed
-		self.RealGameTime += dt
-	end)
 end
 
 function TimeService:_StopRecording()
@@ -115,23 +115,18 @@ function TimeService:_StopRecording()
 		return
 	end
 	self.IsTimerRunning = false
-
-	if TimerConnection then
-		TimerConnection:Disconnect()
-		TimerConnection = nil
-	end
 end
 
 function TimeService:GetGameSpeed()
 	return self.GameSpeed
 end
 
-function TimeService:SetGameSpeed(speed: number, pingTime: number?, isForce: boolean?): boolean
+function TimeService:SetGameSpeed(speed: number, pingTime: number?, fromServer: boolean?): boolean
 	if typeof(speed) ~= "number" or speed ~= speed or speed < 0 or speed == math.huge then
 		return false
 	end
 
-	if RunService:IsClient() and not isForce then
+	if RunService:IsClient() and not fromServer then
 		local success = Net.TimeService.ChangeGameSpeed.Invoke(speed * 10):expect()
 		return success == true
 	end
@@ -183,6 +178,17 @@ function TimeService.Start()
 			return TimeService:SetGameSpeed(targetSpeed)
 		end)
 	end
+
+	RunService.Heartbeat:Connect(function(dt)
+		local scaledDt = dt * TimeService.GameSpeed
+
+		TimeService.ClockTime += scaledDt
+
+		if TimeService.IsTimerRunning then
+			TimeService.GameTime += scaledDt
+			TimeService.RealGameTime += dt
+		end
+	end)
 end
 
 return TimeService

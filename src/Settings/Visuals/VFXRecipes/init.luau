@@ -140,6 +140,16 @@ return TableUtils.DeepFreeze({
 			},
 		},
 	},
+	["Saint"] = {
+		["Skill_Heavenly Grace"] = {
+			[0] = {
+				Steps.Emit("Towers/Saint/HG1", { Lifetime = 3, Delay = 0.7, LockToSource = true, At = "Source" }),
+				Steps.Emit("Towers/Saint/HG2", { Lifetime = 3, Delay = 2.083, LockToSource = true, At = "Source" }),
+				Steps.Emit("Towers/Saint/HG3", { Lifetime = 3, Delay = 2.566, LockToSource = true, At = "Source" }),
+				Steps.Emit("Towers/Saint/HG4", { Lifetime = 3, Delay = 3.066, LockToSource = true, At = "Source" }),
+			},
+		},
+	},
 	["Galahad"] = {
 		AttackCombo1End = {
 			[0] = {

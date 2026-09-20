@@ -380,6 +380,36 @@ function TowerRenderer.LookAt(towerModel: Model, targetPosition: Vector3)
 	towerModel:PivotTo(CFrame.lookAt(towerPivot.Position, lookTarget))
 end
 
+function TowerRenderer.OnSkillTriggered(towerId: number, skillName: string, arg: any?)
+	local targetTower = TowerRenderer.RenderStates[towerId]
+	if not targetTower then
+		return
+	end
+
+	local eventName = `Skill_{skillName}`
+	local targetModel = if typeof(arg) == "table" and arg.EnemyId
+		then workspace.Enemies:FindFirstChild(`Enemy_{arg.EnemyId}`)
+		else nil
+	local range = if typeof(arg) == "table" and typeof(arg.Range) == "number" then arg.Range else nil
+
+	AnimationService.PlayOnce(targetTower.Model, eventName, {
+		Level = targetTower.Level,
+		Resume = "Idle",
+	})
+
+	VisualService.Play(
+		targetTower.Name,
+		eventName,
+		targetTower.Level,
+		targetTower.Model,
+		targetModel,
+		range,
+		nil,
+		nil,
+		arg
+	)
+end
+
 function TowerRenderer.OnPassiveTriggered(towerId: number, passiveType: string, arg: { [string]: any }?)
 	local targetTower = TowerRenderer.RenderStates[towerId]
 	if not targetTower then
@@ -387,7 +417,7 @@ function TowerRenderer.OnPassiveTriggered(towerId: number, passiveType: string, 
 	end
 
 	local towerModel = targetTower.Model
-	local eventName = `Passive{passiveType}`
+	local eventName = `Passive_{passiveType}`
 	local targetModel = if typeof(arg) == "table" and arg.EnemyId
 		then workspace.Enemies:FindFirstChild(`Enemy_{arg.EnemyId}`)
 		else nil

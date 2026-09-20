@@ -23,6 +23,7 @@ local MouseRayCast = require(ReplicatedStorage.Shared.Modules.Utils.MouseRayCast
 local TableUtils = require(ReplicatedStorage.Shared.Modules.Utils.TableUtils)
 local CharacterUtils = require(ReplicatedStorage.Shared.Modules.Utils.CharacterUtils)
 local CreateRangeIndicator = require(script.Parent.Utils.CreateRangeIndicator)
+local TowerSkills = require(script.TowerSkills)
 
 --/Constants
 local PLAYER = Players.LocalPlayer
@@ -78,12 +79,14 @@ function TowerClient.Init(services)
 	NotificationService = services:GetService("NotificationService")
 
 	TowerRenderer.Init(services)
+	TowerSkills.Init(services)
 	TowerPlacement.Init(services, TowerClient.GetTowerCount)
 	CreateRangeIndicator.Init()
 end
 
 function TowerClient.Start()
 	TowerRenderer.Start()
+	TowerSkills.Start()
 
 	--/Input
 	local iScope = InputService.Scope
@@ -127,6 +130,7 @@ function TowerClient.Start()
 	Net.TowerService.TowerSpawned.On(TowerClient._TowerSpawned)
 	Net.TowerService.TowerTargetModeUpdated.On(TowerClient._TowerTargetModeUpdated)
 	Net.TowerService.PassiveTriggered.On(TowerClient._PassiveTriggered)
+	Net.TowerService.SkillTriggered.On(TowerClient._SkillTriggered)
 	Net.TowerService.OnApplyBuff.On(TowerClient._OnApplyBuff)
 	Net.TowerService.OnRemoveBuff.On(TowerClient._OnRemoveBuff)
 	Net.TowerService.OnBuffAdded.On(TowerClient._OnBuffAdded)
@@ -425,6 +429,15 @@ function TowerClient._TowerTargetModeUpdated(data: { towerId: number, targetMode
 	if selectedTowerId == data.towerId then
 		ClientSignals.TowerUpdated:Fire(data.towerId, towerData)
 	end
+end
+
+function TowerClient._SkillTriggered(data: { towerId: number, skillName: string, arg: any? })
+	local towerData = TowerClient.ActiveTowers[data.towerId]
+	if not towerData then
+		return
+	end
+
+	TowerRenderer.OnSkillTriggered(data.towerId, data.skillName, data.arg)
 end
 
 function TowerClient._PassiveTriggered(data: { towerId: number, passiveType: string, arg: { [string]: any }? })

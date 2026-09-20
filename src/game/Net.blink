@@ -177,6 +177,20 @@ scope TowerService {
         Return: boolean
     }
 
+    function UseSkill {
+        Yield: Promise,
+        Data: struct {
+            towerId: u16,
+            skillName: string,
+        },
+        Return: struct {
+            success: boolean,
+            cooldownLeft: f32?,
+            sendTimeMs: u16,
+            revision: u32,
+        }
+    }
+
     event TowerTargetModeUpdated {
         from: Server,
         type: Reliable,
@@ -194,6 +208,29 @@ scope TowerService {
         data: struct {
             towerId: u16,
             stats: unknown,
+        }
+    }
+
+    event SkillsUpdated {
+        from: Server,
+        type: Reliable,
+        call: SingleSync,
+        data: struct {
+            towerId: u16,
+            skills: unknown,
+            sendTimeMs: u16,
+            revision: u32,
+        }
+    }
+
+    event SkillTriggered {
+        from: Server,
+        type: Reliable,
+        call: SingleSync,
+        data: struct {
+            towerId: u16,
+            skillName: string,
+            arg: unknown?,
         }
     }
 

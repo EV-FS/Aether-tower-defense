@@ -40,6 +40,8 @@ local ClientSignals = {
 	TowerUnselected = Signal.new(),
 
 	TowerUpdated = Signal.new(),
+	StatsUpdated = Signal.new(),
+	SkillsChanged = Signal.new(),
 	TowerDestroyed = Signal.new(),
 	TowerCountChanged = Signal.new(),
 

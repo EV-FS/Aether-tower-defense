@@ -4,7 +4,7 @@ local TableUtils = require(ReplicatedStorage.Shared.Modules.Utils.TableUtils)
 return TableUtils.DeepFreeze({
 	KST_OFFSET = 9 * 3600,
 	MAX_LOADOUT_SIZE = 5,
-	MAX_TOWER_LEVEL = 30,
+	MAX_TOWER_LEVEL = 40,
 	STARTER_TOWER = "Fighter",
 
 	PROFILE_TEMPLATE = {
@@ -19,8 +19,6 @@ return TableUtils.DeepFreeze({
 			Crates = {},
 			Items = {},
 			Skins = {},
-			-- Every emote shown in the default radial menu is available to play.
-			-- Profile reconciliation adds missing entries for existing players too.
 			Emotes = {
 				Kyukurarin = 1,
 				["Take the L"] = 1,
