@@ -47,6 +47,12 @@ local CHARACTER_BODY_PART_NAMES = {
 	RightLowerLeg = true,
 	RightFoot = true,
 }
+local PORTRAIT_PART_NAMES = {
+	Head = true,
+	Torso = true,
+	UpperTorso = true,
+	LowerTorso = true,
+}
 
 -- Class
 
@@ -91,13 +97,14 @@ local function isVisualPart(part)
 	return false
 end
 
-local function getModelPointCloud(model, visualOnly, characterBodyOnly)
+local function getModelPointCloud(model, visualOnly, characterBodyOnly, portraitOnly)
 	local points = {}
 	for _, part in pairs(model:GetDescendants()) do
 		if
 			part:IsA("BasePart")
 			and (not visualOnly or isVisualPart(part))
 			and (not characterBodyOnly or CHARACTER_BODY_PART_NAMES[part.Name])
+			and (not portraitOnly or PORTRAIT_PART_NAMES[part.Name])
 		then
 			local indices = getIndices(part)
 			local corners = getCorners(part.CFrame, part.Size / 2, indices)
@@ -152,15 +159,20 @@ end
 -- Used to set the model that is being focused on
 -- should be used for new models and/or a change in the current model
 -- e.g. parts added/removed from the model or the model cframe changed
-function ViewportModelClass:SetModel(model, useCharacterBounds)
+function ViewportModelClass:SetModel(model, useCharacterBounds, usePortraitBounds)
 	self.Model = model
 
-	local points = if useCharacterBounds then getModelPointCloud(model, true, true) else {}
-	if #points == 0 then
-		points = getModelPointCloud(model, true, false)
+	-- Measure portrait previews from the head/torso, so weapons, effects and
+	-- oversized accessories cannot make otherwise similar units look tiny.
+	local points = if usePortraitBounds then getModelPointCloud(model, true, true, true) else {}
+	if #points == 0 and useCharacterBounds then
+		points = getModelPointCloud(model, true, true, false)
 	end
 	if #points == 0 then
-		points = getModelPointCloud(model, false, false)
+		points = getModelPointCloud(model, true, false, false)
+	end
+	if #points == 0 then
+		points = getModelPointCloud(model, false, false, false)
 	end
 	if #points == 0 then
 		points = { model:GetPivot().Position }

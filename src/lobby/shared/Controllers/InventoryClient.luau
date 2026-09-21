@@ -3,7 +3,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Net = require(ReplicatedStorage.Shared.Net.client)
 local Promise = require(ReplicatedStorage.Packages.Promise)
 local Signal = require(ReplicatedStorage.Packages.Signal)
-local ItemData = require(ReplicatedStorage.Settings.Data.ItemData)
+local ItemUtils = require(ReplicatedStorage.Shared.Modules.Utils.ItemUtils)
 local TowerData = require(ReplicatedStorage.Settings.Data.TowerData)
 local Vide = require(ReplicatedStorage.Packages.Vide)
 
@@ -57,31 +57,8 @@ local loadoutRequestVersion = 0
 local inventoryRequestVersion = 0
 local inventorySyncScheduled = false
 
-local function normalizeItemKey(value: any): string
-	return string.lower(tostring(value)):gsub("^%s+", ""):gsub("%s+$", ""):gsub("%s+", " ")
-end
-
-local canonicalItemNames = {}
-for itemName in ItemData.ByName do
-	canonicalItemNames[normalizeItemKey(itemName)] = itemName
-end
-
 local function normalizeItemStacks(rawItems: any): StackInventory
-	local merged = {}
-	if typeof(rawItems) ~= "table" then
-		return merged
-	end
-
-	for rawName, rawAmount in rawItems do
-		local itemInfo = if typeof(rawName) == "number" then ItemData.ByIndex[rawName] else nil
-		local canonicalName = if itemInfo then itemInfo.Name else canonicalItemNames[normalizeItemKey(rawName)]
-		local amount = tonumber(rawAmount)
-		if canonicalName and amount and amount > 0 then
-			merged[canonicalName] = (merged[canonicalName] or 0) + math.floor(amount)
-		end
-	end
-
-	return merged
+	return ItemUtils.NormalizeStacks(rawItems)
 end
 
 local function normalizeTowerKey(towerKey: TowerKey): (string?, number?)

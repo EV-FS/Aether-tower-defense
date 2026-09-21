@@ -17,12 +17,15 @@ local VIEW_ID = "EmoteWheel"
 local EmoteInput
 local emoteIcon = source(nil :: any)
 
-local emoteSlots = {
-	Emote1 = source(EmoteData.ByIndex[1]),
-	Emote2 = source(EmoteData.ByIndex[2]),
-	Emote3 = source(EmoteData.ByIndex[3]),
-	Emote4 = source(EmoteData.ByIndex[4]),
-}
+local emoteSlots = {}
+local emoteIndices = {}
+for index in EmoteData.ByIndex do
+	table.insert(emoteIndices, index)
+end
+table.sort(emoteIndices)
+for _, index in emoteIndices do
+	table.insert(emoteSlots, source(EmoteData.ByIndex[index]))
+end
 
 local EmoteUI = {}
 
@@ -59,10 +62,7 @@ function EmoteUI.RenderUI()
 				EmoteUI.Close()
 			end,
 			Content = EmoteRadialMenu({
-				Emote1 = emoteSlots.Emote1,
-				Emote2 = emoteSlots.Emote2,
-				Emote3 = emoteSlots.Emote3,
-				Emote4 = emoteSlots.Emote4,
+				Emotes = emoteSlots,
 				OnSelected = EmoteUI.OnSelected,
 			}),
 		}),

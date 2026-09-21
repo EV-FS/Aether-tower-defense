@@ -1,8 +1,6 @@
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local TableUtils = require(ReplicatedStorage.Shared.Modules.Utils.TableUtils)
-local RarityColor = require(ReplicatedStorage.Settings.Visuals.RarityColor)
-local RarityGradient = require(ReplicatedStorage.Settings.Visuals.RarityGradient)
 
 export type RarityName = "Common" | "Rare" | "Epic" | "Legendary" | "Mythic" | "Secret" | "Absolute"
 
@@ -23,78 +21,97 @@ export type RarityEntity = {
 	},
 }
 
-local Definitions: { [string]: RarityEntity } = {
+local PresentationData = {
 	Common = {
-		Identity = { Name = "Common", DisplayName = "Common" },
-		Progression = { Order = 7, Power = 1 },
-		Presentation = {
-			Color = RarityColor.Common,
-			Gradient = RarityGradient.Gradients.Common,
-			Glow = RarityGradient.Glow.Common,
-			ShimmerSpeed = RarityGradient.ShimmerSpeed.Common,
-		},
+		Color = Color3.new(1, 1, 1),
+		Gradient = ColorSequence.new({
+			ColorSequenceKeypoint.new(0, Color3.fromRGB(177, 158, 158)),
+			ColorSequenceKeypoint.new(0.5, Color3.fromRGB(255, 228, 228)),
+			ColorSequenceKeypoint.new(1, Color3.fromRGB(177, 158, 158)),
+		}),
+		Glow = Color3.fromRGB(180, 180, 180),
+		ShimmerSpeed = 3,
 	},
 	Rare = {
-		Identity = { Name = "Rare", DisplayName = "Rare" },
-		Progression = { Order = 6, Power = 2 },
-		Presentation = {
-			Color = RarityColor.Rare,
-			Gradient = RarityGradient.Gradients.Rare,
-			Glow = RarityGradient.Glow.Rare,
-			ShimmerSpeed = RarityGradient.ShimmerSpeed.Rare,
-		},
+		Color = Color3.new(0, 1, 1),
+		Gradient = ColorSequence.new({
+			ColorSequenceKeypoint.new(0, Color3.fromRGB(53, 76, 231)),
+			ColorSequenceKeypoint.new(0.5, Color3.fromRGB(58, 212, 255)),
+			ColorSequenceKeypoint.new(1, Color3.fromRGB(53, 76, 231)),
+		}),
+		Glow = Color3.fromRGB(70, 120, 255),
+		ShimmerSpeed = 3,
 	},
 	Epic = {
-		Identity = { Name = "Epic", DisplayName = "Epic" },
-		Progression = { Order = 5, Power = 3 },
-		Presentation = {
-			Color = RarityColor.Epic,
-			Gradient = RarityGradient.Gradients.Epic,
-			Glow = RarityGradient.Glow.Epic,
-			ShimmerSpeed = RarityGradient.ShimmerSpeed.Epic,
-		},
+		Color = Color3.new(0.5, 0, 1),
+		Gradient = ColorSequence.new({
+			ColorSequenceKeypoint.new(0, Color3.fromRGB(131, 0, 131)),
+			ColorSequenceKeypoint.new(0.5, Color3.fromRGB(255, 99, 255)),
+			ColorSequenceKeypoint.new(1, Color3.fromRGB(131, 0, 131)),
+		}),
+		Glow = Color3.fromRGB(210, 80, 255),
+		ShimmerSpeed = 2,
 	},
 	Legendary = {
-		Identity = { Name = "Legendary", DisplayName = "Legendary" },
-		Progression = { Order = 4, Power = 4 },
-		Presentation = {
-			Color = RarityColor.Legendary,
-			Gradient = RarityGradient.Gradients.Legendary,
-			Glow = RarityGradient.Glow.Legendary,
-			ShimmerSpeed = RarityGradient.ShimmerSpeed.Legendary,
-		},
+		Color = Color3.new(1, 1, 0),
+		Gradient = ColorSequence.new({
+			ColorSequenceKeypoint.new(0, Color3.fromRGB(226, 88, 46)),
+			ColorSequenceKeypoint.new(0.5, Color3.fromRGB(255, 255, 30)),
+			ColorSequenceKeypoint.new(1, Color3.fromRGB(226, 88, 46)),
+		}),
+		Glow = Color3.fromRGB(255, 190, 70),
+		ShimmerSpeed = 1.8,
 	},
 	Mythic = {
-		Identity = { Name = "Mythic", DisplayName = "Mythic" },
-		Progression = { Order = 3, Power = 5 },
-		Presentation = {
-			Color = RarityColor.Mythic,
-			Gradient = RarityGradient.Gradients.Mythic,
-			Glow = RarityGradient.Glow.Mythic,
-			ShimmerSpeed = RarityGradient.ShimmerSpeed.Mythic,
-		},
+		Color = Color3.new(1, 0, 0),
+		Gradient = ColorSequence.new({
+			ColorSequenceKeypoint.new(0, Color3.fromRGB(202, 0, 7)),
+			ColorSequenceKeypoint.new(0.5, Color3.fromRGB(255, 0, 234)),
+			ColorSequenceKeypoint.new(1, Color3.fromRGB(218, 0, 4)),
+		}),
+		Glow = Color3.fromRGB(255, 60, 60),
+		ShimmerSpeed = 3,
 	},
 	Absolute = {
-		Identity = { Name = "Absolute", DisplayName = "Absolute" },
-		Progression = { Order = 2, Power = 6 },
-		Presentation = {
-			Color = RarityColor.Absolute,
-			Gradient = RarityGradient.Gradients.Absolute,
-			Glow = RarityGradient.Glow.Absolute,
-			ShimmerSpeed = RarityGradient.ShimmerSpeed.Absolute,
-		},
+		Color = Color3.new(0.15, 0.15, 1),
+		Gradient = ColorSequence.new({
+			ColorSequenceKeypoint.new(0, Color3.fromRGB(239, 189, 255)),
+			ColorSequenceKeypoint.new(0.5, Color3.fromRGB(185, 255, 255)),
+			ColorSequenceKeypoint.new(1, Color3.fromRGB(239, 189, 255)),
+		}),
+		Glow = Color3.fromRGB(83, 46, 250),
+		ShimmerSpeed = 4.5,
 	},
-    	Secret = {
-		Identity = { Name = "Secret", DisplayName = "Secret" },
-		Progression = { Order = 1, Power = 7 },
-		Presentation = {
-			Color = RarityColor.Secret,
-			Gradient = RarityGradient.Gradients.Secret,
-			Glow = RarityGradient.Glow.Secret,
-			ShimmerSpeed = RarityGradient.ShimmerSpeed.Secret,
-		},
+	Secret = {
+		Color = Color3.new(1, 0, 1),
+		Gradient = ColorSequence.new({
+			ColorSequenceKeypoint.new(0, Color3.fromRGB(62, 0, 2)),
+			ColorSequenceKeypoint.new(0.5, Color3.fromRGB(255, 0, 8)),
+			ColorSequenceKeypoint.new(1, Color3.fromRGB(62, 0, 2)),
+		}),
+		Glow = Color3.fromRGB(62, 0, 2),
+		ShimmerSpeed = 3,
 	},
 }
+
+local ProgressionData = {
+	Common = { Order = 7, Power = 1 },
+	Rare = { Order = 6, Power = 2 },
+	Epic = { Order = 5, Power = 3 },
+	Legendary = { Order = 4, Power = 4 },
+	Mythic = { Order = 3, Power = 5 },
+	Absolute = { Order = 2, Power = 6 },
+	Secret = { Order = 1, Power = 7 },
+}
+
+local Definitions: { [string]: RarityEntity } = {}
+for rarity, progression in ProgressionData do
+	Definitions[rarity] = {
+		Identity = { Name = rarity :: RarityName, DisplayName = rarity },
+		Progression = progression,
+		Presentation = PresentationData[rarity],
+	}
+end
 
 local DisplayNames = {}
 for rarity, entity in Definitions do

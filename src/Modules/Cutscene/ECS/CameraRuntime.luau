@@ -30,7 +30,10 @@ function CameraRuntime.new(state, reference, config, tracks)
 	if fov then
 		assert(not fov.FPS or fov.FPS > 0, "FOV FPS must be positive")
 		world:insert(entity, Components.FOVTrack({
-			Samples = fov.Samples, Keys = SampleTrack.Keys(fov.Samples), FPS = fov.FPS, Cuts = fov.Cuts,
+			Samples = fov.Samples,
+			Keys = SampleTrack.Keys(fov.Samples),
+			FPS = fov.FPS or config.FPS,
+			Cuts = fov.Cuts,
 		}))
 	end
 	local jobs = {}
@@ -69,12 +72,23 @@ function CameraRuntime.new(state, reference, config, tracks)
 	self.VFXContext = context
 	self.ImpactView = prepared.Impact and prepared.Impact.Success and prepared.Impact.Value or nil
 	self.ScreenView = prepared.Screen and prepared.Screen.Success and prepared.Screen.Value or nil
+	-- Assign every successfully created resource before a required-job assertion,
+	-- so the outer failure cleanup can destroy parallel jobs as well.
+	if config and config.ScreenEffects then
+		local screenResult = prepared.Screen
+		assert(screenResult and screenResult.Success,
+			"Screen effect preparation failed: " .. tostring(screenResult and screenResult.Error))
+	end
 	if context then
 		local keys = {}
 		for frame in vfx.Events do table.insert(keys, frame) end
 		table.sort(keys)
 		world:insert(entity, Components.VFXTrack({
-			Events = vfx.Events, Keys = keys, NextIndex = 1, EndFrame = vfx.EndFrame, FPS = vfx.FPS,
+			Events = vfx.Events,
+			Keys = keys,
+			NextIndex = 1,
+			EndFrame = vfx.EndFrame,
+			FPS = vfx.FPS or config.FPS,
 			Run = function(event) context:Run(event) end,
 		}))
 	end
@@ -83,13 +97,16 @@ function CameraRuntime.new(state, reference, config, tracks)
 	if screenView then
 		local screen = config.ScreenEffects
 		world:insert(entity, Components.ScreenEffectTrack({
-			View = screenView, EndFrame = screen.EndFrame, FPS = screen.FPS,
+			View = screenView, EndFrame = screen.EndFrame, FPS = screen.FPS or config.FPS,
 		}))
 	end
 	if impactView then
 		local impact = config.ImpactFrames
 		world:insert(entity, Components.ImpactTrack({
-			Events = impact.Events, EndFrame = impact.EndFrame, FPS = impact.FPS, View = impactView,
+			Events = impact.Events,
+			EndFrame = impact.EndFrame,
+			FPS = impact.FPS or config.FPS,
+			View = impactView,
 		}))
 	end
 	end, debug.traceback)

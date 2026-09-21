@@ -19,10 +19,7 @@ export type EmoteData = {
 }
 
 export type Props = {
-	Emote1: () -> EmoteData?,
-	Emote2: () -> EmoteData?,
-	Emote3: () -> EmoteData?,
-	Emote4: () -> EmoteData?,
+	Emotes: { () -> EmoteData? },
 	UserId: ((() -> number?) | number)?,
 	OnSelected: (emoteName: string) -> (),
 }
@@ -91,6 +88,33 @@ local SLOT_CONFIGS: { SlotConfig } = {
 	},
 }
 
+local function getSlotConfigs(count: number): { SlotConfig }
+	if count <= #SLOT_CONFIGS then
+		return SLOT_CONFIGS
+	end
+
+	local configs = table.create(count)
+	for index = 1, count do
+		local base = SLOT_CONFIGS[(index - 1) % #SLOT_CONFIGS + 1]
+		local angle = -math.pi / 2 + (index - 1) * math.pi * 2 / count
+		local position = UDim2.fromScale(0.5 + math.cos(angle) * 0.27, 0.5 + math.sin(angle) * 0.27)
+		table.insert(configs, {
+			Index = index,
+			Image = base.Image,
+			Shadow = base.Shadow,
+			Position = position,
+			AnchorPoint = Vector2.new(0.5, 0.5),
+			HighlightPosition = UDim2.fromScale(-0.18, -0.18),
+			ShadowPosition = UDim2.fromScale(0.5, 0.5),
+			NamePosition = UDim2.fromScale(0.1, 0.78),
+			NameSize = UDim2.fromScale(0.8, 0.14),
+			TooltipPosition = UDim2.fromScale(0.3, 0.9),
+		})
+	end
+
+	return configs
+end
+
 local function createCamera(): Camera
 	return create("Camera")({
 		FieldOfView = 50,
@@ -108,13 +132,14 @@ local function createGradient(color: Color3)
 end
 
 return function(props: Props)
-	local emoteGetters = { props.Emote1, props.Emote2, props.Emote3, props.Emote4 }
+	local emoteGetters = props.Emotes
+	local slotConfigs = getSlotConfigs(#emoteGetters)
 	local hoveredSlot = source(nil :: number?)
 	local pressedSlot = source(nil :: number?)
 
-	local slots = table.create(#SLOT_CONFIGS)
+	local slots = table.create(#slotConfigs)
 
-	for _, config in SLOT_CONFIGS do
+	for _, config in slotConfigs do
 		local emoteGetter = emoteGetters[config.Index]
 		local camera = createCamera()
 		local direction = Vector2.new(

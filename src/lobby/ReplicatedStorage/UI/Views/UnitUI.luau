@@ -1,4 +1,3 @@
-local ContentProvider = game:GetService("ContentProvider")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Vide = require(ReplicatedStorage.Packages.Vide)
 local useMenuMotion = require(ReplicatedStorage.Shared.Modules.UI.Hooks.useMenuMotion)
@@ -54,7 +53,6 @@ local unitActionFeedback = source("")
 local unitActionSucceeded = source(true)
 
 local isLast = false
-local preloadedUnitImages = {}
 
 local function normalizeSearch(value: string): string
 	return string.lower(value):gsub("^%s+", ""):gsub("%s+$", "")
@@ -459,31 +457,6 @@ function UnitUI.RenderUI()
 		selectedDamage(if currentStats then currentStats.Damage or 0 else 0)
 		selectedCooldown(if currentStats then currentStats.Cooldown or 0 else 0)
 		selectedRange(if currentStats then currentStats.Range or 0 else 0)
-	end)
-
-	-- Preload one thumbnail per owned unit type in the background. Duplicate
-	-- copies never create duplicate network work, even with thousands of units.
-	effect(function()
-		local targets = {}
-		for towerName in towerInventory() do
-			if not preloadedUnitImages[towerName] then
-				local image = UnitCatalog.GetImage(towerName)
-				if type(image) == "string" and image ~= "" then
-					preloadedUnitImages[towerName] = true
-					table.insert(targets, image)
-				end
-			end
-		end
-		if #targets > 0 then
-			task.spawn(function()
-				local success, err = pcall(function()
-					ContentProvider:PreloadAsync(targets)
-				end)
-				if not success then
-					warn(`[UnitUI] Failed to preload unit thumbnails: {err}`)
-				end
-			end)
-		end
 	end)
 
 	effect(function()

@@ -15,7 +15,14 @@ export type CameraConfig = {
 export type ScreenKey = {
 	Frame: number,
 	Value: number | boolean | Color3,
-	Ease: { Type: string?, Params: { [string]: string | number }? }?,
+	Ease: (string | EnumItem | {
+		Type: (string | EnumItem)?,
+		Style: (string | EnumItem)?,
+		EasingStyle: (string | EnumItem)?,
+		Direction: (string | EnumItem)?,
+		EasingDirection: (string | EnumItem)?,
+		Params: { [string]: any }?,
+	})?,
 }
 
 export type ScreenTrack = { ScreenKey } | { Default: (number | boolean | Color3)?, Sequence: { ScreenKey } }
@@ -58,6 +65,11 @@ return TableUtils.DeepFreeze({
 		UseWorkspaceScene = true,
 		FocusMode = true,
 		ScenePath = {},
+		ScreenEffects = {
+			Tracks = require(script.Parent.CutsceneTracks.SummonScreen),
+			EndFrame = 300,
+			FPS = 60,
+		},
 		Animations = {
 			Cam = 114738772563001,
 			Bookrig = 108276115487738,

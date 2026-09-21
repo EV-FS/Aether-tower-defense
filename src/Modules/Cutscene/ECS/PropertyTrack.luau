@@ -2,8 +2,10 @@
 local PropertyTrack = {}
 
 function PropertyTrack.Prepare(keys, expectedType, resolveEase)
+	assert(type(keys) == "table", "Property track must be a table")
 	local prepared = {}
 	local sequence = keys.Sequence or keys -- support old arrays and new Moon exports
+	assert(type(sequence) == "table", "Property Sequence must be an array")
 	if keys.Default ~= nil then
 		assert(typeof(keys.Default) == expectedType, "Property Default must be " .. expectedType)
 		if expectedType == "number" then

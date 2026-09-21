@@ -2,6 +2,7 @@ local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
 local Data = require(ReplicatedStorage.Settings.Data.CutsceneData)
+local CutsceneValidator = require(ReplicatedStorage.Shared.Modules.Cutscene.CutsceneValidator)
 local PlaybackClock = require(ReplicatedStorage.Shared.Modules.Cutscene.PlaybackClock)
 local ScenePaths = require(ReplicatedStorage.Shared.Modules.Cutscene.ScenePaths)
 local SceneLifecycle = require(script.Parent.SceneLifecycle)
@@ -11,6 +12,7 @@ local ServerCutscene = {}
 
 function ServerCutscene.Play(name: string, prepareNext)
 	local config = assert(Data[name], "Unknown cutscene: " .. name)
+	assert(CutsceneValidator.Validate(name, config))
 	local fastMount = config.Lifecycle and config.Lifecycle.FastMount
 	local fastCleanup = config.Lifecycle and config.Lifecycle.FastCleanup
 	local roots, tracks, animations = {}, {}, {}

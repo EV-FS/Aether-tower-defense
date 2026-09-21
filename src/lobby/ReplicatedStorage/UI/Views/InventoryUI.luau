@@ -4,12 +4,12 @@ local Vide = require(ReplicatedStorage.Packages.Vide)
 local useMenuMotion = require(ReplicatedStorage.Shared.Modules.UI.Hooks.useMenuMotion)
 local RarityRegistry = require(ReplicatedStorage.Shared.Modules.Core.Rarity.RarityRegistry)
 local ItemData = require(ReplicatedStorage.Settings.Data.ItemData)
-local RarityGradient = require(ReplicatedStorage.Settings.Visuals.RarityGradient)
 local UISFX = require(ReplicatedStorage.Settings.Visuals.UISFX)
 local ServiceRegistry = require(ReplicatedStorage.Shared.Modules.Core.ServiceRegistry)
 local useAudio = require(ReplicatedStorage.Shared.Modules.UI.Hooks.useAudio)
 local useButtonEffect = require(ReplicatedStorage.Shared.Modules.UI.Hooks.useButtonEffect)
 local useColorSequenceCycle = require(ReplicatedStorage.Shared.Modules.UI.Hooks.useColorSequenceCycle)
+local ItemCard = require(ReplicatedStorage.UI.Components.ItemCard)
 
 local create = Vide.create
 local action = Vide.action
@@ -164,90 +164,6 @@ local function categoryButton(category: string, layout: number, isVisible: () ->
 			Thickness = function()
 				return if isSelected() then 2 else 1
 			end,
-		}),
-	})
-end
-
-local function itemCard(itemName: string, count: number, category: string, layout: () -> number)
-	local info = getInfo(itemName, category)
-	local rarityGradient = RarityGradient.Gradients[info.Rarity] or RarityGradient.Gradients.Common
-	return create("ImageButton")({
-		Name = itemName,
-		Active = true,
-		AutoButtonColor = false,
-		BackgroundTransparency = 1,
-		Image = "rbxassetid://87496848270095",
-		LayoutOrder = layout,
-		Size = UDim2.fromScale(0.239841, 0.354932),
-		Activated = function()
-			selectedItemName(itemName)
-		end,
-		useButtonEffect(0.96, 1.025),
-		create("UIGradient")({ Name = "Rarity", Color = rarityGradient, Rotation = 45 }),
-		create("UIAspectRatioConstraint")({ Name = "UIAspectRatioConstraint" }),
-		create("UICorner")({ CornerRadius = UDim.new(0.06, 0) }),
-		create("Frame")({
-			Name = "Selection",
-			Active = false,
-			BackgroundTransparency = 1,
-			Position = UDim2.fromOffset(3, 3),
-			Size = UDim2.new(1, -6, 1, -6),
-			-- Keep the selection outline behind quantity/name overlays so the
-			-- inward stroke never crosses their text.
-			ZIndex = 8,
-			create("UICorner")({ CornerRadius = UDim.new(0.06, 0) }),
-			create("UIStroke")({
-				ApplyStrokeMode = Enum.ApplyStrokeMode.Border,
-				Color = Color3.new(1, 1, 1),
-				Thickness = 3,
-				Transparency = function()
-					return if selectedItemName() == itemName then 0 else 1
-				end,
-			}),
-		}),
-		create("ImageLabel")({
-			Name = "Item",
-			BackgroundTransparency = 1,
-			Image = info.ItemImage or "",
-			Position = UDim2.fromScale(0.11, 0.102),
-			ScaleType = Enum.ScaleType.Fit,
-			Size = UDim2.fromScale(0.784, 0.66),
-			ZIndex = 5,
-		}),
-		create("ImageLabel")({
-			Name = "Quantity",
-			BackgroundTransparency = 1,
-			Image = "rbxassetid://104083646922843",
-			Position = UDim2.fromScale(0.015, 0.015),
-			Size = UDim2.fromScale(0.62, 0.22),
-			ZIndex = 20,
-			create("UIAspectRatioConstraint")({ Name = "UIAspectRatioConstraint", AspectRatio = 3.2 }),
-			create("TextLabel")({
-				Name = "Amount",
-				AnchorPoint = Vector2.new(0.5, 0.5),
-				BackgroundTransparency = 1,
-				FontFace = Font.new("rbxasset://fonts/families/SourceSansPro.json", Enum.FontWeight.Bold),
-				Position = UDim2.fromScale(0.365, 0.4),
-				Size = UDim2.fromScale(0.608, 0.889),
-				Text = `{count}x`,
-				TextColor3 = Color3.new(1, 1, 1),
-				TextScaled = true,
-				ZIndex = 21,
-				create("UIStroke")({ Name = "UIStroke", Thickness = 2 }),
-			}),
-		}),
-		create("TextLabel")({
-			Name = "ItemName",
-			BackgroundTransparency = 1,
-			FontFace = Font.new("rbxasset://fonts/families/SourceSansPro.json", Enum.FontWeight.Bold),
-			Position = UDim2.fromScale(0.076, 0.73),
-			Size = UDim2.fromScale(0.849, 0.173),
-			Text = itemName,
-			TextColor3 = Color3.new(1, 1, 1),
-			TextScaled = true,
-			TextXAlignment = Enum.TextXAlignment.Left,
-			ZIndex = 10,
-			create("UIStroke")({ Name = "UIStroke", Thickness = 2 }),
 		}),
 	})
 end
@@ -464,9 +380,14 @@ function InventoryUI.RenderUI()
 							PaddingRight = UDim.new(0, 4),
 						}),
 						values(visibleEntries, function(entry, rank)
-							return itemCard(entry.Name, entry.Count, entry.Category, function()
-								return rank()
-							end)
+							return ItemCard({
+								ItemName = entry.Name,
+								Count = entry.Count,
+								Category = entry.Category,
+								LayoutOrder = function() return rank() end,
+								IsSelected = function() return selectedItemName() == entry.Name end,
+								Activated = function() selectedItemName(entry.Name) end,
+							})
 						end),
 					}),
 					create("TextLabel")({
@@ -591,7 +512,7 @@ function InventoryUI.RenderUI()
 					Color = function()
 						local info = selectedInfo()
 						local glow = if info
-							then RarityGradient.Glow[info.Rarity] or Color3.fromRGB(100, 100, 100)
+							then RarityRegistry.Get(info.Rarity).Presentation.Glow
 							else Color3.fromRGB(100, 100, 100)
 						return ColorSequence.new(Color3.fromRGB(100, 100, 100), glow)
 					end,
@@ -631,11 +552,11 @@ function InventoryUI.RenderUI()
 						useColorSequenceCycle(function()
 							local info = selectedInfo()
 							return if info
-								then RarityGradient.Gradients[info.Rarity] or RarityGradient.Gradients.Common
+								then RarityRegistry.Get(info.Rarity).Presentation.Gradient
 								else ColorSequence.new(Color3.new(1, 1, 1))
 						end, function()
 							local info = selectedInfo()
-							return if info then RarityGradient.ShimmerSpeed[info.Rarity] or 1 else 1
+							return if info then RarityRegistry.Get(info.Rarity).Presentation.ShimmerSpeed else 1
 						end),
 					}),
 				}),

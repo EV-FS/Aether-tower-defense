@@ -4,52 +4,15 @@ local Vide = require(ReplicatedStorage.Packages.Vide)
 local TowerData = require(ReplicatedStorage.Settings.Data.TowerData)
 local UnitCatalog = require(ReplicatedStorage.Settings.Data.UnitCatalog)
 local TowerViewport = require(ReplicatedStorage.UI.Components.TowerViewport)
-local RarityGradient = require(ReplicatedStorage.Settings.Visuals.RarityGradient)
+local RarityRegistry = require(ReplicatedStorage.Shared.Modules.Core.Rarity.RarityRegistry)
+local CardFrame = require(ReplicatedStorage.UI.Components.Card.CardFrame)
 local NumberUtils = require(ReplicatedStorage.Shared.Modules.Utils.NumberUtils)
-local useButtonEffect = require(ReplicatedStorage.Shared.Modules.UI.Hooks.useButtonEffect)
-local useColorSequenceCycle = require(ReplicatedStorage.Shared.Modules.UI.Hooks.useColorSequenceCycle)
 local useDiagonalShine = require(ReplicatedStorage.Shared.Modules.UI.Hooks.useDiagonalShine)
 
 local create = Vide.create
 local derive = Vide.derive
-local source = Vide.source
-local spring = Vide.spring
 
 local EMPTY_BACKGROUND_GRADIENT = ColorSequence.new(Color3.fromRGB(72, 76, 86))
-
-local EFFECT_LEVELS = {
-	Common = 1,
-	Rare = 2,
-	Epic = 3,
-	Legendary = 4,
-	Mythic = 5,
-	Secret = 5,
-	Absolute = 6,
-}
-
-local SHINE_COLORS = {
-	Common = Color3.fromRGB(178, 178, 178),
-	Rare = Color3.fromRGB(38, 132, 255),
-	Epic = Color3.fromRGB(214, 52, 255),
-	Legendary = Color3.fromRGB(255, 168, 24),
-	Mythic = Color3.fromRGB(255, 31, 92),
-	Secret = Color3.fromRGB(255, 31, 92),
-	Absolute = Color3.fromRGB(121, 225, 255),
-}
-
-local SHINE_GRADIENTS = {
-	Common = ColorSequence.new(Color3.fromRGB(155, 155, 155), Color3.fromRGB(215, 215, 215)),
-	Rare = ColorSequence.new(Color3.fromRGB(18, 78, 255), Color3.fromRGB(28, 220, 255)),
-	Epic = ColorSequence.new(Color3.fromRGB(126, 45, 255), Color3.fromRGB(255, 35, 185)),
-	Legendary = ColorSequence.new(Color3.fromRGB(255, 105, 18), Color3.fromRGB(255, 238, 61)),
-	Mythic = ColorSequence.new(Color3.fromRGB(255, 20, 27), Color3.fromRGB(255, 36, 185)),
-	Secret = ColorSequence.new(Color3.fromRGB(255, 20, 27), Color3.fromRGB(255, 36, 185)),
-	Absolute = ColorSequence.new({
-		ColorSequenceKeypoint.new(0, Color3.fromRGB(73, 220, 255)),
-		ColorSequenceKeypoint.new(0.5, Color3.fromRGB(255, 244, 255)),
-		ColorSequenceKeypoint.new(1, Color3.fromRGB(199, 82, 255)),
-	}),
-}
 
 local LOBBY_SHINE_MOTION = {
 	startPosition = UDim2.fromScale(-0.58, -0.46),
@@ -172,63 +135,17 @@ return function(props: Props)
 		return UnitCatalog.GetRarity(towerName())
 	end)
 
-	local backgroundGradient = derive(function()
-		if not hasTower() then
-			return EMPTY_BACKGROUND_GRADIENT
-		end
-		return RarityGradient.Gradients[rarity()] or RarityGradient.Gradients.Common
-	end)
-
-	local effectLevel = derive(function()
-		return if hasTower() then EFFECT_LEVELS[rarity()] or EFFECT_LEVELS.Common else 0
-	end)
-	local shineColor = derive(function()
-		return SHINE_COLORS[rarity()] or SHINE_COLORS.Common
-	end)
 	local shineGradient = derive(function()
-		return SHINE_GRADIENTS[rarity()] or SHINE_GRADIENTS.Common
+		return RarityRegistry.Get(rarity()).Presentation.Gradient
 	end)
 	local shineTransparency = derive(function()
 		return 0.38
 	end)
-	local gradientCycleTime = derive(function()
-		return math.max(5.4 - effectLevel() * 0.48, 2.5)
-	end)
-	local cyclesGradient = derive(function()
-		return hasTower() and effectLevel() >= EFFECT_LEVELS.Epic
-	end)
-	local rarityStrokeTransparency = derive(function()
-		return if hasTower() then math.max(0.82 - effectLevel() * 0.135, 0.02) else 1
-	end)
-	local rarityStrokeThickness = derive(function()
-		return 0.75 + effectLevel() * 0.27
-	end)
-	local rarityGlowTransparency = derive(function()
-		if not hasTower() or effectLevel() <= EFFECT_LEVELS.Common then
-			return 1
-		end
-		return math.max(1.04 - effectLevel() * 0.115, 0.32)
-	end)
-	local rarityGlowRadius = derive(function()
-		return UDim.new(0.018 + effectLevel() * 0.008, 0)
-	end)
 
-	local isHovered = source(false)
-	local hoverTransparency = spring(function()
-		return if isHovered() then 0.72 else 1
-	end, 0.16, 0.82)
-	local hoverStrokeTransparency = spring(function()
-		return if isHovered() then 0.05 else 1
-	end, 0.14, 0.8)
-	local hoverRotation = spring(function()
-		return if isHovered() then -1.5 else 0
-	end, 0.18, 0.78)
-
-	return create("ImageButton")({
+	return CardFrame({
 		Name = `Slot{props.slotNumber}`,
 		Active = true,
 		AnchorPoint = Vector2.new(0.5, 0.5),
-		BackgroundTransparency = 1,
 		ClipsDescendants = false,
 		Image = "rbxassetid://87496848270095",
 		ImageColor3 = Color3.new(1, 1, 1),
@@ -237,85 +154,17 @@ return function(props: Props)
 		end,
 		LayoutOrder = props.slotNumber,
 		Position = UDim2.fromScale(0.5, 0.5),
-		Rotation = hoverRotation,
 		Size = UDim2.fromScale(0.227, 0.935),
 		ZIndex = 1,
-
 		Activated = props.Activated,
-		MouseEnter = function()
-			isHovered(true)
-		end,
-		MouseLeave = function()
-			isHovered(false)
-		end,
-
-		useButtonEffect(0.93, 1.07),
-
-		create("UIGradient")({
-			Name = "RarityGradient",
-			Rotation = 45,
-
-			useColorSequenceCycle(backgroundGradient, gradientCycleTime, cyclesGradient),
-		}),
-
-		create("UIShadow")({
-			Name = "RarityGlow",
-			BlurRadius = rarityGlowRadius,
-			Color = shineColor,
-			Transparency = rarityGlowTransparency,
-			ZIndex = -1,
-		}),
-
-		create("UIStroke")({
-			Name = "RarityStroke",
-			ApplyStrokeMode = Enum.ApplyStrokeMode.Border,
-			Color = Color3.new(1, 1, 1),
-			Thickness = rarityStrokeThickness,
-			Transparency = rarityStrokeTransparency,
-
-			create("UIGradient")({
-				Name = "RarityStrokeGradient",
-				Rotation = 45,
-
-				useColorSequenceCycle(shineGradient, gradientCycleTime, cyclesGradient),
-			}),
-		}),
-
-		create("UICorner")({
-			Name = "HoverCorner",
-			CornerRadius = UDim.new(0, 8),
-		}),
-
-		create("ImageLabel")({
-			Name = "HoverHighlight",
-			Active = false,
-			AnchorPoint = Vector2.new(0.5, 0.5),
-			BackgroundTransparency = 1,
-			Image = "rbxassetid://87496848270095",
-			ImageColor3 = Color3.new(1, 1, 1),
-			ImageTransparency = hoverTransparency,
-			Position = UDim2.fromScale(0.5, 0.5),
-			Size = UDim2.fromScale(0.95, 0.95),
-			ZIndex = 2,
-
-			create("UICorner")({
-				Name = "UICorner",
-				CornerRadius = UDim.new(0, 8),
-			}),
-
-			create("UIGradient")({
-				Name = "HoverGradient",
-				Color = shineGradient,
-				Rotation = 45,
-			}),
-		}),
-
-		create("UIStroke")({
-			Name = "HoverStroke",
-			Color = Color3.new(1, 1, 1),
-			Thickness = 2,
-			Transparency = hoverStrokeTransparency,
-		}),
+		Rarity = rarity,
+		RarityEnabled = hasTower,
+		FallbackGradient = EMPTY_BACKGROUND_GRADIENT,
+		CornerRadius = UDim.new(0, 8),
+		HoverRotation = -1.5,
+		PressedScale = 0.93,
+		HoverScale = 1.07,
+		Content = {
 
 		create("UIAspectRatioConstraint")({
 			Name = "UIAspectRatioConstraint",
@@ -433,7 +282,7 @@ return function(props: Props)
 			ZIndex = 10,
 
 			create("UIGradient")({
-				Color = backgroundGradient,
+				Color = shineGradient,
 			}),
 
 			create("UIStroke")({
@@ -503,6 +352,6 @@ return function(props: Props)
 				(props.slotNumber - 1) * 0.24
 			),
 		}),
+		},
 	})
 end
-

@@ -9,7 +9,7 @@ local DataConstants = require(ReplicatedStorage.Settings.Data.DataConstants)
 local AFKSettings = require(ReplicatedStorage.Settings.Game.AFKSettings)
 
 local Net = require(ReplicatedStorage.Shared.Net)
-local ItemData = require(ReplicatedStorage.Settings.Data.ItemData)
+local ItemUtils = require(ReplicatedStorage.Shared.Modules.Utils.ItemUtils)
 local TowerData = require(ReplicatedStorage.Settings.Data.TowerData)
 local PurchaseData = require(ReplicatedStorage.Settings.Data.PurchaseData)
 local TableUtils = require(ReplicatedStorage.Shared.Modules.Utils.TableUtils)
@@ -155,30 +155,13 @@ local function patchTowerRenames(playerData: PlayerData)
 	end
 end
 
-local function normalizeItemKey(value: any): string
-	return string.lower(tostring(value)):gsub("^%s+", ""):gsub("%s+$", ""):gsub("%s+", " ")
-end
-
-local canonicalItemNames = {}
-for itemName in ItemData.ByName do
-	canonicalItemNames[normalizeItemKey(itemName)] = itemName
-end
-
-local function getCanonicalItemName(value: any): string?
-	if typeof(value) == "number" then
-		local itemInfo = ItemData.ByIndex[value]
-		return if itemInfo then itemInfo.Name else nil
-	end
-	return canonicalItemNames[normalizeItemKey(value)]
-end
-
 local function patchItemInventory(playerData: PlayerData)
 	playerData.Inventory = if type(playerData.Inventory) == "table" then playerData.Inventory else {}
 	local rawItems = if type(playerData.Inventory.Items) == "table" then playerData.Inventory.Items else {}
 
 	local mergedItems = {}
 	for rawName, rawAmount in rawItems do
-		local canonicalName = getCanonicalItemName(rawName)
+		local canonicalName = ItemUtils.GetCanonicalName(rawName)
 		local amount = tonumber(rawAmount)
 		if canonicalName and amount and amount > 0 then
 			mergedItems[canonicalName] = (mergedItems[canonicalName] or 0) + math.floor(amount)
@@ -316,7 +299,7 @@ function DataService:AddData(player: Player, mainKey: string, amount: number, ..
 	local totalValue
 	local subKeys = { ... }
 	if mainKey == "Inventory" and subKeys[1] == "Items" then
-		local canonicalName = getCanonicalItemName(subKeys[2])
+		local canonicalName = ItemUtils.GetCanonicalName(subKeys[2])
 		if not canonicalName then
 			warn(`[DataService] Rejected unknown inventory item: {tostring(subKeys[2])}`)
 			return nil

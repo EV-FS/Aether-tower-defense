@@ -4,9 +4,9 @@ local TowerData = require(ReplicatedStorage.Settings.Data.TowerData)
 local TraitData = require(ReplicatedStorage.Settings.Data.TraitData)
 local UnitCatalog = require(ReplicatedStorage.Settings.Data.UnitCatalog)
 local NumberUtils = require(ReplicatedStorage.Shared.Modules.Utils.NumberUtils)
-local RarityGradient = require(ReplicatedStorage.Settings.Visuals.RarityGradient)
-local useButtonEffect = require(ReplicatedStorage.Shared.Modules.UI.Hooks.useButtonEffect)
-local useColorSequenceCycle = require(ReplicatedStorage.Shared.Modules.UI.Hooks.useColorSequenceCycle)
+local RarityRegistry = require(ReplicatedStorage.Shared.Modules.Core.Rarity.RarityRegistry)
+local CardFrame = require(ReplicatedStorage.UI.Components.Card.CardFrame)
+local TowerViewport = require(ReplicatedStorage.UI.Components.TowerViewport)
 
 local create = Vide.create
 local spring = Vide.spring
@@ -15,7 +15,6 @@ return function(props)
 	local performanceMode = props.PerformanceMode == true
 	local towerInfo = TowerData.ByName[props.TowerName]
 	local rarity = UnitCatalog.GetRarity(props.TowerName)
-	local unitImage = UnitCatalog.GetImage(props.TowerName)
 	local isInWindow = props.IsInWindow or function() return true end
 	local animateWindowVisibility = props.IsInWindow ~= nil
 	local function windowSpring(openValue, closedValue, period: number, damping: number)
@@ -41,20 +40,25 @@ return function(props)
 	local level = if props.TowerData and typeof(props.TowerData.Lv) == "number" then props.TowerData.Lv else 0
 	local traitName = if props.TowerData then props.TowerData.Trait else nil
 	local traitInfo = if traitName then TraitData.ByName[traitName] else nil
-	local gradient = RarityGradient.Gradients[rarity] or RarityGradient.Gradients.Common
-	local shimmerSpeed = RarityGradient.ShimmerSpeed[rarity] or 0.75
+	local gradient = RarityRegistry.Get(rarity).Presentation.Gradient
 
-	return create("ImageButton")({
-		props.Bind,
-
+	return CardFrame({
+		Bind = props.Bind,
 		Name = props.Name or "ImageButton",
-		BackgroundTransparency = 1,
-		Image = "",
-
+		Image = "rbxassetid://87496848270095",
+		ImageTransparency = windowSpring(0, 1, 0.5, 1),
 		LayoutOrder = props.LayoutOrder or 0,
 		Position = props.Position,
 		Size = props.Size or UDim2.fromScale(0.186, 0.125),
-		MouseButton1Click = props.OnActivated,
+		Activated = props.OnActivated,
+		Rarity = rarity,
+		PerformanceMode = performanceMode,
+		ShimmerEnabled = not performanceMode,
+		GlowEnabled = not performanceMode,
+		HoverEnabled = not performanceMode,
+		ButtonEffect = not performanceMode,
+		Selected = props.IsSelected,
+		Equipped = props.IsEquipped,
 		ZIndex = function()
 			if props.IsSelected() then
 				return 10
@@ -64,88 +68,31 @@ return function(props)
 
 			return 1
 		end,
+		Content = {
 
-
-		-- Inventory grids can mount dozens of cards at once. The full button effect
-		-- allocates two AudioPlayers/Wires and a spring for every card, so keep it
-		-- for standalone buttons only.
-		if performanceMode then nil else useButtonEffect(),
-
-		create("UICorner")({
-			CornerRadius = UDim.new(0.08),
-		}),
-
-		create("ImageLabel")({
+		TowerViewport({
 			Name = "TowerImage",
 			AnchorPoint = Vector2.new(0.5, 0.5),
 			BackgroundTransparency = 1,
-
-			Position = windowSpring(UDim2.fromScale(0.5, 0.5), UDim2.fromScale(0.5, 0.7), 0.3, 0.9),
-			Size = UDim2.fromScale(1, 1),
-
-			Image = unitImage,
-			ScaleType = Enum.ScaleType.Fit,
+			Position = windowSpring(UDim2.fromScale(0.5, 0.47), UDim2.fromScale(0.5, 0.67), 0.3, 0.9),
+			Size = UDim2.fromScale(0.96, 0.96),
+			TowerName = props.TowerName,
+			Active = isInWindow,
+			UseViewportModel = true,
+			UsePortraitBounds = true,
+			RenderEffects = false,
+			FitPadding = 1.38,
+			FieldOfView = 35,
+			FocusYOffset = 0.45,
+			CameraDirection = Vector3.new(0, 0, -1),
+			ModelRotation = 15,
+			AnimationName = "Idle",
+			AnimationLevel = level,
+			AnimationFadeTime = 0,
+			AnimationLooped = true,
+			AnimationSpeed = 1,
+			Ambient = Color3.fromRGB(205, 205, 205),
 			ZIndex = 5,
-			ImageTransparency = windowSpring(0, 1, 0.5, 1),
-		}),
-
-		create("ImageLabel")({
-			Name = "BG",
-			AnchorPoint = Vector2.new(0.5, 0.5),
-			BackgroundTransparency = 1,
-			Rotation = windowSpring(0, -10, 0.5, 1),
-
-			Size = windowSpring(UDim2.fromScale(1, 1), UDim2.fromScale(0.8, 0.8), 0.5, 1),
-
-			Position = UDim2.fromScale(0.5, 0.5),
-			Image = "rbxassetid://87496848270095",
-			ImageTransparency = windowSpring(0, 1, 0.5, 1),
-			ZIndex = -1,
-
-			create("UIGradient")({
-				Name = "UIGradient",
-				Color = gradient,
-				Rotation = 45,
-
-				if performanceMode then nil else useColorSequenceCycle(gradient, shimmerSpeed, isInWindow),
-			}),
-
-			if performanceMode then nil else create("UIShadow")({
-				BlurRadius = UDim.new(0.075),
-				Color = function()
-					return if props.IsEquipped() then Color3.new(0, 1, 0) else Color3.new(1, 1, 1)
-				end,
-				Transparency = spring(function()
-					return if props.IsSelected() or props.IsEquipped() then 0.2 else 1
-				end, 0.2, 1),
-				ZIndex = -1,
-			}),
-
-			create("Frame")({
-				Name = "SelectedEffect",
-				AnchorPoint = Vector2.new(0.5, 0.5),
-				BackgroundTransparency = 1,
-				Size = UDim2.fromScale(0.95, 0.95),
-				Position = UDim2.fromScale(0.5, 0.5),
-
-				create("UICorner")({
-					CornerRadius = UDim.new(0.08),
-				}),
-
-				create("UIStroke")({
-					Color = function()
-						return if props.IsEquipped() then Color3.new(0, 1, 0) else Color3.new(1, 1, 1)
-					end,
-					Thickness = 3,
-					Transparency = if performanceMode
-						then function()
-							return if props.IsSelected() or props.IsEquipped() then 0 else 1
-						end
-						else spring(function()
-							return if props.IsSelected() or props.IsEquipped() then 0 else 1
-						end, 0.2, 1),
-				}),
-			}),
 		}),
 
 		create("TextLabel")({
@@ -223,7 +170,7 @@ return function(props)
 				),
 				Position = UDim2.fromScale(0.3, 0.489),
 				Size = UDim2.fromScale(0.477775, 0.75514),
-				Text = `Level {level}`,
+				Text = `Lvl {level}`,
 				TextColor3 = Color3.new(1, 1, 1),
 				TextScaled = true,
 
@@ -329,6 +276,6 @@ return function(props)
 			ZIndex = 12,
 			create("UIAspectRatioConstraint")({}),
 		}),
-
+		},
 	})
 end

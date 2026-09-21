@@ -5,8 +5,11 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
 
 local CutsceneData = require(ReplicatedStorage.Settings.Data.CutsceneData)
+local CutsceneValidator = require(script.Parent.CutsceneValidator)
 local PlaybackClock = require(script.Parent.PlaybackClock)
 local SampleTrack = require(script.Parent.ECS.SampleTrack)
+local ScreenEffects = require(script.Parent.ScreenEffects)
+local Cleanup = require(script.Parent.Cleanup)
 
 local CUTSCENE_ROOT = { "Assets", "Cutscenes" }
 local RENDER_STEP_NAME = "CutsceneCamera"
@@ -30,6 +33,7 @@ local activeTimingConnection: RBXScriptConnection? = nil
 local focusRestoreCallbacks: { () -> () }? = nil
 local focusConnections: { RBXScriptConnection }? = nil
 local activeTimeline = nil
+local activeScreenEffects = nil
 local preloadedCutscenes = {}
 local preloadingCutscenes = {}
 
@@ -37,6 +41,14 @@ export type PlaybackOptions = {
 	FrameCallbacks: { [number]: () -> () }?,
 	PauseFrames: { [number]: boolean }?,
 }
+
+local function validateConfig(cutsceneName: string, config): boolean
+	local valid, validationError = pcall(CutsceneValidator.Validate, cutsceneName, config)
+	if not valid then
+		warn(`[CutscenePlayer] Invalid cutscene data "{cutsceneName}": {validationError}`)
+	end
+	return valid
+end
 
 local function findPath(root: Instance, path: { string }): Instance?
 	local current = root
@@ -288,17 +300,23 @@ end
 
 local function cleanActiveCutscene()
 	activeTimeline = nil
-	restoreCamera()
+	-- Restore the screen independently even if another cleanup resource fails.
+	if activeScreenEffects then
+		local screen = activeScreenEffects
+		activeScreenEffects = nil
+		Cleanup.Try("Local screen effects", function() screen:Destroy() end)
+	end
+	Cleanup.Try("Local camera", restoreCamera)
 	if activeTimingConnection then
 		activeTimingConnection:Disconnect()
 		activeTimingConnection = nil
 	end
-	endFocusMode()
+	Cleanup.Try("Local focus", endFocusMode)
 
 	if activeTracks then
 		for _, track in ipairs(activeTracks) do
-			track:Stop(0)
-			track:Destroy()
+			Cleanup.Try("Local track stop", function() track:Stop(0) end)
+			Cleanup.Try("Local track destroy", function() track:Destroy() end)
 		end
 		activeTracks = nil
 	end
@@ -378,13 +396,14 @@ local function loadAnimations(
 	return tracks
 end
 
-local function prepareTracks(tracks: { AnimationTrack }): boolean
+local function prepareTracks(tracks: { AnimationTrack }, token: number): boolean
 	for _, track in tracks do
 		track:Play(0, 1, 0)
 	end
 
 	local deadline = os.clock() + CUTSCENE_LOAD_TIMEOUT
 	while os.clock() < deadline do
+		if activeToken ~= token then return false end
 		local ready = true
 		for _, track in tracks do
 			if track.Length <= 0 then
@@ -397,6 +416,7 @@ local function prepareTracks(tracks: { AnimationTrack }): boolean
 			-- Give every rig, especially Bookrig, one pose-evaluation frame at time 0
 			-- before the shared timeline is allowed to advance.
 			RunService.PreAnimation:Wait()
+			if activeToken ~= token then return false end
 			PlaybackClock.Apply(tracks, 0)
 			return true
 		end
@@ -410,6 +430,9 @@ function CutscenePlayer.Preload(cutsceneName: string): boolean
 	local config = CutsceneData[cutsceneName]
 	if not config then
 		warn(`[CutscenePlayer] Cutscene data "{cutsceneName}" does not exist.`)
+		return false
+	end
+	if not validateConfig(cutsceneName, config) then
 		return false
 	end
 	return preloadCutscene(cutsceneName, config)
@@ -431,18 +454,21 @@ function CutscenePlayer.Resume(): boolean
 	return true
 end
 
-function CutscenePlayer.Play(cutsceneName: string, options: PlaybackOptions?): boolean
+local function play(cutsceneName: string, options: PlaybackOptions?, token: number): boolean
 	local config = CutsceneData[cutsceneName]
 	if not config then
 		warn(`[CutscenePlayer] Cutscene data "{cutsceneName}" does not exist.`)
 		return false
 	end
+	-- Preload returning false can mean a recoverable asset preload failure, but
+	-- malformed timeline data must never continue into partial playback.
+	if not validateConfig(cutsceneName, config) then
+		return false
+	end
 	-- This is normally already complete from the lobby startup preload. Waiting
 	-- here closes the race when a player summons immediately after joining.
 	local wasPreloaded = CutscenePlayer.Preload(cutsceneName)
-
-	CutscenePlayer.Stop()
-	local token = activeToken
+	if activeToken ~= token then return false end
 
 	local sceneRoots
 	if config.UseWorkspaceScene then
@@ -452,6 +478,7 @@ function CutscenePlayer.Play(cutsceneName: string, options: PlaybackOptions?): b
 	else
 		local cutsceneRoot = findPath(ReplicatedStorage, CUTSCENE_ROOT)
 		local sceneSource = cutsceneRoot and findPath(cutsceneRoot, config.ScenePath)
+		if activeToken ~= token then return false end
 		if not sceneSource then
 			warn(`[CutscenePlayer] Scene source for "{cutsceneName}" was not found.`)
 			return false
@@ -466,6 +493,7 @@ function CutscenePlayer.Play(cutsceneName: string, options: PlaybackOptions?): b
 		local sceneReady, sceneError = pcall(function()
 			ContentProvider:PreloadAsync(sceneRoots)
 		end)
+		if activeToken ~= token then return false end
 		if not sceneReady then
 			warn(`[CutscenePlayer] Scene assets for "{cutsceneName}" failed to preload: {sceneError}`)
 			cleanActiveCutscene()
@@ -501,11 +529,21 @@ function CutscenePlayer.Play(cutsceneName: string, options: PlaybackOptions?): b
 		cleanActiveCutscene()
 		return false
 	end
-	if not prepareTracks(tracks) then
+	local tracksReady = prepareTracks(tracks, token)
+	if activeToken ~= token then return false end
+	if not tracksReady then
 		warn(`[CutscenePlayer] Cutscene "{cutsceneName}" animation tracks did not finish loading in time.`)
 		cleanActiveCutscene()
 		return false
 	end
+
+	local screenConfig = config.ScreenEffects
+	local screenView = if screenConfig then ScreenEffects.new(screenConfig) else nil
+	activeScreenEffects = screenView
+	local maxDuration = config.MaxDuration or 60
+	local screenFPS = if screenConfig
+		then screenConfig.FPS or config.FPS or screenConfig.EndFrame / maxDuration
+		else nil
 
 	savedCameraState = {
 		CameraType = camera.CameraType,
@@ -542,7 +580,18 @@ function CutscenePlayer.Play(cutsceneName: string, options: PlaybackOptions?): b
 		Paused = false,
 	}
 	activeTimeline = timeline
-	activeTimingConnection = RunService.PreAnimation:Connect(function()
+	local playbackError = nil
+	local function protect(callback)
+		return function()
+			if activeToken ~= token or playbackError then return end
+			local ok, err = xpcall(callback, debug.traceback)
+			if not ok then
+				playbackError = err
+				if screenView then screenView:Destroy() end
+			end
+		end
+	end
+	activeTimingConnection = RunService.PreAnimation:Connect(protect(function()
 		local now = os.clock()
 		if not timeline.Paused then
 			timeline.Elapsed += math.max(0, now - timeline.LastClock)
@@ -558,12 +607,15 @@ function CutscenePlayer.Play(cutsceneName: string, options: PlaybackOptions?): b
 
 		currentElapsed = math.min(timeline.Elapsed, config.MaxDuration or math.huge)
 		PlaybackClock.Apply(tracks, currentElapsed)
-	end)
+	end))
 
-	RunService:BindToRenderStep(RENDER_STEP_NAME, Enum.RenderPriority.Camera.Value + 1, function()
+	RunService:BindToRenderStep(RENDER_STEP_NAME, Enum.RenderPriority.Camera.Value + 1, protect(function()
 		local currentCamera = workspace.CurrentCamera
 		if not cameraPart.Parent or not currentCamera then
-			return
+			error("Cutscene camera was removed during playback")
+		end
+		if screenView then
+			screenView:ApplyFrame(currentElapsed * screenFPS, true)
 		end
 
 		currentCamera.CameraType = Enum.CameraType.Scriptable
@@ -576,12 +628,11 @@ function CutscenePlayer.Play(cutsceneName: string, options: PlaybackOptions?): b
 				120
 			)
 		end
-	end)
+	end))
 
 	RunService.Heartbeat:Wait()
 
-	local maxDuration = config.MaxDuration or 60
-	while activeToken == token and currentElapsed < maxDuration do
+	while activeToken == token and not playbackError and currentElapsed < maxDuration do
 		-- The timeline is clamped to exact frame fractions at pause points. Add a
 		-- tiny epsilon so floating-point division cannot turn frame 142 into 141.
 		local currentFrame = math.floor(currentElapsed * callbackFPS + 1e-4)
@@ -601,12 +652,28 @@ function CutscenePlayer.Play(cutsceneName: string, options: PlaybackOptions?): b
 		RunService.Heartbeat:Wait()
 	end
 
-	if activeToken == token then
+	if playbackError then error(playbackError, 0) end
+	local completed = activeToken == token
+	if completed then
 		activeToken += 1
 		cleanActiveCutscene()
 	end
 
-	return true
+	return completed
+end
+
+function CutscenePlayer.Play(cutsceneName: string, options: PlaybackOptions?): boolean
+	CutscenePlayer.Stop()
+	local token = activeToken
+	local ok, result = xpcall(function()
+		return play(cutsceneName, options, token)
+	end, debug.traceback)
+	if not ok then
+		if activeToken == token then CutscenePlayer.Stop() end
+		warn(`[CutscenePlayer] "{cutsceneName}" playback failed: {result}`)
+		return false
+	end
+	return result
 end
 
 return CutscenePlayer

@@ -16,36 +16,32 @@ export type ItemData = {
 	ByIndex: { [number]: ItemInfo },
 }
 
-local RawItemData = {
-	["Iron"] = {
-		Index = 11,
-		Rarity = "Rare",
-		ItemImage = "rbxassetid://121958957894369",
-		Description = "A sturdy piece of iron used for crafting various items.",
-	},
-	["Gold"] = {
-		Index = 12,
-		Rarity = "Legendary",
-		ItemImage = "rbxassetid://120030689917508",
-		Description = "A precious metal that can be used to craft powerful items.",
-	},
-	["Dragon's Heart"] = {
-		Index = 13,
-		Rarity = "Secret",
-		ItemImage = "rbxassetid://127171900014847",
-		Description = "A rare and mystical item, said to contain the essence of a dragon's soul.",
-	},
-} :: { [string]: ItemInfo }
-
 local ItemData = {
-	ByName = RawItemData :: { [string]: ItemInfo },
+	ByName = {} :: { [string]: ItemInfo },
 	ByIndex = {} :: { [number]: ItemInfo },
 }
 
-for name, data in RawItemData do
+local itemFolder = script.Parent:FindFirstChild("Items")
+assert(itemFolder and itemFolder:IsA("Folder"), "ItemData requires a Settings.Data.Items folder")
+
+local itemModules = {}
+for _, child in itemFolder:GetChildren() do
+	if child:IsA("ModuleScript") then
+		table.insert(itemModules, child)
+	end
+end
+table.sort(itemModules, function(left, right)
+	return left.Name < right.Name
+end)
+
+for _, itemModule in itemModules do
+	local data = require(itemModule) :: ItemInfo
+	local name = data.Name or itemModule.Name
+	assert(ItemData.ByName[name] == nil, `Duplicate item name: {name}`)
+	assert(ItemData.ByIndex[data.Index] == nil, `Duplicate item index: {data.Index}`)
 	data.Name = name
 	assert(RarityData.IsValid(data.Rarity), `Invalid rarity "{data.Rarity}" for item "{name}"`)
-	assert(ItemData.ByIndex[data.Index] == nil, `Duplicate item index: {data.Index}`)
+	ItemData.ByName[name] = data
 	ItemData.ByIndex[data.Index] = data :: ItemInfo
 end
 

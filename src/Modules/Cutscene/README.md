@@ -72,6 +72,52 @@ All impact images preload before readiness. A failed/timed-out preload logs a wa
 
 ## Color correction tracks
 
+Both local `CutscenePlayer.Play` (lobby Summon / local tests) and the replicated
+ECS `CameraRuntime` now create and sample the same `ScreenEffects` module.
+Previously the local player ignored this configuration entirely.
+Local playback samples the already paused/resumed `currentElapsed` used for rig
+poses and FOV, so opening summon results at a pause frame also freezes the screen
+effect at that frame. It removes its owned effect on completion, Stop, replacement,
+and playback errors. Existing Lighting effects are left intact.
+
+Current Summon uses 60 FPS and 300 frames (5 seconds of timeline time, excluding
+pauses): brightness reaches 1 at frame 83, returns to 0 at 97, holds around 0.15
+from frame 124, and fades from 0.14 at 284 to 0 at 300. The source is
+`Settings/Data/CutsceneTracks/SummonScreen.luau`.
+
+Track rate precedence is per-track `FPS`, then cutscene `FPS`. If both are absent,
+ECS uses `EndFrame / CameraDuration`; local ScreenEffects uses
+`EndFrame / MaxDuration` (60 seconds if omitted). RaidIntro intentionally omits
+global and per-track FPS, so FOV/screen/VFX/impact tracks fit the replicated camera
+animation duration. Summon intentionally uses fixed 60 FPS.
+
+Roblox API references checked for this implementation:
+
+- [ColorCorrectionEffect](https://create.roblox.com/docs/reference/engine/classes/ColorCorrectionEffect):
+  enabled effects under Lighting or CurrentCamera affect the rendered world;
+  multiple effects compose. Brightness 1 makes the scene white. Saturation above
+  1 is supported, so forcing all exported numbers into [-1, 1] is incorrect.
+  Finite exported values are preserved, including Contrast 2/4/12/15.
+- [TweenService.GetValue](https://create.roblox.com/docs/reference/engine/classes/TweenService#GetValue):
+  supplies standard easing without starting independent Tween clocks.
+- [Moon object exporter author's post](https://devforum.roblox.com/t/want-to-export-object-animations-you-made-in-moon-animator-2-now-you-can/2515950):
+  object/property playback needs a runtime/export path beyond rig playback.
+  Moon export formats vary by exporter; `Default/Sequence` below describes this
+  project's accepted adapter format, not a universal Moon Animator 2 API.
+
+The sampler accepts old arrays and `Default/Sequence`, numeric/Color3 interpolation,
+boolean switches, standard easing and cubic Bezier. Easing may use `Type`, `Style`,
+or `EasingStyle`; direction may use `Direction`, `EasingDirection`, or the older
+`Params.Direction` form. EnumItems and names are both accepted. `None`/`Constant`
+in this adapter
+hold the left value until the next key. Keys past EndFrame fail preparation instead
+of silently losing the return-to-neutral key. Do not run an exporter's separate
+`Play`/`CreatePlayer` timer alongside this timeline.
+
+Regression cases live in `tests/CutsceneScreen.spec.luau`. CLI engine stubs verify
+sampling/cleanup logic, not visual fidelity; use Studio to compare against the
+Moon preview and confirm existing Lighting effects and editor quality settings.
+
 `ScreenEffects = { Tracks = require(...CutsceneTracks.RaidIntroScreen), EndFrame = 840 }` adds a local, session-owned ColorCorrectionEffect without modifying existing Lighting effects. The Tracks module contains `Saturation`, `Contrast`, `Brightness`, `TintColor` and `Enabled` arrays:
 
 ```lua

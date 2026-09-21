@@ -45,6 +45,8 @@ export type Props = {
 	FitPadding: Reactive<number>?,
 	UseViewportModel: Reactive<boolean>?,
 	UseCharacterBounds: Reactive<boolean>?,
+	UsePortraitBounds: Reactive<boolean>?,
+	RenderEffects: Reactive<boolean>?,
 	FocusYOffset: Reactive<number>?,
 	ModelRotation: Reactive<number>?,
 	AnimationName: Reactive<string?>?,
@@ -82,13 +84,19 @@ local function findRootPart(model: Model): BasePart?
 	return model:FindFirstChildWhichIsA("BasePart", true)
 end
 
-local function prepareModel(model: Model, towerName: string): ModelState
+local function prepareModel(model: Model, towerName: string, renderEffects: boolean): ModelState
 	for _, descendant in model:GetDescendants() do
 		if descendant:IsA("BaseScript") then
 			descendant:Destroy()
 		elseif descendant:IsA("BasePart") then
 			descendant.CanCollide = false
 			descendant.LocalTransparencyModifier = 0
+		elseif not renderEffects and (
+			descendant:IsA("ParticleEmitter")
+			or descendant:IsA("Trail")
+			or descendant:IsA("Beam")
+		) then
+			descendant.Enabled = false
 		end
 	end
 
@@ -285,7 +293,7 @@ return function(props: Props)
 		end
 
 		local model = towerAsset:Clone()
-		local state = prepareModel(model, towerName)
+		local state = prepareModel(model, towerName, read(props.RenderEffects) ~= false)
 		model.Parent = worldModel
 		if props.OnModelChanged then
 			props.OnModelChanged(model)
@@ -312,11 +320,12 @@ return function(props: Props)
 			return
 		end
 		local useCharacterBounds = read(props.UseCharacterBounds) == true
+		local usePortraitBounds = read(props.UsePortraitBounds) == true
 		-- Fit the final orientation immediately; do not show sphere bounds first
 		-- and then reframe the animated pose half a second later.
 		state.Instance:PivotTo(getModelCFrame(read(props.ModelRotation) or 0))
 		local fitter = ViewportModel.new(frame, camera)
-		fitter:SetModel(state.Instance, useCharacterBounds)
+		fitter:SetModel(state.Instance, useCharacterBounds or usePortraitBounds, usePortraitBounds)
 		viewportFitter(fitter)
 
 		local sizeConnection = frame:GetPropertyChangedSignal("AbsoluteSize"):Connect(function()
@@ -370,7 +379,8 @@ return function(props: Props)
 			end
 
 			local paddingDistance = fitter:GetFitDistance() * (fitPadding - 1)
-			camera.CFrame = (fittedCamera :: CFrame) * CFrame.new(0, 0, paddingDistance)
+			camera.CFrame = (fittedCamera :: CFrame)
+				* CFrame.new(0, read(props.FocusYOffset) or 0, paddingDistance)
 			return
 		end
 
