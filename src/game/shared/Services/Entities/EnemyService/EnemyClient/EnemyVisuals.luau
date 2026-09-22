@@ -3,6 +3,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Vide = require(ReplicatedStorage.Packages.Vide)
 local CharacterUtils = require(ReplicatedStorage.Shared.Modules.Utils.CharacterUtils)
+local NumberUtils = require(ReplicatedStorage.Shared.Modules.Utils.NumberUtils)
 
 local create, source, derive = Vide.create, Vide.source, Vide.derive
 local root, cleanup, batch = Vide.root, Vide.cleanup, Vide.batch
@@ -146,7 +147,7 @@ local function createHealthBar(enemyName: string, maxHealth: number): HealthBarV
 					Text = function()
 						local current = math.max(health(), 0)
 						local maximum = math.max(maximumHealth(), 0)
-						return `{math.floor(current)}/{math.floor(maximum)}`
+						return `{NumberUtils.FormatComma(current)}/{NumberUtils.FormatComma(maximum)}`
 					end,
 					TextColor3 = Color3.new(1, 1, 1),
 					TextScaled = true,
