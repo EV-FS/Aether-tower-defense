@@ -437,7 +437,7 @@ function SerdesFunctions.SummonService_ReadFUNCTION_DATA_DoSummon(): (number)
 	return Value
 end
 
-function SerdesFunctions.SummonService_WriteFUNCTION_RETURN_DoSummon(Value: { Success: boolean, PulledUnits: { { UnitName: string, Rarity: string } } }, InvocationIdentifier: number): ()
+function SerdesFunctions.SummonService_WriteFUNCTION_RETURN_DoSummon(Value: { Success: boolean, PulledUnits: { { UnitName: string, Rarity: string, Sold: boolean, SellPrice: number } } }, InvocationIdentifier: number): ()
 	-- Allocate BLOCK: 6 bytes
 	local BLOCK_START = Allocate(6)
 	buffer.writeu8(SendBuffer, BLOCK_START + 0, 16)
@@ -446,8 +446,8 @@ function SerdesFunctions.SummonService_WriteFUNCTION_RETURN_DoSummon(Value: { Su
 	buffer.writeu8(SendBuffer, BLOCK_START + 3, Value.Success and 1 or 0)
 	-- START ARRAY
 	buffer.writeu16(SendBuffer, BLOCK_START + 4, #Value.PulledUnits)
-		-- Allocate BLOCK: 4 bytes
-	local ARRAY_START_1 = Allocate(4 * #Value.PulledUnits)
+		-- Allocate BLOCK: 9 bytes
+	local ARRAY_START_1 = Allocate(9 * #Value.PulledUnits)
 	for Index = 1, #Value.PulledUnits do
 		local Item_1 = Value.PulledUnits[Index]
 		local Length = #Item_1.UnitName
@@ -464,6 +464,10 @@ function SerdesFunctions.SummonService_WriteFUNCTION_RETURN_DoSummon(Value: { Su
 		buffer.writeu16(SendBuffer, OPERATION_OFFSET_1, Length)
 		Allocate(Length)
 		buffer.writestring(SendBuffer, SendOffset, Item_1.Rarity, Length)
+		buffer.writeu8(SendBuffer, ARRAY_START_1, Item_1.Sold and 1 or 0)
+		ARRAY_START_1 += 1
+		buffer.writeu32(SendBuffer, ARRAY_START_1, Item_1.SellPrice)
+		ARRAY_START_1 += 4
 	end
 	-- END ARRAY
 end
@@ -1903,9 +1907,9 @@ local Returns = table.freeze({
 			end,
 		},
 		DoSummon = {
-		On = function(Listener: (Player, number) -> ({ Success: boolean, PulledUnits: { { UnitName: string, Rarity: string } } })): ()
+		On = function(Listener: (Player, number) -> ({ Success: boolean, PulledUnits: { { UnitName: string, Rarity: string, Sold: boolean, SellPrice: number } } })): ()
 			Events.Reliable[16] = function(Player: Player, Value: number, InvocationIdentifier: number): ()
-				local ReturnValue: { Success: boolean, PulledUnits: { { UnitName: string, Rarity: string } } };
+				local ReturnValue: { Success: boolean, PulledUnits: { { UnitName: string, Rarity: string, Sold: boolean, SellPrice: number } } };
 				local Success, Error = pcall(function ()
 					ReturnValue = Listener(Player, Value)
 				end)

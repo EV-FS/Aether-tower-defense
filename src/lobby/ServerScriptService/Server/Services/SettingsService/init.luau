@@ -9,7 +9,18 @@ local SettingsService = {}
 
 function SettingsService:SaveSetting(player: Player, settingName: string, value: any)
 	local playerData = DataService:GetData(player)
-	if playerData.Settings[settingName] == nil then
+	local settingInfo = SettingsData.ByName[settingName]
+	if not playerData or not settingInfo then
+		return false
+	end
+
+	if settingInfo.Type == "boolean" and typeof(value) ~= "boolean" then
+		return false
+	elseif settingInfo.Type == "number" then
+		if typeof(value) ~= "number" or value ~= value or value < settingInfo.Min or value > settingInfo.Max then
+			return false
+		end
+	else
 		return false
 	end
 
@@ -26,7 +37,13 @@ end
 
 function SettingsService:GetSettings(player: Player, settingName: string?)
 	local playerData = DataService:GetData(player)
+	if not playerData then
+		return if settingName then nil else {}
+	end
 	if settingName then
+		if not SettingsData.ByName[settingName] then
+			return nil
+		end
 		return playerData.Settings[settingName]
 	end
 
@@ -35,6 +52,13 @@ end
 
 function SettingsService:Reconcile(player: Player)
 	local playerData = DataService:GetData(player)
+	if not playerData then
+		return
+	end
+	-- Retire the old unsafe highest-tier toggle. Absolute summons are protected.
+	if playerData.Settings.AS_Absolute ~= nil then
+		DataService:UpdateData(player, "Settings", nil, "AS_Absolute")
+	end
 
 	if playerData.Settings.AutoSkip == true then
 		if not player:IsInGroupAsync(492293332) then

@@ -10,6 +10,8 @@ local ServiceRegistry = require(ReplicatedStorage.Shared.Modules.Core.ServiceReg
 local useAudio = require(ReplicatedStorage.Shared.Modules.UI.Hooks.useAudio)
 local useButtonEffect = require(ReplicatedStorage.Shared.Modules.UI.Hooks.useButtonEffect)
 local SettingsMotion = require(ReplicatedStorage.Shared.Modules.UI.SettingsMotion)
+local AutoSellConfig = require(ReplicatedStorage.Settings.Data.AutoSellConfig)
+local RarityRegistry = require(ReplicatedStorage.Shared.Modules.Core.Rarity.RarityRegistry)
 
 local create = Vide.create
 local cleanup = Vide.cleanup
@@ -41,6 +43,10 @@ local vfx = source(true)
 
 local autoSkip = source(false)
 local trade = source(true)
+local autoSellStates = {}
+for _, entry in AutoSellConfig.Rarities do
+	autoSellStates[entry.SettingName] = source(false)
+end
 
 local isLast = false
 
@@ -118,6 +124,76 @@ local function bindSlider(volSource: any, settingName: string)
 			endedConn:Disconnect()
 		end)
 	end)
+end
+
+local function autoSellCard(entry)
+	local enabled = autoSellStates[entry.SettingName]
+	local rarityStyle = RarityRegistry.Get(entry.Name).Presentation
+
+	return create("ImageLabel")({
+		Name = `{entry.Name}AutoSell`,
+		BackgroundTransparency = 1,
+		Image = "rbxassetid://100233894637143",
+		LayoutOrder = entry.Order,
+		Size = UDim2.fromScale(0.876982, 0.24),
+		ZIndex = 10,
+		create("UIAspectRatioConstraint")({ AspectRatio = 4.8 }),
+		create("Frame")({
+			Name = "RarityAccent",
+			AnchorPoint = Vector2.new(0, 0.5),
+			BackgroundColor3 = Color3.new(1, 1, 1),
+			BorderSizePixel = 0,
+			Position = UDim2.fromScale(0.028, 0.5),
+			Size = UDim2.fromScale(0.012, 0.62),
+			create("UICorner")({ CornerRadius = UDim.new(1, 0) }),
+			create("UIGradient")({ Color = rarityStyle.Gradient, Rotation = 90 }),
+		}),
+		create("TextLabel")({
+			Name = "Title",
+			BackgroundTransparency = 1,
+			FontFace = Font.new("rbxasset://fonts/families/FredokaOne.json"),
+			Position = UDim2.fromScale(0.06, 0.13),
+			Size = UDim2.fromScale(0.56, 0.31),
+			Text = string.upper(entry.Name),
+			TextColor3 = Color3.new(1, 1, 1),
+			TextScaled = true,
+			TextXAlignment = Enum.TextXAlignment.Left,
+			create("UIStroke")({}),
+			create("UIGradient")({ Color = rarityStyle.Gradient }),
+		}),
+		create("TextLabel")({
+			Name = "Description",
+			BackgroundTransparency = 1,
+			FontFace = Font.new("rbxasset://fonts/families/FredokaOne.json"),
+			Position = UDim2.fromScale(0.06, 0.5),
+			Size = UDim2.fromScale(0.66, 0.24),
+			Text = `AUTO SELL FOR {entry.Price} COINS`,
+			TextColor3 = Color3.fromRGB(167, 167, 167),
+			TextScaled = true,
+			TextXAlignment = Enum.TextXAlignment.Left,
+			create("UIStroke")({ Transparency = 0.35 }),
+		}),
+		create("ImageButton")({
+			Name = "Toggle",
+			AnchorPoint = Vector2.new(0.5, 0.5),
+			BackgroundTransparency = 1,
+			Image = function()
+				return if enabled() then ICON_ON else ICON_OFF
+			end,
+			Position = UDim2.fromScale(0.910334, 0.492328),
+			Size = UDim2.fromScale(0.122286, 0.594306),
+			ZIndex = 12,
+			Activated = function()
+				local newValue = not enabled()
+				enabled(newValue)
+				if SettingsClient then
+					SettingsClient.ApplySetting(entry.SettingName, newValue)
+				end
+			end,
+			useButtonEffect(0.9, 1.1),
+			create("UIAspectRatioConstraint")({}),
+		}),
+	})
 end
 
 -------------------------------------------------
@@ -276,6 +352,10 @@ function SettingsUI.RenderUI()
 		Id = UISFX.Close.Id,
 		Volume = UISFX.Close.Volume,
 	})
+	local autoSellCards = {}
+	for _, entry in AutoSellConfig.Rarities do
+		table.insert(autoSellCards, autoSellCard(entry))
+	end
 
 	effect(function()
 		if UIController:IsVisible(VIEW_ID)() then
@@ -565,6 +645,47 @@ function SettingsUI.RenderUI()
 							Name = "UIGradient",
 							Color = function()
 								return if activeTab() == "Graphics" then SELECTED_GRADIENT else UNSELECTED_GRADIENT
+							end,
+							Rotation = 90,
+						}),
+					}),
+
+					-- Auto Sell Tab Button
+					create("ImageButton")({
+						Name = "AutoSellButton",
+						AnchorPoint = Vector2.new(0.5, 0.5),
+						BackgroundTransparency = 1,
+						Image = "rbxassetid://139274506988816",
+						LayoutOrder = 4,
+						Position = UDim2.fromScale(0.550869, 0.0709128),
+						Size = UDim2.fromScale(0.863567, 0.141826),
+						Activated = function()
+							activeTab("AutoSell")
+						end,
+						useButtonEffect(0.95, 1.03),
+						create("TextLabel")({
+							Name = "Title",
+							BackgroundTransparency = 1,
+							FontFace = Font.new("rbxasset://fonts/families/FredokaOne.json"),
+							Position = UDim2.fromScale(0.25, 0.288148),
+							Size = UDim2.fromScale(0.68, 0.384318),
+							Text = "AUTO SELL",
+							TextColor3 = Color3.new(1, 1, 1),
+							TextScaled = true,
+							TextXAlignment = Enum.TextXAlignment.Left,
+							create("UIStroke")({}),
+						}),
+						create("ImageLabel")({
+							Name = "Icon",
+							BackgroundTransparency = 1,
+							Image = "rbxassetid://117112996963807",
+							Position = UDim2.fromScale(0.075, 0.19),
+							Size = UDim2.fromScale(0.17, 0.62),
+							create("UIAspectRatioConstraint")({}),
+						}),
+						create("UIGradient")({
+							Color = function()
+								return if activeTab() == "AutoSell" then SELECTED_GRADIENT else UNSELECTED_GRADIENT
 							end,
 							Rotation = 90,
 						}),
@@ -1295,6 +1416,41 @@ function SettingsUI.RenderUI()
 				}),
 			}),
 
+			-- Auto Sell Tab Content
+			create("CanvasGroup")({
+				Name = "AutoSellScrollingFrameClip",
+				BackgroundTransparency = 1,
+				ClipsDescendants = true,
+				Position = menuMotion:ContentPosition(UDim2.fromScale(0.262, 0.172)),
+				Size = UDim2.fromScale(0.714, 0.799),
+				ZIndex = 1,
+				create("ScrollingFrame")({
+					Name = "AutoSellScrollingFrame",
+					Active = true,
+					AutomaticCanvasSize = Enum.AutomaticSize.Y,
+					BackgroundTransparency = 1,
+					BorderSizePixel = 0,
+					CanvasSize = UDim2.new(),
+					ScrollBarImageColor3 = Color3.fromRGB(120, 115, 180),
+					ScrollBarThickness = 5,
+					Size = UDim2.fromScale(1, 1),
+					Visible = function()
+						return activeTab() == "AutoSell"
+					end,
+					create("UIListLayout")({
+						HorizontalAlignment = Enum.HorizontalAlignment.Center,
+						Padding = UDim.new(0, 8),
+						SortOrder = Enum.SortOrder.LayoutOrder,
+					}),
+					create("UIPadding")({
+						PaddingTop = UDim.new(0, 4),
+						PaddingBottom = UDim.new(0, 12),
+						PaddingRight = UDim.new(0, 7),
+					}),
+					table.unpack(autoSellCards)
+				}),
+			}),
+
 			-- Code Button
 			create("ImageButton")({
 				Name = "CodeButton",
@@ -1632,6 +1788,12 @@ function SettingsUI.Start()
 			end
 			if currentSettings.Trade ~= nil then
 				trade(currentSettings.Trade)
+			end
+			for _, entry in AutoSellConfig.Rarities do
+				local savedValue = currentSettings[entry.SettingName]
+				if savedValue ~= nil then
+					autoSellStates[entry.SettingName](savedValue == true)
+				end
 			end
 		end
 	end)

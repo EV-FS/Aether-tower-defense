@@ -3,6 +3,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Vide = require(ReplicatedStorage.Packages.Vide)
 local TowerData = require(ReplicatedStorage.Settings.Data.TowerData)
 local UnitCatalog = require(ReplicatedStorage.Settings.Data.UnitCatalog)
+local UnitViewportProfiles = require(ReplicatedStorage.Settings.Visuals.UnitViewportProfiles)
 local TowerViewport = require(ReplicatedStorage.UI.Components.TowerViewport)
 local RarityRegistry = require(ReplicatedStorage.Shared.Modules.Core.Rarity.RarityRegistry)
 local CardFrame = require(ReplicatedStorage.UI.Components.Card.CardFrame)
@@ -133,6 +134,9 @@ return function(props: Props)
 
 	local rarity = derive(function()
 		return UnitCatalog.GetRarity(towerName())
+	end)
+	local viewportProfile = derive(function()
+		return UnitViewportProfiles.GetCard(towerName())
 	end)
 
 	local shineGradient = derive(function()
@@ -315,15 +319,38 @@ return function(props: Props)
 
 		TowerViewport({
 			Name = "UnitViewport",
+			Active = hasTower,
+			AnchorPoint = Vector2.new(0.5, 0.5),
 			BackgroundTransparency = 1,
 			TowerName = towerName,
 			AnimationName = "Idle",
 			AnimationLevel = towerLevel,
+			AnimationFadeTime = 0,
+			AnimationLooped = true,
+			AnimationSpeed = 1,
 			UseViewportModel = true,
-			UseCharacterBounds = true,
-			FitPadding = 1.1,
-			Position = UDim2.fromScale(0.11, 0.102),
-			Size = UDim2.fromScale(0.784, 0.781),
+			UseCharacterBounds = function()
+				return viewportProfile().BoundsMode == "Character"
+			end,
+			UsePortraitBounds = function()
+				return viewportProfile().BoundsMode == "Portrait"
+			end,
+			CenterOnRoot = function()
+				return not viewportProfile().CenterOnBounds
+			end,
+			RenderEffects = false,
+			FitPadding = function()
+				return viewportProfile().FitPadding
+			end,
+			FieldOfView = 35,
+			FocusYOffset = function()
+				return viewportProfile().FocusYOffset
+			end,
+			CameraDirection = Vector3.new(0, 0, -1),
+			ModelRotation = 15,
+			Ambient = Color3.fromRGB(205, 205, 205),
+			Position = UDim2.fromScale(0.5, 0.51),
+			Size = UDim2.fromScale(0.9, 0.9),
 			ZIndex = 5,
 			Visible = hasTower,
 		}),

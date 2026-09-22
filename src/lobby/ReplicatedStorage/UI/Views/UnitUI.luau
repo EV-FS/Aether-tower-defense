@@ -6,6 +6,7 @@ local DataConstants = require(ReplicatedStorage.Settings.Data.DataConstants)
 local TowerData = require(ReplicatedStorage.Settings.Data.TowerData)
 local TraitData = require(ReplicatedStorage.Settings.Data.TraitData)
 local UnitCatalog = require(ReplicatedStorage.Settings.Data.UnitCatalog)
+local UnitViewportProfiles = require(ReplicatedStorage.Settings.Visuals.UnitViewportProfiles)
 local RarityGradient = require(ReplicatedStorage.Settings.Visuals.RarityGradient)
 local UISFX = require(ReplicatedStorage.Settings.Visuals.UISFX)
 local ServiceRegistry = require(ReplicatedStorage.Shared.Modules.Core.ServiceRegistry)
@@ -37,10 +38,12 @@ local VIEW_ID = "Units"
 local SORT_CRITERIA = { "Rarity", "ABC", "Level" }
 local VIRTUAL_OVERSCAN_ROWS = 1
 local VIRTUAL_COLUMNS = 5
-local VIRTUAL_CELL_WIDTH = 0.192543
-local VIRTUAL_PADDING_X = 0.0015
+local VIRTUAL_OUTER_PADDING_X = 0.018
+local VIRTUAL_OUTER_PADDING_Y_PIXELS = 10
+local VIRTUAL_CELL_WIDTH = 0.1832
+local VIRTUAL_PADDING_X = 0.012
 local VIRTUAL_CARD_ASPECT_RATIO = 1.05
-local VIRTUAL_PADDING_Y_PIXELS = 6
+local VIRTUAL_PADDING_Y_PIXELS = 14
 local VIRTUAL_FALLBACK_HEIGHT_PIXELS = 128
 local selectedName = source(nil)
 local selectedKey = source()
@@ -303,7 +306,8 @@ function UnitUI.RenderUI()
 		local nextCellHeight = math.max(math.floor(viewportSize.X * VIRTUAL_CELL_WIDTH / VIRTUAL_CARD_ASPECT_RATIO + 0.5), 1)
 		virtualCellHeight(nextCellHeight)
 		local rowStride = nextCellHeight + VIRTUAL_PADDING_Y_PIXELS
-		local firstRow = math.max(math.floor(frame.CanvasPosition.Y / rowStride) - VIRTUAL_OVERSCAN_ROWS, 0)
+		local contentY = math.max(frame.CanvasPosition.Y - VIRTUAL_OUTER_PADDING_Y_PIXELS, 0)
+		local firstRow = math.max(math.floor(contentY / rowStride) - VIRTUAL_OVERSCAN_ROWS, 0)
 		local visibleRows = math.ceil(viewportSize.Y / rowStride) + VIRTUAL_OVERSCAN_ROWS * 2 + 1
 
 		visibleStartRank(firstRow * VIRTUAL_COLUMNS + 1)
@@ -702,7 +706,9 @@ function UnitUI.RenderUI()
 						CanvasSize = function()
 							local rows = math.ceil(unitListing().Count / VIRTUAL_COLUMNS)
 							local height = if rows > 0
-								then rows * virtualCellHeight() + (rows - 1) * VIRTUAL_PADDING_Y_PIXELS
+								then VIRTUAL_OUTER_PADDING_Y_PIXELS * 2
+									+ rows * virtualCellHeight()
+									+ (rows - 1) * VIRTUAL_PADDING_Y_PIXELS
 								else 0
 							return UDim2.fromOffset(0, height)
 						end,
@@ -737,8 +743,12 @@ function UnitUI.RenderUI()
 									local column = zeroBasedRank % VIRTUAL_COLUMNS
 									local row = math.floor(zeroBasedRank / VIRTUAL_COLUMNS)
 									return UDim2.new(
-										column * (VIRTUAL_CELL_WIDTH + VIRTUAL_PADDING_X), 0,
-										0, row * (virtualCellHeight() + VIRTUAL_PADDING_Y_PIXELS)
+										VIRTUAL_OUTER_PADDING_X
+											+ column * (VIRTUAL_CELL_WIDTH + VIRTUAL_PADDING_X),
+										0,
+										0,
+										VIRTUAL_OUTER_PADDING_Y_PIXELS
+											+ row * (virtualCellHeight() + VIRTUAL_PADDING_Y_PIXELS)
 									)
 								end,
 								Size = function()
@@ -1199,8 +1209,17 @@ function UnitUI.RenderUI()
 					Position = UDim2.fromScale(0.5, 0.59),
 					Size = UDim2.fromScale(0.86, 0.74),
 					UseViewportModel = true,
-					UseCharacterBounds = true,
-					FitPadding = 1.1,
+					UseCharacterBounds = false,
+					UsePortraitBounds = false,
+					CenterOnRoot = true,
+					RenderEffects = false,
+					FitPadding = function()
+						return UnitViewportProfiles.GetDetail(selectedName() or "").FitPadding
+					end,
+					FieldOfView = 35,
+					FocusYOffset = function()
+						return UnitViewportProfiles.GetDetail(selectedName() or "").FocusYOffset
+					end,
 					CameraDirection = Vector3.new(0, 0, -1),
 					ModelRotation = 20,
 					ZIndex = -1,

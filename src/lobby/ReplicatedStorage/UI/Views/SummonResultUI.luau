@@ -19,38 +19,13 @@ local spring = Vide.spring
 export type PulledUnit = {
 	UnitName: string,
 	Rarity: string,
+	Sold: boolean?,
+	SellPrice: number?,
 }
 
 local VIEW_ID = "SummonResult"
 local PLAYER = Players.LocalPlayer
 local CONTROL_LOCK_ATTRIBUTE = "SummonControlsLocked"
-
-local RARITY_GRADIENTS = {
-	Common = ColorSequence.new({
-		ColorSequenceKeypoint.new(0, Color3.fromRGB(199, 199, 199)),
-		ColorSequenceKeypoint.new(1, Color3.fromRGB(160, 160, 160)),
-	}),
-	Rare = ColorSequence.new({
-		ColorSequenceKeypoint.new(0, Color3.fromRGB(42, 106, 255)),
-		ColorSequenceKeypoint.new(1, Color3.fromRGB(30, 34, 255)),
-	}),
-	Epic = ColorSequence.new({
-		ColorSequenceKeypoint.new(0, Color3.fromRGB(235, 85, 255)),
-		ColorSequenceKeypoint.new(1, Color3.fromRGB(255, 32, 170)),
-	}),
-	Legendary = ColorSequence.new({
-		ColorSequenceKeypoint.new(0, Color3.fromRGB(255, 194, 52)),
-		ColorSequenceKeypoint.new(1, Color3.fromRGB(255, 126, 61)),
-	}),
-	Mythic = ColorSequence.new({
-		ColorSequenceKeypoint.new(0, Color3.fromRGB(255, 14, 18)),
-		ColorSequenceKeypoint.new(1, Color3.fromRGB(189, 0, 3)),
-	}),
-	Absolute = ColorSequence.new({
-		ColorSequenceKeypoint.new(0, Color3.fromRGB(185, 255, 255)),
-		ColorSequenceKeypoint.new(1, Color3.fromRGB(239, 189, 255)),
-	}),
-}
 
 local UIController
 local SprintClient
@@ -522,6 +497,10 @@ function SummonResultUI.RenderUI()
 			ScreenHeight = 0.44,
 			ScreenWidth = 0.4,
 			UseCharacterBounds = true,
+			Darkened = function()
+				local unit = getCurrentUnit()
+				return unit ~= nil and unit.Sold == true
+			end,
 			Depth = SUMMON_MODEL_DEPTH,
 			Visible = function()
 				return UIController:IsOpen(VIEW_ID)
@@ -606,6 +585,58 @@ function SummonResultUI.RenderUI()
 				}),
 			}),
 
+			create("Frame")({
+				Name = "AutoSoldOverlay",
+				AnchorPoint = Vector2.new(0.5, 0.5),
+				BackgroundTransparency = 1,
+				Position = UDim2.fromScale(0.5, 0.4),
+				Size = UDim2.fromScale(0.28, 0.2),
+				Visible = function()
+					local unit = getCurrentUnit()
+					return isRevealed() and unit ~= nil and unit.Sold == true
+				end,
+				ZIndex = 56,
+				create("ImageLabel")({
+					Name = "Coin",
+					AnchorPoint = Vector2.new(0.5, 0),
+					BackgroundTransparency = 1,
+					Image = "rbxassetid://117112996963807",
+					Position = UDim2.fromScale(0.5, 0),
+					Size = UDim2.fromScale(0.32, 0.48),
+					ZIndex = 56,
+					create("UIAspectRatioConstraint")({}),
+				}),
+				create("TextLabel")({
+					Name = "SoldPrice",
+					AnchorPoint = Vector2.new(0.5, 0),
+					BackgroundTransparency = 1,
+					FontFace = Font.new("rbxasset://fonts/families/FredokaOne.json"),
+					Position = UDim2.fromScale(0.5, 0.53),
+					Size = UDim2.fromScale(1, 0.28),
+					Text = function()
+						local unit = getCurrentUnit()
+						return `+{if unit then unit.SellPrice or 0 else 0} COINS`
+					end,
+					TextColor3 = Color3.fromRGB(255, 220, 70),
+					TextScaled = true,
+					ZIndex = 57,
+					create("UIStroke")({ Color = Color3.fromRGB(50, 28, 0), Thickness = 3 }),
+				}),
+				create("TextLabel")({
+					Name = "AutoSoldText",
+					AnchorPoint = Vector2.new(0.5, 0),
+					BackgroundTransparency = 1,
+					FontFace = Font.new("rbxasset://fonts/families/FredokaOne.json"),
+					Position = UDim2.fromScale(0.5, 0.83),
+					Size = UDim2.fromScale(0.86, 0.17),
+					Text = "AUTO SOLD",
+					TextColor3 = Color3.fromRGB(225, 225, 225),
+					TextScaled = true,
+					ZIndex = 57,
+					create("UIStroke")({ Thickness = 2 }),
+				}),
+			}),
+
 			create("TextLabel")({
 				Name = "Rarity",
 				AnchorPoint = Vector2.new(0.5, 0),
@@ -645,7 +676,7 @@ function SummonResultUI.RenderUI()
 					Color = function()
 						local unit = getCurrentUnit()
 						local rarity = unit and unit.Rarity or "Common"
-						return RARITY_GRADIENTS[rarity] or RARITY_GRADIENTS.Common
+						return RarityData.Get(rarity).Presentation.Gradient
 					end,
 					Rotation = 90,
 				}),

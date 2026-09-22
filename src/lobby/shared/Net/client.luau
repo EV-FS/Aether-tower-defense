@@ -487,7 +487,7 @@ function SerdesFunctions.SummonService_WriteFUNCTION_DATA_DoSummon(Value: number
 	buffer.writeu8(SendBuffer, BLOCK_START + 2, Value)
 end
 
-function SerdesFunctions.SummonService_ReadFUNCTION_RETURN_DoSummon(): ({ Success: boolean, PulledUnits: { { UnitName: string, Rarity: string } } })
+function SerdesFunctions.SummonService_ReadFUNCTION_RETURN_DoSummon(): ({ Success: boolean, PulledUnits: { { UnitName: string, Rarity: string, Sold: boolean, SellPrice: number } } })
 	-- Read BLOCK: 4 bytes
 	local BLOCK_START = Read(4)
 	local Success = buffer.readu8(RecieveBuffer, BLOCK_START + 0)
@@ -501,8 +501,8 @@ function SerdesFunctions.SummonService_ReadFUNCTION_RETURN_DoSummon(): ({ Succes
 	if Length < 0 then error(`Expected "Length" to be larger than 0, got {Length} instead.`) end
 	if Length > 65535 then error(`Expected "Length" to be smaller than 65535, got {Length} instead.`) end
 	Value.PulledUnits = table.create(Length)
-		-- Read BLOCK: 4 bytes
-	local ARRAY_START_1 = Read(4 * Length)
+		-- Read BLOCK: 9 bytes
+	local ARRAY_START_1 = Read(9 * Length)
 	for Index = 1, Length do
 		local Item_1 = {} :: any
 		-- Read 2
@@ -515,6 +515,10 @@ function SerdesFunctions.SummonService_ReadFUNCTION_RETURN_DoSummon(): ({ Succes
 		ARRAY_START_1 += 2
 		Length = buffer.readu16(RecieveBuffer, OPERATION_OFFSET_1)
 		Item_1.Rarity = buffer.readstring(RecieveBuffer, Read(Length), Length)
+		Item_1.Sold = (buffer.readu8(RecieveBuffer, ARRAY_START_1) == 1)
+		ARRAY_START_1 += 1
+		Item_1.SellPrice = buffer.readu32(RecieveBuffer, ARRAY_START_1)
+		ARRAY_START_1 += 4
 		table.insert(Value.PulledUnits, Item_1)
 	end
 	-- END ARRAY
@@ -1780,7 +1784,7 @@ local Returns = table.freeze({
 					OnCancel(function ()
 						Calls[InvocationIdentifier] = nil
 					end)
-					local Success, ReturnValue: { Success: boolean, PulledUnits: { { UnitName: string, Rarity: string } } } = coroutine.yield()
+					local Success, ReturnValue: { Success: boolean, PulledUnits: { { UnitName: string, Rarity: string, Sold: boolean, SellPrice: number } } } = coroutine.yield()
 					if Success ~= true then
 						Reject("There was an exception while processing \"DoSummon\".")
 						return 

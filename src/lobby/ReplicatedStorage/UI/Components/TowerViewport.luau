@@ -2,6 +2,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Vide = require(ReplicatedStorage.Packages.Vide)
 local ViewportModel = require(ReplicatedStorage.Shared.Modules.Utils.ViewportModel)
+local PortraitCamera = require(script.Parent.PortraitCamera)
 
 local cleanup = Vide.cleanup
 local create = Vide.create
@@ -21,6 +22,8 @@ type AnimationId = number | string
 type ModelState = {
 	Instance: Model,
 	TowerName: string,
+	RootPart: BasePart?,
+	HasPortraitHead: boolean,
 	FocusOffset: Vector3,
 	BoundsRadius: number,
 }
@@ -46,6 +49,7 @@ export type Props = {
 	UseViewportModel: Reactive<boolean>?,
 	UseCharacterBounds: Reactive<boolean>?,
 	UsePortraitBounds: Reactive<boolean>?,
+	CenterOnRoot: Reactive<boolean>?,
 	RenderEffects: Reactive<boolean>?,
 	FocusYOffset: Reactive<number>?,
 	ModelRotation: Reactive<number>?,
@@ -72,13 +76,12 @@ local function getTowerAsset(towerName: string): Model?
 end
 
 local function findRootPart(model: Model): BasePart?
-	if model.PrimaryPart then
-		return model.PrimaryPart
-	end
-
 	local humanoidRootPart = model:FindFirstChild("HumanoidRootPart", true)
 	if humanoidRootPart and humanoidRootPart:IsA("BasePart") then
 		return humanoidRootPart
+	end
+	if model.PrimaryPart then
+		return model.PrimaryPart
 	end
 
 	return model:FindFirstChildWhichIsA("BasePart", true)
@@ -103,6 +106,10 @@ local function prepareModel(model: Model, towerName: string, renderEffects: bool
 	local rootPart = findRootPart(model)
 	if rootPart then
 		rootPart.Anchored = true
+		-- Normalize the clone's pivot as well as selecting the correct anchor.
+		-- Authored PrimaryPart/PivotOffset values may point at a weapon or be rotated.
+		model.PrimaryPart = rootPart
+		rootPart.PivotOffset = CFrame.identity
 	end
 
 	-- Every viewport owns its own WorldModel, so the model can use a stable local origin.
@@ -112,6 +119,8 @@ local function prepareModel(model: Model, towerName: string, renderEffects: bool
 	return {
 		Instance = model,
 		TowerName = towerName,
+		RootPart = rootPart,
+		HasPortraitHead = PortraitCamera.FindPart(model, "Head") ~= nil,
 		FocusOffset = boundsCFrame.Position + Vector3.new(0, boundsSize.Y * 0.05, 0),
 		BoundsRadius = math.max(boundsSize.Magnitude * 0.5, MINIMUM_BOUNDS_RADIUS),
 	}
@@ -277,6 +286,7 @@ return function(props: Props)
 	local fittedCameraRevision = -1
 	local fittedFieldOfView: number?
 	local fittedDirection: Vector3?
+	local fittedFocusPosition: Vector3?
 
 	-- Model ownership: clone once per tower and keep each viewport fully isolated.
 	effect(function()
@@ -321,6 +331,9 @@ return function(props: Props)
 		end
 		local useCharacterBounds = read(props.UseCharacterBounds) == true
 		local usePortraitBounds = read(props.UsePortraitBounds) == true
+		if usePortraitBounds and state.HasPortraitHead then
+			return
+		end
 		-- Fit the final orientation immediately; do not show sphere bounds first
 		-- and then reframe the animated pose half a second later.
 		state.Instance:PivotTo(getModelCFrame(read(props.ModelRotation) or 0))
@@ -358,6 +371,9 @@ return function(props: Props)
 
 		local modelCFrame = getModelCFrame(read(props.ModelRotation) or 0)
 		state.Instance:PivotTo(modelCFrame)
+		if read(props.UsePortraitBounds) == true and state.HasPortraitHead then
+			return -- Animated portrait camera owns framing for this rig.
+		end
 		local fitter = viewportFitter()
 		local fitPadding = math.max(read(props.FitPadding) or DEFAULT_FIT_PADDING, 0.5)
 		if fitter then
@@ -365,17 +381,22 @@ return function(props: Props)
 			camera.FieldOfView = math.clamp(read(props.FieldOfView) or DEFAULT_FIELD_OF_VIEW, 1, 120)
 			local direction = read(props.CameraDirection) or DEFAULT_CAMERA_DIRECTION
 			direction = if direction.Magnitude > 0 then direction.Unit else DEFAULT_CAMERA_DIRECTION
+			local focusPosition = if read(props.CenterOnRoot) == true and state.RootPart
+				then state.RootPart.Position
+				else nil
 			if fittedCameraFitter ~= fitter or fittedCameraRevision ~= fitterRevision
-				or fittedFieldOfView ~= camera.FieldOfView or fittedDirection ~= direction then
+				or fittedFieldOfView ~= camera.FieldOfView or fittedDirection ~= direction
+				or fittedFocusPosition ~= focusPosition then
 				fitter:Calibrate()
 				-- Use the model's part-level bounds instead of its bounding sphere. This
 				-- avoids excessive empty space on tall or wide units.
 				local orientation = CFrame.lookAt(Vector3.zero, -direction)
-				fittedCamera = fitter:GetMinimumFitCFrame(orientation)
+				fittedCamera = fitter:GetMinimumFitCFrame(orientation, focusPosition)
 				fittedCameraFitter = fitter
 				fittedCameraRevision = fitterRevision
 				fittedFieldOfView = camera.FieldOfView
 				fittedDirection = direction
+				fittedFocusPosition = focusPosition
 			end
 
 			local paddingDistance = fitter:GetFitDistance() * (fitPadding - 1)
@@ -394,6 +415,26 @@ return function(props: Props)
 			read(props.FitPadding) or DEFAULT_FIT_PADDING,
 			read(props.FocusYOffset) or 0
 		)
+	end)
+
+	-- Track after animation evaluation. No GetBoundingBox/point-cloud traversal
+	-- runs per frame; hidden cards unregister from the shared update loop.
+	effect(function()
+		local state = modelState()
+		local frame = viewportFrame()
+		if not state or not frame or read(props.Active) == false
+			or read(props.Visible) == false or read(props.UsePortraitBounds) ~= true then
+			return
+		end
+		local stop = PortraitCamera.Track(state.Instance, frame, camera, {
+			Padding = math.max(read(props.FitPadding) or DEFAULT_FIT_PADDING, 0.5),
+			FieldOfView = math.clamp(read(props.FieldOfView) or DEFAULT_FIELD_OF_VIEW, 1, 120),
+			Direction = read(props.CameraDirection) or DEFAULT_CAMERA_DIRECTION,
+			FocusYOffset = read(props.FocusYOffset) or 0,
+		})
+		if stop then
+			cleanup(stop)
+		end
 	end)
 
 	-- Reload only when the model or selected animation changes.

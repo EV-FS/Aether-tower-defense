@@ -238,13 +238,31 @@ end
 -- keep in mind this functions best when the model's point-cloud is correct
 -- as such models that rely heavily on meshesh, csg, etc will only return an accurate
 -- result as their point cloud
-function ViewportModelClass:GetMinimumFitCFrame(orientation)
+function ViewportModelClass:GetMinimumFitCFrame(orientation, focusPosition)
 	if not self.Model then
 		return CFrame.new()
 	end
 
 	local rotation = orientation - orientation.Position
 	local rInverse = rotation:Inverse()
+
+	-- Character portraits should stay anchored to a stable rig part (normally
+	-- HumanoidRootPart). This prevents different pivots, idle poses and held
+	-- equipment from pulling otherwise identical cards in different directions.
+	if focusPosition then
+		local localFocus = rInverse * focusPosition
+		local requiredDistance = 0
+		for _, worldPoint in self._points do
+			local point = rInverse * worldPoint - localFocus
+			requiredDistance = math.max(
+				requiredDistance,
+				point.Z + math.abs(point.X) / self._viewport.tanxFov2,
+				point.Z + math.abs(point.Y) / self._viewport.tanyFov2
+			)
+		end
+
+		return orientation * CFrame.new(localFocus.X, localFocus.Y, localFocus.Z + requiredDistance)
+	end
 
 	local wcloud = self._points
 	local cloud = { rInverse * wcloud[1] }

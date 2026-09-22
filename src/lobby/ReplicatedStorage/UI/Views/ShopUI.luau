@@ -11,15 +11,13 @@ local useAudio = require(ReplicatedStorage.Shared.Modules.UI.Hooks.useAudio)
 local useButtonEffect = require(ReplicatedStorage.Shared.Modules.UI.Hooks.useButtonEffect)
 
 local create = Vide.create
+local changed = Vide.changed
 local effect = Vide.effect
 local source = Vide.source
-local spring = Vide.spring
 
 local VIEW_ID = "Shop"
 local UIController
 local purchaseBusy = source(false)
-
-local isLast = false
 
 local PRODUCTS = {
 	{
@@ -162,14 +160,16 @@ local function priceLabel(price: number)
 	})
 end
 
-local function productCard(config)
+local function productCard(config, onPurchase)
 	return create("ImageLabel")({
 		Name = config.Name,
 		BackgroundTransparency = 1,
 		Image = config.Background,
 		LayoutOrder = config.LayoutOrder,
-		Size = UDim2.fromScale(0.91547, 0.191786),
-		create("UIAspectRatioConstraint")({ AspectRatio = 4.27133 }),
+		-- Base both axes on the scroll area's width. With RelativeXY the small
+		-- Y scale capped the aspect constraint and shrank every card.
+		Size = UDim2.fromScale(0.97, 0.97 / 4.27133),
+		SizeConstraint = Enum.SizeConstraint.RelativeXX,
 		create("ImageLabel")({
 			Name = "Highlight",
 			BackgroundTransparency = 1,
@@ -252,7 +252,7 @@ local function productCard(config)
 			Position = UDim2.fromScale(0.813465, 0.84246),
 			Size = UDim2.fromScale(0.228367, 0.249376),
 			Activated = function()
-				promptPurchase(config.PurchaseName)
+				onPurchase(config.PurchaseName)
 			end,
 			useButtonEffect(0.94, 1.05),
 			create("TextLabel")({
@@ -273,34 +273,42 @@ local function productCard(config)
 	})
 end
 
-function ShopUI.RenderUI()
-	local isVisible = UIController:IsVisible(VIEW_ID)
+function ShopUI.RenderUI(previewProps)
+	local controller = if previewProps and previewProps.Controller then previewProps.Controller else UIController
+	assert(controller, "ShopUI.Init() must run before ShopUI.RenderUI(), or a preview Controller must be provided")
+	local onPurchase = if previewProps and previewProps.OnPurchase then previewProps.OnPurchase else promptPurchase
+	local audioEnabled = not (previewProps and previewProps.DisableAudio)
+	local isVisible = controller:IsVisible(VIEW_ID)
+	local scrollContentHeight = source(0)
 	local menuMotion = useMenuMotion(isVisible, function()
-		return UIController:GetActiveView()
+		return controller:GetActiveView()
 	end)
 	local cards = table.create(#PRODUCTS)
 	for _, config in PRODUCTS do
-		table.insert(cards, productCard(config))
+		table.insert(cards, productCard(config, onPurchase))
 	end
 
-	local openSFX = useAudio({
-		Id = UISFX.ShopOpen.Id,
-		Volume = UISFX.ShopOpen.Volume,
-	})
-	local closeSFX = useAudio({
-		Id = UISFX.Close.Id,
-		Volume = UISFX.Close.Volume,
-	})
+	if audioEnabled then
+		local openSFX = useAudio({
+			Id = UISFX.ShopOpen.Id,
+			Volume = UISFX.ShopOpen.Volume,
+		})
+		local closeSFX = useAudio({
+			Id = UISFX.Close.Id,
+			Volume = UISFX.Close.Volume,
+		})
+		local wasOpen = false
 
-	effect(function()
-		if UIController:IsVisible(VIEW_ID)() then
-			isLast = true
-			openSFX:Play()
-		elseif isLast then
-			isLast = false
-			closeSFX:Play()
-		end
-	end)
+		effect(function()
+			if controller:IsVisible(VIEW_ID)() then
+				wasOpen = true
+				openSFX:Play()
+			elseif wasOpen then
+				wasOpen = false
+				closeSFX:Play()
+			end
+		end)
+	end
 
 	return create("CanvasGroup")({
 		Name = "Container", GroupTransparency = menuMotion.Transparency, Interactable = isVisible,
@@ -362,7 +370,7 @@ function ShopUI.RenderUI()
 				Rotation = menuMotion:CloseRotation(),
 				Size = UDim2.fromScale(0.0822234, 0.15458),
 				Activated = function()
-					UIController:Close(VIEW_ID)
+					controller:Close(VIEW_ID)
 				end,
 				useButtonEffect(nil, 1.1),
 				create("UIAspectRatioConstraint")({}),
@@ -374,13 +382,15 @@ function ShopUI.RenderUI()
 				ClipsDescendants = true,
 				GroupTransparency = 0,
 				Position = menuMotion:ContentPosition(UDim2.fromScale(0.5, 0.55462)),
-				Size = UDim2.fromScale(0.951938, 0.769024),
+				Size = UDim2.fromScale(0.92, 0.769024),
 				create("ScrollingFrame")({
 					Name = "ScrollingFrame",
 					Active = true,
-					AutomaticCanvasSize = Enum.AutomaticSize.Y,
+					AutomaticCanvasSize = Enum.AutomaticSize.None,
 					BackgroundTransparency = 1,
-					CanvasSize = UDim2.new(),
+					CanvasSize = function()
+						return UDim2.new(1, 0, 0, scrollContentHeight() + 10)
+					end,
 					ClipsDescendants = true,
 					Position = UDim2.fromScale(0, 0),
 					ScrollBarImageColor3 = Color3.new(),
@@ -389,8 +399,11 @@ function ShopUI.RenderUI()
 					Size = UDim2.fromScale(1, 1),
 					create("UIListLayout")({
 						HorizontalAlignment = Enum.HorizontalAlignment.Center,
-						Padding = UDim.new(0.01, 0),
+						Padding = UDim.new(0, 10),
 						SortOrder = Enum.SortOrder.LayoutOrder,
+						changed("AbsoluteContentSize", function(contentSize: Vector2)
+							scrollContentHeight(contentSize.Y)
+						end),
 					}),
 					unpack(cards),
 				}),

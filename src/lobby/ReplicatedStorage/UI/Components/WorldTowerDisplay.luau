@@ -59,6 +59,7 @@ export type Props = {
 	AnimationSpeed: Reactive<number>?,
 	AnimationFadeTime: Reactive<number>?,
 	UseCharacterBounds: Reactive<boolean>?,
+	Darkened: Reactive<boolean>?,
 }
 
 local DEFAULT_SCREEN_POSITION = Vector2.new(0.5, 0.39)
@@ -731,6 +732,14 @@ return function(props: Props)
 		local model = towerAsset:Clone()
 		model.Name = `SummonDisplay_{towerName}`
 		local state = prepareModel(model, read(props.UseCharacterBounds) == true)
+		local darkenHighlight = Instance.new("Highlight")
+		darkenHighlight.Name = "SummonAutoSoldDarken"
+		darkenHighlight.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
+		darkenHighlight.FillColor = Color3.new(0, 0, 0)
+		darkenHighlight.FillTransparency = 0.42
+		darkenHighlight.OutlineTransparency = 1
+		darkenHighlight.Enabled = read(props.Darkened) == true
+		darkenHighlight.Parent = model
 		prepareSummonEffects(state, rarity)
 		model.Parent = workspace.CurrentCamera
 		local stopAnimation = playAnimation(model, towerName, props)
@@ -768,6 +777,11 @@ return function(props: Props)
 			end
 
 			local visible = read(props.Visible) ~= false
+			local darkened = read(props.Darkened) == true
+			local darkenHighlight = state.Instance:FindFirstChild("SummonAutoSoldDarken")
+			if darkenHighlight and darkenHighlight:IsA("Highlight") then
+				darkenHighlight.Enabled = darkened and visible
+			end
 			local transparency = if visible then math.clamp(read(props.Transparency) or 0, 0, 1) else 1
 			applyTransparency(state, transparency)
 
@@ -843,7 +857,7 @@ return function(props: Props)
 					+ STATIC_OCCLUSION_MARGIN * depthRatio
 			)
 			updateOccluders(camera, occluders, targetPoints, displayActive, ignoreInstances)
-			updateSummonEffects(state, displayActive)
+			updateSummonEffects(state, displayActive and not darkened)
 		end)
 
 		cleanup(function()

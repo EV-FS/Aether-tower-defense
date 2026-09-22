@@ -3,6 +3,7 @@ local Vide = require(ReplicatedStorage.Packages.Vide)
 local TowerData = require(ReplicatedStorage.Settings.Data.TowerData)
 local TraitData = require(ReplicatedStorage.Settings.Data.TraitData)
 local UnitCatalog = require(ReplicatedStorage.Settings.Data.UnitCatalog)
+local UnitViewportProfiles = require(ReplicatedStorage.Settings.Visuals.UnitViewportProfiles)
 local NumberUtils = require(ReplicatedStorage.Shared.Modules.Utils.NumberUtils)
 local RarityRegistry = require(ReplicatedStorage.Shared.Modules.Core.Rarity.RarityRegistry)
 local CardFrame = require(ReplicatedStorage.UI.Components.Card.CardFrame)
@@ -15,6 +16,9 @@ return function(props)
 	local performanceMode = props.PerformanceMode == true
 	local towerInfo = TowerData.ByName[props.TowerName]
 	local rarity = UnitCatalog.GetRarity(props.TowerName)
+	local viewportProfile = UnitViewportProfiles.GetCard(props.TowerName)
+	local usePortraitBounds = viewportProfile.BoundsMode == "Portrait"
+	local useCharacterBounds = viewportProfile.BoundsMode == "Character"
 	local isInWindow = props.IsInWindow or function() return true end
 	local animateWindowVisibility = props.IsInWindow ~= nil
 	local function windowSpring(openValue, closedValue, period: number, damping: number)
@@ -58,7 +62,6 @@ return function(props)
 		HoverEnabled = not performanceMode,
 		ButtonEffect = not performanceMode,
 		Selected = props.IsSelected,
-		Equipped = props.IsEquipped,
 		ZIndex = function()
 			if props.IsSelected() then
 				return 10
@@ -74,16 +77,18 @@ return function(props)
 			Name = "TowerImage",
 			AnchorPoint = Vector2.new(0.5, 0.5),
 			BackgroundTransparency = 1,
-			Position = windowSpring(UDim2.fromScale(0.5, 0.47), UDim2.fromScale(0.5, 0.67), 0.3, 0.9),
-			Size = UDim2.fromScale(0.96, 0.96),
+			Position = windowSpring(UDim2.fromScale(0.5, 0.51), UDim2.fromScale(0.5, 0.69), 0.3, 0.9),
+			Size = UDim2.fromScale(0.9, 0.9),
 			TowerName = props.TowerName,
 			Active = isInWindow,
 			UseViewportModel = true,
-			UsePortraitBounds = true,
+			UseCharacterBounds = useCharacterBounds,
+			UsePortraitBounds = usePortraitBounds,
+			CenterOnRoot = not viewportProfile.CenterOnBounds,
 			RenderEffects = false,
-			FitPadding = 1.38,
+			FitPadding = viewportProfile.FitPadding,
 			FieldOfView = 35,
-			FocusYOffset = 0.45,
+			FocusYOffset = viewportProfile.FocusYOffset,
 			CameraDirection = Vector3.new(0, 0, -1),
 			ModelRotation = 15,
 			AnimationName = "Idle",
@@ -192,12 +197,13 @@ return function(props)
 
 		create("ImageLabel")({
 			Name = "Trait",
+			AnchorPoint = Vector2.new(1, 0),
 			BackgroundTransparency = 1,
 			Image = if traitInfo then traitInfo.Image else "",
-			Position = UDim2.fromScale(0.64, 0.03),
-			Size = UDim2.fromScale(0.359565, 0.31687),
+			Position = UDim2.fromScale(0.975, 0.2),
+			Size = UDim2.fromScale(0.24, 0.24),
 			Visible = traitInfo ~= nil,
-			ZIndex = 12,
+			ZIndex = 13,
 
 			create("UIAspectRatioConstraint")({
 				Name = "UIAspectRatioConstraint",
@@ -234,35 +240,16 @@ return function(props)
 				Rotation = 90,
 			}),
 		}),
-		create("TextLabel")({
-			Name = "EquippedSlot",
+		create("ImageLabel")({
+			Name = "EquippedCheck",
 			AnchorPoint = Vector2.new(1, 0),
-			BackgroundColor3 = Color3.fromRGB(34, 177, 76),
-			BackgroundTransparency = 0.08,
-			FontFace = Font.new(
-				"rbxasset://fonts/families/SourceSansPro.json",
-				Enum.FontWeight.Bold,
-				Enum.FontStyle.Normal
-			),
-			Position = UDim2.fromScale(0.95, 0.055),
-			Size = UDim2.fromScale(0.3, 0.13),
-			Text = function()
-				local slot = props.EquippedSlot and props.EquippedSlot()
-				return if slot then `SLOT {slot}` else ""
-			end,
-			TextColor3 = Color3.new(1, 1, 1),
-			TextScaled = true,
+			BackgroundTransparency = 1,
+			Image = "rbxassetid://91966631627808",
+			Position = UDim2.fromScale(1.025, -0.025),
+			Size = UDim2.fromScale(0.24, 0.24),
 			Visible = props.IsEquipped,
-			ZIndex = 11,
-
-			create("UICorner")({
-				CornerRadius = UDim.new(0.25, 0),
-			}),
-
-			create("UIStroke")({
-				Color = Color3.fromRGB(14, 72, 32),
-				Thickness = 1.5,
-			}),
+			ZIndex = 14,
+			create("UIAspectRatioConstraint")({}),
 		}),
 
 		create("ImageLabel")({

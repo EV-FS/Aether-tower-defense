@@ -31,7 +31,9 @@ local selectedCategory = source("Material")
 local currentSort = source("Rarity")
 local searchQuery = source("")
 local selectedItemName = source(nil :: string?)
-local CATEGORY_BUTTON_ASPECT_RATIO = 5.7
+-- The category rail is intentionally chunkier than the original export.  The
+-- old 5.7 ratio forced the buttons into thin strips on wider screens.
+local CATEGORY_BUTTON_ASPECT_RATIO = 2.55
 
 local isLast = false
 
@@ -124,9 +126,9 @@ local function categoryButton(category: string, layout: number, isVisible: () ->
 		LayoutOrder = layout,
 		Size = spring(function()
 			if not isVisible() then
-				return UDim2.fromScale(0.72, 0.066)
+				return UDim2.fromScale(0.72, 0.14)
 			end
-			return if isSelected() then UDim2.fromScale(0.94, 0.066) else UDim2.fromScale(0.903, 0.066)
+			return if isSelected() then UDim2.fromScale(0.94, 0.14) else UDim2.fromScale(0.903, 0.14)
 		end, 0.42 + layout * 0.08, 0.78),
 		Selectable = true,
 		Activated = function()
@@ -209,6 +211,10 @@ function InventoryUI.RenderUI()
 	local selectedInfo = derive(function()
 		local name = selectedItemName()
 		return if name then getInfo(name) else nil
+	end)
+	local selectedCount = derive(function()
+		local name = selectedItemName()
+		return if name then categoryStacks()[name] or 0 else 0
 	end)
 	local visibleEntries = derive(function()
 		local entries = {}
@@ -488,7 +494,7 @@ function InventoryUI.RenderUI()
 						Size = UDim2.fromScale(1, 1),
 						create("UIListLayout")({
 							HorizontalAlignment = Enum.HorizontalAlignment.Center,
-							Padding = UDim.new(0.01, 0),
+							Padding = UDim.new(0, 7),
 							SortOrder = Enum.SortOrder.LayoutOrder,
 						}),
 						create("UIPadding")({
@@ -503,10 +509,11 @@ function InventoryUI.RenderUI()
 			}),
 			create("ImageLabel")({
 				Name = "Avatar",
+				AnchorPoint = Vector2.new(0.5, 0.5),
 				BackgroundTransparency = 1,
 				Image = "rbxassetid://121523581447419",
-				Position = menuMotion:Spring(UDim2.fromScale(0.596001, 0.170108), UDim2.fromScale(0.625, 0.170108), "Detail"),
-				Size = menuMotion:Spring(UDim2.fromScale(0.382446, 0.697631), UDim2.fromScale(0.425, 0.697631), "Detail"),
+				Position = menuMotion:Spring(UDim2.fromScale(0.786234, 0.417049), UDim2.fromScale(0.815, 0.417049), "Detail"),
+				Size = menuMotion:Spring(UDim2.fromScale(0.382446, 0.497524), UDim2.fromScale(0.425, 0.497524), "Detail"),
 				ZIndex = 10,
 				create("UIGradient")({
 					Color = function()
@@ -571,6 +578,77 @@ function InventoryUI.RenderUI()
 					Position = UDim2.fromScale(0.501848, 0.494182),
 					ScaleType = Enum.ScaleType.Fit,
 					Size = UDim2.fromScale(0.558716, 0.578273),
+					create("UIAspectRatioConstraint")({}),
+				}),
+			}),
+			create("Frame")({
+				Name = "OwnedFrame",
+				AnchorPoint = Vector2.new(0.5, 0.5),
+				BackgroundColor3 = Color3.fromRGB(25, 25, 25),
+				Position = UDim2.fromScale(0.786718, 0.709934),
+				Size = UDim2.fromScale(0.33857, 0.0596065),
+				ZIndex = 11,
+				create("UICorner")({ CornerRadius = UDim.new(0, 5) }),
+				create("UIStroke")({ Color = Color3.fromRGB(48, 48, 48), Thickness = 2 }),
+				create("UIPadding")({
+					PaddingLeft = UDim.new(0, 9),
+					PaddingRight = UDim.new(0, 9),
+				}),
+				create("TextLabel")({
+					Name = "OwnedText",
+					AnchorPoint = Vector2.new(0, 0.5),
+					BackgroundTransparency = 1,
+					FontFace = Font.new("rbxasset://fonts/families/SourceSansPro.json", Enum.FontWeight.Bold),
+					Position = UDim2.fromScale(0, 0.5),
+					Size = UDim2.fromScale(0.32, 0.72),
+					Text = "Owned",
+					TextColor3 = Color3.fromRGB(192, 192, 192),
+					TextScaled = true,
+					TextXAlignment = Enum.TextXAlignment.Left,
+					create("UIStroke")({ Thickness = 2 }),
+				}),
+				create("TextLabel")({
+					Name = "OwnedNumText",
+					AnchorPoint = Vector2.new(1, 0.5),
+					BackgroundTransparency = 1,
+					FontFace = Font.new("rbxasset://fonts/families/SourceSansPro.json", Enum.FontWeight.Bold),
+					Position = UDim2.fromScale(1, 0.5),
+					Size = UDim2.fromScale(0.64, 0.72),
+					Text = function()
+						return `{selectedCount()}x`
+					end,
+					TextColor3 = Color3.new(1, 1, 1),
+					TextScaled = true,
+					TextXAlignment = Enum.TextXAlignment.Right,
+					create("UIStroke")({ Thickness = 2 }),
+				}),
+			}),
+			create("Frame")({
+				Name = "DescriptionFrame",
+				AnchorPoint = Vector2.new(0.5, 0.5),
+				BackgroundColor3 = Color3.new(),
+				Position = UDim2.fromScale(0.786718, 0.804356),
+				Size = UDim2.fromScale(0.33857, 0.09),
+				ZIndex = 11,
+				create("UICorner")({ CornerRadius = UDim.new(0, 5) }),
+				create("UIStroke")({ Color = Color3.fromRGB(48, 48, 48), Thickness = 2 }),
+				create("TextLabel")({
+					Name = "DescriptionText",
+					AnchorPoint = Vector2.new(0.5, 0.5),
+					BackgroundTransparency = 1,
+					FontFace = Font.new("rbxasset://fonts/families/SourceSansPro.json", Enum.FontWeight.Bold),
+					Position = UDim2.fromScale(0.5, 0.5),
+					Size = UDim2.fromScale(0.946, 0.78),
+					Text = function()
+						local info = selectedInfo()
+						return if info then info.Description or "No description available." else "Select an item to view details."
+					end,
+					TextColor3 = Color3.fromRGB(192, 192, 192),
+					TextScaled = true,
+					TextWrapped = true,
+					TextXAlignment = Enum.TextXAlignment.Left,
+					create("UIStroke")({ Thickness = 2 }),
+					create("UITextSizeConstraint")({ MaxTextSize = 18, MinTextSize = 10 }),
 				}),
 			}),
 			create("ImageButton")({

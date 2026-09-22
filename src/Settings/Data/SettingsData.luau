@@ -1,5 +1,6 @@
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local TableUtils = require(ReplicatedStorage.Shared.Modules.Utils.TableUtils)
+local AutoSellConfig = require(ReplicatedStorage.Settings.Data.AutoSellConfig)
 
 export type BooleanSetting = {
 	Default: boolean,
@@ -65,15 +66,11 @@ local RawSettingsData = {
 	MusicVolume = newNumber(50, 0, 100, "Audio", "Music Volume", 1),
 	SFXVolume = newNumber(50, 0, 100, "Audio", "SFX Volume", 2),
 
-	--// Auto Sells
-	AS_Common = newBoolean(false, "Auto Sell", "Common", 1),
-	AS_Rare = newBoolean(false, "Auto Sell", "Rare", 2),
-	AS_Epic = newBoolean(false, "Auto Sell", "Epic", 3),
-	AS_Legendary = newBoolean(false, "Auto Sell", "Legendary", 4),
-	AS_Mythic = newBoolean(false, "Auto Sell", "Mythic", 5),
-	AS_Secret = newBoolean(false, "Auto Sell", "Secret", 6),
-	AS_Absolute = newBoolean(false, "Auto Sell", "Absolute", 7),
 }
+
+for _, entry in AutoSellConfig.Rarities do
+	RawSettingsData[entry.SettingName] = newBoolean(false, "Auto Sell", entry.Name, entry.Order)
+end
 
 local CatgoryOrder = {
 	Gameplay = 1,

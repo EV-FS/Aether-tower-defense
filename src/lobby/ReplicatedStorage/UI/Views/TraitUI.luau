@@ -5,6 +5,7 @@ local Vide = require(ReplicatedStorage.Packages.Vide)
 local useMenuMotion = require(ReplicatedStorage.Shared.Modules.UI.Hooks.useMenuMotion)
 local TraitData = require(ReplicatedStorage.Settings.Data.TraitData)
 local UnitCatalog = require(ReplicatedStorage.Settings.Data.UnitCatalog)
+local UnitViewportProfiles = require(ReplicatedStorage.Settings.Visuals.UnitViewportProfiles)
 local ServiceRegistry = require(ReplicatedStorage.Shared.Modules.Core.ServiceRegistry)
 local TouchZone = require(ReplicatedStorage.Shared.Modules.Utils.TouchZone)
 local useButtonEffect = require(ReplicatedStorage.Shared.Modules.UI.Hooks.useButtonEffect)
@@ -234,7 +235,45 @@ function TraitUI.RenderUI()
 					create("ImageLabel")({ Name = "Trait", BackgroundTransparency = 1, Image = function() local info = traitInfo(); return if info then info.Image else "" end, Position = UDim2.fromScale(0.64, 0.03), Size = UDim2.fromScale(0.359565, 0.31687), Visible = function() return traitInfo() ~= nil end, ZIndex = 10, create("UIAspectRatioConstraint")({}) }),
 					create("TextLabel")({ Name = "Price", BackgroundTransparency = 1, FontFace = Font.new("rbxasset://fonts/families/SourceSansPro.json", Enum.FontWeight.Bold), Position = UDim2.fromScale(0.108, 0.782623), Size = UDim2.fromScale(0.641, 0.2), Text = function() return string.upper(currentTrait() or "NONE") end, TextColor3 = Color3.new(1, 1, 1), TextScaled = true, TextXAlignment = Enum.TextXAlignment.Left, ZIndex = 10, create("UIStroke")({ Thickness = 2 }), create("UIGradient")({ Color = ColorSequence.new(Color3.fromRGB(255, 152, 62), Color3.fromRGB(255, 160, 26)), Rotation = 90 }) }),
 					create("TextLabel")({ Name = "Name", BackgroundTransparency = 1, FontFace = Font.new("rbxasset://fonts/families/SourceSansPro.json", Enum.FontWeight.Bold), Position = UDim2.fromScale(0.107999, 0.618754), Size = UDim2.fromScale(0.84887, 0.172688), Text = function() local selection = selectedUnit(); return if selection then selection.Name else "SELECT UNIT" end, TextColor3 = Color3.new(1, 1, 1), TextScaled = true, TextTruncate = Enum.TextTruncate.AtEnd, TextXAlignment = Enum.TextXAlignment.Left, ZIndex = 10, create("UIStroke")({ Thickness = 2 }) }),
-					TowerViewport({ TowerName = function() local selection = selectedUnit(); return if selection then selection.Name else nil end, AnimationName = "Idle", AnimationLevel = function() local tower = selectedTower(); return tower and tower.Lv or 0 end, AnimationFadeTime = 0, BackgroundTransparency = 1, Position = UDim2.fromScale(0.11, 0.102), Size = UDim2.fromScale(0.784, 0.781), UseViewportModel = true, UseCharacterBounds = true, FitPadding = 1.05, CameraDirection = Vector3.new(0, 0, -1), ModelRotation = 20, ZIndex = 5 }),
+					TowerViewport({
+						TowerName = function()
+							local selection = selectedUnit()
+							return if selection then selection.Name else nil
+						end,
+						Active = function()
+							return isVisible() and selectedUnit() ~= nil
+						end,
+						AnimationName = "Idle",
+						AnimationLevel = function()
+							local tower = selectedTower()
+							return tower and tower.Lv or 0
+						end,
+						AnimationFadeTime = 0,
+						AnimationLooped = true,
+						AnimationSpeed = 1,
+						AnchorPoint = Vector2.new(0.5, 0.5),
+						BackgroundTransparency = 1,
+						Position = UDim2.fromScale(0.5, 0.51),
+						Size = UDim2.fromScale(0.9, 0.9),
+						UseViewportModel = true,
+						UseCharacterBounds = false,
+						UsePortraitBounds = true,
+						CenterOnRoot = true,
+						RenderEffects = false,
+						FitPadding = function()
+							local selection = selectedUnit()
+							return UnitViewportProfiles.GetCard(if selection then selection.Name else "").FitPadding
+						end,
+						FocusYOffset = function()
+							local selection = selectedUnit()
+							return UnitViewportProfiles.GetCard(if selection then selection.Name else "").FocusYOffset
+						end,
+						FieldOfView = 35,
+						CameraDirection = Vector3.new(0, 0, -1),
+						ModelRotation = 15,
+						Ambient = Color3.fromRGB(205, 205, 205),
+						ZIndex = 5,
+					}),
 				}),
 				create("ImageButton")({
 					Name = "PurchaseButton", AnchorPoint = Vector2.new(0.5, 0.5), BackgroundTransparency = 1,

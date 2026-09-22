@@ -2,6 +2,7 @@ local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Net = require(ReplicatedStorage.Shared.Net)
+local AutoSellConfig = require(ReplicatedStorage.Settings.Data.AutoSellConfig)
 local SummonConfig = require(ReplicatedStorage.Settings.Data.SummonConfig)
 local Banner = require(script.Banner)
 local DataService
@@ -81,6 +82,7 @@ function SummonService.Summon(player: Player, amount: number)
 
 		local pity = getPity(playerData)
 		local results = {}
+		local autoSellCoins = 0
 
 		for _ = 1, amount do
 			pity.Mythic += 1
@@ -106,11 +108,20 @@ function SummonService.Summon(player: Player, amount: number)
 			end
 
 			if unitName then
+				local autoSellEntry = AutoSellConfig.ByRarity[rarity]
+				local wasAutoSold = autoSellEntry ~= nil and playerData.Settings[autoSellEntry.SettingName] == true
+				local sellPrice = if wasAutoSold then autoSellEntry.Price else 0
 				table.insert(results, {
 					UnitName = unitName,
 					Rarity = rarity,
+					Sold = wasAutoSold,
+					SellPrice = sellPrice,
 				})
-				DataService:AddTower(player, unitName)
+				if wasAutoSold then
+					autoSellCoins += sellPrice
+				else
+					DataService:AddTower(player, unitName)
+				end
 			end
 
 			if rarity == "Absolute" then
@@ -122,6 +133,9 @@ function SummonService.Summon(player: Player, amount: number)
 		end
 
 		DataService:UpdateData(player, "SummonPity", pity)
+		if autoSellCoins > 0 then
+			DataService:AddData(player, "Coins", autoSellCoins)
+		end
 		syncPityAttributes(player, pity)
 
 		return true, results

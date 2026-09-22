@@ -6,6 +6,7 @@ local RarityRegistry = require(ReplicatedStorage.Shared.Modules.Core.Rarity.Rari
 local ItemData = require(ReplicatedStorage.Settings.Data.ItemData)
 local TowerData = require(ReplicatedStorage.Settings.Data.TowerData)
 local RarityGradient = require(ReplicatedStorage.Settings.Visuals.RarityGradient)
+local UnitViewportProfiles = require(ReplicatedStorage.Settings.Visuals.UnitViewportProfiles)
 local UISFX = require(ReplicatedStorage.Settings.Visuals.UISFX)
 local ServiceRegistry = require(ReplicatedStorage.Shared.Modules.Core.ServiceRegistry)
 local useAudio = require(ReplicatedStorage.Shared.Modules.UI.Hooks.useAudio)
@@ -114,6 +115,7 @@ end
 local function collectionCard(category: string, entryName: string)
 	local rarity = getRarity(category, entryName)
 	local itemInfo = ItemData.ByName[entryName]
+	local viewportProfile = UnitViewportProfiles.GetCard(entryName)
 	return create("ImageButton")({
 		Name = entryName,
 		Active = false,
@@ -130,15 +132,25 @@ local function collectionCard(category: string, entryName: string)
 			then TowerViewport({
 				Name = "ViewportFrame",
 				TowerName = entryName,
+				AnchorPoint = Vector2.new(0.5, 0.5),
 				BackgroundTransparency = 1,
-				Position = UDim2.fromScale(0.11, 0.07),
-				Size = UDim2.fromScale(0.784, 0.72),
+				Position = UDim2.fromScale(0.5, 0.51),
+				Size = UDim2.fromScale(0.9, 0.9),
 				FieldOfView = 35,
-				FitPadding = 1.05,
+				FitPadding = viewportProfile.FitPadding,
+				FocusYOffset = viewportProfile.FocusYOffset,
 				UseViewportModel = true,
-				UseCharacterBounds = true,
+				UseCharacterBounds = viewportProfile.BoundsMode == "Character",
+				UsePortraitBounds = viewportProfile.BoundsMode == "Portrait",
+				CenterOnRoot = not viewportProfile.CenterOnBounds,
+				RenderEffects = false,
+				CameraDirection = Vector3.new(0, 0, -1),
+				ModelRotation = 15,
 				AnimationName = "Idle",
+				AnimationFadeTime = 0,
 				AnimationLooped = true,
+				AnimationSpeed = 1,
+				Ambient = Color3.fromRGB(205, 205, 205),
 				ZIndex = 5,
 			})
 			else create("ImageLabel")({

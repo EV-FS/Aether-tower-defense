@@ -156,6 +156,8 @@ scope SummonService {
             PulledUnits: struct {
                 UnitName: string,
                 Rarity: string,
+                Sold: boolean,
+                SellPrice: u32,
             }[],
         },
     }
