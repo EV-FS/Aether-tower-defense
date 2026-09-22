@@ -19,6 +19,7 @@ local VisualService
 
 local RANDOM = Random.new()
 local DEATH_EXTRA_DELAY = 2.0
+local RENDER_STEP_NAME = "EnemyClient.Render"
 
 local isActived = false
 local ActivedEnemies = {}
@@ -46,7 +47,13 @@ local function removeStunVisuals(enemy)
 	end
 end
 
-local function getEnemyCFrame(model: Model, pathAlpha: number, offset: number, moveDirection: number?, pathId: number): CFrame
+local function getEnemyCFrame(
+	model: Model,
+	pathAlpha: number,
+	offset: number,
+	moveDirection: number?,
+	pathId: number
+): CFrame
 	local Height = CharacterUtils.GetHipHeight(model)
 	local targetCFrame = GetPath:Get(pathId):CalculateUniformCFrame(pathAlpha) + Vector3.new(0, Height, 0)
 	local cframeOffset = targetCFrame.RightVector * offset
@@ -227,7 +234,7 @@ function EnemyClient.newEnemy(data: {
 		ClientSignals.BossSpawned:Fire(ActivedEnemies[data.enemyId])
 	end
 
-	EnemyVisuals.Attach(data.enemyId, enemyData.Name, clonedModel, ActivedEnemies[data.enemyId].MaxHealth)
+	EnemyVisuals.Attach(data.enemyId, enemyData.Name, clonedModel, ActivedEnemies[data.enemyId].MaxHealth, data.isBoss)
 
 	EnemyClient.StartMoveLoop()
 end
@@ -277,13 +284,13 @@ function EnemyClient.StartMoveLoop()
 	end
 	isActived = true
 
-	local connection
-	connection = RunService.PreRender:Connect(function(dt)
+	RunService:BindToRenderStep(RENDER_STEP_NAME, Enum.RenderPriority.Last.Value + 2, function(dt)
 		local hasEnemies = EnemyClient.MoveAllEnemies(dt)
+		EnemyVisuals.Render(dt)
 
 		if not hasEnemies then
 			isActived = false
-			connection:Disconnect()
+			RunService:UnbindFromRenderStep(RENDER_STEP_NAME)
 		end
 	end)
 end
@@ -312,7 +319,8 @@ function EnemyClient.MoveAllEnemies(dt)
 			continue
 		end
 
-		local finalCFrame = getEnemyCFrame(enemy.Model, enemy.PathAlpha, enemy.Offset, enemy.MoveDirection, enemy.PathId)
+		local finalCFrame =
+			getEnemyCFrame(enemy.Model, enemy.PathAlpha, enemy.Offset, enemy.MoveDirection, enemy.PathId)
 
 		table.insert(partsToMove, rootPart)
 		table.insert(cframesToMove, finalCFrame)

@@ -1,9 +1,44 @@
+local Lighting = game:GetService("Lighting")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local GetPath = require(ReplicatedStorage.Shared.Modules.Core.GetPath)
 local SceneLifecycle = require(script.Parent.SceneLifecycle)
 local MapLoadTrace = require(script.Parent.MapLoadTrace)
 local AudioService
 local WaveService
+
+local LIGHTING_CLASSES = {
+	Sky = true,
+	Atmosphere = true,
+	BloomEffect = true,
+	BlurEffect = true,
+	ColorCorrectionEffect = true,
+	DepthOfFieldEffect = true,
+	SunRaysEffect = true,
+}
+
+local function applyLighting(lightingFolder: Folder)
+	for _, object in Lighting:GetChildren() do
+		if LIGHTING_CLASSES[object.ClassName] then
+			object:Destroy()
+		end
+	end
+
+	for attribute, value in lightingFolder:GetAttributes() do
+		local success, err = pcall(function()
+			Lighting[attribute] = value
+		end)
+
+		if not success then
+			warn(`Lighting 속성 적용 실패: {attribute} ({err})`)
+		end
+	end
+
+	for _, light in lightingFolder:GetDescendants() do
+		if LIGHTING_CLASSES[light.ClassName] then
+			light:Clone().Parent = Lighting
+		end
+	end
+end
 
 local MapService = {}
 local MAP_MOUNT_CHUNK_SIZE = 32
@@ -17,7 +52,9 @@ function MapService:PrepareMap(mapName: string)
 	local started = os.clock()
 	local source = assert(ReplicatedStorage.Assets.Maps:WaitForChild(mapName, 30), "Missing map: " .. mapName)
 	local trace = MapLoadTrace.new(mapName, workspace:WaitForChild("Map"))
-	local clone = trace:Run("Clone", function() return SceneLifecycle.Clone(source) end)
+	local clone = trace:Run("Clone", function()
+		return SceneLifecycle.Clone(source)
+	end)
 	-- This limit includes every descendant, even children below a BasePart.
 	-- Gameplay is owned by server services. Scripts embedded in map assets stay
 	-- disabled so an imported/free-model script cannot stall the entire server.
@@ -32,7 +69,9 @@ function MapService:DiscardPrepared(prepared)
 end
 
 function MapService:LoadMapAsync(mapName: string, difficulty: string?, prepared)
-	while not WaveService or self.IsLoading do task.wait() end
+	while not WaveService or self.IsLoading do
+		task.wait()
+	end
 	if self.IsLoaded and self.LoadedMap == mapName then
 		self:DiscardPrepared(prepared)
 		return
@@ -47,9 +86,14 @@ function MapService:LoadMapAsync(mapName: string, difficulty: string?, prepared)
 	local trace = MapLoadTrace.new(mapName, mapFolder)
 	local staging = prepared
 	local ok, err = xpcall(function()
-		if waveConnection then waveConnection:Disconnect(); waveConnection = nil end
+		if waveConnection then
+			waveConnection:Disconnect()
+			waveConnection = nil
+		end
 		-- Delete only instances this service loaded, never unrelated Workspace objects.
-		trace:Run("Cleanup", function() SceneLifecycle.Destroy(self.LoadedRoots) end)
+		trace:Run("Cleanup", function()
+			SceneLifecycle.Destroy(self.LoadedRoots)
+		end)
 		self.LoadedRoots = {}
 		self.LoadedMap = nil
 		staging = staging or self:PrepareMap(mapName)
@@ -64,16 +108,35 @@ function MapService:LoadMapAsync(mapName: string, difficulty: string?, prepared)
 			trace:Run("Terrain", function()
 				-- A TerrainRegion cannot be sliced by the runtime API. Log BEFORE
 				-- PasteRegion so a stall inside this engine call is identifiable.
-				print(string.format("[MapLoad] %s TerrainRegion SizeInCells=%s", mapName, tostring(terrainRegion.SizeInCells)))
+				print(
+					string.format(
+						"[MapLoad] %s TerrainRegion SizeInCells=%s",
+						mapName,
+						tostring(terrainRegion.SizeInCells)
+					)
+				)
 				workspace.Terrain:PasteRegion(terrainRegion, workspace.Terrain.MaxExtents.Min, true)
 			end)
 		end
 
-		trace:Run("Paths", function() GetPath.Init() end)
+		local lightingFolder = environmentFolder and environmentFolder:FindFirstChild("Lighting")
+		if lightingFolder then
+			applyLighting(lightingFolder)
+		else
+			local defaultLighting = Lighting:FindFirstChild("Default")
+
+			applyLighting(defaultLighting)
+		end
+
+		trace:Run("Paths", function()
+			GetPath.Init()
+		end)
 		local bgmFolder = mapFolder:FindFirstChild("BGM")
 		waveConnection = WaveService.WaveStarted:Connect(function()
 			local currentBGM = bgmFolder and bgmFolder:FindFirstChild(tostring(WaveService.CurrentWave))
-			if currentBGM then AudioService.SetBGMState(nil, nil, currentBGM.SoundId) end
+			if currentBGM then
+				AudioService.SetBGMState(nil, nil, currentBGM.SoundId)
+			end
 		end)
 		self.LoadedMap = mapName
 		self.IsLoaded = true
@@ -94,7 +157,9 @@ function MapService:LoadMapAsync(mapName: string, difficulty: string?, prepared)
 		mapFolder:SetAttribute("LoadError", string.sub(tostring(err), 1, 500))
 	end
 	self.IsLoading = false
-	if not ok then error(err, 0) end
+	if not ok then
+		error(err, 0)
+	end
 end
 
 function MapService.Init(services)

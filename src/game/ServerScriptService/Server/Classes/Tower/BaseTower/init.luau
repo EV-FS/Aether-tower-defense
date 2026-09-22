@@ -148,22 +148,37 @@ end
 function BaseTower:_RecalculateStats()
 	self.Stats = TableUtils.DeepCopy(TowerData.ByName[self.Name].Stats[self.Level])
 
+	local additivePercent = {}
+
 	local trait = if self.Trait then TraitData.ByName[self.Trait] else nil
 	if trait then
 		for _, effect in trait.Effects or {} do
 			local handler = TraitHandlers[effect.Handler]
 			if handler then
-				handler(self, effect.Value)
+				local statName, val = handler(self, effect.Value)
+				if statName == nil or val == nil then
+					continue
+				end
+
+				additivePercent[statName] = (additivePercent[statName] or 0) + val
 			end
 		end
 	end
 
 	local level = (self.TowerProfile and self.TowerProfile.Lv) or 0
 	if self.Stats.Damage then
-		self.Stats.Damage *= 1 + level * 0.006
+		additivePercent.Damage = (additivePercent.Damage or 0) + level * 0.006
 	end
 	if self.Stats.Range then
-		self.Stats.Range *= 1 + level * 0.0025
+		additivePercent.Range = (additivePercent.Range or 0) + level * 0.006
+	end
+
+	for statName, bonus in additivePercent do
+		if not self.Stats[statName] then
+			continue
+		end
+
+		self.Stats[statName] *= 1 + bonus
 	end
 
 	if self.ActiveBuffs then

@@ -78,10 +78,10 @@ return TableUtils.DeepFreeze({
 			},
 		},
 	},
-	["Kitsune Raid"] = {
-		MapName = "Kitsune Raid",
+	["Chapter 2"] = {
+		MapName = "Chapter 2 - Monster Canyon",
 		MapImage = "rbxassetid://139254798620970",
-		LayoutOrder = 3,
+		LayoutOrder = 2,
 		Difficulties = DEFAULT_DIFFICULTIES,
 		DifficultyWaves = {
 			Normal = 20,
@@ -127,15 +127,65 @@ return TableUtils.DeepFreeze({
 			},
 		},
 	},
+
+	["Kitsune Raid"] = {
+		MapName = "Kitsune Raid",
+		MapImage = "rbxassetid://139254798620970",
+		LayoutOrder = 3,
+		Difficulties = {
+			"Normal",
+		},
+		DifficultyWaves = {
+			Normal = 30,
+		},
+
+		Rewards = {
+			Easy = {
+				WinCoins = 150,
+				WinExp = 50,
+				WinGems = 0,
+				LoseCoinsPerWave = 10,
+				LoseExpPerWave = 3,
+			},
+			Normal = {
+				WinCoins = 300,
+				WinExp = 100,
+				WinGems = 0,
+				LoseCoinsPerWave = 15,
+				LoseExpPerWave = 5,
+			},
+			Hard = {
+				WinCoins = 700,
+				WinExp = 150,
+				WinGems = 0,
+				LoseCoinsPerWave = 20,
+				LoseExpPerWave = 6,
+			},
+			Extreme = {
+				WinCoins = 1200,
+				WinExp = 200,
+				WinGems = 1,
+				LoseCoinsPerWave = 25,
+				LoseExpPerWave = 8,
+			},
+			Eternal = {
+				WinCoins = 4000,
+				WinExp = 300,
+				WinGems = 5,
+				LoseCoinsPerWave = 30,
+				LoseExpPerWave = 10,
+			},
+		},
+	},
 	["Raid"] = {
 		IntroCutscene = "RaidIntro",
 		MapImage = "rbxassetid://139254798620970",
 		LayoutOrder = 4,
-		Difficulties = DEFAULT_DIFFICULTIES,
+		Difficulties = {
+			"Normal",
+		},
 		DifficultyWaves = {
-			Normal = 20,
-			Hard = 30,
-			Eternal = 40,
+			Normal = 30,
 		},
 
 		Rewards = {
