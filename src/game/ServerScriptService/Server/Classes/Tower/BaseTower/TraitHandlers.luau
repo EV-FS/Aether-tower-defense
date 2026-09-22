@@ -7,20 +7,20 @@ return TableUtils.DeepFreeze({
 			return
 		end
 
-		self.Stats.Damage *= 1 + val
+		return "Damage", val
 	end,
 	RangeMultiflier = function(self, val)
 		if not self.Stats.Range then
 			return
 		end
 
-		self.Stats.Range *= 1 + val
+		return "Range", val
 	end,
 	CooldownMultiflier = function(self, val)
 		if not self.Stats.Cooldown then
 			return
 		end
 
-		self.Stats.Cooldown *= 1 - val
+		return "Cooldown", -val
 	end,
 })
