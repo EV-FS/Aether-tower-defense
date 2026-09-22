@@ -85,6 +85,46 @@ local RawEnemyData = {
 		MaxHealth = 45,
 		WalkSpeed = 12,
 	},
+	["Crystal"] = {
+		Index = 17,
+		MaxHealth = 5,
+		WalkSpeed = 6,
+	},
+	["Crystal Spider"] = {
+		Index = 18,
+		MaxHealth = 6,
+		WalkSpeed = 8,
+	},
+	["Theif"] = {
+		Index = 19,
+		MaxHealth = 15,
+		WalkSpeed = 10,
+	},
+	["Butcher"] = {
+		Index = 20,
+		MaxHealth = 200,
+		WalkSpeed = 4,
+	},
+	["Crystal Guardian"] = {
+		Index = 21,
+		MaxHealth = 750,
+		WalkSpeed = 4,
+	},
+	["Carnage"] = {
+		Index = 22,
+		MaxHealth = 5000,
+		WalkSpeed = 4,
+	},
+	["Giant Skull"] = {
+		Index = 23,
+		MaxHealth = 15000,
+		WalkSpeed = 3,
+	},
+	["Crystal Golem"] = {
+		Index = 24,
+		MaxHealth = 125000,
+		WalkSpeed = 1.5,
+	},
 }
 
 local EnemyData = {
