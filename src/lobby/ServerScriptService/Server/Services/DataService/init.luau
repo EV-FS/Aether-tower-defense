@@ -17,7 +17,7 @@ local TableUtils = require(ReplicatedStorage.Shared.Modules.Utils.TableUtils)
 local ProfileStore = require(ServerScriptService.ServerPackages.ProfileStore)
 
 --/Variables
-local PlayerStore = ProfileStore.New("TowerDefenseData_v1", DataConstants.PROFILE_TEMPLATE)
+local PlayerStore = ProfileStore.New("MainData_v1", DataConstants.PROFILE_TEMPLATE)
 local Profiles: { [Player]: profile } = {}
 
 --/Types
@@ -82,19 +82,6 @@ local function UpdateLeaderstats(player: Player, playerData: PlayerData)
 	gems.Name = "Gems"
 	gems.Value = playerData.Gems
 	gems.Parent = leaderstats
-end
-
-local function IsOldData(playerData: PlayerData): boolean
-	return playerData.Health ~= nil
-		or playerData.EndlessSeason ~= nil
-		or playerData.HaveUnit ~= nil
-		or playerData.HaveCrate ~= nil
-		or playerData.EquippedUnits ~= nil
-		or playerData.QuestData ~= nil
-		or playerData.LuckMultiplier ~= nil
-		or playerData.LastPlayTime ~= nil
-		or playerData.SignedUnits ~= nil
-		or playerData.ReceivedStarterUnit ~= nil
 end
 
 local function ExpLogic(currentLevel: number): number
@@ -620,96 +607,8 @@ function DataService:_RollbackData(player: Player | number, timestampKST: number
 	end
 end
 
-function DataService:_v1Tov2(playerData)
-	local towerKeys = {}
-
-	if playerData.HaveUnit then
-		for towerName, amount in playerData.HaveUnit do
-			playerData.OwnedTowers[towerName] = playerData.OwnedTowers[towerName] or {}
-
-			for _ = 1, amount do
-				local towerId = playerData._NextId
-				local towerKey = `t_{towerId}`
-				local newTower = TableUtils.DeepCopy(DataConstants.TOWER_TEMPLATE)
-
-				playerData.OwnedTowers[towerName][towerKey] = newTower
-				playerData._NextId += 1
-
-				if type(towerKeys[towerName]) ~= "table" then
-					towerKeys[towerName] = {}
-				end
-				table.insert(towerKeys[towerName], towerId)
-			end
-		end
-		playerData.HaveUnit = nil
-	end
-
-	if playerData.HaveCrate then
-		for crateName, amount in playerData.HaveCrate do
-			playerData.Inventory.Crates[crateName] = amount
-		end
-
-		playerData.HaveCrate = nil
-	end
-
-	if playerData.EquippedUnits then
-		for towerName, equipData in playerData.EquippedUnits do
-			if type(equipData) == "table" and equipData.Slot then
-				local keysList = towerKeys[towerName]
-				local targetKeyId = keysList and table.remove(keysList, 1)
-				local targetKey = targetKeyId and `t_{targetKeyId}`
-				if targetKey then
-					playerData.Loadout[equipData.Slot] = { Name = towerName, Key = targetKey }
-				end
-			end
-		end
-
-		playerData.EquippedUnits = nil
-	end
-
-	if playerData.SignedUnits then
-		for towerName, signerList in playerData.SignedUnits do
-			local ownedTowerMap = playerData.OwnedTowers[towerName]
-
-			if ownedTowerMap then
-				if type(signerList) == "table" then
-					for _, signerName in signerList do
-						local _, towerData = TableUtils.Random(ownedTowerMap)
-
-						if towerData then
-							towerData.Sign = signerName
-							break
-						end
-					end
-				else
-					local _, towerData = TableUtils.Random(ownedTowerMap)
-
-					if towerData then
-						towerData.Sign = signerList
-					end
-				end
-			end
-		end
-
-		playerData.SignedUnits = nil
-	end
-
-	playerData.EndlessSeason = nil
-	playerData.LastPlayTime = nil
-	playerData.Health = nil
-	playerData.LuckMultiplier = nil
-	playerData.Materials = nil
-	playerData.QuestData = nil
-	playerData.ReceivedStarterUnit = nil
-end
-
-function DataService:_MigrateData(profile: profile, player: Player)
+function DataService:_MigrateData(profile: profile)
 	local playerData = profile.Data
-	local version = if IsOldData(playerData) then "v1" else "v2"
-
-	if version == "v1" then
-		self:_v1Tov2(playerData, player)
-	end
 
 	patchTowerRenames(playerData)
 	TraitData.MigrateOwnedTowers(playerData.OwnedTowers)
@@ -773,10 +672,8 @@ function DataService._PlayerAdded(player: Player)
 	profile:AddUserId(player.UserId)
 	profile:Reconcile()
 
-	DataService:_MigrateData(profile, player)
+	DataService:_MigrateData(profile)
 
-	-- AFK rewards are persisted in the shared profile. Claim any remainder here
-	-- so a server shutdown or interrupted return teleport can never lose them.
 	local pendingAFK = profile.Data.AFKRewards
 	if type(pendingAFK) == "table" then
 		profile.Data.Coins = (tonumber(profile.Data.Coins) or 0) + math.max(tonumber(pendingAFK.Coins) or 0, 0)
@@ -785,8 +682,6 @@ function DataService._PlayerAdded(player: Player)
 		pendingAFK.Gems = 0
 	end
 
-	-- A small server-authored snapshot closes the release/save race between the
-	-- AFK place and lobby. Never accept it from an unrelated source place.
 	local joinData = player:GetJoinData()
 	local teleportData = joinData.TeleportData
 	if
