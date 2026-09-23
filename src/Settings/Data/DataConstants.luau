@@ -20,12 +20,10 @@ return TableUtils.DeepFreeze({
 			Items = {},
 			Skins = {},
 			Emotes = {
-				Kyukurarin = 1,
-				["Take the L"] = 1,
-				Usagiflap = 1,
-				Grayzone = 1,
+				["Look Out"] = 1,
 			},
 		},
+		EmoteLoadout = {},
 		Collection = {
 			Units = {},
 			Items = {},
@@ -62,6 +60,7 @@ return TableUtils.DeepFreeze({
 		GamePass = true,
 		DevProducts = true,
 		Loadout = true,
+		EmoteLoadout = true,
 		Settings = true,
 		Quests = true,
 	},

@@ -18,6 +18,8 @@ export type Props = {
 	UseWorldModel: (boolean | (() -> boolean))?,
 	Children: any?,
 	AnimationId: (number | string | (() -> number | string))?,
+	IntroAnimationId: (number | string | (() -> number | string))?,
+	Looped: (boolean | (() -> boolean))?,
 	PlaybackSpeed: number?,
 }
 
@@ -107,14 +109,29 @@ return function(props: Props)
 		resetPose(model, origin)
 
 		local rawAnimId = read(props.AnimationId)
+		local rawIntroAnimId = read(props.IntroAnimationId)
 		local playbackSpeed = read(props.PlaybackSpeed) or 1
 		if not rawAnimId or rawAnimId == "" then
 			return
 		end
 
-		local track
-		local animation
+		local tracks = {}
+		local animations = {}
+		local connections = {}
 		local active = true
+
+		local function loadTrack(animator: Animator, rawId, looped: boolean): AnimationTrack
+			local animId = tostring(rawId)
+			local animation = Instance.new("Animation")
+			animation.AnimationId = if string.sub(animId, 1, 13) == "rbxassetid://" then animId else `rbxassetid://{animId}`
+			local track = animator:LoadAnimation(animation)
+			track.Looped = looped
+			track.Priority = Enum.AnimationPriority.Action4
+			track:AdjustSpeed(playbackSpeed)
+			table.insert(animations, animation)
+			table.insert(tracks, track)
+			return track
+		end
 
 		task.spawn(function()
 			while active and not model:IsDescendantOf(game) do
@@ -132,26 +149,31 @@ return function(props: Props)
 			local animator = humanoid:FindFirstChildOfClass("Animator") or Instance.new("Animator")
 			animator.Parent = humanoid
 
-			local animId = tostring(rawAnimId)
-			animation = Instance.new("Animation")
-			animation.AnimationId = if string.sub(animId, 1, 13) == "rbxassetid://"
-				then animId
-				else `rbxassetid://{animId}`
+			local function playLoop()
+				if not active then return end
+				local loopTrack = loadTrack(animator, rawAnimId, read(props.Looped) ~= false)
+				loopTrack:Play()
+			end
 
-			track = animator:LoadAnimation(animation)
-			track.Looped = true
-			track.Priority = Enum.AnimationPriority.Action4
-			track:AdjustSpeed(playbackSpeed)
-			track:Play()
+			if rawIntroAnimId and rawIntroAnimId ~= "" then
+				local introTrack = loadTrack(animator, rawIntroAnimId, false)
+				table.insert(connections, introTrack.Stopped:Connect(playLoop))
+				introTrack:Play()
+			else
+				playLoop()
+			end
 		end)
 
 		cleanup(function()
 			active = false
-			if track then
+			for _, connection in connections do
+				connection:Disconnect()
+			end
+			for _, track in tracks do
 				track:Stop()
 				track:Destroy()
 			end
-			if animation then
+			for _, animation in animations do
 				animation:Destroy()
 			end
 			if model and model.Parent then

@@ -30,6 +30,7 @@ LocalEmotePlayer.__index = LocalEmotePlayer
 export type LocalEmotePlayer = typeof(setmetatable({} :: {
 	CurrentEmoteId: string?,
 	CurrentTrack: AnimationTrack?,
+	CurrentAnimation: Animation?,
 	Connections: { RBXScriptConnection },
 	SavedWalkSpeed: number?,
 	LastEmoteTime: number,
@@ -40,6 +41,7 @@ function LocalEmotePlayer.new(): LocalEmotePlayer
 	return setmetatable({
 		CurrentEmoteId = nil :: string?,
 		CurrentTrack = nil :: AnimationTrack?,
+		CurrentAnimation = nil :: Animation?,
 		Connections = {} :: { RBXScriptConnection },
 		SavedWalkSpeed = nil :: number?,
 		LastEmoteTime = 0 :: number,
@@ -105,26 +107,52 @@ function LocalEmotePlayer.Start(self: LocalEmotePlayer, emoteId: string, emoteCo
 	end)
 	table.insert(self.Connections, stateConn)
 
-	-- Create and play animation
-	local animation = Instance.new("Animation")
-	animation.AnimationId = tostring(emoteConfig.AnimationId)
-	animation.Parent = animator -- Prevent garbage collection
-
-	local track = animator:LoadAnimation(animation)
-	track.Priority = emoteConfig.Priority or Enum.AnimationPriority.Action
-	track:AdjustSpeed(emoteConfig.PlaybackSpeed or 1)
-	track:Play()
-
-	self.CurrentTrack = track
 	self.CurrentEmoteId = emoteId
 
-	-- Auto-stop when track naturally ends
-	local stopConn = track.Stopped:Once(function()
-		if self.CurrentTrack == track then
-			self:_autoStop()
+	local function playTrack(rawAnimationId, looped: boolean, onStopped: (() -> ())?): AnimationTrack
+		local animation = Instance.new("Animation")
+		animation.AnimationId = tostring(rawAnimationId)
+		animation.Parent = animator
+		local track = animator:LoadAnimation(animation)
+		track.Priority = emoteConfig.Priority or Enum.AnimationPriority.Action
+		track.Looped = looped
+		track:AdjustSpeed(emoteConfig.PlaybackSpeed or 1)
+		self.CurrentAnimation = animation
+		self.CurrentTrack = track
+		if onStopped then
+			local stopConn = track.Stopped:Once(onStopped)
+			table.insert(self.Connections, stopConn)
 		end
-	end)
-	table.insert(self.Connections, stopConn)
+		track:Play()
+		return track
+	end
+
+	local function playMainAnimation()
+		if self.CurrentEmoteId ~= emoteId then return end
+		if self.CurrentTrack then
+			self.CurrentTrack:Destroy()
+		end
+		if self.CurrentAnimation then
+			self.CurrentAnimation:Destroy()
+		end
+		local mainTrack
+		mainTrack = playTrack(emoteConfig.AnimationId, emoteConfig.Looped == true, function()
+			if self.CurrentEmoteId == emoteId and self.CurrentTrack == mainTrack then
+				self:_autoStop()
+			end
+		end)
+	end
+
+	if emoteConfig.IntroAnimationId then
+		local introTrack
+		introTrack = playTrack(emoteConfig.IntroAnimationId, false, function()
+			if self.CurrentEmoteId == emoteId and self.CurrentTrack == introTrack then
+				playMainAnimation()
+			end
+		end)
+	else
+		playMainAnimation()
+	end
 
 	return true
 end
@@ -137,14 +165,21 @@ function LocalEmotePlayer.Stop(self: LocalEmotePlayer)
 	end
 	table.clear(self.Connections)
 
-	if self.CurrentTrack then
-		self.CurrentTrack:Stop(0)
-		pcall(function()
-			self.CurrentTrack:Destroy()
-		end)
-		self.CurrentTrack = nil
-	end
+	local currentTrack = self.CurrentTrack
+	local currentAnimation = self.CurrentAnimation
+	self.CurrentTrack = nil
+	self.CurrentAnimation = nil
 	self.CurrentEmoteId = nil
+
+	if currentTrack then
+		currentTrack:Stop(0)
+		pcall(function()
+			currentTrack:Destroy()
+		end)
+	end
+	if currentAnimation then
+		currentAnimation:Destroy()
+	end
 
 	local character = localPlayer.Character
 	if character then

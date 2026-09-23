@@ -9,6 +9,7 @@ local Vide = require(ReplicatedStorage.Packages.Vide)
 
 local MAX_TOWER_KEY_ID = 4_294_967_295
 local MAX_LOADOUT_SIZE = 5
+local MAX_EMOTE_SLOTS = 4
 
 export type TowerKey = string | number
 export type OwnedTowers = { [string]: { [string]: any } }
@@ -23,6 +24,7 @@ export type StackInventory = { [string]: number }
 export type GeneralInventory = {
 	Items: StackInventory,
 	Skins: StackInventory,
+	Emotes: StackInventory,
 	[string]: any,
 }
 
@@ -35,9 +37,11 @@ local InventoryClient = {}
 
 InventoryClient.Towers = Vide.source({} :: OwnedTowers)
 InventoryClient.Loadout = Vide.source({} :: Loadout)
-InventoryClient.Inventory = Vide.source({ Items = {}, Skins = {} } :: GeneralInventory)
+InventoryClient.Inventory = Vide.source({ Items = {}, Skins = {}, Emotes = {} } :: GeneralInventory)
 InventoryClient.Items = Vide.source({} :: StackInventory)
 InventoryClient.Skins = Vide.source({} :: StackInventory)
+InventoryClient.Emotes = Vide.source({} :: StackInventory)
+InventoryClient.EmoteLoadout = Vide.source({})
 
 InventoryClient.TowersChanged = Signal.new()
 InventoryClient.LoadoutChanged = Signal.new()
@@ -49,12 +53,15 @@ InventoryClient.CountUpdated = Signal.new()
 local towersRequest = nil
 local loadoutRequest = nil
 local inventoryRequest = nil
+local emoteLoadoutRequest = nil
 local towersLoaded = false
 local loadoutLoaded = false
 local inventoryLoaded = false
+local emoteLoadoutLoaded = false
 local towersRequestVersion = 0
 local loadoutRequestVersion = 0
 local inventoryRequestVersion = 0
+local emoteLoadoutRequestVersion = 0
 local inventorySyncScheduled = false
 
 local function normalizeItemStacks(rawItems: any): StackInventory
@@ -97,11 +104,39 @@ local function setInventory(inventory: GeneralInventory)
 	local normalized = table.clone(inventory)
 	normalized.Items = normalizeItemStacks(inventory.Items)
 	normalized.Skins = if typeof(inventory.Skins) == "table" then inventory.Skins else {}
+	normalized.Emotes = if typeof(inventory.Emotes) == "table" then inventory.Emotes else {}
 
 	InventoryClient.Inventory(normalized)
 	InventoryClient.Items(normalized.Items)
 	InventoryClient.Skins(normalized.Skins)
+	InventoryClient.Emotes(normalized.Emotes)
 	InventoryClient.InventoryChanged:Fire(normalized)
+end
+
+local function setEmoteLoadout(loadout)
+	InventoryClient.EmoteLoadout(if typeof(loadout) == "table" then loadout else {})
+end
+
+local function loadEmoteLoadout(forceRefresh: boolean?)
+	if emoteLoadoutRequest and not forceRefresh then return emoteLoadoutRequest end
+	if emoteLoadoutLoaded and not forceRefresh then return Promise.resolve(InventoryClient.EmoteLoadout()) end
+
+	emoteLoadoutRequestVersion += 1
+	local requestVersion = emoteLoadoutRequestVersion
+	local request = Net.DataService.GetDataValue.Invoke("EmoteLoadout"):andThen(function(value)
+		local loadout = if typeof(value) == "table" then value else {}
+		if requestVersion == emoteLoadoutRequestVersion then
+			emoteLoadoutLoaded = true
+			emoteLoadoutRequest = nil
+			setEmoteLoadout(loadout)
+		end
+		return loadout
+	end):catch(function(err)
+		if requestVersion == emoteLoadoutRequestVersion then emoteLoadoutRequest = nil end
+		return Promise.reject(err)
+	end)
+	emoteLoadoutRequest = request
+	return request
 end
 
 local function loadTowers(forceRefresh: boolean?)
@@ -295,13 +330,63 @@ local function onTowerRemoved(data: TowerRemovedData)
 end
 
 function InventoryClient.Load()
-	return Promise.all({ loadTowers(), loadLoadout(), loadInventory() }):andThen(function(values)
+	return Promise.all({ loadTowers(), loadLoadout(), loadInventory(), loadEmoteLoadout() }):andThen(function(values)
 		return {
 			Towers = values[1],
 			Loadout = values[2],
 			Inventory = values[3],
+			EmoteLoadout = values[4],
 		}
 	end)
+end
+
+function InventoryClient.RefreshEmoteLoadout()
+	return loadEmoteLoadout(true)
+end
+
+function InventoryClient.GetEmoteSlot(slotNumber: number): string?
+	if slotNumber % 1 ~= 0 or slotNumber < 1 or slotNumber > MAX_EMOTE_SLOTS then return nil end
+	local loadout = InventoryClient.EmoteLoadout()
+	return loadout[tostring(slotNumber)] or loadout[slotNumber]
+end
+
+function InventoryClient.FindEquippedEmoteSlot(emoteName: string): number?
+	for slot = 1, MAX_EMOTE_SLOTS do
+		if InventoryClient.GetEmoteSlot(slot) == emoteName then return slot end
+	end
+	return nil
+end
+
+local function requestEmoteLoadout(action: "Equip" | "Unequip", slot: number, emoteName: string?)
+	return Promise.new(function(resolve, reject)
+		task.spawn(function()
+			local remotes = ReplicatedStorage:WaitForChild("RuntimeRemotes", 5)
+			local remote = remotes and remotes:FindFirstChild("EmoteLoadoutAction")
+			if not remote or not remote:IsA("RemoteFunction") then
+				reject("Emote loadout service is unavailable.")
+				return
+			end
+			local ok, result = pcall(remote.InvokeServer, remote, {
+				Action = action,
+				Slot = slot,
+				EmoteName = emoteName,
+			})
+			if not ok then reject(result) return end
+			if type(result) ~= "table" then reject("Invalid emote loadout response.") return end
+			if result.Success and type(result.Loadout) == "table" then setEmoteLoadout(result.Loadout) end
+			resolve(result)
+		end)
+	end)
+end
+
+function InventoryClient.EquipEmote(emoteName: string, slot: number)
+	return requestEmoteLoadout("Equip", slot, emoteName)
+end
+
+function InventoryClient.UnequipEmote(emoteName: string)
+	local slot = InventoryClient.FindEquippedEmoteSlot(emoteName)
+	if not slot then return Promise.resolve({ Success = true, Loadout = InventoryClient.EmoteLoadout() }) end
+	return requestEmoteLoadout("Unequip", slot, nil)
 end
 
 function InventoryClient.RefreshInventory()
@@ -370,11 +455,13 @@ function InventoryClient.Refresh()
 		InventoryClient.RefreshTowers(),
 		InventoryClient.RefreshLoadout(),
 		InventoryClient.RefreshInventory(),
+		InventoryClient.RefreshEmoteLoadout(),
 	}):andThen(function(values)
 		return {
 			Towers = values[1],
 			Loadout = values[2],
 			Inventory = values[3],
+			EmoteLoadout = values[4],
 		}
 	end)
 end

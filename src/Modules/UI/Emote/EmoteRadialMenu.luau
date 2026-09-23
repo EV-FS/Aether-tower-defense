@@ -15,6 +15,8 @@ export type EmoteData = {
 	EmoteName: string?,
 	DisplayName: string?,
 	AnimationId: (number | string)?,
+	IntroAnimationId: (number | string)?,
+	Looped: boolean?,
 	PlaybackSpeed: number?,
 }
 
@@ -22,6 +24,8 @@ export type Props = {
 	Emotes: { () -> EmoteData? },
 	UserId: ((() -> number?) | number)?,
 	OnSelected: (emoteName: string) -> (),
+	OnSlotSelected: ((slotIndex: number, emoteName: string?) -> ())?,
+	SlotActionText: (string | (() -> string))?,
 }
 
 type SlotConfig = {
@@ -201,7 +205,9 @@ return function(props: Props)
 			Activated = function()
 				local emote = emoteGetter and emoteGetter()
 				local emoteName = emote and (emote.EmoteName or emote.Name)
-				if emoteName then
+				if props.OnSlotSelected then
+					props.OnSlotSelected(config.Index, emoteName)
+				elseif emoteName then
 					props.OnSelected(emoteName)
 				end
 			end,
@@ -240,6 +246,14 @@ return function(props: Props)
 						AnimationId = function()
 							local emote = emoteGetter()
 							return if emote then emote.AnimationId else nil
+						end,
+						IntroAnimationId = function()
+							local emote = emoteGetter()
+							return if emote then emote.IntroAnimationId else nil
+						end,
+						Looped = function()
+							local emote = emoteGetter()
+							return emote ~= nil and emote.Looped == true
 						end,
 						PlaybackSpeed = (emoteGetter() and emoteGetter().PlaybackSpeed) or 1,
 					})
@@ -280,7 +294,7 @@ return function(props: Props)
 				Size = config.NameSize,
 				Text = function()
 					local emote = emoteGetter()
-					return if emote then (emote.DisplayName or emote.EmoteName or "") else ""
+					return if emote then (emote.DisplayName or emote.EmoteName or "") else "EMPTY"
 				end,
 				TextColor3 = Color3.new(1, 1, 1),
 				TextScaled = true,
@@ -295,7 +309,11 @@ return function(props: Props)
 				FontFace = Font.fromEnum(Enum.Font.FredokaOne),
 				Position = config.TooltipPosition,
 				Size = UDim2.fromScale(0.333149, 0.085883),
-				Text = "Tap to play",
+				Text = function()
+					local actionText = props.SlotActionText
+					if type(actionText) == "function" then return actionText() end
+					return actionText or "Tap to play"
+				end,
 				TextColor3 = Color3.new(1, 1, 1),
 				TextScaled = true,
 				ZIndex = 35,

@@ -4,12 +4,16 @@ local Vide = require(ReplicatedStorage.Packages.Vide)
 local useMenuMotion = require(ReplicatedStorage.Shared.Modules.UI.Hooks.useMenuMotion)
 local RarityRegistry = require(ReplicatedStorage.Shared.Modules.Core.Rarity.RarityRegistry)
 local ItemData = require(ReplicatedStorage.Settings.Data.ItemData)
+local EmoteData = require(ReplicatedStorage.Settings.Data.EmoteData)
 local UISFX = require(ReplicatedStorage.Settings.Visuals.UISFX)
 local ServiceRegistry = require(ReplicatedStorage.Shared.Modules.Core.ServiceRegistry)
 local useAudio = require(ReplicatedStorage.Shared.Modules.UI.Hooks.useAudio)
 local useButtonEffect = require(ReplicatedStorage.Shared.Modules.UI.Hooks.useButtonEffect)
 local useColorSequenceCycle = require(ReplicatedStorage.Shared.Modules.UI.Hooks.useColorSequenceCycle)
 local ItemCard = require(ReplicatedStorage.UI.Components.ItemCard)
+local EmoteCard = require(ReplicatedStorage.UI.Components.EmoteCard)
+local PlayerCharacter = require(ReplicatedStorage.Shared.Modules.UI.Emote.PlayerCharacter)
+local EmoteUI = require(ReplicatedStorage.UI.Views.EmoteUI)
 
 local create = Vide.create
 local action = Vide.action
@@ -25,12 +29,13 @@ local InventoryClient
 local UIController
 
 local VIEW_ID = "Inventory"
-local CATEGORIES = { "Material", "Skin" }
+local CATEGORIES = { "Material", "Skin", "Emote" }
 local SORT_CRITERIA = { "Rarity", "ABC", "Quantity" }
 local selectedCategory = source("Material")
 local currentSort = source("Rarity")
 local searchQuery = source("")
 local selectedItemName = source(nil :: string?)
+local emoteActionPending = source(false)
 -- The category rail is intentionally chunkier than the original export.  The
 -- old 5.7 ratio forced the buttons into thin strips on wider screens.
 local CATEGORY_BUTTON_ASPECT_RATIO = 2.55
@@ -42,10 +47,27 @@ local function normalizeSearch(text: string): string
 end
 
 local function categoryStacks(): { [string]: number }
-	return if selectedCategory() == "Skin" then InventoryClient.Skins() else InventoryClient.Items()
+	if selectedCategory() == "Skin" then return InventoryClient.Skins() end
+	if selectedCategory() == "Emote" then return InventoryClient.Emotes() end
+	return InventoryClient.Items()
 end
 
 local function getInfo(itemName: string, category: string?)
+	local targetCategory = category or selectedCategory()
+	if targetCategory == "Emote" then
+		local emote = EmoteData.ByName[itemName]
+		return if emote then {
+			Name = emote.Name,
+			DisplayName = emote.DisplayName,
+			Rarity = "Rare",
+			ItemImage = "",
+			Description = "Equip this emote to one of your four emote-wheel slots.",
+			AnimationId = emote.AnimationId,
+			IntroAnimationId = emote.IntroAnimationId,
+			Looped = emote.Looped,
+			PlaybackSpeed = emote.PlaybackSpeed,
+		} else nil
+	end
 	return ItemData.ByName[itemName]
 		or {
 			Name = itemName,
@@ -216,6 +238,14 @@ function InventoryUI.RenderUI()
 		local name = selectedItemName()
 		return if name then categoryStacks()[name] or 0 else 0
 	end)
+	local selectedEmoteSlot = derive(function()
+		local name = selectedItemName()
+		return if selectedCategory() == "Emote" and name then InventoryClient.FindEquippedEmoteSlot(name) else nil
+	end)
+	local detailCamera = create("Camera")({
+		FieldOfView = 38,
+		CFrame = CFrame.lookAt(Vector3.new(0, 0.25, -6.4), Vector3.new(0, -0.45, 0)),
+	})
 	local visibleEntries = derive(function()
 		local entries = {}
 		if not isVisible() then
@@ -239,6 +269,9 @@ function InventoryUI.RenderUI()
 	effect(function()
 		if isVisible() then
 			InventoryClient.RefreshInventory()
+				:andThen(function()
+					return InventoryClient.RefreshEmoteLoadout()
+				end)
 				:andThen(function()
 					local name = selectedItemName()
 					if not name or (categoryStacks()[name] or 0) <= 0 then
@@ -386,6 +419,17 @@ function InventoryUI.RenderUI()
 							PaddingRight = UDim.new(0, 4),
 						}),
 						values(visibleEntries, function(entry, rank)
+							if entry.Category == "Emote" then
+								return EmoteCard({
+									EmoteName = entry.Name,
+									LayoutOrder = function() return rank() end,
+									IsSelected = function() return selectedItemName() == entry.Name end,
+									EquippedSlot = function()
+										return InventoryClient.FindEquippedEmoteSlot(entry.Name)
+									end,
+									Activated = function() selectedItemName(entry.Name) end,
+								})
+							end
 							return ItemCard({
 								ItemName = entry.Name,
 								Count = entry.Count,
@@ -407,7 +451,9 @@ function InventoryUI.RenderUI()
 							if normalizeSearch(searchQuery()) ~= "" then
 								return "NO ITEMS FOUND"
 							end
-							return if selectedCategory() == "Skin" then "NO SKINS OWNED" else "NO MATERIALS OWNED"
+							if selectedCategory() == "Skin" then return "NO SKINS OWNED" end
+							if selectedCategory() == "Emote" then return "NO EMOTES OWNED" end
+							return "NO MATERIALS OWNED"
 						end,
 						TextColor3 = Color3.fromRGB(218, 218, 226),
 						TextScaled = true,
@@ -504,6 +550,7 @@ function InventoryUI.RenderUI()
 						}),
 						categoryButton("Material", 1, isVisible),
 						categoryButton("Skin", 2, isVisible),
+						categoryButton("Emote", 3, isVisible),
 					}),
 				}),
 			}),
@@ -549,7 +596,8 @@ function InventoryUI.RenderUI()
 					Size = UDim2.fromScale(0.83363, 0.0479085),
 					Text = function()
 						local info = selectedInfo()
-						return if info then string.upper(info.Rarity) else ""
+						if not info then return "" end
+						return if selectedCategory() == "Emote" then "EMOTE" else string.upper(info.Rarity)
 					end,
 					TextColor3 = Color3.new(1, 1, 1),
 					TextScaled = true,
@@ -578,7 +626,36 @@ function InventoryUI.RenderUI()
 					Position = UDim2.fromScale(0.501848, 0.494182),
 					ScaleType = Enum.ScaleType.Fit,
 					Size = UDim2.fromScale(0.558716, 0.578273),
+					Visible = function() return selectedCategory() ~= "Emote" end,
 					create("UIAspectRatioConstraint")({}),
+				}),
+				create("ViewportFrame")({
+					Name = "EmotePreview",
+					AnchorPoint = Vector2.new(0.5, 0.5),
+					BackgroundTransparency = 1,
+					CurrentCamera = detailCamera,
+					Position = UDim2.fromScale(0.5, 0.52),
+					Size = UDim2.fromScale(0.78, 0.75),
+					Visible = function() return selectedCategory() == "Emote" and selectedInfo() ~= nil end,
+					ZIndex = 4,
+					detailCamera,
+					PlayerCharacter({
+						UseWorldModel = true,
+						Origin = CFrame.new(0, -2.2, 1.5),
+						IntroAnimationId = function()
+							local info = selectedInfo()
+							return if selectedCategory() == "Emote" and info then info.IntroAnimationId else nil
+						end,
+						AnimationId = function()
+							local info = selectedInfo()
+							return if selectedCategory() == "Emote" and info then info.AnimationId else nil
+						end,
+						Looped = function()
+							local info = selectedInfo()
+							return info ~= nil and info.Looped == true
+						end,
+						PlaybackSpeed = 1,
+					}),
 				}),
 			}),
 			create("Frame")({
@@ -601,7 +678,7 @@ function InventoryUI.RenderUI()
 					FontFace = Font.new("rbxasset://fonts/families/SourceSansPro.json", Enum.FontWeight.Bold),
 					Position = UDim2.fromScale(0, 0.5),
 					Size = UDim2.fromScale(0.32, 0.72),
-					Text = "Owned",
+					Text = function() return if selectedCategory() == "Emote" then "Slot" else "Owned" end,
 					TextColor3 = Color3.fromRGB(192, 192, 192),
 					TextScaled = true,
 					TextXAlignment = Enum.TextXAlignment.Left,
@@ -615,6 +692,10 @@ function InventoryUI.RenderUI()
 					Position = UDim2.fromScale(1, 0.5),
 					Size = UDim2.fromScale(0.64, 0.72),
 					Text = function()
+						if selectedCategory() == "Emote" then
+							local slot = selectedEmoteSlot()
+							return if slot then `SLOT {slot}` else "NOT EQUIPPED"
+						end
 						return `{selectedCount()}x`
 					end,
 					TextColor3 = Color3.new(1, 1, 1),
@@ -653,23 +734,45 @@ function InventoryUI.RenderUI()
 			}),
 			create("ImageButton")({
 				Name = "EquipButton",
-				Active = false,
+				Active = function()
+					return selectedCategory() == "Emote" and selectedItemName() ~= nil and not emoteActionPending()
+				end,
 				AnchorPoint = Vector2.new(0.5, 0.5),
 				BackgroundTransparency = 1,
 				Image = "rbxassetid://83967774994235",
 				ImageTransparency = function()
-					return if selectedCategory() == "Skin" and selectedItemName() then 0 else 0.45
+					return if selectedCategory() == "Emote" and selectedItemName() and not emoteActionPending() then 0 else 0.45
 				end,
 				Position = menuMotion:Spring(UDim2.fromScale(0.787698, 0.920119), UDim2.fromScale(0.787698, 1.05), "Action"),
 				Size = UDim2.fromScale(0.337246, 0.0842378),
 				ZIndex = 11,
+				Activated = function()
+					local emoteName = selectedItemName()
+					if selectedCategory() ~= "Emote" or not emoteName or emoteActionPending() then return end
+					if selectedEmoteSlot() then
+						emoteActionPending(true)
+						InventoryClient.UnequipEmote(emoteName):andThen(function(result)
+							emoteActionPending(false)
+							if not result.Success then warn(`[InventoryUI] Could not unequip emote: {result.Message}`) end
+						end):catch(function(err)
+							emoteActionPending(false)
+							warn(`[InventoryUI] Could not unequip emote: {err}`)
+						end)
+					else
+						EmoteUI.OpenEquipMode(emoteName)
+					end
+				end,
+				useButtonEffect(0.985, nil, true),
 				create("TextLabel")({
 					Name = "Title",
 					BackgroundTransparency = 1,
 					FontFace = Font.new("rbxasset://fonts/families/FredokaOne.json"),
 					Position = UDim2.fromScale(0.265238, 0.237766),
 					Size = UDim2.fromScale(0.467855, 0.487941),
-					Text = "EQUIP",
+					Text = function()
+						if emoteActionPending() then return "WAIT" end
+						return if selectedEmoteSlot() then "UNEQUIP" else "EQUIP"
+					end,
 					TextColor3 = Color3.new(1, 1, 1),
 					TextScaled = true,
 				}),

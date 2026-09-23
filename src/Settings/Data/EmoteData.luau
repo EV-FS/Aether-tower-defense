@@ -22,7 +22,9 @@ export type EmoteConfig = {
 	Name: string,
 	Index: number,
 	DisplayName: string?,
+	IntroAnimationId: (number | string)?,
 	AnimationId: number | string,
+	Looped: boolean?,
 	Priority: Enum.AnimationPriority?,
 	WalkSpeed: number?,
 	SoundId: (number | string)?,
@@ -38,7 +40,9 @@ export type RawEmoteConfig = {
 	Name: string?,
 	Index: number,
 	DisplayName: string?,
+	IntroAnimationId: (number | string)?,
 	AnimationId: number | string,
+	Looped: boolean?,
 	Priority: Enum.AnimationPriority?,
 	WalkSpeed: number?,
 	SoundId: (number | string)?,
@@ -78,11 +82,24 @@ for _, emoteModule in emoteModules do
 	local animIdStr: string = typeof(data.AnimationId) == "number" and `rbxassetid://{data.AnimationId}`
 		or tostring(data.AnimationId)
 	data.AnimationId = animIdStr
+	if data.IntroAnimationId then
+		local introId = tostring(data.IntroAnimationId)
+		data.IntroAnimationId = if string.sub(introId, 1, 13) == "rbxassetid://" then introId else `rbxassetid://{introId}`
+	end
 
 	EmoteData.ByName[name] = data
 	EmoteData.ByIndex[data.Index] = data
 	assert(EmoteData.ByAnimationId[animIdStr] == nil, `Duplicate emote animation ID: {animIdStr}`)
 	EmoteData.ByAnimationId[animIdStr] = data
+	if data.IntroAnimationId then
+		local introId = tostring(data.IntroAnimationId)
+		EmoteData.ByAnimationId[introId] = data
+		local rawIntroId = string.match(introId, "%d+")
+		if rawIntroId then
+			EmoteData.ByAnimationId[rawIntroId] = data
+			EmoteData.ByAnimationId[`rbxassetid://{rawIntroId}`] = data
+		end
+	end
 
 	local rawIdStr: string? = string.match(animIdStr, "%d+")
 	if rawIdStr then

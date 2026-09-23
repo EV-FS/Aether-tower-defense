@@ -7,6 +7,8 @@ local Net = require(ReplicatedStorage.Shared.Net.server)
 local DataService
 
 local EMOTE_COOLDOWN = 0.2
+local MAX_EMOTE_SLOTS = 4
+local LOADOUT_REMOTE_NAME = "EmoteLoadoutAction"
 
 -------------------------------------------------
 --// PlayerEmoteState Class
@@ -155,6 +157,20 @@ function EmoteService.RemoveEmote(player: Player, targetEmote: number | string)
 	end
 
 	DataService:AddData(player, "Inventory", -1, "Emotes", emoteName)
+
+	if playerEmote <= 1 then
+		local loadout = table.clone(playerData.EmoteLoadout or {})
+		local changed = false
+		for slot, equippedName in loadout do
+			if equippedName == emoteName then
+				loadout[slot] = nil
+				changed = true
+			end
+		end
+		if changed then
+			DataService:UpdateData(player, "EmoteLoadout", loadout)
+		end
+	end
 end
 
 function EmoteService.PlayEmote(player: Player, targetEmote: number | string): boolean
@@ -165,14 +181,25 @@ function EmoteService.PlayEmote(player: Player, targetEmote: number | string): b
 		return false
 	end
 
+	local playerData = DataService:GetData(player)
 	local isStudio = RunService:IsStudio()
 	if not isStudio then
-		local playerData = DataService:GetData(player)
 		local playerEmote = playerData and playerData.Inventory and playerData.Inventory.Emotes[emoteName]
 		if not playerEmote or playerEmote <= 0 then
 			warn(`보유하지 않은 이모트 {emoteName}를 재생하려 시도함.`)
 			return false
 		end
+	end
+
+	local isEquipped = false
+	for _, equippedName in (playerData and playerData.EmoteLoadout) or {} do
+		if equippedName == emoteName then
+			isEquipped = true
+			break
+		end
+	end
+	if not isEquipped then
+		return false
 	end
 
 	local state = playerStates[player]
@@ -182,6 +209,50 @@ function EmoteService.PlayEmote(player: Player, targetEmote: number | string): b
 	end
 
 	return state:Play(emoteName, emoteConfig)
+end
+
+function EmoteService.UpdateLoadout(player: Player, request: any)
+	if type(request) ~= "table" then
+		return { Success = false, Message = "Invalid emote request." }
+	end
+
+	local slot = tonumber(request.Slot)
+	if not slot or slot % 1 ~= 0 or slot < 1 or slot > MAX_EMOTE_SLOTS then
+		return { Success = false, Message = "Invalid emote slot." }
+	end
+
+	local playerData = DataService:GetData(player)
+	if not playerData then
+		return { Success = false, Message = "Your data is still loading." }
+	end
+
+	local loadout = table.clone(playerData.EmoteLoadout or {})
+	if request.Action == "Unequip" then
+		loadout[tostring(slot)] = nil
+		loadout[slot] = nil
+	elseif request.Action == "Equip" then
+		local emoteName = request.EmoteName
+		local ownedCount = type(emoteName) == "string"
+			and playerData.Inventory
+			and playerData.Inventory.Emotes
+			and tonumber(playerData.Inventory.Emotes[emoteName])
+		if not ownedCount or ownedCount <= 0 or not EmoteData.ByName[emoteName] then
+			return { Success = false, Message = "You do not own this emote." }
+		end
+
+		for existingSlot, equippedName in loadout do
+			if equippedName == emoteName then
+				loadout[existingSlot] = nil
+			end
+		end
+		loadout[tostring(slot)] = emoteName
+		loadout[slot] = nil
+	else
+		return { Success = false, Message = "Invalid emote action." }
+	end
+
+	DataService:UpdateData(player, "EmoteLoadout", loadout)
+	return { Success = true, Loadout = loadout }
 end
 
 function EmoteService.StopEmote(player: Player): boolean
@@ -197,6 +268,23 @@ function EmoteService.Init(services)
 end
 
 function EmoteService.Start()
+	local runtimeRemotes = ReplicatedStorage:FindFirstChild("RuntimeRemotes")
+	if not runtimeRemotes then
+		runtimeRemotes = Instance.new("Folder")
+		runtimeRemotes.Name = "RuntimeRemotes"
+		runtimeRemotes.Parent = ReplicatedStorage
+	end
+	local loadoutRemote = runtimeRemotes:FindFirstChild(LOADOUT_REMOTE_NAME)
+	if not loadoutRemote then
+		loadoutRemote = Instance.new("RemoteFunction")
+		loadoutRemote.Name = LOADOUT_REMOTE_NAME
+		loadoutRemote.Parent = runtimeRemotes
+	end
+	assert(loadoutRemote:IsA("RemoteFunction"), "Emote loadout remote must be a RemoteFunction")
+	loadoutRemote.OnServerInvoke = function(player: Player, request: any)
+		return EmoteService.UpdateLoadout(player, request)
+	end
+
 	local function onPlayerAdded(player: Player)
 		playerStates[player] = PlayerEmoteState.new(player)
 

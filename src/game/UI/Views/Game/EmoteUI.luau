@@ -6,6 +6,7 @@ local EmoteData = require(ReplicatedStorage.Settings.Data.EmoteData)
 local EmoteRadialMenu = require(ReplicatedStorage.Shared.Modules.UI.Emote.EmoteRadialMenu)
 local EmoteOverlay = require(ReplicatedStorage.Shared.Modules.UI.Emote.EmoteOverlay)
 local LocalEmotePlayer = require(ReplicatedStorage.Shared.Modules.UI.Emote.LocalEmotePlayer)
+local Net = require(ReplicatedStorage.Shared.Net.client)
 
 local create = Vide.create
 local effect = Vide.effect
@@ -16,15 +17,15 @@ local UIController
 local SprintClient
 local emotePlayer
 local emoteIcon = source(nil :: any)
+local emoteLoadout = source({})
 
 local emoteSlots = {}
-local emoteIndices = {}
-for index in EmoteData.ByIndex do
-	table.insert(emoteIndices, index)
-end
-table.sort(emoteIndices)
-for _, index in emoteIndices do
-	table.insert(emoteSlots, source(EmoteData.ByIndex[index]))
+for slot = 1, 4 do
+	table.insert(emoteSlots, function()
+		local loadout = emoteLoadout()
+		local emoteName = loadout[tostring(slot)] or loadout[slot]
+		return emoteName and EmoteData.ByName[emoteName] or nil
+	end)
 end
 
 local EmoteUI = {}
@@ -97,6 +98,14 @@ function EmoteUI.Init()
 	emotePlayer.OnAutoStopped = function()
 		if SprintClient then SprintClient.Enable() end
 	end
+end
+
+function EmoteUI.Start()
+	Net.DataService.GetDataValue.Invoke("EmoteLoadout"):andThen(function(value)
+		emoteLoadout(if typeof(value) == "table" then value else {})
+	end):catch(function(err)
+		warn(`[EmoteUI] Failed to load emote slots: {err}`)
+	end)
 end
 
 function EmoteUI.Destroy()
