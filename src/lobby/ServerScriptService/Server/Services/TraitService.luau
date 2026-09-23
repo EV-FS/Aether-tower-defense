@@ -12,6 +12,7 @@ local RANDOM = Random.new()
 
 local DataService
 local lastRequestAt: { [Player]: number } = {}
+local activeRequests: { [Player]: boolean } = {}
 local TraitService = {}
 
 local function response(success: boolean, message: string, extra: { [string]: any }?)
@@ -94,9 +95,20 @@ function TraitService.Start()
 	end
 	assert(remote:IsA("RemoteFunction"), "TraitRoll runtime remote must be a RemoteFunction")
 	remote.OnServerInvoke = function(player, data)
-		return TraitService:RollTrait(player, data)
+		if activeRequests[player] then return response(false, "A roll is already in progress.") end
+		activeRequests[player] = true
+		local ok, result = pcall(TraitService.RollTrait, TraitService, player, data)
+		activeRequests[player] = nil
+		if not ok then
+			warn(`[TraitService] Roll failed: {result}`)
+			return response(false, "Could not roll the trait. Please try again.")
+		end
+		return result
 	end
-	Players.PlayerRemoving:Connect(function(player) lastRequestAt[player] = nil end)
+	Players.PlayerRemoving:Connect(function(player)
+		lastRequestAt[player] = nil
+		activeRequests[player] = nil
+	end)
 end
 
 return TraitService

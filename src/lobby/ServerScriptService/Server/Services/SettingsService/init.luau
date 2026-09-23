@@ -14,8 +14,10 @@ function SettingsService:SaveSetting(player: Player, settingName: string, value:
 		return false
 	end
 
-	if settingInfo.Type == "boolean" and typeof(value) ~= "boolean" then
-		return false
+	if settingInfo.Type == "boolean" then
+		if typeof(value) ~= "boolean" then
+			return false
+		end
 	elseif settingInfo.Type == "number" then
 		if typeof(value) ~= "number" or value ~= value or value < settingInfo.Min or value > settingInfo.Max then
 			return false
@@ -55,11 +57,6 @@ function SettingsService:Reconcile(player: Player)
 	if not playerData then
 		return
 	end
-	-- Retire the old unsafe highest-tier toggle. Absolute summons are protected.
-	if playerData.Settings.AS_Absolute ~= nil then
-		DataService:UpdateData(player, "Settings", nil, "AS_Absolute")
-	end
-
 	if playerData.Settings.AutoSkip == true then
 		if not player:IsInGroupAsync(492293332) then
 			DataService:UpdateData(player, "Settings", false, "AutoSkip")

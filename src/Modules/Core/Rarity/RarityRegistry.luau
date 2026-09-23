@@ -2,7 +2,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local TableUtils = require(ReplicatedStorage.Shared.Modules.Utils.TableUtils)
 
-export type RarityName = "Common" | "Rare" | "Epic" | "Legendary" | "Mythic" | "Secret" | "Absolute"
+export type RarityName = "Common" | "Rare" | "Epic" | "Legendary" | "Mythic" | "Absolute" | "Secret"
 
 export type RarityEntity = {
 	Identity: {
@@ -94,15 +94,26 @@ local PresentationData = {
 	},
 }
 
-local ProgressionData = {
-	Common = { Order = 7, Power = 1 },
-	Rare = { Order = 6, Power = 2 },
-	Epic = { Order = 5, Power = 3 },
-	Legendary = { Order = 4, Power = 4 },
-	Mythic = { Order = 3, Power = 5 },
-	Absolute = { Order = 2, Power = 6 },
-	Secret = { Order = 1, Power = 7 },
+-- Canonical progression order. All rarity-driven systems should derive their
+-- low-to-high presentation from this list instead of declaring another order.
+local ProgressionOrder = {
+	"Common",
+	"Rare",
+	"Epic",
+	"Legendary",
+	"Mythic",
+	"Absolute",
+	"Secret",
 }
+
+local ProgressionData = {}
+for power, rarity in ProgressionOrder do
+	ProgressionData[rarity] = {
+		-- Existing card sorting displays the strongest rarity first.
+		Order = #ProgressionOrder - power + 1,
+		Power = power,
+	}
+end
 
 local Definitions: { [string]: RarityEntity } = {}
 for rarity, progression in ProgressionData do
@@ -116,6 +127,11 @@ end
 local DisplayNames = {}
 for rarity, entity in Definitions do
 	DisplayNames[rarity] = entity.Identity.DisplayName
+end
+
+local DisplayOrder = table.create(#ProgressionOrder)
+for index = #ProgressionOrder, 1, -1 do
+	table.insert(DisplayOrder, ProgressionOrder[index])
 end
 
 local RarityRegistry = {}
@@ -148,5 +164,7 @@ end
 
 RarityRegistry.DisplayNames = DisplayNames
 RarityRegistry.Entities = Definitions
+RarityRegistry.ProgressionOrder = ProgressionOrder
+RarityRegistry.DisplayOrder = DisplayOrder
 
 return TableUtils.DeepFreeze(RarityRegistry)

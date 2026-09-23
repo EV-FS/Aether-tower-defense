@@ -2,6 +2,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Vide = require(ReplicatedStorage.Packages.Vide)
 local TowerData = require(ReplicatedStorage.Settings.Data.TowerData)
+local TraitData = require(ReplicatedStorage.Settings.Data.TraitData)
 local UnitCatalog = require(ReplicatedStorage.Settings.Data.UnitCatalog)
 local UnitViewportProfiles = require(ReplicatedStorage.Settings.Visuals.UnitViewportProfiles)
 local TowerViewport = require(ReplicatedStorage.UI.Components.TowerViewport)
@@ -121,6 +122,14 @@ return function(props: Props)
 		local profile = towerProfile()
 		return if profile and typeof(profile.Lv) == "number" then profile.Lv else 0
 	end)
+	local traitInfo = derive(function()
+		local profile = towerProfile()
+		return if profile and profile.Trait then TraitData.ByName[profile.Trait] else nil
+	end)
+	local traitGradient = derive(function()
+		local info = traitInfo()
+		return RarityRegistry.Get(if info then info.Rarity else "Common").Presentation.Gradient
+	end)
 
 	local hasTower = derive(function()
 		return towerName() ~= ""
@@ -224,13 +233,25 @@ return function(props: Props)
 		create("ImageLabel")({
 			Name = "Trait",
 			BackgroundTransparency = 1,
-			Image = "rbxassetid://100463457721493",
+			Image = function()
+				local info = traitInfo()
+				return if info then info.Image else ""
+			end,
 			Position = UDim2.fromScale(0.64, 0.03),
 			Size = UDim2.fromScale(0.359565, 0.31687),
-			Visible = false,
+			Visible = function()
+				return traitInfo() ~= nil
+			end,
+			ZIndex = 12,
 
 			create("UIAspectRatioConstraint")({
 				Name = "UIAspectRatioConstraint",
+			}),
+
+			create("UIGradient")({
+				Name = "RarityGradient",
+				Color = traitGradient,
+				Rotation = 30,
 			}),
 		}),
 

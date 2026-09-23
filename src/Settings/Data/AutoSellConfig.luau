@@ -1,21 +1,28 @@
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local TableUtils = require(ReplicatedStorage.Shared.Modules.Utils.TableUtils)
+local RarityRegistry = require(ReplicatedStorage.Shared.Modules.Core.Rarity.RarityRegistry)
 
--- Absolute is intentionally excluded. The highest summon tier should never be
--- removed by a broad convenience setting without a separate confirmation flow.
-local Rarities = {
-	{ Name = "Common", SettingName = "AS_Common", Price = 25 },
-	{ Name = "Rare", SettingName = "AS_Rare", Price = 50 },
-	{ Name = "Epic", SettingName = "AS_Epic", Price = 100 },
-	{ Name = "Legendary", SettingName = "AS_Legendary", Price = 250 },
-	{ Name = "Mythic", SettingName = "AS_Mythic", Price = 750 },
-	{ Name = "Secret", SettingName = "AS_Secret", Price = 1_500 },
+local Prices = {
+	Common = 25,
+	Rare = 50,
+	Epic = 100,
+	Legendary = 250,
+	Mythic = 750,
+	Absolute = 1_500,
+	Secret = 3_000,
 }
 
+local Rarities = {}
 local ByRarity = {}
-for order, entry in Rarities do
-	entry.Order = order
+for order, rarity in RarityRegistry.ProgressionOrder do
+	local entry = {
+		Name = rarity,
+		SettingName = `AS_{rarity}`,
+		Price = Prices[rarity],
+		Order = order,
+	}
+	table.insert(Rarities, entry)
 	ByRarity[entry.Name] = entry
 end
 

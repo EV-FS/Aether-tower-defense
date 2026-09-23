@@ -72,6 +72,7 @@ end
 local TowerClient = {}
 TowerClient.PlacedTowers = {}
 TowerClient.ActiveTowers = {}
+TowerClient.PendingStats = {}
 
 function TowerClient.Init(services)
 	EconomyService = services:GetService("EconomyService")
@@ -215,6 +216,12 @@ function TowerClient.RegisterTower(player: Player?, towerId: number, data)
 		ActiveBuffs = {},
 	}
 
+	local pendingStats = TowerClient.PendingStats[towerId]
+	if pendingStats then
+		TowerClient.PendingStats[towerId] = nil
+		TowerClient._StatsUpdated({ towerId = towerId, stats = pendingStats })
+	end
+
 	PlaceValidator.AddBorder(towerId, data.borderData)
 end
 
@@ -271,6 +278,7 @@ function TowerClient._TowerSpawned(data: {
 end
 
 function TowerClient.RemoveTower(towerId: number)
+	TowerClient.PendingStats[towerId] = nil
 	local towerData = TowerClient.ActiveTowers[towerId]
 	if not towerData then
 		return
@@ -490,10 +498,18 @@ end
 function TowerClient._StatsUpdated(data: { towerId: number, stats: any })
 	local towerData = TowerClient.ActiveTowers[data.towerId]
 	if not towerData then
+		TowerClient.PendingStats[data.towerId] = data.stats
 		return
 	end
 
-	towerData.Stats = data.stats
+	local stats = data.stats
+	towerData.NextStats = stats._NextLevel
+	towerData.Trait = stats._Trait
+	towerData.UnitLevel = stats._UnitLevel
+	stats._NextLevel = nil
+	stats._Trait = nil
+	stats._UnitLevel = nil
+	towerData.Stats = stats
 
 	ClientSignals.StatsUpdated:Fire(data.towerId, towerData.Stats)
 end

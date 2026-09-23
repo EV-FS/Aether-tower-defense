@@ -5,11 +5,10 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 --/Configs
 local Signal = require(ReplicatedStorage.Packages.Signal)
 local TowerData = require(ReplicatedStorage.Settings.Data.TowerData)
-local TraitData = require(ReplicatedStorage.Settings.Data.TraitData)
 local ServiceRegistry = require(ReplicatedStorage.Shared.Modules.Core.ServiceRegistry)
 local TableUtils = require(ReplicatedStorage.Shared.Modules.Utils.TableUtils)
+local TowerStatCalculator = require(ReplicatedStorage.Shared.Modules.Core.Tower.TowerStatCalculator)
 local Net = require(ReplicatedStorage.Shared.Net)
-local TraitHandlers = require(script.TraitHandlers)
 local DataService
 
 export type Tower = {
@@ -145,40 +144,10 @@ function BaseTower:OverrideStats(statName: string, statValue: any)
 	self:_ApplyNewStats()
 end
 
-function BaseTower:_RecalculateStats()
-	self.Stats = TableUtils.DeepCopy(TowerData.ByName[self.Name].Stats[self.Level])
-
-	local additivePercent = {}
-
-	local trait = if self.Trait then TraitData.ByName[self.Trait] else nil
-	if trait then
-		for _, effect in trait.Effects or {} do
-			local handler = TraitHandlers[effect.Handler]
-			if handler then
-				local statName, val = handler(self, effect.Value)
-				if statName == nil or val == nil then
-					continue
-				end
-
-				additivePercent[statName] = (additivePercent[statName] or 0) + val
-			end
-		end
-	end
-
-	local level = (self.TowerProfile and self.TowerProfile.Lv) or 0
-	if self.Stats.Damage then
-		additivePercent.Damage = (additivePercent.Damage or 0) + level * 0.006
-	end
-	if self.Stats.Range then
-		additivePercent.Range = (additivePercent.Range or 0) + level * 0.006
-	end
-
-	for statName, bonus in additivePercent do
-		if not self.Stats[statName] then
-			continue
-		end
-
-		self.Stats[statName] *= 1 + bonus
+function BaseTower:_CalculateStatsForLevel(level: number)
+	local stats = TowerStatCalculator.Calculate(self.Name, level, self.TowerProfile, false)
+	if not stats then
+		return nil
 	end
 
 	if self.ActiveBuffs then
@@ -187,35 +156,32 @@ function BaseTower:_RecalculateStats()
 		local maxCooldownBuff = 0
 
 		for _, buffData in pairs(self.ActiveBuffs) do
-			maxDamageBuff = math.max(maxDamageBuff, buffData.DamageBuff)
-			maxRangeBuff = math.max(maxRangeBuff, buffData.RangeBuff)
-			maxCooldownBuff = math.max(maxCooldownBuff, buffData.CooldownBuff)
+			maxDamageBuff = math.max(maxDamageBuff, buffData.DamageBuff or 0)
+			maxRangeBuff = math.max(maxRangeBuff, buffData.RangeBuff or 0)
+			maxCooldownBuff = math.max(maxCooldownBuff, buffData.CooldownBuff or 0)
 		end
 
-		if self.Stats.Damage then
-			self.Stats.Damage *= 1 + maxDamageBuff / 100
+		if stats.Damage then
+			stats.Damage *= 1 + maxDamageBuff / 100
 		end
-		if self.Stats.Range then
-			self.Stats.Range *= 1 + maxRangeBuff / 100
+		if stats.Range then
+			stats.Range *= 1 + maxRangeBuff / 100
 		end
-		if self.Stats.Cooldown then
-			self.Stats.Cooldown *= 1 - maxCooldownBuff / 100
+		if stats.Cooldown then
+			stats.Cooldown *= 1 - maxCooldownBuff / 100
 		end
 	end
 
 	for statName, statValue in self.StatsOverride do
-		self.Stats[statName] = statValue
+		stats[statName] = statValue
 	end
 
-	if self.Stats.Damage then
-		self.Stats.Damage = math.floor(self.Stats.Damage)
-	end
-	if self.Stats.Range then
-		self.Stats.Range = math.floor(self.Stats.Range * 10) / 10
-	end
-	if self.Stats.Cooldown then
-		self.Stats.Cooldown = math.floor(self.Stats.Cooldown * 100) / 100
-	end
+	TowerStatCalculator.Round(stats)
+	return stats
+end
+
+function BaseTower:_RecalculateStats()
+	self.Stats = self:_CalculateStatsForLevel(self.Level)
 end
 
 function BaseTower:_ApplyNewStats()
@@ -254,9 +220,13 @@ function BaseTower:_ApplyNewStats()
 		self:_SyncComponent(getSummonKey(i), "SummonComponent", false)
 	end
 
+	local clientStats = TableUtils.DeepCopy(self.Stats)
+	clientStats._NextLevel = if self.Level < self.MaxLevel then self:_CalculateStatsForLevel(self.Level + 1) else nil
+	clientStats._Trait = self.Trait
+	clientStats._UnitLevel = (self.TowerProfile and self.TowerProfile.Lv) or 0
 	Net.TowerService.StatsUpdated.FireAll({
 		towerId = self.Id,
-		stats = self.Stats,
+		stats = clientStats,
 	})
 end
 

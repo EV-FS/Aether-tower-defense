@@ -25,6 +25,7 @@ local untrack = Vide.untrack
 local UIController
 local DataClient
 local InventoryClient
+local SettingsClient
 local summonZone
 local cutsceneSFX
 local bookTurnSFX
@@ -557,6 +558,13 @@ function SummonUI.Summon(number: number)
 	summonInProgress(true)
 
 	task.spawn(function()
+		local settingsReady, settingsError = SettingsClient.FlushAutoSellSettings():await()
+		if not settingsReady then
+			summonInProgress(false)
+			warn(`[SummonUI] Could not synchronize auto-sell settings: {settingsError}`)
+			return
+		end
+
 		local ok, success, result = pcall(function()
 			return Net.SummonService.DoSummon.Invoke(number):await()
 		end)
@@ -1003,6 +1011,7 @@ function SummonUI.Init()
 	UIController = ServiceRegistry:GetService("UIController")
 	DataClient = ServiceRegistry:GetService("DataClient")
 	InventoryClient = ServiceRegistry:GetService("InventoryClient")
+	SettingsClient = ServiceRegistry:GetService("SettingsClient")
 end
 
 function SummonUI.Start()

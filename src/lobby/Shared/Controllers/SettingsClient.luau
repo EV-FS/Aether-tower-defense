@@ -3,6 +3,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local TweenService = game:GetService("TweenService")
 
 local TableUtils = require(ReplicatedStorage.Shared.Modules.Utils.TableUtils)
+local Promise = require(ReplicatedStorage.Packages.Promise)
 local Net = require(ReplicatedStorage.Shared.Net)
 local SettingsData = require(ReplicatedStorage.Settings.Data.SettingsData)
 
@@ -10,6 +11,7 @@ local AudioController
 
 local Settings = {}
 local dirtySettings = {}
+local pendingAutoSellFlush = {}
 
 local activeTimeTween
 
@@ -75,6 +77,10 @@ function SettingsClient.ApplySetting(settingName: string, value: any)
 
 	Settings[settingName] = value
 	dirtySettings[settingName] = true
+	local settingInfo = SettingsData.ByName[settingName]
+	if settingInfo and settingInfo.Category == "Auto Sell" then
+		pendingAutoSellFlush[settingName] = value
+	end
 
 	local handler = SettingApplier[settingName]
 	if handler then
@@ -84,6 +90,29 @@ function SettingsClient.ApplySetting(settingName: string, value: any)
 	SettingsClient._SaveSettings()
 
 	return value
+end
+
+-- Save changed auto-sell toggles once more as an awaited barrier immediately
+-- before summoning. This removes the race between a quick toggle and summon.
+function SettingsClient.FlushAutoSellSettings()
+	local requests = {}
+	for settingName, value in pendingAutoSellFlush do
+		local capturedName = settingName
+		local capturedValue = value
+		table.insert(requests, Net.SettingsService.SaveSetting.Invoke({
+			SettingName = capturedName,
+			Value = capturedValue,
+		}):andThen(function(saved)
+			if saved ~= true then
+				error(`Server rejected auto-sell setting "{capturedName}".`)
+			end
+			if pendingAutoSellFlush[capturedName] == capturedValue then
+				pendingAutoSellFlush[capturedName] = nil
+			end
+		end))
+	end
+
+	return if #requests > 0 then Promise.all(requests) else Promise.resolve(true)
 end
 
 function SettingsClient.GetSettings()

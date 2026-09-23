@@ -45,6 +45,9 @@ return function(props)
 	local traitName = if props.TowerData then props.TowerData.Trait else nil
 	local traitInfo = if traitName then TraitData.ByName[traitName] else nil
 	local gradient = RarityRegistry.Get(rarity).Presentation.Gradient
+	local traitGradient = if traitInfo
+		then RarityRegistry.Get(traitInfo.Rarity).Presentation.Gradient
+		else RarityRegistry.Get("Common").Presentation.Gradient
 
 	return CardFrame({
 		Bind = props.Bind,
@@ -207,6 +210,12 @@ return function(props)
 
 			create("UIAspectRatioConstraint")({
 				Name = "UIAspectRatioConstraint",
+			}),
+
+			create("UIGradient")({
+				Name = "RarityGradient",
+				Color = traitGradient,
+				Rotation = 30,
 			}),
 		}),
 

@@ -5,6 +5,7 @@ local RarityRegistry = require(ReplicatedStorage.Shared.Modules.Core.Rarity.Rari
 local DataConstants = require(ReplicatedStorage.Settings.Data.DataConstants)
 local TowerData = require(ReplicatedStorage.Settings.Data.TowerData)
 local TraitData = require(ReplicatedStorage.Settings.Data.TraitData)
+local TowerStatCalculator = require(ReplicatedStorage.Shared.Modules.Core.Tower.TowerStatCalculator)
 local UnitCatalog = require(ReplicatedStorage.Settings.Data.UnitCatalog)
 local UnitViewportProfiles = require(ReplicatedStorage.Settings.Visuals.UnitViewportProfiles)
 local RarityGradient = require(ReplicatedStorage.Settings.Visuals.RarityGradient)
@@ -54,6 +55,7 @@ local selectedMaxTower = source(0)
 local unitActionPending = source(false)
 local unitActionFeedback = source("")
 local unitActionSucceeded = source(true)
+local selectionMode = source(nil)
 
 local isLast = false
 
@@ -145,6 +147,50 @@ end
 
 local UnitUI = {}
 
+function UnitUI.OpenSelectionMode(config): boolean
+	if not UIController or type(config) ~= "table" or type(config.OnConfirm) ~= "function" then
+		return false
+	end
+
+	if not UIController:OpenExclusive(VIEW_ID) then
+		return false
+	end
+
+	selectionMode(config)
+	if config.SelectedName and config.SelectedKey ~= nil then
+		UnitUI.OnSelected(config.SelectedName, config.SelectedKey, getOwnedTower(config.SelectedName, config.SelectedKey))
+	end
+	return true
+end
+
+local function leaveSelectionMode(confirmSelection: boolean)
+	local mode = selectionMode()
+	if not mode then
+		return false
+	end
+
+	local returnView = mode.ReturnView
+	if confirmSelection then
+		local towerName = selectedName()
+		local towerKey = selectedKey()
+		local towerProfile = getOwnedTower(towerName, towerKey)
+		if type(towerName) ~= "string" or towerKey == nil or not towerProfile then
+			return true
+		end
+		mode.OnConfirm(towerName, towerKey, towerProfile)
+	elseif mode.OnCancel then
+		mode.OnCancel()
+	end
+
+	selectionMode(nil)
+	if type(returnView) == "string" and returnView ~= "" then
+		UIController:OpenExclusive(returnView)
+	else
+		UIController:Close(VIEW_ID)
+	end
+	return true
+end
+
 function UnitUI.OnSelected(towerName: string, towerKey: string, _towerProfile)
 	selectedName(towerName)
 	selectedKey(towerKey)
@@ -204,6 +250,9 @@ function UnitUI.RenderUI()
 	end)
 	local hasSelectedUnit = derive(function()
 		return selectedTowerData() ~= nil and not unitActionPending()
+	end)
+	local isSelectingForFeature = derive(function()
+		return selectionMode() ~= nil
 	end)
 	local selectedLocked = derive(function()
 		local towerData = selectedTowerData()
@@ -454,8 +503,9 @@ function UnitUI.RenderUI()
 	effect(function()
 		local towerName = selectedName()
 		local towerInfo = if towerName then TowerData.ByName[towerName] else nil
-		local towerStats = towerInfo and towerInfo.Stats
-		local currentStats = towerStats and towerStats[0]
+		local currentStats = if towerName
+			then TowerStatCalculator.Calculate(towerName, 0, selectedTowerData())
+			else nil
 
 		selectedMaxTower(if towerInfo then towerInfo.MaxTowers or 0 else 0)
 		selectedDamage(if currentStats then currentStats.Damage or 0 else 0)
@@ -539,8 +589,15 @@ function UnitUI.RenderUI()
 					BackgroundTransparency = 1,
 					FontFace = Font.new("rbxasset://fonts/families/FredokaOne.json"),
 					Position = UDim2.fromScale(0.265238, 0.435573),
-					Size = UDim2.fromScale(0.283423, 0.290134),
-					Text = "UNITS",
+					Size = function()
+						return if selectionMode()
+							then UDim2.fromScale(0.42, 0.290134)
+							else UDim2.fromScale(0.283423, 0.290134)
+					end,
+					Text = function()
+						local mode = selectionMode()
+						return if mode then mode.Title or "SELECT UNIT" else "UNITS"
+					end,
 					TextColor3 = Color3.new(1, 1, 1),
 					TextScaled = true,
 					TextTransparency = menuMotion:Fade(),
@@ -568,6 +625,9 @@ function UnitUI.RenderUI()
 					end,
 					Position = UDim2.fromScale(-0.00261403, 0.882837),
 					Size = UDim2.fromScale(1, 0.117596),
+					Visible = function()
+						return not isSelectingForFeature()
+					end,
 					ZIndex = 20,
 
 					create("ImageButton")({
@@ -696,7 +756,11 @@ function UnitUI.RenderUI()
 					BackgroundTransparency = 1,
 					ClipsDescendants = true,
 					Position = menuMotion:Spring(UDim2.fromScale(0.0339824, 0.124035), UDim2.fromScale(-0.03, 0.124035), "Content"),
-					Size = UDim2.fromScale(0.966018, 0.758802),
+					Size = function()
+						return if isSelectingForFeature()
+							then UDim2.fromScale(0.966018, 0.876398)
+							else UDim2.fromScale(0.966018, 0.758802)
+					end,
 
 					create("ScrollingFrame")({
 						Name = "ScrollingFrame",
@@ -1258,6 +1322,15 @@ function UnitUI.RenderUI()
 						create("UIAspectRatioConstraint")({
 							Name = "UIAspectRatioConstraint",
 						}),
+
+						create("UIGradient")({
+							Name = "RarityGradient",
+							Color = function()
+								local info = selectedTraitInfo()
+								return RarityRegistry.Get(if info then info.Rarity else "Common").Presentation.Gradient
+							end,
+							Rotation = 30,
+						}),
 					}),
 				}),
 			}),
@@ -1272,6 +1345,10 @@ function UnitUI.RenderUI()
 				ZIndex = 11,
 
 				MouseButton1Click = function()
+					if leaveSelectionMode(true) then
+						return
+					end
+
 					UnitUI.EquipActivated()
 
 					local towerName = selectedName()
@@ -1297,6 +1374,10 @@ function UnitUI.RenderUI()
 					Position = UDim2.fromScale(0.265238, 0.237766),
 					Size = UDim2.fromScale(0.467855, 0.487941),
 					Text = function()
+						if selectionMode() then
+							return "SELECT"
+						end
+
 						local towerName = selectedName()
 						local towerKey = selectedKey()
 
@@ -1333,7 +1414,9 @@ function UnitUI.RenderUI()
 				Size = UDim2.fromScale(0.102144, 0.15458),
 
 				MouseButton1Click = function()
-					UIController:Close(VIEW_ID)
+					if not leaveSelectionMode(false) then
+						UIController:Close(VIEW_ID)
+					end
 				end,
 
 				useButtonEffect(nil, 1.1, true),

@@ -20,7 +20,7 @@ return function(props: Props)
 			return nil
 		end
 		local config = TowerData.ByName[data.Name]
-		return config and config.Stats[data.Level + 1]
+		return data.NextStats or (config and config.Stats[data.Level + 1])
 	end)
 
 	local isFarmer = derive(function()

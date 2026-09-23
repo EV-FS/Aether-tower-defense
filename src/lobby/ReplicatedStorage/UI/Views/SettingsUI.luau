@@ -63,6 +63,9 @@ local UNSELECTED_GRADIENT = ColorSequence.new({
 
 local ICON_ON = "rbxassetid://134433670594759"
 local ICON_OFF = "rbxassetid://137473012886337"
+local AUTO_SELL_ROW_HEIGHT = 92
+local AUTO_SELL_ROW_GAP = 8
+local AUTO_SELL_VERTICAL_PADDING = 16
 
 -------------------------------------------------
 --// Helper Functions
@@ -135,9 +138,8 @@ local function autoSellCard(entry)
 		BackgroundTransparency = 1,
 		Image = "rbxassetid://100233894637143",
 		LayoutOrder = entry.Order,
-		Size = UDim2.fromScale(0.876982, 0.24),
+		Size = UDim2.new(0.876982, 0, 0, AUTO_SELL_ROW_HEIGHT),
 		ZIndex = 10,
-		create("UIAspectRatioConstraint")({ AspectRatio = 4.8 }),
 		create("Frame")({
 			Name = "RarityAccent",
 			AnchorPoint = Vector2.new(0, 0.5),
@@ -1427,10 +1429,16 @@ function SettingsUI.RenderUI()
 				create("ScrollingFrame")({
 					Name = "AutoSellScrollingFrame",
 					Active = true,
-					AutomaticCanvasSize = Enum.AutomaticSize.Y,
+					AutomaticCanvasSize = Enum.AutomaticSize.None,
 					BackgroundTransparency = 1,
 					BorderSizePixel = 0,
-					CanvasSize = UDim2.new(),
+					CanvasSize = UDim2.fromOffset(
+						0,
+						#AutoSellConfig.Rarities * AUTO_SELL_ROW_HEIGHT
+							+ (#AutoSellConfig.Rarities - 1) * AUTO_SELL_ROW_GAP
+							+ AUTO_SELL_VERTICAL_PADDING
+					),
+					ScrollingDirection = Enum.ScrollingDirection.Y,
 					ScrollBarImageColor3 = Color3.fromRGB(120, 115, 180),
 					ScrollBarThickness = 5,
 					Size = UDim2.fromScale(1, 1),
@@ -1439,7 +1447,7 @@ function SettingsUI.RenderUI()
 					end,
 					create("UIListLayout")({
 						HorizontalAlignment = Enum.HorizontalAlignment.Center,
-						Padding = UDim.new(0, 8),
+						Padding = UDim.new(0, AUTO_SELL_ROW_GAP),
 						SortOrder = Enum.SortOrder.LayoutOrder,
 					}),
 					create("UIPadding")({

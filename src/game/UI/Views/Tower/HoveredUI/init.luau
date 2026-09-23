@@ -18,6 +18,8 @@ local TowerHovered = {}
 local renderConnection = nil
 
 local currentGui
+local currentTowerId
+local currentTowerData
 
 -------------------------------------------------
 --// Local Functions
@@ -56,6 +58,8 @@ end
 -------------------------------------------------
 function TowerHovered.OnHovered(towerModel: Model, towerData)
 	TowerHovered.OnUnhovered()
+	currentTowerId = towerModel:GetAttribute("Id")
+	currentTowerData = towerData
 
 	currentGui = hoverGui:Clone() :: BillboardGui
 	currentGui.Adornee = towerModel.PrimaryPart
@@ -72,6 +76,8 @@ function TowerHovered.OnHovered(towerModel: Model, towerData)
 end
 
 function TowerHovered.OnUnhovered(_: Model?)
+	currentTowerId = nil
+	currentTowerData = nil
 	if currentGui then
 		currentGui:Destroy()
 		currentGui = nil
@@ -88,6 +94,17 @@ function TowerHovered.Init() end
 function TowerHovered.Start()
 	ClientSignals.TowerHovered:Connect(TowerHovered.OnHovered)
 	ClientSignals.TowerUnhovered:Connect(TowerHovered.OnUnhovered)
+	ClientSignals.StatsUpdated:Connect(function(towerId)
+		if towerId == currentTowerId and currentTowerData then
+			updateHoverUI(currentTowerData)
+		end
+	end)
+	ClientSignals.TowerUpdated:Connect(function(towerId, towerData)
+		if towerId == currentTowerId then
+			currentTowerData = towerData
+			updateHoverUI(towerData)
+		end
+	end)
 end
 
 return TowerHovered

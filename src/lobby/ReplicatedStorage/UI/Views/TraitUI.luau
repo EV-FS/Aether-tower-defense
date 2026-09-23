@@ -10,13 +10,16 @@ local ServiceRegistry = require(ReplicatedStorage.Shared.Modules.Core.ServiceReg
 local TouchZone = require(ReplicatedStorage.Shared.Modules.Utils.TouchZone)
 local useButtonEffect = require(ReplicatedStorage.Shared.Modules.UI.Hooks.useButtonEffect)
 local TowerViewport = require(ReplicatedStorage.UI.Components.TowerViewport)
+local UnitUI = require(ReplicatedStorage.UI.Views.UnitUI)
 
+local RarityRegistry = require(ReplicatedStorage.Shared.Modules.Core.Rarity.RarityRegistry)
+
+local action = Vide.action
+local cleanup = Vide.cleanup
 local create = Vide.create
 local derive = Vide.derive
 local effect = Vide.effect
 local source = Vide.source
-local spring = Vide.spring
-local values = Vide.values
 
 local VIEW_ID = "Traits"
 local TOUCH_FOLDER = "TouchZone"
@@ -37,7 +40,6 @@ type UnitSelection = {
 local selectedUnit = source(nil :: UnitSelection?)
 local isRolling = source(false)
 local statusText = source("SELECT A UNIT")
-local isUnitPickerOpen = source(false)
 local traitZone
 
 local TraitUI = {}
@@ -66,7 +68,6 @@ end
 
 local function selectUnit(towerName: string, towerKey: string | number)
 	selectedUnit({ Name = towerName, Key = towerKey })
-	isUnitPickerOpen(false)
 	statusText("READY TO ROLL")
 end
 
@@ -99,72 +100,49 @@ local function rollSelected()
 	end)
 end
 
-local function traitRow(trait)
-	return create("ImageLabel")({
+local function traitRow(trait, rowHeight)
+	local gradient = RarityRegistry.Get(trait.Rarity).Presentation.Gradient
+	return create("Frame")({
 		Name = trait.Name,
-		BackgroundTransparency = 1,
-		Image = "rbxassetid://92748570815326",
+		BackgroundColor3 = Color3.new(),
+		BorderSizePixel = 0,
 		LayoutOrder = trait.Index,
-		Size = UDim2.fromScale(1, 0.11206),
-		create("UIAspectRatioConstraint")({ AspectRatio = 3.5 }),
+		Size = function() return UDim2.new(0.92, 0, 0, rowHeight()) end,
+		create("UICorner")({ CornerRadius = UDim.new(0, 10) }),
+		create("UIStroke")({
+			Color = Color3.new(1, 1, 1), Thickness = 2.5,
+			create("UIGradient")({ Color = gradient, Rotation = 30 }),
+		}),
 		create("ImageLabel")({
 			Name = "Icon", BackgroundTransparency = 1, Image = trait.Image,
-			Position = UDim2.fromScale(0.0316361, 0.184112), Size = UDim2.fromScale(0.179429, 0.628001), ScaleType = Enum.ScaleType.Fit,
-			create("UIAspectRatioConstraint")({}),
-			create("UIGradient")({ Color = ColorSequence.new(Color3.fromRGB(121, 224, 255), Color3.fromRGB(255, 134, 243)) }),
+			AnchorPoint = Vector2.new(0.5, 0.5),
+			Position = UDim2.fromScale(0.12, 0.5), Size = UDim2.fromScale(0.18, 0.63),
+			ScaleType = Enum.ScaleType.Fit,
+			create("UIGradient")({ Color = gradient }),
 		}),
 		create("TextLabel")({
 			Name = "Title", BackgroundTransparency = 1,
 			FontFace = Font.new("rbxasset://fonts/families/FredokaOne.json"),
-			Position = UDim2.fromScale(0.225422, 0.134451), Size = UDim2.fromScale(0.44, 0.290134),
+			Position = UDim2.fromScale(0.23, 0.13), Size = UDim2.fromScale(0.52, 0.29),
 			Text = string.upper(trait.Name), TextColor3 = Color3.new(1, 1, 1), TextScaled = true,
 			TextXAlignment = Enum.TextXAlignment.Left,
-			create("UIGradient")({ Color = ColorSequence.new(Color3.fromRGB(146, 255, 248), Color3.fromRGB(249, 160, 255)) }),
+			create("UIGradient")({ Color = gradient }),
 		}),
 		create("TextLabel")({
 			Name = "Description", BackgroundTransparency = 1,
-			FontFace = Font.new("rbxasset://fonts/families/FredokaOne.json"),
-			Position = UDim2.fromScale(0.236, 0.433), Size = UDim2.fromScale(0.62, 0.547303),
-			Text = trait.Description, TextColor3 = Color3.fromRGB(231, 231, 240), TextScaled = true,
-			TextXAlignment = Enum.TextXAlignment.Left,
-			create("UIGradient")({ Color = ColorSequence.new(Color3.fromRGB(146, 255, 248), Color3.fromRGB(249, 160, 255)) }),
+			FontFace = Font.new("rbxasset://fonts/families/SourceSansPro.json", Enum.FontWeight.Bold),
+			Position = UDim2.fromScale(0.23, 0.44), Size = UDim2.fromScale(0.73, 0.49),
+			Text = trait.Description, TextColor3 = Color3.new(1, 1, 1), TextScaled = true,
+			TextWrapped = true, TextXAlignment = Enum.TextXAlignment.Left,
+			create("UIGradient")({ Color = gradient }),
 		}),
 		create("TextLabel")({
 			Name = "Percent", BackgroundTransparency = 1,
 			FontFace = Font.new("rbxasset://fonts/families/FredokaOne.json"),
-			Position = UDim2.fromScale(0.849117, 0.107244), Size = UDim2.fromScale(0.11577, 0.22921),
+			Position = UDim2.fromScale(0.77, 0.12), Size = UDim2.fromScale(0.19, 0.25),
 			Text = `{trait.Chance}%`, TextColor3 = Color3.new(1, 1, 1), TextScaled = true,
-			create("UIGradient")({ Color = ColorSequence.new(Color3.fromRGB(146, 255, 248), Color3.fromRGB(249, 160, 255)) }),
-		}),
-	})
-end
-
-local function unitPickerCard(towerName: string, towerKey: string | number, tower)
-	local isSelected = function()
-		local selection = selectedUnit()
-		return selection ~= nil and selection.Name == towerName and selection.Key == towerKey
-	end
-	return create("ImageButton")({
-		Name = `{towerName}_{towerKey}`, Active = true, AutoButtonColor = false, BackgroundTransparency = 1,
-		Image = "rbxassetid://87496848270095", Size = UDim2.fromScale(0.225, 0.34),
-		Activated = function() selectUnit(towerName, towerKey) end,
-		useButtonEffect(0.94, 1.04),
-		create("UIGradient")({ Color = ColorSequence.new(Color3.fromRGB(72, 68, 101), Color3.fromRGB(143, 119, 207)), Rotation = 45 }),
-		create("UIStroke")({ Color = Color3.new(1, 1, 1), Thickness = function() return if isSelected() then 3 else 0 end }),
-		create("ImageLabel")({
-			Name = "Unit", BackgroundTransparency = 1, Image = UnitCatalog.GetImage(towerName),
-			Position = UDim2.fromScale(0.08, 0.08), Size = UDim2.fromScale(0.84, 0.63), ScaleType = Enum.ScaleType.Fit, ZIndex = 3,
-		}),
-		create("TextLabel")({
-			Name = "Name", BackgroundTransparency = 1, FontFace = Font.new("rbxasset://fonts/families/SourceSansPro.json", Enum.FontWeight.Bold),
-			Position = UDim2.fromScale(0.07, 0.68), Size = UDim2.fromScale(0.86, 0.13), Text = towerName,
-			TextColor3 = Color3.new(1, 1, 1), TextScaled = true, TextTruncate = Enum.TextTruncate.AtEnd, ZIndex = 4,
-			create("UIStroke")({ Thickness = 1.5 }),
-		}),
-		create("TextLabel")({
-			Name = "Level", BackgroundTransparency = 1, FontFace = Font.new("rbxasset://fonts/families/SourceSansPro.json", Enum.FontWeight.Bold),
-			Position = UDim2.fromScale(0.15, 0.82), Size = UDim2.fromScale(0.7, 0.1), Text = `LV. {tower.Lv or 1}`,
-			TextColor3 = Color3.fromRGB(226, 216, 255), TextScaled = true, ZIndex = 4,
+			TextXAlignment = Enum.TextXAlignment.Right,
+			create("UIGradient")({ Color = gradient }),
 		}),
 	})
 end
@@ -186,21 +164,26 @@ function TraitUI.RenderUI()
 		local trait = currentTrait()
 		return if trait then TraitData.ByName[trait] else nil
 	end)
+	local selectedTraitGradient = derive(function()
+		local info = traitInfo()
+		return RarityRegistry.Get(if info then info.Rarity else "Common").Presentation.Gradient
+	end)
 
 	effect(function()
 		local _towers = InventoryClient.Towers()
 		if isVisible() then ensureSelection() end
 	end)
 
+	local rowHeight = source(90)
 	local rows = table.create(#TraitData.ByIndex)
-	for _, trait in TraitData.ByIndex do table.insert(rows, traitRow(trait)) end
+	for _, trait in TraitData.ByIndex do table.insert(rows, traitRow(trait, rowHeight)) end
 
 	return create("CanvasGroup")({
 		Name = "Container", GroupTransparency = menuMotion.Transparency, Interactable = isVisible, AnchorPoint = Vector2.new(0.5, 0.5), BackgroundTransparency = 1,
 		Position = UDim2.fromScale(0.5, 0.5), Size = UDim2.fromScale(0.753032, 1), Visible = menuMotion.IsMounted,
 		create("ImageLabel")({
-			Name = "Main", AnchorPoint = Vector2.new(0.5, 0), BackgroundTransparency = 1, Image = "rbxassetid://96882538048826",
-			Position = UDim2.fromScale(0.498839, 0.20195),
+			Name = "Main", AnchorPoint = Vector2.new(0.5, 0.5), BackgroundTransparency = 1, Image = "rbxassetid://96882538048826",
+			Position = UDim2.fromScale(0.498379, 0.497778),
 			Rotation = menuMotion:WindowRotation(),
 			Size = menuMotion:WindowSize(UDim2.fromScale(0.721698, 0.593865)),
 			create("UIAspectRatioConstraint")({ AspectRatio = 1.88 }),
@@ -223,7 +206,21 @@ function TraitUI.RenderUI()
 					Name = "ImageButton", AnchorPoint = Vector2.new(0.5, 0.5), BackgroundTransparency = 1,
 					Active = true, AutoButtonColor = false, Image = "rbxassetid://87496848270095", LayoutOrder = 6,
 					Position = UDim2.fromScale(0.525, 0.5), Size = UDim2.fromScale(0.214411, 0.257868),
-					Activated = function() isUnitPickerOpen(true) end, useButtonEffect(0.96, 1.03),
+					Activated = function()
+						if not isRolling() then
+							local selection = selectedUnit()
+							UnitUI.OpenSelectionMode({
+								Title = "TRAIT REROLL",
+								ReturnView = VIEW_ID,
+								SelectedName = selection and selection.Name,
+								SelectedKey = selection and selection.Key,
+								OnConfirm = function(towerName, towerKey)
+									selectUnit(towerName, towerKey)
+								end,
+							})
+						end
+					end,
+					useButtonEffect(0.96, 1.03),
 					create("UIAspectRatioConstraint")({}),
 					create("UIGradient")({ Color = ColorSequence.new(Color3.fromRGB(164, 246, 255)), Rotation = 45 }),
 					create("ImageLabel")({
@@ -232,8 +229,21 @@ function TraitUI.RenderUI()
 						create("UIAspectRatioConstraint")({ AspectRatio = 3.2 }),
 						create("TextLabel")({ Name = "TextLabel", AnchorPoint = Vector2.new(0.5, 0.5), BackgroundTransparency = 1, FontFace = Font.new("rbxasset://fonts/families/SourceSansPro.json", Enum.FontWeight.Bold), Position = UDim2.fromScale(0.3, 0.489), Size = UDim2.fromScale(0.477775, 0.75514), Text = function() local tower = selectedTower(); return `LV. {tower and tower.Lv or 1}` end, TextColor3 = Color3.new(1, 1, 1), TextScaled = true, create("UIStroke")({ Thickness = 2 }), create("UIGradient")({ Color = ColorSequence.new(Color3.new(1, 1, 1), Color3.fromRGB(104, 106, 211)), Rotation = 90 }) }),
 					}),
-					create("ImageLabel")({ Name = "Trait", BackgroundTransparency = 1, Image = function() local info = traitInfo(); return if info then info.Image else "" end, Position = UDim2.fromScale(0.64, 0.03), Size = UDim2.fromScale(0.359565, 0.31687), Visible = function() return traitInfo() ~= nil end, ZIndex = 10, create("UIAspectRatioConstraint")({}) }),
-					create("TextLabel")({ Name = "Price", BackgroundTransparency = 1, FontFace = Font.new("rbxasset://fonts/families/SourceSansPro.json", Enum.FontWeight.Bold), Position = UDim2.fromScale(0.108, 0.782623), Size = UDim2.fromScale(0.641, 0.2), Text = function() return string.upper(currentTrait() or "NONE") end, TextColor3 = Color3.new(1, 1, 1), TextScaled = true, TextXAlignment = Enum.TextXAlignment.Left, ZIndex = 10, create("UIStroke")({ Thickness = 2 }), create("UIGradient")({ Color = ColorSequence.new(Color3.fromRGB(255, 152, 62), Color3.fromRGB(255, 160, 26)), Rotation = 90 }) }),
+					create("ImageLabel")({ Name = "Trait", BackgroundTransparency = 1, Image = function() local info = traitInfo(); return if info then info.Image else "" end, Position = UDim2.fromScale(0.64, 0.03), Size = UDim2.fromScale(0.359565, 0.31687), Visible = function() return traitInfo() ~= nil end, ZIndex = 10, create("UIAspectRatioConstraint")({}), create("UIGradient")({ Name = "RarityGradient", Color = selectedTraitGradient, Rotation = 30 }) }),
+					create("TextLabel")({
+						Name = "Price", BackgroundTransparency = 1,
+						FontFace = Font.new("rbxasset://fonts/families/SourceSansPro.json", Enum.FontWeight.Bold),
+						Position = UDim2.fromScale(0.108, 0.782623), Size = UDim2.fromScale(0.75, 0.2),
+						Text = function()
+							local selection = selectedUnit()
+							local info = selection and UnitCatalog.GetInfo(selection.Name)
+							local stats = info and info.Stats and info.Stats[0]
+							return if stats then `₩{stats.Cost or 0}` else ""
+						end,
+						TextColor3 = Color3.fromRGB(255, 170, 40), TextScaled = true,
+						TextXAlignment = Enum.TextXAlignment.Left, ZIndex = 10,
+						create("UIStroke")({ Thickness = 2 }),
+					}),
 					create("TextLabel")({ Name = "Name", BackgroundTransparency = 1, FontFace = Font.new("rbxasset://fonts/families/SourceSansPro.json", Enum.FontWeight.Bold), Position = UDim2.fromScale(0.107999, 0.618754), Size = UDim2.fromScale(0.84887, 0.172688), Text = function() local selection = selectedUnit(); return if selection then selection.Name else "SELECT UNIT" end, TextColor3 = Color3.new(1, 1, 1), TextScaled = true, TextTruncate = Enum.TextTruncate.AtEnd, TextXAlignment = Enum.TextXAlignment.Left, ZIndex = 10, create("UIStroke")({ Thickness = 2 }) }),
 					TowerViewport({
 						TowerName = function()
@@ -281,34 +291,21 @@ function TraitUI.RenderUI()
 					Image = "rbxassetid://139274506988816", ImageTransparency = function() return if selectedUnit() and not isRolling() then 0 else 0.35 end,
 					Position = UDim2.fromScale(0.440864, 0.923101), Size = UDim2.fromScale(0.39314, 0.120926),
 					Activated = rollSelected, useButtonEffect(0.94, 1.05),
-					create("TextLabel")({ Name = "Title", BackgroundTransparency = 1, FontFace = Font.new("rbxasset://fonts/families/FredokaOne.json"), Position = UDim2.fromScale(0.149276, 0.214464), Size = UDim2.fromScale(0.68577, 0.527425), Text = function() if isRolling() then return "ROLLING..." end local message = statusText(); return if message == "READY TO ROLL" or string.sub(message, 1, 7) == "ROLLED:" then "ROLL" else message end, TextColor3 = Color3.new(1, 1, 1), TextScaled = true, create("UIStroke")({}) }),
+					create("TextLabel")({ Name = "Title", BackgroundTransparency = 1, FontFace = Font.new("rbxasset://fonts/families/FredokaOne.json"), Position = UDim2.fromScale(0.083, 0.142), Size = UDim2.fromScale(0.403, 0.65), Text = function() return if isRolling() then "..." else "Roll" end, TextColor3 = Color3.new(1, 1, 1), TextScaled = true, TextXAlignment = Enum.TextXAlignment.Left, create("UIStroke")({}) }),
+					create("TextLabel")({ Name = "Cost", BackgroundTransparency = 1, FontFace = Font.new("rbxasset://fonts/families/FredokaOne.json"), Position = UDim2.fromScale(0.65, 0.2), Size = UDim2.fromScale(0.164, 0.5), Text = tostring(TraitData.RollCost), TextColor3 = Color3.new(1, 1, 1), TextScaled = true, create("UIStroke")({}) }),
+					create("ImageLabel")({ Name = "Gems", BackgroundTransparency = 1, Image = "rbxassetid://104268323693949", Position = UDim2.fromScale(0.784, 0.084), Size = UDim2.fromScale(0.198, 0.781), ScaleType = Enum.ScaleType.Fit }),
 					create("UIGradient")({ Color = ColorSequence.new(Color3.fromRGB(13, 255, 0), Color3.fromRGB(234, 255, 0)) }),
 					create("UIAspectRatioConstraint")({ AspectRatio = 3.91 }), create("UIStroke")({ Color = Color3.new(1, 1, 1) }), create("UICorner")({}),
 				}),
-				create("CanvasGroup")({
-					Name = "UnitPicker", BackgroundColor3 = Color3.fromRGB(25, 21, 42), BackgroundTransparency = 0.04,
-					Position = spring(function() return if isUnitPickerOpen() then UDim2.fromScale(0.04, 0.075) else UDim2.fromScale(0.5, 0.5) end, 0.35, 0.8),
-					Size = spring(function() return if isUnitPickerOpen() then UDim2.fromScale(0.92, 0.82) else UDim2.fromScale(0.04, 0.04) end, 0.35, 0.72),
-					GroupTransparency = spring(function() return if isUnitPickerOpen() then 0 else 1 end, 0.35, 0.85), Visible = isUnitPickerOpen, ZIndex = 40, ClipsDescendants = true,
-					create("UICorner")({ CornerRadius = UDim.new(0.04, 0) }), create("UIStroke")({ Color = Color3.fromRGB(178, 151, 255), Thickness = 2.5 }),
-					create("TextLabel")({ Name = "Title", BackgroundTransparency = 1, FontFace = Font.new("rbxasset://fonts/families/FredokaOne.json"), Position = UDim2.fromScale(0.05, 0.04), Size = UDim2.fromScale(0.7, 0.1), Text = "SELECT A UNIT", TextColor3 = Color3.new(1, 1, 1), TextScaled = true, TextXAlignment = Enum.TextXAlignment.Left, ZIndex = 42, create("UIStroke")({ Thickness = 2 }) }),
-					create("TextButton")({ Name = "Back", AnchorPoint = Vector2.new(1, 0), AutoButtonColor = false, BackgroundColor3 = Color3.fromRGB(106, 82, 156), Position = UDim2.fromScale(0.95, 0.04), Size = UDim2.fromScale(0.16, 0.1), FontFace = Font.new("rbxasset://fonts/families/FredokaOne.json"), Text = "BACK", TextColor3 = Color3.new(1, 1, 1), TextScaled = true, ZIndex = 42, Activated = function() isUnitPickerOpen(false) end, useButtonEffect(0.92, 1.06), create("UICorner")({ CornerRadius = UDim.new(0.2, 0) }), create("UIStroke")({ Color = Color3.fromRGB(211, 195, 255), Thickness = 1.5 }) }),
-					create("CanvasGroup")({
-						Name = "OwnedUnitsClip",
-						BackgroundTransparency = 1,
-						ClipsDescendants = true,
-						AnchorPoint = Vector2.new(0, 0),
-						Position = UDim2.fromScale(0.04, 0.17),
-						Size = UDim2.fromScale(0.92, 0.78),
-						ZIndex = 41,
-						create("ScrollingFrame")({
-							Name = "OwnedUnits", AnchorPoint = Vector2.new(0, 0), Active = true, AutomaticCanvasSize = Enum.AutomaticSize.Y, BackgroundTransparency = 1, CanvasSize = UDim2.new(), ClipsDescendants = true,
-							Position = UDim2.fromScale(0, 0), Size = UDim2.fromScale(1, 1), ScrollBarThickness = 3, ScrollBarImageColor3 = Color3.fromRGB(205, 183, 255), ZIndex = 41,
-							create("UIGridLayout")({ CellPadding = UDim2.fromScale(0.02, 0.025), CellSize = UDim2.fromScale(0.225, 0.34), SortOrder = Enum.SortOrder.Name }),
-							values(InventoryClient.Towers, function(towers, towerName) local cards = {} for towerKey, tower in towers do table.insert(cards, unitPickerCard(towerName(), towerKey, tower)) end return cards end),
-						}),
-					}),
-					create("TextLabel")({ Name = "Empty", AnchorPoint = Vector2.new(0.5, 0.5), BackgroundTransparency = 1, FontFace = Font.new("rbxasset://fonts/families/FredokaOne.json"), Position = UDim2.fromScale(0.5, 0.52), Size = UDim2.fromScale(0.75, 0.1), Text = "NO UNITS OWNED", TextColor3 = Color3.fromRGB(218, 210, 233), TextScaled = true, Visible = function() return #getUnits() == 0 end, ZIndex = 43 }),
+				create("TextLabel")({
+					Name = "RollStatus", BackgroundTransparency = 1,
+					Position = UDim2.fromScale(0.14, 0.8), Size = UDim2.fromScale(0.62, 0.06),
+					FontFace = Font.new("rbxasset://fonts/families/FredokaOne.json"),
+					Text = function()
+						local info = traitInfo()
+						return if statusText() == "READY TO ROLL" and info then string.upper(info.Name) else statusText()
+					end, TextScaled = true, TextColor3 = Color3.new(1, 1, 1), ZIndex = 10,
+					create("UIStroke")({ Thickness = 1.5 }),
 				}),
 			}),
 			create("CanvasGroup")({
@@ -316,16 +313,30 @@ function TraitUI.RenderUI()
 				BackgroundTransparency = 1,
 				ClipsDescendants = true,
 				AnchorPoint = Vector2.new(0, 0),
-				Position = UDim2.fromScale(0.0317382, 0.106916),
-				Size = UDim2.fromScale(0.404726, 0.848434),
+				Position = UDim2.fromScale(0.030932, 0.153165),
+				Size = UDim2.fromScale(0.404726, 0.801601),
 				ZIndex = 2,
 				create("ScrollingFrame")({
-					Name = "ScrollingFrame", AnchorPoint = Vector2.new(0, 0), Active = true, AutomaticCanvasSize = Enum.AutomaticSize.Y, BackgroundTransparency = 1,
-					CanvasSize = UDim2.new(), ClipsDescendants = true, Position = UDim2.fromScale(0, 0),
-					ScrollBarImageColor3 = Color3.new(), ScrollBarThickness = 0, ScrollingDirection = Enum.ScrollingDirection.Y,
+					Name = "TraitRates", Active = true, AutomaticCanvasSize = Enum.AutomaticSize.None,
+					BackgroundTransparency = 1, BorderSizePixel = 0, ClipsDescendants = true,
+					CanvasSize = function()
+						return UDim2.fromOffset(0, #rows * (rowHeight() + 10) + 6)
+					end,
+					ScrollBarThickness = 3, ScrollBarImageColor3 = Color3.fromRGB(175, 155, 205),
+					ScrollingDirection = Enum.ScrollingDirection.Y,
 					Size = UDim2.fromScale(1, 1), ZIndex = 2,
-					create("UIListLayout")({ Padding = UDim.new(0.01, 0), SortOrder = Enum.SortOrder.LayoutOrder }),
-					create("UIPadding")({ PaddingTop = UDim.new(0.03, 0) }), unpack(rows),
+					action(function(frame: ScrollingFrame)
+						local function resize()
+							-- Width drives the 3.5:1 card, never canvas height.
+							rowHeight(math.max(1, (frame.AbsoluteSize.X - 12) * 0.92 / 3.5))
+						end
+						local connection = frame:GetPropertyChangedSignal("AbsoluteSize"):Connect(resize)
+						resize()
+						cleanup(function() connection:Disconnect() end)
+					end),
+					create("UIListLayout")({ Padding = UDim.new(0, 10), SortOrder = Enum.SortOrder.LayoutOrder }),
+					create("UIPadding")({ PaddingTop = UDim.new(0, 6), PaddingBottom = UDim.new(0, 6), PaddingLeft = UDim.new(0, 6), PaddingRight = UDim.new(0, 6) }),
+					unpack(rows),
 				}),
 			}),
 		}),
@@ -352,12 +363,10 @@ function TraitUI.Start()
 	traitZone.Touched:Connect(function(player: Player)
 		if player ~= Players.LocalPlayer then return end
 		ensureSelection()
-		isUnitPickerOpen(false)
 		UIController:OpenExclusive(VIEW_ID)
 	end)
 	traitZone.TouchEnded:Connect(function(player: Player)
 		if player ~= Players.LocalPlayer then return end
-		isUnitPickerOpen(false)
 		UIController:Close(VIEW_ID)
 	end)
 end

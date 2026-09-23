@@ -292,7 +292,7 @@ return function(props: Props)
 	local nextStats = derive(function()
 		local data = props.towerData()
 		local config = towerConfig()
-		return data and config and config.Stats[data.Level + 1] or nil
+		return data and (data.NextStats or (config and config.Stats[data.Level + 1])) or nil
 	end)
 	local descriptionData = derive(function()
 		local data = props.towerData()

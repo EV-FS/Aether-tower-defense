@@ -163,6 +163,15 @@ function SelectedUI.Start()
 		end
 	end)
 
+	ClientSignals.StatsUpdated:Connect(function(updatedId)
+		if updatedId == currentTowerId() then
+			local towerData = TowerClient.ActiveTowers[updatedId]
+			if towerData then
+				selectedTower({ towerId = updatedId, towerData = towerData })
+			end
+		end
+	end)
+
 	ClientSignals.TowerCountChanged:Connect(function(towerName, count)
 		local data = currentTowerData()
 		if data and data.Name == towerName then

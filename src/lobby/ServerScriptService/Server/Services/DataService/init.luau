@@ -11,6 +11,7 @@ local AFKSettings = require(ReplicatedStorage.Settings.Game.AFKSettings)
 local Net = require(ReplicatedStorage.Shared.Net)
 local ItemUtils = require(ReplicatedStorage.Shared.Modules.Utils.ItemUtils)
 local TowerData = require(ReplicatedStorage.Settings.Data.TowerData)
+local TraitData = require(ReplicatedStorage.Settings.Data.TraitData)
 local PurchaseData = require(ReplicatedStorage.Settings.Data.PurchaseData)
 local TableUtils = require(ReplicatedStorage.Shared.Modules.Utils.TableUtils)
 local ProfileStore = require(ServerScriptService.ServerPackages.ProfileStore)
@@ -711,6 +712,7 @@ function DataService:_MigrateData(profile: profile, player: Player)
 	end
 
 	patchTowerRenames(playerData)
+	TraitData.MigrateOwnedTowers(playerData.OwnedTowers)
 	patchItemInventory(playerData)
 end
 
