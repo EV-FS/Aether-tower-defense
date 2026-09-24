@@ -15,6 +15,7 @@ local DEFAULT_CAMERA_DIRECTION = Vector3.new(0, 0, -1)
 local DEFAULT_FIELD_OF_VIEW = 35
 local DEFAULT_FIT_PADDING = 1.1
 local MINIMUM_BOUNDS_RADIUS = 0.01
+local MAX_PREPARED_TEMPLATES = 8
 
 type Reactive<T> = T | (() -> T)
 type AnimationId = number | string
@@ -22,11 +23,25 @@ type AnimationId = number | string
 type ModelState = {
 	Instance: Model,
 	TowerName: string,
+	SourceAsset: Model?,
 	RootPart: BasePart?,
 	HasPortraitHead: boolean,
 	FocusOffset: Vector3,
 	BoundsRadius: number,
 }
+
+type PreparedTemplate = {
+	Model: Model,
+	FitPointClouds: { [string]: { Vector3 } },
+	HasPortraitHead: boolean,
+	FocusOffset: Vector3,
+	BoundsRadius: number,
+	LastUsed: number,
+}
+
+local preparedTemplates: { [Model]: PreparedTemplate } = {}
+local preparedTemplateCount = 0
+local preparedTemplateClock = 0
 
 export type Props = {
 	TowerName: Reactive<string?>,
@@ -49,6 +64,7 @@ export type Props = {
 	UseViewportModel: Reactive<boolean>?,
 	UseCharacterBounds: Reactive<boolean>?,
 	UsePortraitBounds: Reactive<boolean>?,
+	PortraitUpdateInterval: Reactive<number>?,
 	CenterOnRoot: Reactive<boolean>?,
 	RenderEffects: Reactive<boolean>?,
 	FocusYOffset: Reactive<number>?,
@@ -99,7 +115,9 @@ local function prepareModel(model: Model, towerName: string, renderEffects: bool
 			or descendant:IsA("Trail")
 			or descendant:IsA("Beam")
 		) then
-			descendant.Enabled = false
+			-- These effects were invisible in cards already. Strip them from the
+			-- prepared template so every visible clone is smaller as well.
+			descendant:Destroy()
 		end
 	end
 
@@ -119,10 +137,58 @@ local function prepareModel(model: Model, towerName: string, renderEffects: bool
 	return {
 		Instance = model,
 		TowerName = towerName,
+		SourceAsset = nil,
 		RootPart = rootPart,
 		HasPortraitHead = PortraitCamera.FindPart(model, "Head") ~= nil,
 		FocusOffset = boundsCFrame.Position + Vector3.new(0, boundsSize.Y * 0.05, 0),
 		BoundsRadius = math.max(boundsSize.Magnitude * 0.5, MINIMUM_BOUNDS_RADIUS),
+	}
+end
+
+local function clonePreparedModel(asset: Model, towerName: string): (Model, ModelState)
+	local prepared = preparedTemplates[asset]
+	if not prepared then
+		local template = asset:Clone()
+		local templateState = prepareModel(template, towerName, false)
+		prepared = {
+			Model = template,
+			FitPointClouds = {},
+			HasPortraitHead = templateState.HasPortraitHead,
+			FocusOffset = templateState.FocusOffset,
+			BoundsRadius = templateState.BoundsRadius,
+			LastUsed = 0,
+		}
+		preparedTemplates[asset] = prepared
+		preparedTemplateCount += 1
+	end
+	preparedTemplateClock += 1
+	prepared.LastUsed = preparedTemplateClock
+
+	if preparedTemplateCount > MAX_PREPARED_TEMPLATES then
+		local oldestAsset: Model? = nil
+		local oldestUse = math.huge
+		for cachedAsset, entry in preparedTemplates do
+			if entry.LastUsed < oldestUse then
+				oldestAsset = cachedAsset
+				oldestUse = entry.LastUsed
+			end
+		end
+		if oldestAsset then
+			preparedTemplates[oldestAsset].Model:Destroy()
+			preparedTemplates[oldestAsset] = nil
+			preparedTemplateCount -= 1
+		end
+	end
+
+	local model = prepared.Model:Clone()
+	return model, {
+		Instance = model,
+		TowerName = towerName,
+		SourceAsset = asset,
+		RootPart = model.PrimaryPart,
+		HasPortraitHead = prepared.HasPortraitHead,
+		FocusOffset = prepared.FocusOffset,
+		BoundsRadius = prepared.BoundsRadius,
 	}
 end
 
@@ -302,8 +368,15 @@ return function(props: Props)
 			return
 		end
 
-		local model = towerAsset:Clone()
-		local state = prepareModel(model, towerName, read(props.RenderEffects) ~= false)
+		local renderEffects = read(props.RenderEffects) ~= false
+		local model: Model
+		local state: ModelState
+		if renderEffects then
+			model = towerAsset:Clone()
+			state = prepareModel(model, towerName, true)
+		else
+			model, state = clonePreparedModel(towerAsset, towerName)
+		end
 		model.Parent = worldModel
 		if props.OnModelChanged then
 			props.OnModelChanged(model)
@@ -336,9 +409,20 @@ return function(props: Props)
 		end
 		-- Fit the final orientation immediately; do not show sphere bounds first
 		-- and then reframe the animated pose half a second later.
-		state.Instance:PivotTo(getModelCFrame(read(props.ModelRotation) or 0))
+		local rotation = read(props.ModelRotation) or 0
+		state.Instance:PivotTo(getModelCFrame(rotation))
 		local fitter = ViewportModel.new(frame, camera)
-		fitter:SetModel(state.Instance, useCharacterBounds or usePortraitBounds, usePortraitBounds)
+		-- Identical card clones have identical authored geometry. Reuse the
+		-- measured point cloud instead of traversing every part on every scroll.
+		local prepared = if state.SourceAsset and type(props.ModelRotation) == "number"
+			then preparedTemplates[state.SourceAsset]
+			else nil
+		local fitKey = if prepared then `{rotation}:{useCharacterBounds}:{usePortraitBounds}` else nil
+		local cachedPoints = if prepared and fitKey then prepared.FitPointClouds[fitKey] else nil
+		local points = fitter:SetModel(state.Instance, useCharacterBounds or usePortraitBounds, usePortraitBounds, cachedPoints)
+		if prepared and fitKey and not cachedPoints then
+			prepared.FitPointClouds[fitKey] = points
+		end
 		viewportFitter(fitter)
 
 		local sizeConnection = frame:GetPropertyChangedSignal("AbsoluteSize"):Connect(function()
@@ -431,6 +515,7 @@ return function(props: Props)
 			FieldOfView = math.clamp(read(props.FieldOfView) or DEFAULT_FIELD_OF_VIEW, 1, 120),
 			Direction = read(props.CameraDirection) or DEFAULT_CAMERA_DIRECTION,
 			FocusYOffset = read(props.FocusYOffset) or 0,
+			UpdateInterval = read(props.PortraitUpdateInterval) or 0,
 		})
 		if stop then
 			cleanup(stop)

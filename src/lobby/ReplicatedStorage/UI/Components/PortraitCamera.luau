@@ -41,7 +41,15 @@ function PortraitCamera.Track(model: Model, frame: ViewportFrame, camera: Camera
 	direction = if direction.Magnitude > 0 then direction.Unit else Vector3.new(0, 0, -1)
 	local orientation = CFrame.lookAt(Vector3.zero, -direction)
 	local tangent = math.tan(math.rad(options.FieldOfView) * 0.5)
-	local function update()
+	local updateInterval = math.max(options.UpdateInterval or 0, 0)
+	local nextUpdate = 0
+	local function update(now: number?)
+		if now and now < nextUpdate then
+			return
+		end
+		if now then
+			nextUpdate = now + updateInterval
+		end
 		local size = frame.AbsoluteSize
 		if size.X <= 0 or size.Y <= 0 or not model.Parent then
 			return
@@ -60,8 +68,9 @@ function PortraitCamera.Track(model: Model, frame: ViewportFrame, camera: Camera
 	updates[update] = true
 	if not connection then
 		connection = RunService.Heartbeat:Connect(function()
+			local now = os.clock()
 			for callback in updates do
-				callback()
+				callback(now)
 			end
 		end)
 	end

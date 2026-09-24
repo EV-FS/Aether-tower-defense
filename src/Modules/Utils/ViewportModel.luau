@@ -159,23 +159,26 @@ end
 -- Used to set the model that is being focused on
 -- should be used for new models and/or a change in the current model
 -- e.g. parts added/removed from the model or the model cframe changed
-function ViewportModelClass:SetModel(model, useCharacterBounds, usePortraitBounds)
+function ViewportModelClass:SetModel(model, useCharacterBounds, usePortraitBounds, cachedPoints)
 	self.Model = model
 
 	-- Measure portrait previews from the head/torso, so weapons, effects and
 	-- oversized accessories cannot make otherwise similar units look tiny.
-	local points = if usePortraitBounds then getModelPointCloud(model, true, true, true) else {}
-	if #points == 0 and useCharacterBounds then
-		points = getModelPointCloud(model, true, true, false)
-	end
-	if #points == 0 then
-		points = getModelPointCloud(model, true, false, false)
-	end
-	if #points == 0 then
-		points = getModelPointCloud(model, false, false, false)
-	end
-	if #points == 0 then
-		points = { model:GetPivot().Position }
+	local points = cachedPoints
+	if not points then
+		points = if usePortraitBounds then getModelPointCloud(model, true, true, true) else {}
+		if #points == 0 and useCharacterBounds then
+			points = getModelPointCloud(model, true, true, false)
+		end
+		if #points == 0 then
+			points = getModelPointCloud(model, true, false, false)
+		end
+		if #points == 0 then
+			points = getModelPointCloud(model, false, false, false)
+		end
+		if #points == 0 then
+			points = { model:GetPivot().Position }
+		end
 	end
 
 	local minimum = points[1]
@@ -199,6 +202,7 @@ function ViewportModelClass:SetModel(model, useCharacterBounds, usePortraitBound
 	self._modelCFrame = CFrame.new((minimum + maximum) * 0.5)
 	self._modelSize = size
 	self._modelRadius = size.Magnitude / 2
+	return points
 end
 
 -- Should be called when something about the viewport frame / camera changes

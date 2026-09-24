@@ -4,10 +4,14 @@ local Vide = require(ReplicatedStorage.Packages.Vide)
 local useMenuMotion = require(ReplicatedStorage.Shared.Modules.UI.Hooks.useMenuMotion)
 local CraftRecipes = require(ReplicatedStorage.Settings.Data.CraftRecipes)
 local ItemData = require(ReplicatedStorage.Settings.Data.ItemData)
+local TowerData = require(ReplicatedStorage.Settings.Data.TowerData)
 local RarityData = require(ReplicatedStorage.Settings.Data.RarityData)
+local UnitViewportProfiles = require(ReplicatedStorage.Settings.Visuals.UnitViewportProfiles)
+local TowerViewport = require(ReplicatedStorage.UI.Components.TowerViewport)
 local Net = require(ReplicatedStorage.Shared.Net.client)
 local ServiceRegistry = require(ReplicatedStorage.Shared.Modules.Core.ServiceRegistry)
 local useButtonEffect = require(ReplicatedStorage.Shared.Modules.UI.Hooks.useButtonEffect)
+local NotificationFeed = require(ReplicatedStorage.Shared.Modules.UI.Notifications.NotificationFeed)
 
 local changed = Vide.changed
 local create = Vide.create
@@ -16,12 +20,15 @@ local spring = Vide.spring
 
 local CraftingUI = {}
 local InventoryClient
+local DataClient
 local UIController
 
 local VIEW_ID = "Crafting"
 local recipeKeys = {}
 for recipeKey, recipe in CraftRecipes do
-	local isValid = ItemData.ByName[recipe.ResultName] ~= nil
+	local isValid = if recipe.ResultType == "Tower"
+		then TowerData.ByName[recipe.ResultName] ~= nil
+		else ItemData.ByName[recipe.ResultName] ~= nil
 	for _, ingredient in recipe.Ingredients do
 		isValid = isValid and ItemData.ByName[ingredient.Name] ~= nil
 	end
@@ -32,15 +39,17 @@ for recipeKey, recipe in CraftRecipes do
 	end
 end
 table.sort(recipeKeys, function(a, b)
-	local left = ItemData.ByName[CraftRecipes[a].ResultName]
-	local right = ItemData.ByName[CraftRecipes[b].ResultName]
+	local leftRecipe = CraftRecipes[a]
+	local rightRecipe = CraftRecipes[b]
+	local left = if leftRecipe.ResultType == "Tower" then TowerData.ByName[leftRecipe.ResultName] else ItemData.ByName[leftRecipe.ResultName]
+	local right = if rightRecipe.ResultType == "Tower" then TowerData.ByName[rightRecipe.ResultName] else ItemData.ByName[rightRecipe.ResultName]
 	if left.Index == right.Index then
 		return a < b
 	end
 	return left.Index < right.Index
 end)
 
-local selectedRecipe = source(recipeKeys[1])
+local selectedRecipe = source(if CraftRecipes["Dragon Slayer"] and table.find(recipeKeys, "Dragon Slayer") then "Dragon Slayer" else recipeKeys[1])
 local craftAmount = source(1)
 local searchQuery = source("")
 local isCrafting = source(false)
@@ -48,6 +57,14 @@ local statusText = source("")
 
 local CARD_CORNER_RADIUS = UDim.new(0.06, 0)
 local CARD_INSET = 3
+local ACTION_AVAILABLE_GRADIENT = ColorSequence.new({
+	ColorSequenceKeypoint.new(0, Color3.fromRGB(55, 255, 0)),
+	ColorSequenceKeypoint.new(1, Color3.fromRGB(255, 238, 1)),
+})
+local ACTION_UNAVAILABLE_GRADIENT = ColorSequence.new({
+	ColorSequenceKeypoint.new(0, Color3.fromRGB(255, 76, 76)),
+	ColorSequenceKeypoint.new(1, Color3.fromRGB(145, 18, 18)),
+})
 
 local function itemInfo(itemName: string)
 	return ItemData.ByName[itemName]
@@ -56,6 +73,22 @@ end
 local function itemGradient(itemName: string): ColorSequence
 	local info = itemInfo(itemName)
 	return RarityData.Get(if info then info.Rarity else "Common").Presentation.Gradient
+end
+
+local function resultGradient(recipe: CraftRecipes.Recipe): ColorSequence
+	local info = if recipe.ResultType == "Tower" then TowerData.ByName[recipe.ResultName] else itemInfo(recipe.ResultName)
+	return RarityData.Get(if info then info.Rarity else "Common").Presentation.Gradient
+end
+
+local function ownedCurrency(currency: string): number
+	if not DataClient then return 0 end
+	if currency == "Coins" then return DataClient.Coins() end
+	if currency == "Gems" then return DataClient.Gems() end
+	return 0
+end
+
+local function formatAmount(amount: number): string
+	return if DataClient then DataClient.FormatNumber(amount) else tostring(amount)
 end
 
 local function ownedAmount(itemName: string): number
@@ -81,7 +114,36 @@ local function canCraft(recipeKey: string, amount: number): boolean
 			return false
 		end
 	end
+	for currency, cost in recipe.Currencies or {} do
+		if ownedCurrency(currency) < cost * amount then
+			return false
+		end
+	end
 	return true
+end
+
+local function towerImage(towerName: string, position: UDim2, size: UDim2, active: () -> boolean)
+	local profile = UnitViewportProfiles.GetCard(towerName)
+	return TowerViewport({
+		Name = "TowerImage",
+		TowerName = towerName,
+		Position = position,
+		Size = size,
+		Active = active,
+		UseViewportModel = true,
+		UseCharacterBounds = profile.BoundsMode == "Character",
+		UsePortraitBounds = profile.BoundsMode == "Portrait",
+		CenterOnRoot = not profile.CenterOnBounds,
+		RenderEffects = false,
+		FitPadding = profile.FitPadding,
+		FocusYOffset = profile.FocusYOffset,
+		FieldOfView = 35,
+		ModelRotation = 15,
+		AnimationName = "Idle",
+		AnimationLevel = 0,
+		AnimationLooped = true,
+		ZIndex = 5,
+	})
 end
 
 local function itemImage(itemName: string, position: UDim2, size: UDim2)
@@ -151,7 +213,7 @@ local function recipeCard(recipeKey: string, layoutOrder: number)
 			statusText("")
 		end,
 		useButtonEffect(0.95, 1.025),
-		create("UIGradient")({ Color = itemGradient(recipe.ResultName), Rotation = 45 }),
+		create("UIGradient")({ Color = resultGradient(recipe), Rotation = 45 }),
 		create("UIAspectRatioConstraint")({}),
 		create("UICorner")({ CornerRadius = CARD_CORNER_RADIUS }),
 		cardBorder(
@@ -160,38 +222,60 @@ local function recipeCard(recipeKey: string, layoutOrder: number)
 			function() return if selectedRecipe() == recipeKey then 2 else 1 end,
 			function() return if selectedRecipe() == recipeKey then 0.05 else 1 end
 		),
-		itemImage(recipe.ResultName, UDim2.fromScale(0.11, 0.08), UDim2.fromScale(0.784, 0.69)),
+		if recipe.ResultType == "Tower"
+			then towerImage(recipe.ResultName, UDim2.fromScale(0.11, 0.08), UDim2.fromScale(0.784, 0.69), function()
+				return matchesSearch(recipeKey)
+			end)
+			else itemImage(recipe.ResultName, UDim2.fromScale(0.11, 0.08), UDim2.fromScale(0.784, 0.69)),
 		itemNameLabel(recipe.ResultName),
 	})
 end
 
-local function ingredientCard(ingredient: CraftRecipes.Ingredient, layoutOrder: number)
+local function ingredientCard(ingredient: CraftRecipes.Ingredient, layoutOrder: number, cardSize: () -> number, isCurrency: boolean?)
+	local function owned()
+		return if isCurrency then ownedCurrency(ingredient.Name) else ownedAmount(ingredient.Name)
+	end
+	local image = if ingredient.Name == "Coins" then "rbxassetid://117112996963807"
+		elseif ingredient.Name == "Gems" then "rbxassetid://104268323693949"
+		else itemInfo(ingredient.Name).ItemImage
+	local gradient = if ingredient.Name == "Coins" then RarityData.Get("Legendary").Presentation.Gradient
+		elseif ingredient.Name == "Gems" then RarityData.Get("Rare").Presentation.Gradient
+		else itemGradient(ingredient.Name)
 	return create("ImageLabel")({
 		Name = ingredient.Name,
 		BackgroundTransparency = 1,
 		Image = "rbxassetid://87496848270095",
 		LayoutOrder = layoutOrder,
-		Size = UDim2.fromScale(0.22, 0.941195),
-		create("UIGradient")({ Color = itemGradient(ingredient.Name), Rotation = 45 }),
-		create("UIAspectRatioConstraint")({}),
+		-- Pixel width derived from the viewport height avoids a circular dependency
+		-- between X-scaled children and AutomaticCanvasSize.X.
+		Size = function() return UDim2.fromOffset(cardSize(), cardSize()) end,
+		create("UIGradient")({ Color = gradient, Rotation = 45 }),
 		create("UICorner")({ CornerRadius = CARD_CORNER_RADIUS }),
 		cardBorder(
 			"RequirementBorder",
 			function()
-				return if ownedAmount(ingredient.Name) >= ingredient.Amount * craftAmount()
+				return if owned() >= ingredient.Amount * craftAmount()
 					then Color3.fromRGB(104, 255, 126)
 					else Color3.fromRGB(255, 73, 73)
 			end,
 			1.5,
 			0
 		),
-		itemImage(ingredient.Name, UDim2.fromScale(0.11, 0.08), UDim2.fromScale(0.784, 0.69)),
+		create("ImageLabel")({
+			Name = "IngredientImage",
+			BackgroundTransparency = 1,
+			Image = image,
+			Position = UDim2.fromScale(0.11, 0.08),
+			ScaleType = Enum.ScaleType.Fit,
+			Size = UDim2.fromScale(0.784, 0.69),
+			ZIndex = 5,
+		}),
 		create("ImageLabel")({
 			Name = "Quantity",
 			BackgroundTransparency = 1,
 			Image = "rbxassetid://104083646922843",
 			Position = UDim2.fromScale(-0.013, -0.05),
-			Size = UDim2.fromScale(0.653434, 0.238322),
+			Size = UDim2.fromScale(0.94, 0.238322),
 			ZIndex = 15,
 			create("UIAspectRatioConstraint")({ AspectRatio = 3.2 }),
 			create("TextLabel")({
@@ -199,10 +283,14 @@ local function ingredientCard(ingredient: CraftRecipes.Ingredient, layoutOrder: 
 				AnchorPoint = Vector2.new(0.5, 0.5),
 				BackgroundTransparency = 1,
 				FontFace = Font.new("rbxasset://fonts/families/SourceSansPro.json", Enum.FontWeight.Bold),
-				Position = UDim2.fromScale(0.365, 0.4),
-				Size = UDim2.fromScale(0.608, 0.889),
-				Text = function() return `{ownedAmount(ingredient.Name)}/{ingredient.Amount * craftAmount()}` end,
-				TextColor3 = Color3.new(1, 1, 1),
+				Position = UDim2.fromScale(0.5, 0.4),
+				Size = UDim2.fromScale(0.88, 0.889),
+				Text = function() return `{formatAmount(owned())}/{formatAmount(ingredient.Amount * craftAmount())}` end,
+				TextColor3 = function()
+					return if owned() >= ingredient.Amount * craftAmount()
+						then Color3.new(1, 1, 1)
+						else Color3.fromRGB(255, 105, 105)
+				end,
 				TextScaled = true,
 				ZIndex = 16,
 				create("UIStroke")({ Thickness = 2 }),
@@ -219,7 +307,8 @@ local function craftSelected()
 		return
 	end
 	if not canCraft(recipeKey, amount) then
-		statusText("NOT ENOUGH ITEMS")
+		statusText("NOT ENOUGH RESOURCES")
+		NotificationFeed.Pull("Not enough materials or currency to craft.", "Error")
 		return
 	end
 
@@ -240,6 +329,15 @@ local function craftSelected()
 		local refreshOk = pcall(function()
 			return InventoryClient.RefreshInventory():await()
 		end)
+		if crafted > 0 and CraftRecipes[recipeKey].ResultType == "Tower" then
+			local towersOk = pcall(function()
+				return InventoryClient.RefreshTowers():await()
+			end)
+			if not towersOk then
+				warn("[CraftingUI] Failed to refresh crafted units")
+			end
+			NotificationFeed.Pull(`Crafted {crafted}x {CraftRecipes[recipeKey].ResultName}!`)
+		end
 		isCrafting(false)
 		if crafted == amount then
 			statusText(`CRAFTED {crafted}x`)
@@ -247,6 +345,7 @@ local function craftSelected()
 			statusText(`CRAFTED {crafted}/{amount}`)
 		else
 			statusText("CRAFT FAILED")
+			NotificationFeed.Pull("Crafting failed. Please try again.", "Error")
 		end
 		if not refreshOk then
 			warn("[CraftingUI] Failed to refresh inventory after crafting")
@@ -257,9 +356,16 @@ end
 local function recipeInformation(recipeKey: string)
 	local recipe = CraftRecipes[recipeKey]
 	local resultInfo = itemInfo(recipe.ResultName)
+	local cardSize = source(80)
 	local ingredients = {}
 	for index, ingredient in recipe.Ingredients do
-		table.insert(ingredients, ingredientCard(ingredient, index))
+		table.insert(ingredients, ingredientCard(ingredient, index, cardSize))
+	end
+	for _, currency in { "Coins", "Gems" } do
+		local cost = if recipe.Currencies then recipe.Currencies[currency] else nil
+		if cost then
+			table.insert(ingredients, ingredientCard({ Name = currency, Amount = cost }, #ingredients + 1, cardSize, true))
+		end
 	end
 
 	return create("Frame")({
@@ -273,10 +379,14 @@ local function recipeInformation(recipeKey: string)
 			Image = "rbxassetid://87496848270095",
 			Position = UDim2.fromScale(0.0214648, 0.0591611),
 			Size = UDim2.fromScale(0.321756, 0.360393),
-			create("UIGradient")({ Color = itemGradient(recipe.ResultName), Rotation = 45 }),
+			create("UIGradient")({ Color = resultGradient(recipe), Rotation = 45 }),
 			create("UIAspectRatioConstraint")({}),
 			create("UICorner")({ CornerRadius = CARD_CORNER_RADIUS }),
-			itemImage(recipe.ResultName, UDim2.fromScale(0.11, 0.08), UDim2.fromScale(0.784, 0.69)),
+			if recipe.ResultType == "Tower"
+				then towerImage(recipe.ResultName, UDim2.fromScale(0.11, 0.08), UDim2.fromScale(0.784, 0.69), function()
+					return selectedRecipe() == recipeKey
+				end)
+				else itemImage(recipe.ResultName, UDim2.fromScale(0.11, 0.08), UDim2.fromScale(0.784, 0.69)),
 			itemNameLabel(recipe.ResultName),
 		}),
 		create("TextLabel")({
@@ -285,7 +395,7 @@ local function recipeInformation(recipeKey: string)
 			FontFace = Font.new("rbxasset://fonts/families/FredokaOne.json"),
 			Position = UDim2.fromScale(0.318299, 0.094162),
 			Size = UDim2.fromScale(0.643448, 0.283369),
-			Text = if resultInfo then resultInfo.Description or "" else "",
+			Text = if resultInfo then resultInfo.Description or "" else "Craft this exclusive unit with dragon relics, shards, Coins, and Gems.",
 			TextColor3 = Color3.new(1, 1, 1),
 			TextScaled = true,
 			TextWrapped = true,
@@ -300,18 +410,34 @@ local function recipeInformation(recipeKey: string)
 			Size = UDim2.fromScale(0.937, 0.079),
 			create("TextLabel")({ Name = "Title", BackgroundTransparency = 1, FontFace = Font.new("rbxasset://fonts/families/FredokaOne.json"), Position = UDim2.fromScale(0.0431852, 0.193485), Size = UDim2.fromScale(0.570817, 0.564427), Text = "INGREDIENTS", TextColor3 = Color3.new(1, 1, 1), TextScaled = true, TextXAlignment = Enum.TextXAlignment.Left }),
 		}),
-		create("ScrollingFrame")({
-			Name = "Ingredients",
-			Active = true,
+		create("CanvasGroup")({
+			Name = "IngredientsClip",
 			BackgroundTransparency = 1,
-			CanvasSize = UDim2.fromScale(math.max(1, #recipe.Ingredients * 0.24), 0),
+			ClipsDescendants = true,
 			Position = UDim2.fromScale(0.024, 0.567801),
-			ScrollBarThickness = 0,
-			ScrollingDirection = Enum.ScrollingDirection.X,
 			Size = UDim2.fromScale(0.949939, 0.222846),
-			create("UIPadding")({ PaddingBottom = UDim.new(0, 5), PaddingLeft = UDim.new(0, 5), PaddingRight = UDim.new(0, 5), PaddingTop = UDim.new(0, 5) }),
-			create("UIListLayout")({ FillDirection = Enum.FillDirection.Horizontal, Padding = UDim.new(0, 7), SortOrder = Enum.SortOrder.LayoutOrder, VerticalAlignment = Enum.VerticalAlignment.Center }),
-			unpack(ingredients),
+			changed("AbsoluteSize", function(size: Vector2)
+				if size.Y > 0 then
+					cardSize(math.max(24, math.floor(size.Y) - 10))
+				end
+			end),
+			create("ScrollingFrame")({
+				Name = "Ingredients",
+				Active = true,
+				AutomaticCanvasSize = Enum.AutomaticSize.X,
+				BackgroundTransparency = 1,
+				CanvasSize = UDim2.new(),
+				ClipsDescendants = true,
+				Position = UDim2.fromScale(0, 0),
+				ScrollBarImageColor3 = Color3.fromRGB(190, 171, 255),
+				ScrollBarThickness = if #ingredients > 4 then 4 else 0,
+				ScrollingEnabled = true,
+				ScrollingDirection = Enum.ScrollingDirection.X,
+				Size = UDim2.fromScale(1, 1),
+				create("UIPadding")({ PaddingBottom = UDim.new(0, 5), PaddingLeft = UDim.new(0, 5), PaddingRight = UDim.new(0, 5), PaddingTop = UDim.new(0, 5) }),
+				create("UIListLayout")({ FillDirection = Enum.FillDirection.Horizontal, Padding = UDim.new(0, 7), SortOrder = Enum.SortOrder.LayoutOrder, VerticalAlignment = Enum.VerticalAlignment.Center }),
+				unpack(ingredients),
+			}),
 		}),
 		create("ImageLabel")({
 			Name = "Amount",
@@ -336,18 +462,32 @@ local function recipeInformation(recipeKey: string)
 			Name = "CraftButton",
 			AnchorPoint = Vector2.new(0.5, 0.5),
 			AutoButtonColor = false,
-			Active = function() return canCraft(recipeKey, craftAmount()) and not isCrafting() end,
+			Active = function() return not isCrafting() end,
+			Interactable = function() return not isCrafting() end,
 			BackgroundTransparency = 1,
 			Image = "rbxassetid://83967774994235",
-			ImageTransparency = function() return if canCraft(recipeKey, craftAmount()) and not isCrafting() then 0 else 0.45 end,
 			Position = UDim2.fromScale(0.728829, 0.898627),
 			Size = UDim2.fromScale(0.440385, 0.138199),
 			Activated = craftSelected,
 			useButtonEffect(0.94, 1.05),
 			create("TextLabel")({ Name = "Title", BackgroundTransparency = 1, FontFace = Font.new("rbxasset://fonts/families/FredokaOne.json"), Position = UDim2.fromScale(0.265238, 0.237766), Size = UDim2.fromScale(0.467855, 0.487941), Text = function() return if isCrafting() then "WAIT" else "CRAFT" end, TextColor3 = Color3.new(1, 1, 1), TextScaled = true }),
-			create("UIStroke")({ ApplyStrokeMode = Enum.ApplyStrokeMode.Border, Color = Color3.new(1, 1, 1), Thickness = 1.5 }),
+			create("UIStroke")({
+				ApplyStrokeMode = Enum.ApplyStrokeMode.Border,
+				Color = function()
+					return if canCraft(recipeKey, craftAmount()) and not isCrafting()
+						then Color3.new(1, 1, 1)
+						else Color3.fromRGB(255, 106, 106)
+				end,
+				Thickness = 1.5,
+			}),
 			create("UICorner")({ CornerRadius = UDim.new(0, 8) }),
-			create("UIGradient")({ Color = ColorSequence.new(Color3.fromRGB(55, 255, 0), Color3.fromRGB(255, 238, 1)) }),
+			create("UIGradient")({
+				Color = function()
+					return if canCraft(recipeKey, craftAmount()) and not isCrafting()
+						then ACTION_AVAILABLE_GRADIENT
+						else ACTION_UNAVAILABLE_GRADIENT
+				end,
+			}),
 		}),
 	})
 end
@@ -418,6 +558,7 @@ end
 
 function CraftingUI.Init()
 	InventoryClient = ServiceRegistry:GetService("InventoryClient")
+	DataClient = ServiceRegistry:GetService("DataClient")
 	UIController = ServiceRegistry:GetService("UIController")
 end
 

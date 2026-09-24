@@ -155,8 +155,8 @@ local RawTowerData: {
 		},
 		["Dragon Slayer"] = {
 			Index = 16,
-			Rarity = "Absolute",
-			TowerImage = "rbxassetid://127595189045553",
+			Rarity = "Secret",
+			TowerImage = "rbxassetid://120502355461321",
 			MaxTowers = 1,
 		},
 		["Onion_fire18"] = {

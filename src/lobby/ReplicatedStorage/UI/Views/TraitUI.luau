@@ -9,6 +9,7 @@ local UnitViewportProfiles = require(ReplicatedStorage.Settings.Visuals.UnitView
 local ServiceRegistry = require(ReplicatedStorage.Shared.Modules.Core.ServiceRegistry)
 local TouchZone = require(ReplicatedStorage.Shared.Modules.Utils.TouchZone)
 local useButtonEffect = require(ReplicatedStorage.Shared.Modules.UI.Hooks.useButtonEffect)
+local NotificationFeed = require(ReplicatedStorage.Shared.Modules.UI.Notifications.NotificationFeed)
 local TowerViewport = require(ReplicatedStorage.UI.Components.TowerViewport)
 local UnitUI = require(ReplicatedStorage.UI.Views.UnitUI)
 
@@ -42,6 +43,15 @@ local isRolling = source(false)
 local statusText = source("SELECT A UNIT")
 local traitZone
 
+local ACTION_AVAILABLE_GRADIENT = ColorSequence.new({
+	ColorSequenceKeypoint.new(0, Color3.fromRGB(13, 255, 0)),
+	ColorSequenceKeypoint.new(1, Color3.fromRGB(234, 255, 0)),
+})
+local ACTION_UNAVAILABLE_GRADIENT = ColorSequence.new({
+	ColorSequenceKeypoint.new(0, Color3.fromRGB(108, 108, 108)),
+	ColorSequenceKeypoint.new(1, Color3.fromRGB(48, 48, 48)),
+})
+
 local TraitUI = {}
 
 local function getUnits()
@@ -71,16 +81,26 @@ local function selectUnit(towerName: string, towerKey: string | number)
 	statusText("READY TO ROLL")
 end
 
+local function hasTraitCurrency(): boolean
+	return DataClient ~= nil and DataClient.Gems() >= TraitData.RollCost
+end
+
+local function canRollTrait(): boolean
+	return selectedUnit() ~= nil and not isRolling() and hasTraitCurrency()
+end
+
 local function rollSelected()
 	if isRolling() then return end
 	local selection = selectedUnit()
 	if not selection then
 		statusText("SELECT A UNIT")
+		NotificationFeed.Pull("Select a unit first.", "Error")
 		return
 	end
 	local towerName, towerKey = selection.Name, selection.Key
-	if DataClient.Gems() < TraitData.RollCost then
+	if not hasTraitCurrency() then
 		statusText(`NEED {TraitData.RollCost} GEMS`)
+		NotificationFeed.Pull(`You need {TraitData.RollCost} Gems to reroll.`, "Error")
 		return
 	end
 
@@ -92,11 +112,13 @@ local function rollSelected()
 			statusText(`ROLLED: {string.upper(result.Trait)}`)
 		else
 			statusText(string.upper(result.Message or "ROLL FAILED"))
+			NotificationFeed.Pull(result.Message or "Trait reroll failed.", "Error")
 		end
 	end):catch(function(err)
 		isRolling(false)
 		statusText("ROLL FAILED")
 		warn(`[TraitUI] Roll failed: {err}`)
+		NotificationFeed.Pull("Trait reroll failed. Please try again.", "Error")
 	end)
 end
 
@@ -287,15 +309,27 @@ function TraitUI.RenderUI()
 				}),
 				create("ImageButton")({
 					Name = "PurchaseButton", AnchorPoint = Vector2.new(0.5, 0.5), BackgroundTransparency = 1,
-					Active = function() return selectedUnit() ~= nil and not isRolling() end, AutoButtonColor = false,
-					Image = "rbxassetid://139274506988816", ImageTransparency = function() return if selectedUnit() and not isRolling() then 0 else 0.35 end,
+					Active = function() return isVisible() and not isRolling() end,
+					Interactable = function() return isVisible() and not isRolling() end,
+					AutoButtonColor = false,
+					Image = "rbxassetid://139274506988816",
 					Position = UDim2.fromScale(0.440864, 0.923101), Size = UDim2.fromScale(0.39314, 0.120926),
 					Activated = rollSelected, useButtonEffect(0.94, 1.05),
 					create("TextLabel")({ Name = "Title", BackgroundTransparency = 1, FontFace = Font.new("rbxasset://fonts/families/FredokaOne.json"), Position = UDim2.fromScale(0.083, 0.142), Size = UDim2.fromScale(0.403, 0.65), Text = function() return if isRolling() then "..." else "Roll" end, TextColor3 = Color3.new(1, 1, 1), TextScaled = true, TextXAlignment = Enum.TextXAlignment.Left, create("UIStroke")({}) }),
-					create("TextLabel")({ Name = "Cost", BackgroundTransparency = 1, FontFace = Font.new("rbxasset://fonts/families/FredokaOne.json"), Position = UDim2.fromScale(0.65, 0.2), Size = UDim2.fromScale(0.164, 0.5), Text = tostring(TraitData.RollCost), TextColor3 = Color3.new(1, 1, 1), TextScaled = true, create("UIStroke")({}) }),
+					create("TextLabel")({ Name = "Cost", BackgroundTransparency = 1, FontFace = Font.new("rbxasset://fonts/families/FredokaOne.json"), Position = UDim2.fromScale(0.65, 0.2), Size = UDim2.fromScale(0.164, 0.5), Text = tostring(TraitData.RollCost), TextColor3 = function() return if hasTraitCurrency() then Color3.new(1, 1, 1) else Color3.fromRGB(255, 72, 72) end, TextScaled = true, create("UIStroke")({}) }),
 					create("ImageLabel")({ Name = "Gems", BackgroundTransparency = 1, Image = "rbxassetid://104268323693949", Position = UDim2.fromScale(0.784, 0.084), Size = UDim2.fromScale(0.198, 0.781), ScaleType = Enum.ScaleType.Fit }),
-					create("UIGradient")({ Color = ColorSequence.new(Color3.fromRGB(13, 255, 0), Color3.fromRGB(234, 255, 0)) }),
-					create("UIAspectRatioConstraint")({ AspectRatio = 3.91 }), create("UIStroke")({ Color = Color3.new(1, 1, 1) }), create("UICorner")({}),
+					create("UIGradient")({
+						Color = function()
+							return if canRollTrait() then ACTION_AVAILABLE_GRADIENT else ACTION_UNAVAILABLE_GRADIENT
+						end,
+					}),
+					create("UIAspectRatioConstraint")({ AspectRatio = 3.91 }),
+					create("UIStroke")({
+						Color = function()
+							return if canRollTrait() then Color3.new(1, 1, 1) else Color3.fromRGB(121, 121, 121)
+						end,
+					}),
+					create("UICorner")({}),
 				}),
 				create("TextLabel")({
 					Name = "RollStatus", BackgroundTransparency = 1,

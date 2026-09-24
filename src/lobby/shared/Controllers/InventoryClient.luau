@@ -4,6 +4,7 @@ local Net = require(ReplicatedStorage.Shared.Net.client)
 local Promise = require(ReplicatedStorage.Packages.Promise)
 local Signal = require(ReplicatedStorage.Packages.Signal)
 local ItemUtils = require(ReplicatedStorage.Shared.Modules.Utils.ItemUtils)
+local NotificationFeed = require(ReplicatedStorage.Shared.Modules.UI.Notifications.NotificationFeed)
 local TowerData = require(ReplicatedStorage.Settings.Data.TowerData)
 local Vide = require(ReplicatedStorage.Packages.Vide)
 
@@ -63,6 +64,7 @@ local loadoutRequestVersion = 0
 local inventoryRequestVersion = 0
 local emoteLoadoutRequestVersion = 0
 local inventorySyncScheduled = false
+local hasInventorySnapshot = false
 
 local function normalizeItemStacks(rawItems: any): StackInventory
 	return ItemUtils.NormalizeStacks(rawItems)
@@ -105,6 +107,16 @@ local function setInventory(inventory: GeneralInventory)
 	normalized.Items = normalizeItemStacks(inventory.Items)
 	normalized.Skins = if typeof(inventory.Skins) == "table" then inventory.Skins else {}
 	normalized.Emotes = if typeof(inventory.Emotes) == "table" then inventory.Emotes else {}
+	if hasInventorySnapshot then
+		local previousItems = InventoryClient.Items()
+		for itemName, amount in normalized.Items do
+			local gained = amount - (previousItems[itemName] or 0)
+			if gained > 0 then
+				NotificationFeed.PullItem(itemName, gained)
+			end
+		end
+	end
+	hasInventorySnapshot = true
 
 	InventoryClient.Inventory(normalized)
 	InventoryClient.Items(normalized.Items)
@@ -361,7 +373,7 @@ local function requestEmoteLoadout(action: "Equip" | "Unequip", slot: number, em
 	return Promise.new(function(resolve, reject)
 		task.spawn(function()
 			local remotes = ReplicatedStorage:WaitForChild("RuntimeRemotes", 5)
-			local remote = remotes and remotes:FindFirstChild("EmoteLoadoutAction")
+			local remote = remotes and remotes:WaitForChild("EmoteLoadoutAction", 5)
 			if not remote or not remote:IsA("RemoteFunction") then
 				reject("Emote loadout service is unavailable.")
 				return
@@ -373,7 +385,12 @@ local function requestEmoteLoadout(action: "Equip" | "Unequip", slot: number, em
 			})
 			if not ok then reject(result) return end
 			if type(result) ~= "table" then reject("Invalid emote loadout response.") return end
-			if result.Success and type(result.Loadout) == "table" then setEmoteLoadout(result.Loadout) end
+			if result.Success == true and type(result.Loadout) == "table" then
+				setEmoteLoadout(result.Loadout)
+			elseif result.Success == true then
+				reject("The server returned an invalid emote loadout.")
+				return
+			end
 			resolve(result)
 		end)
 	end)

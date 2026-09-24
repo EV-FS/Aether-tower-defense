@@ -22,10 +22,12 @@ export type EmoteData = {
 
 export type Props = {
 	Emotes: { () -> EmoteData? },
+	EquipMode: (boolean | (() -> boolean))?,
 	UserId: ((() -> number?) | number)?,
 	OnSelected: (emoteName: string) -> (),
 	OnSlotSelected: ((slotIndex: number, emoteName: string?) -> ())?,
-	SlotActionText: (string | (() -> string))?,
+	SlotActionText: (string | ((slotIndex: number, emoteName: string?) -> string))?,
+	InteractionDisabled: (boolean | (() -> boolean))?,
 }
 
 type SlotConfig = {
@@ -46,49 +48,49 @@ local SLOT_CONFIGS: { SlotConfig } = {
 		Index = 1,
 		Image = "rbxassetid://85375303952247",
 		Shadow = "rbxassetid://75984171493972",
-		Position = UDim2.fromScale(0.2355, 0.248),
+		Position = UDim2.fromScale(0.233624, 0.237624),
 		AnchorPoint = Vector2.new(0.5, 0.5),
-		HighlightPosition = UDim2.fromScale(-0.0809784, -0.0563052),
+		HighlightPosition = UDim2.fromScale(0.579434, 0.604107),
 		ShadowPosition = UDim2.fromScale(0.51564, 0.51378),
-		NamePosition = UDim2.fromScale(0.302812, 0.740618),
+		NamePosition = UDim2.fromScale(0.525554, 0.810958),
 		NameSize = UDim2.fromScale(0.451239, 0.140752),
-		TooltipPosition = UDim2.fromScale(0.345753, 0.88137),
+		TooltipPosition = UDim2.fromScale(0.509879, 0.920447),
 	},
 	{
 		Index = 2,
 		Image = "rbxassetid://101263877757551",
 		Shadow = "rbxassetid://133628792436402",
-		Position = UDim2.fromScale(0.7585, 0.248),
+		Position = UDim2.fromScale(0.756624, 0.237624),
 		AnchorPoint = Vector2.new(0.5, 0.5),
-		HighlightPosition = UDim2.fromScale(-0.284901, -0.0616716),
+		HighlightPosition = UDim2.fromScale(0.375511, 0.59874),
 		ShadowPosition = UDim2.fromScale(0.494174, 0.508413),
-		NamePosition = UDim2.fromScale(0.0827899, 0.729886),
+		NamePosition = UDim2.fromScale(0.489197, 0.800225),
 		NameSize = UDim2.fromScale(0.813235, 0.140752),
-		TooltipPosition = UDim2.fromScale(0.281357, 0.876003),
+		TooltipPosition = UDim2.fromScale(0.445483, 0.915081),
 	},
 	{
 		Index = 3,
 		Image = "rbxassetid://93847193101743",
 		Shadow = "rbxassetid://101043806354019",
-		Position = UDim2.fromScale(0.2355, 0.77),
+		Position = UDim2.fromScale(0.233624, 0.759624),
 		AnchorPoint = Vector2.new(0.5, 0.5),
-		HighlightPosition = UDim2.fromScale(-0.113177, -0.329991),
+		HighlightPosition = UDim2.fromScale(0.547235, 0.330421),
 		ShadowPosition = UDim2.fromScale(0.510274, 0.486948),
-		NamePosition = UDim2.fromScale(0.14182, 0.0537204),
+		NamePosition = UDim2.fromScale(0.548228, 0.12406),
 		NameSize = UDim2.fromScale(0.813235, 0.140752),
-		TooltipPosition = UDim2.fromScale(0.340387, 0.199838),
+		TooltipPosition = UDim2.fromScale(0.504513, 0.238916),
 	},
 	{
 		Index = 4,
 		Image = "rbxassetid://119095003806239",
 		Shadow = "rbxassetid://96998108143818",
-		Position = UDim2.fromScale(0.7575, 0.77),
+		Position = UDim2.fromScale(0.755624, 0.759624),
 		AnchorPoint = Vector2.new(0.5, 0.5),
-		HighlightPosition = UDim2.fromScale(-0.263436, -0.372922),
+		HighlightPosition = UDim2.fromScale(0.396976, 0.28749),
 		ShadowPosition = UDim2.fromScale(0.510274, 0.486948),
-		NamePosition = UDim2.fromScale(0.14182, 0.0537204),
+		NamePosition = UDim2.fromScale(0.473098, 0.12406),
 		NameSize = UDim2.fromScale(0.813235, 0.140752),
-		TooltipPosition = UDim2.fromScale(0.340387, 0.199838),
+		TooltipPosition = UDim2.fromScale(0.428, 0.238916),
 	},
 }
 
@@ -145,6 +147,14 @@ return function(props: Props)
 
 	for _, config in slotConfigs do
 		local emoteGetter = emoteGetters[config.Index]
+		local function isEquipMode(): boolean
+			return if type(props.EquipMode) == "function" then props.EquipMode() else props.EquipMode == true
+		end
+		local function canInteract(): boolean
+			local disabled = props.InteractionDisabled
+			local isDisabled = if type(disabled) == "function" then disabled() else disabled == true
+			return not isDisabled and (isEquipMode() or emoteGetter() ~= nil)
+		end
 		local camera = createCamera()
 		local direction = Vector2.new(
 			if config.Index % 2 == 1 then -1 else 1,
@@ -161,14 +171,15 @@ return function(props: Props)
 
 		table.insert(slots, create("ImageButton")({
 			Name = `Emote{config.Index}`,
-			Active = true,
+			Active = canInteract,
+			Interactable = canInteract,
 			AnchorPoint = config.AnchorPoint,
 			AutoButtonColor = false,
 			BackgroundTransparency = 1,
 			ClipsDescendants = false,
 			Image = config.Image,
 			ImageTransparency = spring(function()
-				return if hoveredSlot() == config.Index then 0 else 0.08
+				return if canInteract() and hoveredSlot() == config.Index then 0 else 0.08
 			end, 0.16, 0.82),
 			Position = function()
 				local amount = offset()
@@ -180,7 +191,7 @@ return function(props: Props)
 			Rotation = spring(function()
 				return if hoveredSlot() == config.Index then direction.X * 1.5 else 0
 			end, 0.18, 0.78),
-			Size = UDim2.fromScale(0.505, 0.522),
+			Size = UDim2.fromScale(0.505, 0.505),
 			ZIndex = 31,
 
 			MouseEnter = function()
@@ -203,6 +214,7 @@ return function(props: Props)
 				end
 			end,
 			Activated = function()
+				if not canInteract() then return end
 				local emote = emoteGetter and emoteGetter()
 				local emoteName = emote and (emote.EmoteName or emote.Name)
 				if props.OnSlotSelected then
@@ -232,8 +244,9 @@ return function(props: Props)
 			}),
 
 			create("ViewportFrame")({
+				AnchorPoint = Vector2.new(0.5, 0.5),
 				BackgroundTransparency = 1,
-				Position = UDim2.fromScale(0.0687055, 0.0416977),
+				Position = UDim2.fromScale(0.510283, 0.498906),
 				Size = UDim2.fromScale(0.886604, 0.916977),
 				CurrentCamera = camera,
 				ZIndex = 31,
@@ -262,14 +275,15 @@ return function(props: Props)
 
 			create("ImageLabel")({
 				Name = "HighLight",
+				AnchorPoint = Vector2.new(0.5, 0.5),
 				BackgroundTransparency = 1,
 				Image = "rbxassetid://84600302742722",
 				ImageTransparency = spring(function()
 					return if hoveredSlot() == config.Index then 0 else 1
 				end, 0.16, 0.82),
 				Position = config.HighlightPosition,
-				Size = UDim2.fromScale(1.37311, 1.32613),
-				ZIndex = 1,
+				Size = UDim2.fromScale(1.32613, 1.32613),
+				ZIndex = -1,
 				create("UIAspectRatioConstraint")({}),
 				createGradient(Color3.fromRGB(86, 86, 86)),
 			}),
@@ -280,7 +294,7 @@ return function(props: Props)
 				BackgroundTransparency = 1,
 				Image = config.Shadow,
 				Position = config.ShadowPosition,
-				Size = UDim2.fromScale(0.96872, 0.941882),
+				Size = UDim2.fromScale(0.941882, 0.941882),
 				ZIndex = 33,
 				create("UIAspectRatioConstraint")({}),
 				createGradient(Color3.fromRGB(86, 86, 86)),
@@ -288,34 +302,45 @@ return function(props: Props)
 
 			create("TextLabel")({
 				Name = "EmoteName",
+				AnchorPoint = Vector2.new(0.5, 0.5),
 				BackgroundTransparency = 1,
 				FontFace = Font.fromEnum(Enum.Font.FredokaOne),
 				Position = config.NamePosition,
 				Size = config.NameSize,
 				Text = function()
 					local emote = emoteGetter()
-					return if emote then (emote.DisplayName or emote.EmoteName or "") else "EMPTY"
+					return if emote then (emote.DisplayName or emote.EmoteName or "") else "Empty"
 				end,
-				TextColor3 = Color3.new(1, 1, 1),
+				TextColor3 = function()
+					return if emoteGetter() then Color3.new(1, 1, 1) else Color3.fromRGB(177, 177, 177)
+				end,
 				TextScaled = true,
 				ZIndex = 35,
-				createGradient(Color3.fromRGB(135, 245, 255)),
+				create("UIGradient")({
+					Color = ColorSequence.new(Color3.fromRGB(53, 76, 231), Color3.fromRGB(58, 212, 255)),
+					Enabled = function() return emoteGetter() ~= nil end,
+					Rotation = 90,
+				}),
 				create("UIStroke")({ Thickness = 3 }),
 			}),
 
 			create("TextLabel")({
 				Name = "ToolTip",
+				AnchorPoint = Vector2.new(0.5, 0.5),
 				BackgroundTransparency = 1,
 				FontFace = Font.fromEnum(Enum.Font.FredokaOne),
 				Position = config.TooltipPosition,
 				Size = UDim2.fromScale(0.333149, 0.085883),
 				Text = function()
 					local actionText = props.SlotActionText
-					if type(actionText) == "function" then return actionText() end
+					local emote = emoteGetter()
+					local emoteName = emote and (emote.EmoteName or emote.Name)
+					if type(actionText) == "function" then return actionText(config.Index, emoteName) end
 					return actionText or "Tap to play"
 				end,
 				TextColor3 = Color3.new(1, 1, 1),
 				TextScaled = true,
+				Visible = function() return emoteGetter() ~= nil or isEquipMode() end,
 				ZIndex = 35,
 				create("UIStroke")({ Thickness = 3 }),
 				createGradient(Color3.fromRGB(193, 193, 193)),
@@ -328,7 +353,7 @@ return function(props: Props)
 		AnchorPoint = Vector2.new(0.5, 0.5),
 		BackgroundTransparency = 1,
 		Position = UDim2.fromScale(0.5, 0.5),
-		Size = UDim2.fromScale(1, 1),
+		Size = UDim2.fromScale(0.753032, 1),
 		ZIndex = 30,
 
 		create("UIAspectRatioConstraint")({
@@ -341,7 +366,7 @@ return function(props: Props)
 			AnchorPoint = Vector2.new(0.5, 0.5),
 			BackgroundTransparency = 1,
 			Position = UDim2.fromScale(0.5, 0.5),
-			Size = UDim2.fromScale(0.423847, 0.640625),
+			Size = UDim2.fromScale(0.414108, 0.640625),
 			ZIndex = 30,
 
 			create("UIAspectRatioConstraint")({}),

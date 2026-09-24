@@ -11,7 +11,7 @@ export type Props = {
 	EmoteName: string,
 	LayoutOrder: number | (() -> number),
 	IsSelected: () -> boolean,
-	EquippedSlot: () -> number?,
+	IsEquipped: () -> boolean,
 	Activated: () -> (),
 }
 
@@ -71,23 +71,17 @@ return function(props: Props)
 				ZIndex = 9,
 				create("UIStroke")({ Thickness = 2 }),
 			}),
-			create("TextLabel")({
-				Name = "EquippedSlot",
+			create("ImageLabel")({
+				Name = "EquippedCheck",
 				AnchorPoint = Vector2.new(1, 0),
-				BackgroundColor3 = Color3.fromRGB(36, 190, 76),
+				BackgroundTransparency = 1,
+				Image = "rbxassetid://91966631627808",
 				Position = UDim2.fromScale(0.96, 0.04),
-				Size = UDim2.fromScale(0.28, 0.14),
-				FontFace = Font.fromEnum(Enum.Font.FredokaOne),
-				Text = function()
-					local slot = props.EquippedSlot()
-					return if slot then `SLOT {slot}` else ""
-				end,
-				TextColor3 = Color3.new(1, 1, 1),
-				TextScaled = true,
-				Visible = function() return props.EquippedSlot() ~= nil end,
+				Size = UDim2.fromScale(0.2, 0.2),
+				ScaleType = Enum.ScaleType.Fit,
+				Visible = props.IsEquipped,
 				ZIndex = 10,
-				create("UICorner")({ CornerRadius = UDim.new(0.25, 0) }),
-				create("UIStroke")({ Color = Color3.fromRGB(190, 255, 196), Thickness = 1.5 }),
+				create("UIAspectRatioConstraint")({}),
 			}),
 		},
 	})

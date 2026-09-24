@@ -19,6 +19,7 @@ local EmoteInput
 local emoteIcon = source(nil :: any)
 local equipMode = source(nil :: string?)
 local equipPending = source(false)
+local returnView = source(nil :: string?)
 
 local emoteSlots = {}
 for slot = 1, 4 do
@@ -49,7 +50,8 @@ function EmoteUI.OnSlotSelected(slotIndex: number, emoteName: string?)
 			if result.Success then
 				EmoteUI.Close()
 			else
-				warn(`[EmoteUI] Could not equip emote: {result.Message}`)
+				local message = tostring(result.Message or "The server rejected this slot change.")
+				warn(`[EmoteUI] Could not equip emote: {message}`)
 			end
 		end):catch(function(err)
 			equipPending(false)
@@ -83,34 +85,19 @@ function EmoteUI.RenderUI()
 			Name = "EmoteOverlay",
 			IsOpen = UIController:IsVisible(VIEW_ID),
 			OnClose = function()
-				EmoteUI.Close()
+				if not equipPending() then EmoteUI.Close() end
 			end,
 			Content = EmoteRadialMenu({
 				Emotes = emoteSlots,
+				EquipMode = function() return equipMode() ~= nil end,
 				OnSelected = EmoteUI.OnSelected,
 				OnSlotSelected = EmoteUI.OnSlotSelected,
-				SlotActionText = function()
-					return if equipMode() then "Select slot" else "Tap to play"
+				SlotActionText = function(_slotIndex, equippedName)
+					if equipMode() then return if equippedName then "Tap to Replace" else "Tap to Equip" end
+					return "Tap to play"
 				end,
+				InteractionDisabled = equipPending,
 			}),
-		}),
-
-		create("TextLabel")({
-			Name = "EquipPrompt",
-			AnchorPoint = Vector2.new(0.5, 0),
-			BackgroundTransparency = 1,
-			FontFace = Font.fromEnum(Enum.Font.FredokaOne),
-			Position = UDim2.fromScale(0.5, 0.08),
-			Size = UDim2.fromScale(0.5, 0.08),
-			Text = function()
-				local emoteName = equipMode()
-				return if emoteName then `EQUIP {string.upper(emoteName)} - SELECT A SLOT` else ""
-			end,
-			TextColor3 = Color3.fromRGB(135, 245, 255),
-			TextScaled = true,
-			Visible = function() return equipMode() ~= nil end,
-			ZIndex = 50,
-			create("UIStroke")({ Thickness = 2.5 }),
 		}),
 	})
 end
@@ -121,6 +108,7 @@ end
 
 function EmoteUI.Open()
 	equipMode(nil)
+	returnView(nil)
 	if UIController and not UIController:IsOpen(VIEW_ID) then
 		InventoryClient.RefreshEmoteLoadout():catch(function(err)
 			warn(`[EmoteUI] Could not refresh emote slots: {err}`)
@@ -133,24 +121,29 @@ function EmoteUI.OpenEquipMode(emoteName: string): boolean
 	if not InventoryClient or not EmoteData.ByName[emoteName] or (InventoryClient.Emotes()[emoteName] or 0) <= 0 then
 		return false
 	end
+
+	local previousView = UIController and UIController:GetActiveView() or nil
+	local opened = UIController and UIController:OpenExclusive(VIEW_ID) or false
+	if not opened then
+		return false
+	end
+
+	returnView(previousView or "Inventory")
 	equipMode(emoteName)
 	equipPending(false)
-	local opened = UIController and UIController:Open(VIEW_ID) or false
-	if not opened then
-		equipMode(nil)
-	end
-	return opened
+	return true
 end
 
 function EmoteUI.Close()
 	if UIController and UIController:IsOpen(VIEW_ID) then
-		local shouldReturnToInventory = equipMode() ~= nil
+		if equipPending() then return end
+		local targetView = returnView()
 		equipMode(nil)
 		equipPending(false)
-		if shouldReturnToInventory then
-			UIController:Open("Inventory")
-		else
-			UIController:Close(VIEW_ID)
+		returnView(nil)
+		UIController:Close(VIEW_ID)
+		if targetView and targetView ~= VIEW_ID then
+			UIController:Open(targetView)
 		end
 	end
 end
@@ -172,6 +165,7 @@ function EmoteUI.Start()
 	}):Enable()
 
 	EmoteInput.Actions.Toggle.Began:Connect(function()
+		if equipPending() then return end
 		if UIController:IsOpen(VIEW_ID) then EmoteUI.Close() else EmoteUI.Open() end
 	end)
 

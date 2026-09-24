@@ -5,6 +5,7 @@ local useMenuMotion = require(ReplicatedStorage.Shared.Modules.UI.Hooks.useMenuM
 local EventShopData = require(ReplicatedStorage.Settings.Data.EventShopData)
 local ServiceRegistry = require(ReplicatedStorage.Shared.Modules.Core.ServiceRegistry)
 local useButtonEffect = require(ReplicatedStorage.Shared.Modules.UI.Hooks.useButtonEffect)
+local NotificationFeed = require(ReplicatedStorage.Shared.Modules.UI.Notifications.NotificationFeed)
 
 local create = Vide.create
 local source = Vide.source
@@ -37,7 +38,15 @@ local function canPurchase(product: EventShopData.Product): boolean
 end
 
 local function purchaseProduct(product: EventShopData.Product)
-	if not canPurchase(product) then
+	if purchaseBusy() ~= nil then
+		return
+	end
+	if ownsProduct(product) then
+		NotificationFeed.Pull("You already own this reward.", "Error")
+		return
+	end
+	if DataClient.Blossom() < product.Price then
+		NotificationFeed.Pull(`You need {product.Price} Blossoms to purchase this.`, "Error")
 		return
 	end
 
@@ -55,6 +64,7 @@ local function purchaseProduct(product: EventShopData.Product)
 		purchaseBusy(nil)
 		if not ok or typeof(result) ~= "table" then
 			warn("[EventShopUI] Purchase failed")
+			NotificationFeed.Pull("Purchase failed. Please try again.", "Error")
 			return
 		end
 
@@ -68,6 +78,7 @@ local function purchaseProduct(product: EventShopData.Product)
 			end)
 		else
 			warn(`[EventShopUI] Purchase rejected: {result.Message or "Unknown reason"}`)
+			NotificationFeed.Pull(result.Message or "Purchase unavailable.", "Error")
 		end
 	end)
 end
@@ -104,7 +115,10 @@ local function purchaseButton(product: EventShopData.Product)
 	return create("ImageButton")({
 		Name = "PurchaseButton",
 		Active = function()
-			return canPurchase(product)
+			return purchaseBusy() == nil
+		end,
+		Interactable = function()
+			return purchaseBusy() == nil
 		end,
 		AnchorPoint = Vector2.new(0.5, 0.5),
 		AutoButtonColor = false,

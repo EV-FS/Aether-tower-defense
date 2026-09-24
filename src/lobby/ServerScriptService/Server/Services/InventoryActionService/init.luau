@@ -2,6 +2,8 @@ local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local TowerData = require(ReplicatedStorage.Settings.Data.TowerData)
+local AutoSellConfig = require(ReplicatedStorage.Settings.Data.AutoSellConfig)
+local UnitSellRewards = require(ReplicatedStorage.Settings.Data.UnitSellRewards)
 
 local DataService
 
@@ -12,6 +14,7 @@ local MAX_TOWER_NAME_LENGTH = 80
 local MAX_TOWER_KEY_ID = 4_294_967_295
 
 local lastRequestAt: { [Player]: number } = {}
+local random = Random.new()
 local InventoryActionService = {}
 
 local function response(success: boolean, message: string, extra: { [string]: any }?)
@@ -84,16 +87,23 @@ function InventoryActionService:Perform(player: Player, data: any)
 	end
 
 	local towerInfo = TowerData.ByName[towerName]
-	local sellPrice = towerInfo and towerInfo.SellPrice
+	local rarity = towerInfo and towerInfo.Rarity
+	local autoSellEntry = rarity and AutoSellConfig.ByRarity[rarity]
+	local sellPrice = towerInfo and (towerInfo.SellPrice or (autoSellEntry and autoSellEntry.Price))
 	if typeof(sellPrice) ~= "number" or sellPrice <= 0 or sellPrice % 1 ~= 0 then
 		return response(false, "This unit cannot be sold.")
 	end
 
 	DataService:RemoveTower(player, towerName, towerKey)
 	local newCoins = DataService:AddData(player, "Coins", sellPrice)
+	local shardStones = if UnitSellRewards.Roll(rarity or "", random) then 1 else 0
+	if shardStones > 0 then
+		DataService:AddData(player, "Inventory", shardStones, "Items", UnitSellRewards.ItemName)
+	end
 	return response(true, `Sold for {sellPrice} Coins.`, {
 		Coins = newCoins,
 		SellPrice = sellPrice,
+		ShardStones = shardStones,
 		Locked = false,
 	})
 end

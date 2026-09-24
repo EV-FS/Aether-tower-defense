@@ -9,6 +9,7 @@ local DataService
 local EMOTE_COOLDOWN = 0.2
 local MAX_EMOTE_SLOTS = 4
 local LOADOUT_REMOTE_NAME = "EmoteLoadoutAction"
+local LOADOUT_REQUEST_COOLDOWN = 0.15
 
 -------------------------------------------------
 --// PlayerEmoteState Class
@@ -131,6 +132,7 @@ end
 -------------------------------------------------
 local EmoteService = {}
 local playerStates: { [Player]: any } = {}
+local lastLoadoutRequestAt: { [Player]: number } = {}
 
 function EmoteService.AddEmote(player: Player, targetEmote: number | string)
 	local emoteName = resolveEmoteName(targetEmote)
@@ -212,6 +214,13 @@ function EmoteService.PlayEmote(player: Player, targetEmote: number | string): b
 end
 
 function EmoteService.UpdateLoadout(player: Player, request: any)
+	local now = os.clock()
+	local previousRequest = lastLoadoutRequestAt[player]
+	if previousRequest and now - previousRequest < LOADOUT_REQUEST_COOLDOWN then
+		return { Success = false, Message = "Please wait a moment before changing another slot." }
+	end
+	lastLoadoutRequestAt[player] = now
+
 	if type(request) ~= "table" then
 		return { Success = false, Message = "Invalid emote request." }
 	end
@@ -251,8 +260,15 @@ function EmoteService.UpdateLoadout(player: Player, request: any)
 		return { Success = false, Message = "Invalid emote action." }
 	end
 
-	DataService:UpdateData(player, "EmoteLoadout", loadout)
-	return { Success = true, Loadout = loadout }
+	local savedLoadout = DataService:UpdateData(player, "EmoteLoadout", loadout)
+	if type(savedLoadout) ~= "table" then
+		return { Success = false, Message = "Your emote slots could not be saved." }
+	end
+	return {
+		Success = true,
+		Message = if request.Action == "Equip" then `Equipped to slot {slot}.` else `Slot {slot} cleared.`,
+		Loadout = savedLoadout,
+	}
 end
 
 function EmoteService.StopEmote(player: Player): boolean
@@ -266,6 +282,8 @@ end
 function EmoteService.Init(services)
 	DataService = services:GetService("DataService")
 end
+
+EmoteService.Dependencies = { "DataService" }
 
 function EmoteService.Start()
 	local runtimeRemotes = ReplicatedStorage:FindFirstChild("RuntimeRemotes")
@@ -302,6 +320,7 @@ function EmoteService.Start()
 	Players.PlayerAdded:Connect(onPlayerAdded)
 
 	Players.PlayerRemoving:Connect(function(player: Player)
+		lastLoadoutRequestAt[player] = nil
 		local state = playerStates[player]
 		if state then
 			state:Destroy()

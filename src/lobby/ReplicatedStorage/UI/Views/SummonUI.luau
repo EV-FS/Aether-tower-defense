@@ -5,6 +5,7 @@ local Vide = require(ReplicatedStorage.Packages.Vide)
 local useMenuMotion = require(ReplicatedStorage.Shared.Modules.UI.Hooks.useMenuMotion)
 local ServiceRegistry = require(ReplicatedStorage.Shared.Modules.Core.ServiceRegistry)
 local useButtonEffect = require(ReplicatedStorage.Shared.Modules.UI.Hooks.useButtonEffect)
+local NotificationFeed = require(ReplicatedStorage.Shared.Modules.UI.Notifications.NotificationFeed)
 local TouchZone = require(ReplicatedStorage.Shared.Modules.Utils.TouchZone)
 local Net = require(ReplicatedStorage.Shared.Net)
 local SummonConfig = require(ReplicatedStorage.Settings.Data.SummonConfig)
@@ -126,8 +127,12 @@ local function formatTimer(seconds: number): string
 	return string.format("%02d:%02d", math.floor(roundedSeconds / 60), roundedSeconds % 60)
 end
 
+local function hasSummonCurrency(cost: number): boolean
+	return DataClient ~= nil and DataClient.Coins() >= cost
+end
+
 local function canPurchase(cost: number): boolean
-	return DataClient ~= nil and not summonInProgress() and DataClient.Coins() >= cost
+	return not summonInProgress() and hasSummonCurrency(cost)
 end
 
 local function emitCutsceneVFX(targetName: string)
@@ -318,7 +323,10 @@ local function createPurchaseButton(
 	return create("ImageButton")({
 		Name = name,
 		Active = function()
-			return isOpen() and canPurchase(cost)
+			return isOpen() and not summonInProgress()
+		end,
+		Interactable = function()
+			return isOpen() and not summonInProgress()
 		end,
 		AnchorPoint = Vector2.new(0.5, 0.5),
 		BackgroundTransparency = 1,
@@ -363,13 +371,15 @@ local function createPurchaseButton(
 		}),
 
 		create("TextLabel")({
-			Name = "Title",
+			Name = "Cost",
 			BackgroundTransparency = 1,
 			FontFace = PLAIN_DISPLAY_FONT,
 			Position = UDim2.fromScale(0.596, 0.278),
 			Size = UDim2.fromScale(0.164253, 0.498891),
 			Text = tostring(cost),
-			TextColor3 = Color3.new(1, 1, 1),
+			TextColor3 = function()
+				return if hasSummonCurrency(cost) then Color3.new(1, 1, 1) else Color3.fromRGB(255, 72, 72)
+			end,
 			TextScaled = true,
 
 			create("UIStroke")({}),
@@ -552,7 +562,11 @@ end
 
 function SummonUI.Summon(number: number)
 	local cost = SummonConfig.Prices[number]
-	if not cost or not canPurchase(cost) then
+	if not cost or summonInProgress() then
+		return
+	end
+	if not hasSummonCurrency(cost) then
+		NotificationFeed.Pull(`You need {cost} Coins to summon.`, "Error")
 		return
 	end
 	summonInProgress(true)
@@ -562,6 +576,7 @@ function SummonUI.Summon(number: number)
 		if not settingsReady then
 			summonInProgress(false)
 			warn(`[SummonUI] Could not synchronize auto-sell settings: {settingsError}`)
+			NotificationFeed.Pull("Summon is unavailable. Please try again.", "Error")
 			return
 		end
 
@@ -572,10 +587,12 @@ function SummonUI.Summon(number: number)
 
 		if not ok then
 			warn("[SummonUI] Summon request failed: " .. tostring(success))
+			NotificationFeed.Pull("Summon failed. Please try again.", "Error")
 			return
 		end
 
 		if not success or not result or not result.Success then
+			NotificationFeed.Pull("Summon could not be completed.", "Error")
 			return
 		end
 

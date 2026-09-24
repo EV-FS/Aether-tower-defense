@@ -4,9 +4,12 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 --/Modules
 local CraftRecipes = require(ReplicatedStorage.Settings.Data.CraftRecipes)
 local ItemData = require(ReplicatedStorage.Settings.Data.ItemData)
+local TowerData = require(ReplicatedStorage.Settings.Data.TowerData)
 local Net = require(ReplicatedStorage.Shared.Net.server)
 local DataService
 local invalidRecipes: { [string]: string } = {}
+local activeCrafts: { [Player]: boolean } = {}
+local VALID_CURRENCIES = { Coins = true, Gems = true }
 
 -------------------------------------------------
 --// Local Functions
@@ -23,6 +26,11 @@ local function GetCraftable(player: Player, craftInfo: CraftRecipes.Recipe): boo
 			return false
 		end
 	end
+	for currency, amount in craftInfo.Currencies or {} do
+		if (playerData[currency] or 0) < amount then
+			return false
+		end
+	end
 
 	return true
 end
@@ -31,10 +39,19 @@ local function ApplyDeductions(player: Player, craftInfo: CraftRecipes.Recipe)
 	for _, ingredient in craftInfo.Ingredients do
 		DataService:AddData(player, "Inventory", -ingredient.Amount, "Items", ingredient.Name)
 	end
+	for currency, amount in craftInfo.Currencies or {} do
+		DataService:AddData(player, currency, -amount)
+	end
 end
 
 local function GrantResult(player: Player, craftInfo: CraftRecipes.Recipe)
-	DataService:AddData(player, "Inventory", craftInfo.ResultAmount, "Items", craftInfo.ResultName)
+	if craftInfo.ResultType == "Tower" then
+		for _ = 1, craftInfo.ResultAmount do
+			DataService:AddTower(player, craftInfo.ResultName)
+		end
+	else
+		DataService:AddData(player, "Inventory", craftInfo.ResultAmount, "Items", craftInfo.ResultName)
+	end
 end
 
 -------------------------------------------------
@@ -43,8 +60,16 @@ end
 local CraftService = {}
 
 local function GetRecipeError(craftKey: string, craftInfo: CraftRecipes.Recipe): string?
-	if not ItemData.ByName[craftInfo.ResultName] then
-		return `Craft result "{craftInfo.ResultName}" in "{craftKey}" is missing from ItemData`
+	if craftInfo.ResultType == "Tower" then
+		if not TowerData.ByName[craftInfo.ResultName] then
+			return `Craft result "{craftInfo.ResultName}" in "{craftKey}" is missing from TowerData`
+		end
+	elseif craftInfo.ResultType == nil or craftInfo.ResultType == "Item" then
+		if not ItemData.ByName[craftInfo.ResultName] then
+			return `Craft result "{craftInfo.ResultName}" in "{craftKey}" is missing from ItemData`
+		end
+	else
+		return `Invalid result type in "{craftKey}"`
 	end
 	if typeof(craftInfo.ResultAmount) ~= "number" or craftInfo.ResultAmount <= 0 or craftInfo.ResultAmount % 1 ~= 0 then
 		return `Invalid result amount in "{craftKey}"`
@@ -55,6 +80,14 @@ local function GetRecipeError(craftKey: string, craftInfo: CraftRecipes.Recipe):
 		end
 		if typeof(ingredient.Amount) ~= "number" or ingredient.Amount <= 0 or ingredient.Amount % 1 ~= 0 then
 			return `Invalid ingredient amount in "{craftKey}"`
+		end
+	end
+	for currency, amount in craftInfo.Currencies or {} do
+		if not VALID_CURRENCIES[currency] then
+			return `Invalid currency "{currency}" in "{craftKey}"`
+		end
+		if typeof(amount) ~= "number" or amount <= 0 or amount % 1 ~= 0 then
+			return `Invalid currency amount in "{craftKey}"`
 		end
 	end
 	return nil
@@ -74,6 +107,9 @@ function CraftService.Init(services)
 end
 
 function CraftService.Start()
+	game:GetService("Players").PlayerRemoving:Connect(function(player)
+		activeCrafts[player] = nil
+	end)
 	Net.CraftService.Craft.On(
 		function(player: Player, data: { consumedTowers: { [string]: { string } }, craftKey: string })
 			if type(data) ~= "table" or type(data.craftKey) ~= "string" then
@@ -85,6 +121,9 @@ function CraftService.Start()
 end
 
 function CraftService:Craft(player: Player, craftKey: string): boolean
+	if activeCrafts[player] then
+		return false
+	end
 	local craftInfo = CraftRecipes[craftKey]
 	if invalidRecipes[craftKey] then
 		warn(`[CraftService] Rejected disabled recipe "{craftKey}": {invalidRecipes[craftKey]}`)
@@ -95,14 +134,21 @@ function CraftService:Craft(player: Player, craftKey: string): boolean
 		return false
 	end
 
-	if not GetCraftable(player, craftInfo) then
+	activeCrafts[player] = true
+	local ok, crafted = pcall(function()
+		if not GetCraftable(player, craftInfo) then
+			return false
+		end
+		ApplyDeductions(player, craftInfo)
+		GrantResult(player, craftInfo)
+		return true
+	end)
+	activeCrafts[player] = nil
+	if not ok then
+		warn(`[CraftService] Failed to craft "{craftKey}" for {player.Name}: {crafted}`)
 		return false
 	end
-
-	ApplyDeductions(player, craftInfo)
-	GrantResult(player, craftInfo)
-
-	return true
+	return crafted
 end
 
 return CraftService

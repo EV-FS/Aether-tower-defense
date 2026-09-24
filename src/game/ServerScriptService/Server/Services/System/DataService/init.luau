@@ -10,6 +10,7 @@ local DataConstants = require(ReplicatedStorage.Settings.Data.DataConstants)
 local Net = require(ReplicatedStorage.Shared.Net)
 local TowerData = require(ReplicatedStorage.Settings.Data.TowerData)
 local TraitData = require(ReplicatedStorage.Settings.Data.TraitData)
+local EmoteData = require(ReplicatedStorage.Settings.Data.EmoteData)
 local PurchaseData = require(ReplicatedStorage.Settings.Data.PurchaseData)
 local TableUtils = require(ReplicatedStorage.Shared.Modules.Utils.TableUtils)
 local ProfileStore = require(ServerScriptService.ServerPackages.ProfileStore)
@@ -139,6 +140,32 @@ local function patchTowerRenames(playerData: PlayerData)
 			end
 		end
 	end
+end
+
+local function patchEmoteInventory(playerData: PlayerData)
+	playerData.Inventory = if type(playerData.Inventory) == "table" then playerData.Inventory else {}
+	playerData.Inventory.Emotes = if type(playerData.Inventory.Emotes) == "table" then playerData.Inventory.Emotes else {}
+	playerData.Inventory.Emotes["Look Out"] = math.max(
+		1,
+		math.floor(tonumber(playerData.Inventory.Emotes["Look Out"]) or 0)
+	)
+
+	local rawLoadout = if type(playerData.EmoteLoadout) == "table" then playerData.EmoteLoadout else {}
+	local cleanLoadout = {}
+	local equipped = {}
+	for slot = 1, 4 do
+		local emoteName = rawLoadout[slot] or rawLoadout[tostring(slot)]
+		if
+			type(emoteName) == "string"
+			and EmoteData.ByName[emoteName]
+			and (tonumber(playerData.Inventory.Emotes[emoteName]) or 0) > 0
+			and not equipped[emoteName]
+		then
+			cleanLoadout[tostring(slot)] = emoteName
+			equipped[emoteName] = true
+		end
+	end
+	playerData.EmoteLoadout = cleanLoadout
 end
 
 -------------------------------------------------
@@ -580,6 +607,7 @@ function DataService:_MigrateData(profile: profile)
 
 	patchTowerRenames(playerData)
 	TraitData.MigrateOwnedTowers(playerData.OwnedTowers)
+	patchEmoteInventory(playerData)
 end
 
 function DataService._SetLevel(player: Player, playerData: PlayerData)

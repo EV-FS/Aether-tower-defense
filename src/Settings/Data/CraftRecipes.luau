@@ -13,14 +13,16 @@ export type Ingredient = {
 export type Recipe = {
 	ResultName: string,
 	ResultAmount: number,
+	ResultType: string?,
 	Ingredients: { Ingredient },
+	Currencies: { [string]: number }?,
 }
 
 -------------------------------------------------
 --// CraftRecipes
 -------------------------------------------------
 local CraftRecipes: { [string]: Recipe } = {
-	-- Add recipes here only when both the result and every ingredient exist in ItemData.
+	-- Item results and ingredients must exist in ItemData; tower results must exist in TowerData.
 	["Gold"] = {
 		ResultName = "Gold",
 		ResultAmount = 1,
@@ -34,6 +36,21 @@ local CraftRecipes: { [string]: Recipe } = {
 		Ingredients = {
 			{ Name = "Gold", Amount = 5 },
 		},
+	},
+	["Dragon Slayer"] = {
+		ResultName = "Dragon Slayer",
+		ResultType = "Tower",
+		ResultAmount = 1,
+		Ingredients = {
+			{ Name = "Dragon's Breath", Amount = 1 },
+			{ Name = "Sword Jam", Amount = 1 },
+			{ Name = "Dragon's Heart", Amount = 1 },
+			{ Name = "Dragon Sword", Amount = 1 },
+			{ Name = "ShardStone", Amount = 15 },
+			{ Name = "Iron", Amount = 75 },
+			{ Name = "Diamond", Amount = 500 },
+		},
+		Currencies = { Coins = 25_000 },
 	},
 }
 

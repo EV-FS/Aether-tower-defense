@@ -10,6 +10,8 @@ local CardFrame = require(ReplicatedStorage.UI.Components.Card.CardFrame)
 local TowerViewport = require(ReplicatedStorage.UI.Components.TowerViewport)
 
 local create = Vide.create
+local read = Vide.read
+local show = Vide.show
 local spring = Vide.spring
 
 return function(props)
@@ -20,7 +22,10 @@ return function(props)
 	local usePortraitBounds = viewportProfile.BoundsMode == "Portrait"
 	local useCharacterBounds = viewportProfile.BoundsMode == "Character"
 	local isInWindow = props.IsInWindow or function() return true end
-	local animateWindowVisibility = props.IsInWindow ~= nil
+	local animateWindowVisibility = props.IsInWindow ~= nil and not performanceMode
+	local shouldRenderViewport = function()
+		return isInWindow() and (props.LiveViewport == nil or read(props.LiveViewport) == true)
+	end
 	local function windowSpring(openValue, closedValue, period: number, damping: number)
 		if not animateWindowVisibility then
 			return openValue
@@ -75,18 +80,31 @@ return function(props)
 			return 1
 		end,
 		Content = {
+		create("ImageLabel")({
+			Name = "TowerImageFallback",
+			AnchorPoint = Vector2.new(0.5, 0.5),
+			BackgroundTransparency = 1,
+			Image = UnitCatalog.GetImage(props.TowerName),
+			Position = UDim2.fromScale(0.5, 0.51),
+			ScaleType = Enum.ScaleType.Fit,
+			Size = UDim2.fromScale(0.9, 0.9),
+			Visible = function() return not shouldRenderViewport() end,
+			ZIndex = 5,
+		}),
 
-		TowerViewport({
+		show(shouldRenderViewport, function()
+		return TowerViewport({
 			Name = "TowerImage",
 			AnchorPoint = Vector2.new(0.5, 0.5),
 			BackgroundTransparency = 1,
 			Position = windowSpring(UDim2.fromScale(0.5, 0.51), UDim2.fromScale(0.5, 0.69), 0.3, 0.9),
 			Size = UDim2.fromScale(0.9, 0.9),
 			TowerName = props.TowerName,
-			Active = isInWindow,
+			Active = shouldRenderViewport,
 			UseViewportModel = true,
 			UseCharacterBounds = useCharacterBounds,
 			UsePortraitBounds = usePortraitBounds,
+			PortraitUpdateInterval = if performanceMode then 1 / 20 else 0,
 			CenterOnRoot = not viewportProfile.CenterOnBounds,
 			RenderEffects = false,
 			FitPadding = viewportProfile.FitPadding,
@@ -101,7 +119,8 @@ return function(props)
 			AnimationSpeed = 1,
 			Ambient = Color3.fromRGB(205, 205, 205),
 			ZIndex = 5,
-		}),
+		})
+		end),
 
 		create("TextLabel")({
 			Name = "Rarity",

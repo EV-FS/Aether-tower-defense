@@ -9,6 +9,7 @@ local UISFX = require(ReplicatedStorage.Settings.Visuals.UISFX)
 local ServiceRegistry = require(ReplicatedStorage.Shared.Modules.Core.ServiceRegistry)
 local useAudio = require(ReplicatedStorage.Shared.Modules.UI.Hooks.useAudio)
 local useButtonEffect = require(ReplicatedStorage.Shared.Modules.UI.Hooks.useButtonEffect)
+local NotificationFeed = require(ReplicatedStorage.Shared.Modules.UI.Notifications.NotificationFeed)
 
 local create = Vide.create
 local changed = Vide.changed
@@ -101,6 +102,7 @@ local function promptPurchase(purchaseName: string)
 	local product = PurchaseData.ByName.GamePasses[purchaseName]
 	if not product then
 		warn(`[ShopUI] Missing game pass data: {purchaseName}`)
+		NotificationFeed.Pull("This purchase is unavailable.", "Error")
 		return
 	end
 	purchaseBusy(true)
@@ -110,6 +112,7 @@ local function promptPurchase(purchaseName: string)
 	purchaseBusy(false)
 	if not ok then
 		warn(`[ShopUI] Could not open purchase prompt: {err}`)
+		NotificationFeed.Pull("Purchase prompt could not open.", "Error")
 	end
 end
 

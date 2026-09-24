@@ -44,13 +44,19 @@ function NotificationService:PullAll(message: string, logType: string, duration:
 	end
 end
 
+function NotificationService:PullItem(itemName: string, amount: number)
+	if RunService:IsClient() then
+		NotificationUI.PullItem(itemName, amount)
+	end
+end
+
 function NotificationService.Init()
 	if not RunService:IsClient() then
 		return
 	end
 
 	Net.NotificationService.Popup.On(function(data)
-		NotificationService:Pull(nil, data.Message, data.LogType, data.DurationMs)
+		NotificationService:Pull(nil, data.Message, data.LogType, data.DurationMs / 1000)
 	end)
 end
 

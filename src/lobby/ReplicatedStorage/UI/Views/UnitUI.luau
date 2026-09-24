@@ -37,7 +37,7 @@ local searchQuery = source("")
 local VIEW_ID = "Units"
 
 local SORT_CRITERIA = { "Rarity", "ABC", "Level" }
-local VIRTUAL_OVERSCAN_ROWS = 1
+local VIRTUAL_OVERSCAN_ROWS = 0
 local VIRTUAL_COLUMNS = 5
 local VIRTUAL_OUTER_PADDING_X = 0.018
 local VIRTUAL_OUTER_PADDING_Y_PIXELS = 10
@@ -46,6 +46,9 @@ local VIRTUAL_PADDING_X = 0.012
 local VIRTUAL_CARD_ASPECT_RATIO = 1.05
 local VIRTUAL_PADDING_Y_PIXELS = 14
 local VIRTUAL_FALLBACK_HEIGHT_PIXELS = 128
+local LIVE_VIEWPORT_BATCH_SIZE = 2
+local LIVE_VIEWPORT_BATCH_DELAY = 0.025
+local EMPTY_UNIT_LISTING = { Count = 0, Units = {} }
 local selectedName = source(nil)
 local selectedKey = source()
 local selectedDamage = source(0)
@@ -98,6 +101,14 @@ local function getUnitId(towerName: string, towerKey: string | number): string
 	return `{towerName}\0{tostring(towerKey)}`
 end
 
+local function normalizeEquippedKey(towerKey: string | number?): string?
+	if towerKey == nil then return nil end
+	local keyText = tostring(towerKey)
+	local keyId = keyText:match("^t_(%d+)$") or keyText:match("^(%d+)$")
+	local numericId = if keyId then tonumber(keyId) else nil
+	return if numericId then `t_{numericId}` else nil
+end
+
 local function compareByCriterion(a, b, criterion: string): boolean?
 	if criterion == "Rarity" then
 		return if a.RarityOrder ~= b.RarityOrder then a.RarityOrder < b.RarityOrder else nil
@@ -127,13 +138,11 @@ local function comesBefore(a, b, priorities): boolean
 		end
 	end
 
-	local aKeyId = getTowerKeyId(a.Key)
-	local bKeyId = getTowerKeyId(b.Key)
-	if aKeyId ~= bKeyId then
-		return aKeyId < bKeyId
+	if a.KeyId ~= b.KeyId then
+		return a.KeyId < b.KeyId
 	end
 
-	return tostring(a.Key) < tostring(b.Key)
+	return a.KeyText < b.KeyText
 end
 
 local function formatAnimatedStat(animatedValue: number, statValue: number): string
@@ -225,6 +234,9 @@ function UnitUI.RenderUI()
 	local virtualCellHeight = source(VIRTUAL_FALLBACK_HEIGHT_PIXELS)
 	local visibleStartRank = source(1)
 	local visibleEndRank = source(0)
+	local liveViewportStartRank = source(1)
+	local liveViewportEndRank = source(0)
+	local liveViewportReady = source({} :: { [any]: boolean })
 	local sellConfirmation = source(false)
 	local unitEntryCache = {}
 	local selectedTowerData = derive(function()
@@ -263,6 +275,17 @@ function UnitUI.RenderUI()
 		local priorities = { primaryCriterion }
 		local units = {}
 		local seenUnitIds = {}
+		local equippedSlots = {}
+		for slot = 1, 5 do
+			local entry = InventoryClient.GetLoadoutSlot(slot)
+			if entry then
+				local name = entry.Name or entry.towerName
+				local key = normalizeEquippedKey(entry.Key or entry.towerKey)
+				if name and key then
+					equippedSlots[getUnitId(name, key)] = slot
+				end
+			end
+		end
 
 		for _, criterion in SORT_CRITERIA do
 			if criterion ~= primaryCriterion then
@@ -273,9 +296,15 @@ function UnitUI.RenderUI()
 		for towerName, towers in towerInventory() do
 			for towerKey, towerData in towers do
 				local unitId = getUnitId(towerName, towerKey)
-				local equippedSlot = InventoryClient.FindEquippedSlot(towerName, towerKey)
+				local equippedKey = normalizeEquippedKey(towerKey)
+				local equippedSlot = if equippedKey then equippedSlots[getUnitId(towerName, equippedKey)] else nil
 				local unit = unitEntryCache[unitId]
-				if not unit or unit.Data ~= towerData or unit.EquippedSlot ~= equippedSlot then
+				-- Full inventory refreshes replace data tables. Preserve the card
+				-- identity when none of its displayed fields changed.
+				if not unit or unit.EquippedSlot ~= equippedSlot
+					or unit.Data.Lv ~= towerData.Lv
+					or unit.Data.Trait ~= towerData.Trait
+					or unit.Data.Locked ~= towerData.Locked then
 					local rarity = UnitCatalog.GetRarity(towerName)
 					local level = if typeof(towerData.Lv) == "number" then towerData.Lv else 0
 					unit = {
@@ -285,10 +314,14 @@ function UnitUI.RenderUI()
 						EquippedSlot = equippedSlot,
 						RarityOrder = RarityRegistry.GetOrder(rarity),
 						LowerName = string.lower(towerName),
+						KeyId = getTowerKeyId(towerKey),
+						KeyText = tostring(towerKey),
 						Level = level,
 						SearchText = string.lower(`{towerName} {rarity} {towerKey} level {level} lv {level}`),
 					}
 					unitEntryCache[unitId] = unit
+				else
+					unit.Data = towerData
 				end
 				seenUnitIds[unitId] = true
 				table.insert(units, unit)
@@ -307,6 +340,11 @@ function UnitUI.RenderUI()
 		return units
 	end)
 	local unitListing = derive(function()
+		-- Keep the inventory table and sort dormant while the unit view is closed.
+		-- Other menus still update towerInventory, sometimes hundreds of times.
+		if not isInventoryVisible() then
+			return EMPTY_UNIT_LISTING
+		end
 		local query = normalizeSearch(searchQuery())
 		local filtered = {}
 		for _, unit in sortedUnits() do
@@ -334,7 +372,7 @@ function UnitUI.RenderUI()
 
 	local function updateVirtualWindow()
 		if not isInventoryVisible() then
-			-- Keep the small rendered pool alive while closed so reopening is free.
+			-- The active viewport set is cleared when the menu closes.
 			return
 		end
 
@@ -342,6 +380,7 @@ function UnitUI.RenderUI()
 		if not frame then
 			visibleStartRank(1)
 			visibleEndRank(25)
+			liveViewportEndRank(0)
 			return
 		end
 
@@ -349,19 +388,72 @@ function UnitUI.RenderUI()
 		if viewportSize.X <= 0 or viewportSize.Y <= 0 then
 			visibleStartRank(1)
 			visibleEndRank(25)
+			liveViewportEndRank(0)
 			return
 		end
 
 		local nextCellHeight = math.max(math.floor(viewportSize.X * VIRTUAL_CELL_WIDTH / VIRTUAL_CARD_ASPECT_RATIO + 0.5), 1)
 		virtualCellHeight(nextCellHeight)
 		local rowStride = nextCellHeight + VIRTUAL_PADDING_Y_PIXELS
-		local contentY = math.max(frame.CanvasPosition.Y - VIRTUAL_OUTER_PADDING_Y_PIXELS, 0)
-		local firstRow = math.max(math.floor(contentY / rowStride) - VIRTUAL_OVERSCAN_ROWS, 0)
-		local visibleRows = math.ceil(viewportSize.Y / rowStride) + VIRTUAL_OVERSCAN_ROWS * 2 + 1
-
-		visibleStartRank(firstRow * VIRTUAL_COLUMNS + 1)
-		visibleEndRank((firstRow + visibleRows) * VIRTUAL_COLUMNS)
+		local scrollY = frame.CanvasPosition.Y
+		local firstVisibleRow = math.max(math.ceil((scrollY - VIRTUAL_OUTER_PADDING_Y_PIXELS - nextCellHeight + 1) / rowStride), 0)
+		local lastVisibleRow = math.max(math.floor((scrollY + viewportSize.Y - VIRTUAL_OUTER_PADDING_Y_PIXELS - 1) / rowStride), firstVisibleRow)
+		visibleStartRank(math.max(firstVisibleRow - VIRTUAL_OVERSCAN_ROWS, 0) * VIRTUAL_COLUMNS + 1)
+		visibleEndRank((lastVisibleRow + VIRTUAL_OVERSCAN_ROWS + 1) * VIRTUAL_COLUMNS)
+		liveViewportStartRank(firstVisibleRow * VIRTUAL_COLUMNS + 1)
+		liveViewportEndRank(math.min((lastVisibleRow + 1) * VIRTUAL_COLUMNS, unitListing().Count))
 	end
+
+	local liveViewportGeneration = 0
+	local readyUnits: { [any]: boolean } = {}
+	effect(function()
+		local open = isInventoryVisible()
+		local listing = unitListing()
+		local startRank = liveViewportStartRank()
+		local endRank = liveViewportEndRank()
+		liveViewportGeneration += 1
+		local generation = liveViewportGeneration
+		cleanup(function()
+			liveViewportGeneration += 1
+		end)
+		if not open then
+			readyUnits = {}
+			liveViewportReady({})
+			return
+		end
+		local retained = {}
+		local pending = {}
+		for rank = startRank, endRank do
+			local unit = listing.Units[rank]
+			if unit then
+				if readyUnits[unit] then
+					retained[unit] = true
+				else
+					table.insert(pending, unit)
+				end
+			end
+		end
+		readyUnits = retained
+		liveViewportReady(table.clone(readyUnits))
+		if #pending == 0 then
+			return
+		end
+		task.spawn(function()
+			for index = 1, #pending, LIVE_VIEWPORT_BATCH_SIZE do
+				if liveViewportGeneration ~= generation or not isInventoryVisible() then
+					return
+				end
+				for offset = 0, LIVE_VIEWPORT_BATCH_SIZE - 1 do
+					local unit = pending[index + offset]
+					if unit then readyUnits[unit] = true end
+				end
+				liveViewportReady(table.clone(readyUnits))
+				if index + LIVE_VIEWPORT_BATCH_SIZE <= #pending then
+					task.wait(LIVE_VIEWPORT_BATCH_DELAY)
+				end
+			end
+		end)
+	end)
 
 	effect(function()
 		local frame = scrollingFrame()
@@ -802,6 +894,10 @@ function UnitUI.RenderUI()
 								TowerKey = towerKey,
 								TowerData = towerData,
 								PerformanceMode = true,
+				IsInWindow = isInventoryVisible,
+				LiveViewport = function()
+					return liveViewportReady()[unit] == true
+				end,
 								Position = function()
 									local zeroBasedRank = math.max((rank() or 1) - 1, 0)
 									local column = zeroBasedRank % VIRTUAL_COLUMNS
@@ -1263,7 +1359,9 @@ function UnitUI.RenderUI()
 				}),
 
 				TowerViewport({
-					TowerName = selectedName,
+					TowerName = function()
+						return if isInventoryVisible() then selectedName() else nil
+					end,
 					Active = isInventoryVisible,
 					AnimationName = "Idle",
 					AnimationLevel = selectedLevel,

@@ -424,8 +424,8 @@ function InventoryUI.RenderUI()
 									EmoteName = entry.Name,
 									LayoutOrder = function() return rank() end,
 									IsSelected = function() return selectedItemName() == entry.Name end,
-									EquippedSlot = function()
-										return InventoryClient.FindEquippedEmoteSlot(entry.Name)
+									IsEquipped = function()
+										return InventoryClient.FindEquippedEmoteSlot(entry.Name) ~= nil
 									end,
 									Activated = function() selectedItemName(entry.Name) end,
 								})
@@ -475,7 +475,9 @@ function InventoryUI.RenderUI()
 						BackgroundTransparency = 1,
 						ClearTextOnFocus = false,
 						FontFace = Font.new("rbxasset://fonts/families/FredokaOne.json"),
-						PlaceholderText = "ITEM NAME",
+						PlaceholderText = function()
+							return if selectedCategory() == "Emote" then "EMOTE NAME" else "ITEM NAME"
+						end,
 						Position = UDim2.fromScale(0.0363427, 0),
 						Size = UDim2.fromScale(0.82, 1),
 						Text = searchQuery,
@@ -678,7 +680,7 @@ function InventoryUI.RenderUI()
 					FontFace = Font.new("rbxasset://fonts/families/SourceSansPro.json", Enum.FontWeight.Bold),
 					Position = UDim2.fromScale(0, 0.5),
 					Size = UDim2.fromScale(0.32, 0.72),
-					Text = function() return if selectedCategory() == "Emote" then "Slot" else "Owned" end,
+					Text = function() return if selectedCategory() == "Emote" then "Status" else "Owned" end,
 					TextColor3 = Color3.fromRGB(192, 192, 192),
 					TextScaled = true,
 					TextXAlignment = Enum.TextXAlignment.Left,
@@ -693,8 +695,7 @@ function InventoryUI.RenderUI()
 					Size = UDim2.fromScale(0.64, 0.72),
 					Text = function()
 						if selectedCategory() == "Emote" then
-							local slot = selectedEmoteSlot()
-							return if slot then `SLOT {slot}` else "NOT EQUIPPED"
+							return if selectedEmoteSlot() then "EQUIPPED" else "NOT EQUIPPED"
 						end
 						return `{selectedCount()}x`
 					end,
@@ -743,6 +744,7 @@ function InventoryUI.RenderUI()
 				ImageTransparency = function()
 					return if selectedCategory() == "Emote" and selectedItemName() and not emoteActionPending() then 0 else 0.45
 				end,
+				Visible = function() return selectedCategory() == "Emote" end,
 				Position = menuMotion:Spring(UDim2.fromScale(0.787698, 0.920119), UDim2.fromScale(0.787698, 1.05), "Action"),
 				Size = UDim2.fromScale(0.337246, 0.0842378),
 				ZIndex = 11,
@@ -753,7 +755,10 @@ function InventoryUI.RenderUI()
 						emoteActionPending(true)
 						InventoryClient.UnequipEmote(emoteName):andThen(function(result)
 							emoteActionPending(false)
-							if not result.Success then warn(`[InventoryUI] Could not unequip emote: {result.Message}`) end
+							if not result.Success then
+								local message = tostring(result.Message or "Could not unequip this emote.")
+								warn(`[InventoryUI] Could not unequip emote: {message}`)
+							end
 						end):catch(function(err)
 							emoteActionPending(false)
 							warn(`[InventoryUI] Could not unequip emote: {err}`)
