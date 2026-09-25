@@ -81,6 +81,7 @@ return function(props: Props)
 			CornerRadius = UDim.new(0.1, 0),
 		}),
 
+		if props.UseButtonEffect then useButtonEffect() else nil,
 		if props.UseButtonEffect then useButtonHoverEffect() else nil,
 
 		action(function(slotFrame)

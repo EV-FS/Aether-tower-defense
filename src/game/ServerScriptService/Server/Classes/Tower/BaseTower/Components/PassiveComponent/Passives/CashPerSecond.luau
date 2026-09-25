@@ -9,6 +9,7 @@ CashPerSecond.__index = CashPerSecond
 
 function CashPerSecond.new(tower, config, fireTriggered)
 	local self = setmetatable({}, CashPerSecond)
+	self.Config = config
 
 	TimeService = TimeService or ServiceRegistry:GetService("TimeService")
 	GameService = GameService or ServiceRegistry:GetService("GameService")
@@ -19,18 +20,22 @@ function CashPerSecond.new(tower, config, fireTriggered)
 				task.wait()
 			end
 
-			TimeService.DeltaWait(config.Delay)
+			TimeService.DeltaWait(self.Config.Delay)
 
 			if GameService.IsGameRunning then
 				EconomyService = EconomyService or ServiceRegistry:GetService("EconomyService")
-				EconomyService.AddCash(tower.Owner, config.Amount)
+				EconomyService.AddCash(tower.Owner, self.Config.Amount)
 
-				fireTriggered(config.Type, config.Amount)
+				fireTriggered(self.Config.Type, self.Config.Amount)
 			end
 		end
 	end)
 
 	return self
+end
+
+function CashPerSecond:UpdateConfig(newConfig)
+	self.Config = newConfig
 end
 
 function CashPerSecond:Destroy()
