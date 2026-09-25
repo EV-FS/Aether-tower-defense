@@ -112,12 +112,12 @@ local RawEnemyData = {
 	},
 	["Carnage"] = {
 		Index = 22,
-		MaxHealth = 5000,
-		WalkSpeed = 4,
+		MaxHealth = 2000,
+		WalkSpeed = 3.5,
 	},
 	["Giant Skull"] = {
 		Index = 23,
-		MaxHealth = 15000,
+		MaxHealth = 10000,
 		WalkSpeed = 3,
 	},
 	["Crystal Golem"] = {
