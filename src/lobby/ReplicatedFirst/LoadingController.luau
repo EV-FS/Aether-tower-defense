@@ -1,5 +1,6 @@
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local RunService = game:GetService("RunService")
 
 local Vide = require(ReplicatedStorage:WaitForChild("Packages"):WaitForChild("Vide"))
 local LoadingScreen = require(script.Parent.LoadingScreen)
@@ -16,6 +17,18 @@ local transitionToken = 0
 local shownAt = 0
 
 local LoadingController = {}
+
+local function releaseBootstrapCover()
+	local playerGui = Players.LocalPlayer:FindFirstChildOfClass("PlayerGui")
+	local bootstrap = playerGui and playerGui:FindFirstChild("LoadingBootstrap")
+	if not bootstrap then return end
+	task.spawn(function()
+		-- Wait until the replacement LoadingScreen has had a rendered frame.
+		RunService.RenderStepped:Wait()
+		RunService.Heartbeat:Wait()
+		if bootstrap.Parent then bootstrap:Destroy() end
+	end)
+end
 
 local function scheduleFailsafe(token: number)
 	task.delay(MAX_VISIBLE_DURATION, function()
@@ -39,20 +52,7 @@ local function mountLoadingScreen()
 	end, playerGui)
 end
 
-function LoadingController.Prepare()
-	transitionToken += 1
-	mountLoadingScreen()
-end
-
-function LoadingController.ReleaseBoot()
-	transitionToken += 1
-	mountLoadingScreen()
-	shownAt = os.clock()
-	visible(true)
-	scheduleFailsafe(transitionToken)
-end
-
-function LoadingController.Show()
+function LoadingController.Show(holdUntilHidden: boolean?)
 	transitionToken += 1
 	mountLoadingScreen()
 
@@ -60,7 +60,10 @@ function LoadingController.Show()
 		shownAt = os.clock()
 	end
 	visible(true)
-	scheduleFailsafe(transitionToken)
+	releaseBootstrapCover()
+	if not holdUntilHidden then
+		scheduleFailsafe(transitionToken)
+	end
 end
 
 function LoadingController.Hide(skipMinimum: boolean?, skipExit: boolean?)
@@ -91,6 +94,22 @@ function LoadingController.Hide(skipMinimum: boolean?, skipExit: boolean?)
 			loadingUnmount = nil
 		end
 	end)
+end
+
+function LoadingController.HideAndWait(skipMinimum: boolean?): boolean
+	if not loadingUnmount then return true end
+	LoadingController.Hide(skipMinimum)
+	local token = transitionToken
+	local deadline = os.clock() + EXIT_DURATION + MIN_VISIBLE_DURATION + 2
+	while loadingUnmount and transitionToken == token and os.clock() < deadline do
+		RunService.RenderStepped:Wait()
+	end
+	if transitionToken ~= token then return false end
+	if loadingUnmount then
+		LoadingController.Hide(true, true)
+		return false
+	end
+	return true
 end
 
 function LoadingController.Destroy()

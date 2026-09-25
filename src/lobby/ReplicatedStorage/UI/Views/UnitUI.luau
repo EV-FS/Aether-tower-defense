@@ -634,7 +634,9 @@ function UnitUI.RenderUI()
 			AnchorPoint = Vector2.new(0.5, 0),
 			BackgroundTransparency = 1,
 			Image = "rbxassetid://86505261925755",
-			Rotation = menuMotion:WindowRotation(),
+			-- Keep the ancestor of ScrollBackground unrotated so its CanvasGroup
+			-- can mask scrolling cards throughout the open/close animation.
+			Rotation = 0,
 
 			Position = UDim2.fromScale(0.5, 0.20195),
 			Size = menuMotion:WindowSize(UDim2.fromScale(0.721698, 0.668872)),
@@ -847,11 +849,14 @@ function UnitUI.RenderUI()
 					Name = "ScrollBackground",
 					BackgroundTransparency = 1,
 					ClipsDescendants = true,
-					Position = menuMotion:Spring(UDim2.fromScale(0.0339824, 0.124035), UDim2.fromScale(-0.03, 0.124035), "Content"),
+					Position = UDim2.fromScale(0.0339824, 0.124035),
 					Size = function()
-						return if isSelectingForFeature()
+						local mode = selectionMode()
+						-- Trait reroll uses the normal-height unit list. Keep the
+						-- larger selection area for other feature flows.
+						return if mode and mode.ReturnView ~= "Traits"
 							then UDim2.fromScale(0.966018, 0.876398)
-							else UDim2.fromScale(0.966018, 0.758802)
+							else UDim2.new(0.966, 0, 0.759, 0)
 					end,
 
 					create("ScrollingFrame")({
@@ -872,6 +877,7 @@ function UnitUI.RenderUI()
 						Position = UDim2.fromScale(0, 0),
 						ScrollBarImageColor3 = Color3.new(),
 						ScrollBarThickness = 0,
+						ElasticBehavior = Enum.ElasticBehavior.Never,
 						ScrollingDirection = Enum.ScrollingDirection.Y,
 						Size = UDim2.fromScale(1, 1),
 

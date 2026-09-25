@@ -34,7 +34,10 @@ end
 
 function PropertyTrack.Read(track, frame)
 	if #track == 0 then return track.Default end
-	if frame <= track[1].Frame then return track[1].Value end
+	if frame < track[1].Frame then
+		return if track.Default ~= nil then track.Default else track[1].Value
+	end
+	if frame == track[1].Frame then return track[1].Value end
 	if frame >= track[#track].Frame then return track[#track].Value end
 	local low, high = 1, #track
 	while high - low > 1 do

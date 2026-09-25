@@ -12,6 +12,7 @@ local Net = require(ReplicatedStorage.Shared.Net.client)
 local ServiceRegistry = require(ReplicatedStorage.Shared.Modules.Core.ServiceRegistry)
 local useButtonEffect = require(ReplicatedStorage.Shared.Modules.UI.Hooks.useButtonEffect)
 local NotificationFeed = require(ReplicatedStorage.Shared.Modules.UI.Notifications.NotificationFeed)
+local CutscenePlayer = require(ReplicatedStorage.Shared.Modules.Cutscene.CutscenePlayer)
 
 local changed = Vide.changed
 local create = Vide.create
@@ -24,6 +25,7 @@ local DataClient
 local UIController
 
 local VIEW_ID = "Crafting"
+local CUTSCENE_VIEW_ID = "DragonSlayerCutscene"
 local recipeKeys = {}
 for recipeKey, recipe in CraftRecipes do
 	local isValid = if recipe.ResultType == "Tower"
@@ -53,10 +55,14 @@ local selectedRecipe = source(if CraftRecipes["Dragon Slayer"] and table.find(re
 local craftAmount = source(1)
 local searchQuery = source("")
 local isCrafting = source(false)
+local isCutscenePlaying = source(false)
 local statusText = source("")
 
 local CARD_CORNER_RADIUS = UDim.new(0.06, 0)
 local CARD_INSET = 3
+local RECIPE_COLUMNS = 3
+local RECIPE_GRID_PADDING = 6
+local RECIPE_GRID_GAP = 7
 local ACTION_AVAILABLE_GRADIENT = ColorSequence.new({
 	ColorSequenceKeypoint.new(0, Color3.fromRGB(55, 255, 0)),
 	ColorSequenceKeypoint.new(1, Color3.fromRGB(255, 238, 1)),
@@ -205,7 +211,6 @@ local function recipeCard(recipeKey: string, layoutOrder: number)
 		BackgroundTransparency = 1,
 		Image = "rbxassetid://87496848270095",
 		LayoutOrder = layoutOrder,
-		Size = UDim2.fromScale(0.321756, 0.360393),
 		Visible = function() return matchesSearch(recipeKey) end,
 		Activated = function()
 			selectedRecipe(recipeKey)
@@ -214,7 +219,6 @@ local function recipeCard(recipeKey: string, layoutOrder: number)
 		end,
 		useButtonEffect(0.95, 1.025),
 		create("UIGradient")({ Color = resultGradient(recipe), Rotation = 45 }),
-		create("UIAspectRatioConstraint")({}),
 		create("UICorner")({ CornerRadius = CARD_CORNER_RADIUS }),
 		cardBorder(
 			"SelectionBorder",
@@ -303,7 +307,7 @@ end
 local function craftSelected()
 	local recipeKey = selectedRecipe()
 	local amount = craftAmount()
-	if isCrafting() or not recipeKey then
+	if isCrafting() or isCutscenePlaying() or not recipeKey then
 		return
 	end
 	if not canCraft(recipeKey, amount) then
@@ -326,19 +330,9 @@ local function craftSelected()
 			crafted += 1
 		end
 
-		local refreshOk = pcall(function()
-			return InventoryClient.RefreshInventory():await()
-		end)
-		if crafted > 0 and CraftRecipes[recipeKey].ResultType == "Tower" then
-			local towersOk = pcall(function()
-				return InventoryClient.RefreshTowers():await()
-			end)
-			if not towersOk then
-				warn("[CraftingUI] Failed to refresh crafted units")
-			end
-			NotificationFeed.Pull(`Crafted {crafted}x {CraftRecipes[recipeKey].ResultName}!`)
-		end
-		isCrafting(false)
+		local playDragonCutscene = crafted > 0 and recipeKey == "Dragon Slayer"
+		local cutsceneViewOpen = false
+		if not playDragonCutscene then isCrafting(false) end
 		if crafted == amount then
 			statusText(`CRAFTED {crafted}x`)
 		elseif crafted > 0 then
@@ -347,8 +341,51 @@ local function craftSelected()
 			statusText("CRAFT FAILED")
 			NotificationFeed.Pull("Crafting failed. Please try again.", "Error")
 		end
-		if not refreshOk then
-			warn("[CraftingUI] Failed to refresh inventory after crafting")
+		local function refreshInventory()
+			local refreshOk = pcall(function()
+				return InventoryClient.RefreshInventory():await()
+			end)
+			if not refreshOk then
+				warn("[CraftingUI] Failed to refresh inventory after crafting")
+			end
+			if crafted > 0 and CraftRecipes[recipeKey].ResultType == "Tower" then
+				local towersOk = pcall(function()
+					return InventoryClient.RefreshTowers():await()
+				end)
+				if not towersOk then
+					warn("[CraftingUI] Failed to refresh crafted units")
+				end
+			end
+		end
+		if playDragonCutscene then
+			task.spawn(refreshInventory)
+			local function restoreCutsceneUI()
+				if cutsceneViewOpen then
+					UIController:Close(CUTSCENE_VIEW_ID)
+					cutsceneViewOpen = false
+				end
+				isCrafting(false)
+				isCutscenePlaying(false)
+			end
+			local didPlay = CutscenePlayer.Play("DragonSlayer", {
+				OnCovered = function()
+					-- Keep the crafting page in the opening shot until it is fully black.
+					isCutscenePlaying(true)
+					cutsceneViewOpen = UIController:OpenExclusive(CUTSCENE_VIEW_ID)
+					if not cutsceneViewOpen then UIController:Close(VIEW_ID) end
+					isCrafting(false)
+				end,
+				OnReturning = restoreCutsceneUI,
+			})
+			restoreCutsceneUI()
+			if not didPlay then
+				NotificationFeed.Pull("Dragon Slayer cutscene could not be played. Check Output for the cause.", "Error")
+			end
+		else
+			refreshInventory()
+		end
+		if crafted > 0 and CraftRecipes[recipeKey].ResultType == "Tower" then
+			NotificationFeed.Pull(`Crafted {crafted}x {CraftRecipes[recipeKey].ResultName}!`)
 		end
 	end)
 end
@@ -493,10 +530,14 @@ local function recipeInformation(recipeKey: string)
 end
 
 function CraftingUI.RenderUI()
-	local isVisible = UIController:IsVisible(VIEW_ID)
+	local controllerVisible = UIController:IsVisible(VIEW_ID)
+	local isVisible = function()
+		return controllerVisible() and not isCutscenePlaying()
+	end
 	local menuMotion = useMenuMotion(isVisible, function()
 		return UIController:GetActiveView()
 	end)
+	local recipeCellSize = source(100)
 	local cards = {}
 	local informationPanels = {}
 	for index, recipeKey in recipeKeys do
@@ -510,7 +551,7 @@ function CraftingUI.RenderUI()
 		BackgroundTransparency = 1,
 		Position = UDim2.fromScale(0.5, 0.5),
 		Size = UDim2.fromScale(0.753032, 1),
-		Visible = menuMotion.IsMounted,
+		Visible = function() return menuMotion.IsMounted() and not isCutscenePlaying() end,
 		create("ImageLabel")({
 			Name = "Main", Rotation = menuMotion:WindowRotation(), AnchorPoint = Vector2.new(0.5, 0),
 			BackgroundTransparency = 1,
@@ -541,9 +582,19 @@ function CraftingUI.RenderUI()
 				Size = UDim2.fromScale(0.352309, 0.690162),
 				ZIndex = 1,
 				create("ScrollingFrame")({
-					Name = "Items", Active = true, AutomaticCanvasSize = Enum.AutomaticSize.Y, AnchorPoint = Vector2.new(0, 0), BackgroundTransparency = 1, CanvasSize = UDim2.new(), Position = UDim2.fromScale(0, 0), ScrollBarThickness = 0, Size = UDim2.fromScale(1, 1),
-					create("UIPadding")({ PaddingBottom = UDim.new(0, 6), PaddingLeft = UDim.new(0, 6), PaddingRight = UDim.new(0, 6), PaddingTop = UDim.new(0, 6) }),
-					create("UIListLayout")({ FillDirection = Enum.FillDirection.Horizontal, Padding = UDim.new(0, 7), SortOrder = Enum.SortOrder.LayoutOrder, Wraps = true }),
+					Name = "Items", Active = true, AutomaticCanvasSize = Enum.AutomaticSize.Y, AnchorPoint = Vector2.new(0, 0), BackgroundTransparency = 1, CanvasSize = UDim2.new(), Position = UDim2.fromScale(0, 0), ScrollBarThickness = 0, ScrollingDirection = Enum.ScrollingDirection.Y, Size = UDim2.fromScale(1, 1),
+					changed("AbsoluteSize", function(size: Vector2)
+						local availableWidth = size.X - 2 * RECIPE_GRID_PADDING - (RECIPE_COLUMNS - 1) * RECIPE_GRID_GAP
+						recipeCellSize(math.max(1, math.floor(availableWidth / RECIPE_COLUMNS)))
+					end),
+					create("UIPadding")({ PaddingBottom = UDim.new(0, RECIPE_GRID_PADDING), PaddingLeft = UDim.new(0, RECIPE_GRID_PADDING), PaddingRight = UDim.new(0, RECIPE_GRID_PADDING), PaddingTop = UDim.new(0, RECIPE_GRID_PADDING) }),
+					create("UIGridLayout")({
+						CellPadding = UDim2.fromOffset(RECIPE_GRID_GAP, RECIPE_GRID_GAP),
+						CellSize = function() return UDim2.fromOffset(recipeCellSize(), recipeCellSize()) end,
+						FillDirection = Enum.FillDirection.Horizontal,
+						FillDirectionMaxCells = RECIPE_COLUMNS,
+						SortOrder = Enum.SortOrder.LayoutOrder,
+					}),
 					unpack(cards),
 				}),
 			}),
@@ -560,6 +611,9 @@ function CraftingUI.Init()
 	InventoryClient = ServiceRegistry:GetService("InventoryClient")
 	DataClient = ServiceRegistry:GetService("DataClient")
 	UIController = ServiceRegistry:GetService("UIController")
+	task.spawn(function()
+		CutscenePlayer.Preload("DragonSlayer")
+	end)
 end
 
 return CraftingUI

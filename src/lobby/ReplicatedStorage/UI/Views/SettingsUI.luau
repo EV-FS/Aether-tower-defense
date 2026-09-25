@@ -9,6 +9,7 @@ local UISFX = require(ReplicatedStorage.Settings.Visuals.UISFX)
 local ServiceRegistry = require(ReplicatedStorage.Shared.Modules.Core.ServiceRegistry)
 local useAudio = require(ReplicatedStorage.Shared.Modules.UI.Hooks.useAudio)
 local useButtonEffect = require(ReplicatedStorage.Shared.Modules.UI.Hooks.useButtonEffect)
+local NotificationFeed = require(ReplicatedStorage.Shared.Modules.UI.Notifications.NotificationFeed)
 local SettingsMotion = require(ReplicatedStorage.Shared.Modules.UI.SettingsMotion)
 local AutoSellConfig = require(ReplicatedStorage.Settings.Data.AutoSellConfig)
 local RarityRegistry = require(ReplicatedStorage.Shared.Modules.Core.Rarity.RarityRegistry)
@@ -226,8 +227,6 @@ function SettingsUI.RenderUI()
 	end
 	local enteredCode = source("")
 	local isRedeemingCode = source(false)
-	local codeStatus = source("")
-	local codeStatusIsError = source(false)
 	local codeTextBoxInstance: TextBox? = nil
 
 	local function submitCode()
@@ -237,14 +236,11 @@ function SettingsUI.RenderUI()
 
 		local code = string.match(enteredCode(), "^%s*(.-)%s*$") or ""
 		if code == "" then
-			codeStatusIsError(true)
-			codeStatus("Enter a code first.")
+			NotificationFeed.Pull("Enter a code first.", "Error")
 			return
 		end
 
 		isRedeemingCode(true)
-		codeStatusIsError(false)
-		codeStatus("Checking code...")
 		task.spawn(function()
 			local ok, result = pcall(function()
 				local folder = ReplicatedStorage:WaitForChild("RuntimeRemotes", 5)
@@ -257,13 +253,18 @@ function SettingsUI.RenderUI()
 
 			isRedeemingCode(false)
 			if not ok or type(result) ~= "table" then
-				codeStatusIsError(true)
-				codeStatus("Could not redeem the code. Please try again.")
+				NotificationFeed.Pull("Could not redeem the code. Please try again.", "Error")
 				return
 			end
 
-			codeStatusIsError(result.Success ~= true)
-			codeStatus(result.Message or (if result.Success then "Code redeemed!" else "Code could not be redeemed."))
+			local succeeded = result.Success == true
+			NotificationFeed.Pull(
+				result.Message or (if succeeded then "Code redeemed!" else "Code could not be redeemed."),
+				if succeeded then "Normal" else "Error"
+			)
+			if succeeded then
+				enteredCode("")
+			end
 		end)
 	end
 
@@ -1480,8 +1481,6 @@ function SettingsUI.RenderUI()
 					local willOpen = not isCodeFrameOpen()
 					if willOpen then
 						enteredCode("")
-						codeStatus("")
-						codeStatusIsError(false)
 					end
 					isCodeFrameOpen(willOpen)
 				end,
@@ -1586,9 +1585,6 @@ function SettingsUI.RenderUI()
 								value = string.sub(value, 1, 40)
 							end
 							enteredCode(value)
-							if not isRedeemingCode() then
-								codeStatus("")
-							end
 						end),
 
 						action(function(textBox: TextBox)
@@ -1631,33 +1627,6 @@ function SettingsUI.RenderUI()
 					TextColor3 = Color3.new(1, 1, 1),
 					TextScaled = true,
 					ZIndex = 21,
-				}),
-
-				create("TextLabel")({
-					Name = "Status",
-					BackgroundTransparency = 1,
-					FontFace = Font.new(
-						"rbxasset://fonts/families/SourceSansPro.json",
-						Enum.FontWeight.Bold,
-						Enum.FontStyle.Normal
-					),
-					Position = UDim2.fromScale(0.16, 0.65),
-					Size = UDim2.fromScale(0.68, 0.075),
-					Text = codeStatus,
-					TextColor3 = function()
-						return if codeStatusIsError()
-							then Color3.fromRGB(255, 105, 117)
-							else Color3.fromRGB(136, 255, 169)
-					end,
-					TextScaled = true,
-					TextWrapped = true,
-					ZIndex = 22,
-
-					create("UIStroke")({
-						Color = Color3.fromRGB(29, 22, 48),
-						Thickness = 1.2,
-					}),
-					create("UITextSizeConstraint")({ MinTextSize = 8, MaxTextSize = 17 }),
 				}),
 
 				create("ImageButton")({

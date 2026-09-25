@@ -7,6 +7,7 @@ local AudioSystem = require(script.Parent.AudioSystem)
 local ImpactSystem = require(script.Parent.ImpactSystem)
 local ScreenEffectSystem = require(script.Parent.ScreenEffectSystem)
 local ScreenEffects = require(script.Parent.Parent.ScreenEffects)
+local LightingSession = require(script.Parent.Parent.LightingSession)
 local ImpactFrames = require(script.Parent.Parent.ImpactFrames)
 local VFXContext = require(script.Parent.Parent.VFXContext)
 local PlaybackClock = require(script.Parent.Parent.PlaybackClock)
@@ -25,6 +26,14 @@ function CameraRuntime.new(state, reference, config, tracks)
 	)
 	local self = setmetatable({ World = world, Entity = entity, State = state, Tracks = tracks }, CameraRuntime)
 	local ok, err = xpcall(function()
+	if config and config.Lighting then
+		local lightingOk, lighting = pcall(LightingSession.new, config.Lighting)
+		if lightingOk then
+			self.LightingSession = lighting
+		else
+			warn(`[CameraRuntime] Cutscene lighting could not be applied: {lighting}`)
+		end
+	end
 	local fov = config and config.Camera.FOV
 	local vfx = config and config.VFX
 	if fov then
@@ -138,6 +147,10 @@ function CameraRuntime:Destroy()
 	if self.ScreenView then
 		Cleanup.Try("Screen effects", function() self.ScreenView:Destroy() end)
 		self.ScreenView = nil
+	end
+	if self.LightingSession then
+		Cleanup.Try("Lighting", function() self.LightingSession:Destroy() end)
+		self.LightingSession = nil
 	end
 	if self.VFXContext then
 		Cleanup.Try("VFX", function() self.VFXContext:Destroy() end)

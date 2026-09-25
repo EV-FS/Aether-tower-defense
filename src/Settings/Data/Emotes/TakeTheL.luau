@@ -3,6 +3,7 @@ return {
 	Index = 2,
 	DisplayName = "Take the L",
 	AnimationId = "rbxassetid://88824884403975",
+	Looped = true,
 	SoundId = "rbxassetid://120518826488481",
 	SoundVolume = 1,
 	SoundDistance = 80,

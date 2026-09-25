@@ -1,6 +1,5 @@
 local Players = game:GetService("Players")
 local ReplicatedFirst = game:GetService("ReplicatedFirst")
-local RunService = game:GetService("RunService")
 
 local playerGui = Players.LocalPlayer:WaitForChild("PlayerGui")
 
@@ -31,19 +30,11 @@ gradient.Parent = cover
 
 ReplicatedFirst:RemoveDefaultLoadingScreen()
 
-local LoadingController = require(script.Parent.LoadingController)
-LoadingController.Prepare()
-
-RunService.RenderStepped:Wait()
-local loadingGui = playerGui:FindFirstChild("LoadingScreen")
-if loadingGui then
-	-- Loading art is decorative; never hold the boot cover on asset delivery.
-	task.spawn(function()
-		local ContentProvider = game:GetService("ContentProvider")
-		pcall(function() ContentProvider:PreloadAsync({ loadingGui }) end)
-	end)
-end
-
-LoadingController.ReleaseBoot()
-RunService.RenderStepped:Wait()
-bootstrapGui:Destroy()
+-- ReplicatedFirst arrives before ReplicatedStorage.Packages. Keep this native
+-- cover until the UI's LoadingController has mounted its replacement screen.
+task.delay(60, function()
+	if bootstrapGui.Parent then
+		warn("[LoadingBootstrap] UI did not mount within 60s; releasing boot cover")
+		bootstrapGui:Destroy()
+	end
+end)

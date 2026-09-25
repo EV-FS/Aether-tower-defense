@@ -20,7 +20,7 @@ function TopbarUI.Start()
 	local partyIcon = topbar:CreateLabel("PARTY", "Select a stage and play together", 72)
 	partyIcon:align("Right")
 	partyIcon:setOrder(3)
-	topbar:BindToggle(partyIcon, StageSelection.Open, StageSelection.Close)
+	topbar:TrackConnection(partyIcon.selected:Connect(StageSelection.Open))
 	StageSelection.BindTopbarIcon(partyIcon)
 end
 

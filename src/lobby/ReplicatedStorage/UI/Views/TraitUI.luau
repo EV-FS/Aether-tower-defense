@@ -206,7 +206,9 @@ function TraitUI.RenderUI()
 		create("ImageLabel")({
 			Name = "Main", AnchorPoint = Vector2.new(0.5, 0.5), BackgroundTransparency = 1, Image = "rbxassetid://96882538048826",
 			Position = UDim2.fromScale(0.498379, 0.497778),
-			Rotation = menuMotion:WindowRotation(),
+			-- A rotated ancestor can bypass clipping on the nested scroll view.
+			-- The window still animates through menuMotion:WindowSize().
+			Rotation = 0,
 			Size = menuMotion:WindowSize(UDim2.fromScale(0.721698, 0.593865)),
 			create("UIAspectRatioConstraint")({ AspectRatio = 1.88 }),
 			create("ImageLabel")({
@@ -357,6 +359,7 @@ function TraitUI.RenderUI()
 						return UDim2.fromOffset(0, #rows * (rowHeight() + 10) + 6)
 					end,
 					ScrollBarThickness = 3, ScrollBarImageColor3 = Color3.fromRGB(175, 155, 205),
+					ElasticBehavior = Enum.ElasticBehavior.Never,
 					ScrollingDirection = Enum.ScrollingDirection.Y,
 					Size = UDim2.fromScale(1, 1), ZIndex = 2,
 					action(function(frame: ScrollingFrame)

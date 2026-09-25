@@ -1,0 +1,86 @@
+-- The supplied LightingStyle, PrioritizeLightingQuality, and RBX_* migration
+-- attributes are Studio/internal settings and cannot be changed by game scripts.
+return {
+	Properties = {
+		Ambient = Color3.new(0.27450981736183167, 0.27450981736183167, 0.27450981736183167),
+		Brightness = 3,
+		ClockTime = 14.5,
+		ColorShift_Bottom = Color3.new(0, 0, 0),
+		ColorShift_Top = Color3.new(0, 0, 0),
+		EnvironmentDiffuseScale = 1,
+		EnvironmentSpecularScale = 1,
+		ExposureCompensation = 0,
+		FogColor = Color3.new(0.75294125080108643, 0.75294125080108643, 0.75294125080108643),
+		FogEnd = 100000,
+		FogStart = 0,
+		GeographicLatitude = 0,
+		GlobalShadows = true,
+		OutdoorAmbient = Color3.new(0.27450981736183167, 0.27450981736183167, 0.27450981736183167),
+		ShadowSoftness = 0.20000000298023224,
+	},
+	Children = {
+		{
+			ClassName = "BlurEffect",
+			Name = "Blur",
+			Properties = { Enabled = false, Size = 24 },
+		},
+		{
+			ClassName = "BloomEffect",
+			Name = "Bloom",
+			Properties = { Enabled = true, Intensity = 1, Size = 23, Threshold = 2 },
+		},
+		{
+			ClassName = "Sky",
+			Name = "Sky",
+			Properties = {
+				CelestialBodiesShown = false,
+				MoonAngularSize = 11,
+				MoonTextureId = "rbxasset://sky/moon.jpg",
+				SkyboxBk = "rbxassetid://15502324143",
+				SkyboxDn = "rbxassetid://15502324962",
+				SkyboxFt = "rbxassetid://15502325676",
+				SkyboxLf = "rbxassetid://15502326432",
+				SkyboxRt = "rbxassetid://15502327161",
+				SkyboxUp = "rbxassetid://15502328272",
+				SkyboxOrientation = Vector3.new(0, 0, 0),
+				StarCount = 3000,
+				SunAngularSize = 21,
+				SunTextureId = "rbxasset://sky/sun.jpg",
+			},
+		},
+		{
+			ClassName = "Atmosphere",
+			Name = "Atmosphere",
+			Properties = {
+				Color = Color3.new(0.68627452850341797, 0.97254908084869385, 1),
+				Decay = Color3.new(0.41568627953529358, 0.43921568989753723, 0.49019607901573181),
+				Density = 0.46299999952316284,
+				Glare = 0,
+				Haze = 2.0999999046325684,
+				Offset = 0,
+			},
+		},
+		{
+			ClassName = "ColorCorrectionEffect",
+			Name = "ColorCorrection",
+			Properties = {
+				Brightness = 0,
+				Contrast = 0.69999998807907104,
+				Enabled = true,
+				Saturation = 0.30000001192092896,
+				TintColor = Color3.new(1, 1, 1),
+			},
+		},
+		{
+			ClassName = "DepthOfFieldEffect",
+			Name = "DepthOfField",
+			Properties = {
+				Enabled = false,
+				FarIntensity = 0.75,
+				FocusDistance = 0.05000000074505806,
+				InFocusRadius = 10,
+				NearIntensity = 0.75,
+			},
+		},
+	},
+}

@@ -63,6 +63,12 @@ return function(ScreenEffects, PropertyTrack, SummonScreen)
 	local keys = table.freeze({ table.freeze({ Frame = 10, Value = 1 }), table.freeze({ Frame = 0, Value = 0 }) })
 	local prepared = PropertyTrack.Prepare(keys, "number")
 	near(PropertyTrack.Read(prepared, 5), 0.5)
+	local moonDefault = PropertyTrack.Prepare({ Default = 0, Sequence = {
+		{ Frame = 10, Value = 2 }, { Frame = 20, Value = 4 },
+	} }, "number")
+	near(PropertyTrack.Read(moonDefault, 0), 0)
+	near(PropertyTrack.Read(moonDefault, 10), 2)
+	near(PropertyTrack.Read(moonDefault, 15), 3)
 	expect(keys[1].Frame == 10, "Frozen export must not be reordered")
 	expect(not pcall(ScreenEffects.new, { EndFrame = 5, Tracks = { Brightness = keys } }), "Unreachable end keys must fail validation")
 	expect(not pcall(ScreenEffects.Validate, { EndFrame = 5, Tracks = { Brightness = keys } }), "Server-side validation must reject unreachable keys")

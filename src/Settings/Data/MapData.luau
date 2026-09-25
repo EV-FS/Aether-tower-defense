@@ -185,7 +185,7 @@ return TableUtils.DeepFreeze({
 			"Normal",
 		},
 		DifficultyWaves = {
-			Normal = 30,
+			Normal = 1,
 		},
 
 		Rewards = {

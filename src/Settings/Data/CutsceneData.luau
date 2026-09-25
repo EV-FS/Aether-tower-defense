@@ -1,6 +1,9 @@
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local TableUtils = require(ReplicatedStorage.Shared.Modules.Utils.TableUtils)
+local dragonMoonLighting = require(ReplicatedStorage.Shared.Modules.Cutscene.MoonLightingTracks).ColorCorrection(
+	require(script.Parent.CutsceneTracks.DragonSlayerMoonLighting), 7
+)
 
 export type CameraConfig = {
 	Model: string,
@@ -29,6 +32,8 @@ export type ScreenTrack = { ScreenKey } | { Default: (number | boolean | Color3)
 
 export type CutsceneInfo = {
 	ScenePath: { string },
+	SceneTransform: CFrame?,
+	PreloadScene: boolean?,
 	UseWorkspaceScene: boolean?,
 	FocusMode: boolean?,
 	Animations: { [string]: number },
@@ -38,7 +43,13 @@ export type CutsceneInfo = {
 	MaxDuration: number?,
 	FPS: number?,
 	Audio: { SoundId: number, Volume: number? }?,
+	Presentation: { ReadyHold: number, BlackHold: number, ReturnHold: number, FadeIn: number, FadeOut: number, ExitFOVScale: number?, PreloadTimeout: number }?,
+	Lighting: {
+		Properties: { [string]: any },
+		Children: { { ClassName: string, Name: string, Properties: { [string]: any } } },
+	}?,
 	ScreenEffects: {
+		Name: string?,
 		Tracks: { [string]: ScreenTrack },
 		EndFrame: number,
 		FPS: number?,
@@ -85,6 +96,37 @@ return TableUtils.DeepFreeze({
 		},
 		FPS = 60,
 		MaxDuration = 5,
+	},
+
+	DragonSlayer = {
+		ScenePath = { "DragonSlayer_Cutscenes" },
+		Presentation = { ReadyHold = 0, BlackHold = 0.12, ReturnHold = 1, FadeIn = 0.58, FadeOut = 0.55, ExitFOVScale = 0.92, PreloadTimeout = 35 },
+		Lighting = require(script.Parent.CutsceneLighting.DragonSlayer),
+		Audio = { SoundId = 129406672557005, Volume = 1 },
+		ScreenEffects = dragonMoonLighting,
+		VFX = {
+			Events = require(script.Parent.CutsceneTracks.DragonSlayerVFX),
+			EndFrame = 1526,
+			FPS = 60,
+		},
+		SceneTransform = CFrame.new(10000, 0, 0),
+		PreloadScene = false,
+		FocusMode = true,
+		Animations = {
+			Cam = 87879187364917,
+			PlayerRig = 121655745862741,
+			OrbFracture = 112498144790669,
+			DragonSlayer = 77587160779056,
+		},
+		Actors = { PlayerRig = "Self" },
+		Camera = {
+			Model = "Cam",
+			Part = "CamPart",
+			FOV = {
+				Samples = require(script.Parent.CutsceneTracks.DragonSlayerFOV),
+				FPS = dragonMoonLighting.FPS,
+			},
+		},
 	},
 
 	RaidIntro = {

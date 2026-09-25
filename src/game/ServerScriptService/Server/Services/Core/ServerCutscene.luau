@@ -5,6 +5,7 @@ local Data = require(ReplicatedStorage.Settings.Data.CutsceneData)
 local CutsceneValidator = require(ReplicatedStorage.Shared.Modules.Cutscene.CutsceneValidator)
 local PlaybackClock = require(ReplicatedStorage.Shared.Modules.Cutscene.PlaybackClock)
 local ScenePaths = require(ReplicatedStorage.Shared.Modules.Cutscene.ScenePaths)
+local SceneTransform = require(ReplicatedStorage.Shared.Modules.Cutscene.SceneTransform)
 local SceneLifecycle = require(script.Parent.SceneLifecycle)
 local CutsceneProfiles = require(script.Parent.CutsceneProfiles)
 local Cleanup = require(ReplicatedStorage.Shared.Modules.Cutscene.Cleanup)
@@ -66,6 +67,7 @@ function ServerCutscene.Play(name: string, prepareNext)
 		-- Clone together to preserve references between sibling rigs and objects.
 		local clone = SceneLifecycle.Clone(source)
 		staging = clone
+		SceneTransform.Apply(clone, config.SceneTransform)
 		local function visit(targets, callback)
 			if not fastMount then
 				SceneLifecycle.Visit(targets, callback)
@@ -118,7 +120,8 @@ function ServerCutscene.Play(name: string, prepareNext)
 					local motor = rig:FindFirstChildWhichIsA("Motor6D", true)
 					root = motor and motor.Part0
 				end
-				assert(root, "Missing rig root: " .. targetName)
+				root = root or rig:FindFirstChildWhichIsA("BasePart", true)
+				assert(root and root:IsA("BasePart"), "Missing rig root: " .. targetName)
 				root.Anchored = true
 			end
 		end

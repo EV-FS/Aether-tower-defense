@@ -52,6 +52,8 @@ end
 
 local function prepareConfig(config)
 	assert(type(config) == "table", "ScreenEffects config must be a table")
+	assert(config.Name == nil or (type(config.Name) == "string" and config.Name ~= ""),
+		"ScreenEffects.Name must be a nonempty string")
 	assert(config.EndFrame > 0 and config.EndFrame < math.huge, "ScreenEffects.EndFrame must be positive and finite")
 	assert(not config.FPS or (config.FPS > 0 and config.FPS < math.huge), "ScreenEffects.FPS must be positive and finite")
 	local tracks = {}
@@ -75,7 +77,7 @@ end
 function ScreenEffects.new(config)
 	local tracks = prepareConfig(config)
 	local effect = Instance.new("ColorCorrectionEffect")
-	effect.Name = "CutsceneColorCorrection"
+	effect.Name = config.Name or "CutsceneColorCorrection"
 	effect.Enabled = false
 	effect.Saturation = 0
 	effect.Contrast = 0
