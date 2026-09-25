@@ -1,52 +1,53 @@
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
 local Vide = require(ReplicatedStorage.Packages.Vide)
+local ColorSequenceScroll = require(script.Parent.Parent.ColorSequenceScroll)
 
 local action = Vide.action
 local cleanup = Vide.cleanup
+local read = Vide.read
 
 type Reactive<T> = T | (() -> T)
+
+type SharedPalette = {
+	prepared: ColorSequenceScroll.Palette,
+	users: number,
+	lastPhase: number?,
+	lastSample: ColorSequence?,
+}
 
 type CycleState = {
 	colorSequence: Reactive<ColorSequence>,
 	transitionTime: Reactive<number>?,
 	enabled: Reactive<boolean>?,
 	activeSequence: ColorSequence,
-	cycleStartedAt: number,
+	palette: SharedPalette,
+	phase: number,
+	destroyConnection: RBXScriptConnection?,
 }
 
-local UPDATE_INTERVAL = 1 / 30
+local UPDATE_INTERVAL = 1 / 20
+
+local accumulatedTime = 0
+local palettes: { [ColorSequence]: SharedPalette } = {}
 local cycleStates: { [UIGradient]: CycleState } = {}
 local renderConnection: RBXScriptConnection? = nil
-local accumulatedTime = 0
-local schedulerTime = 0
 
-local function read<T>(value: Reactive<T>): T
-	return if type(value) == "function" then (value :: () -> T)() else value
+local function acquirePalette(sequence: ColorSequence): SharedPalette
+	local palette = palettes[sequence]
+	if not palette then
+		palette = { prepared = ColorSequenceScroll.Prepare(sequence), users = 0 }
+		palettes[sequence] = palette
+	end
+	palette.users += 1
+	return palette
 end
 
-local function getCycledSequence(colorSequence: ColorSequence, elapsed: number, transitionTime: number): ColorSequence
-	local keypoints = colorSequence.Keypoints
-	local keypointCount = #keypoints
-	if keypointCount < 2 then
-		return colorSequence
+local function releasePalette(state: CycleState)
+	state.palette.users -= 1
+	if state.palette.users == 0 then
+		palettes[state.activeSequence] = nil
 	end
-
-	local cycleProgress = (elapsed / transitionTime) % keypointCount
-	local colorOffset = math.floor(cycleProgress)
-	local alpha = cycleProgress - colorOffset
-	local cycledKeypoints = table.create(keypointCount)
-
-	for index, keypoint in keypoints do
-		local currentIndex = ((index + colorOffset - 1) % keypointCount) + 1
-		local nextIndex = (currentIndex % keypointCount) + 1
-		local currentColor = keypoints[currentIndex].Value
-		local nextColor = keypoints[nextIndex].Value
-
-		cycledKeypoints[index] = ColorSequenceKeypoint.new(keypoint.Time, currentColor:Lerp(nextColor, alpha))
-	end
-
-	return ColorSequence.new(cycledKeypoints)
 end
 
 local function overlapsScrollingViewport(target: GuiObject, scrollingFrame: ScrollingFrame): boolean
@@ -67,6 +68,12 @@ local function isVisibleOnScreen(gradient: UIGradient): boolean
 	end
 
 	local target = gradient.Parent
+	if target and target:IsA("UIStroke") then
+		if not target.Enabled then
+			return false
+		end
+		target = target.Parent
+	end
 	if not target or not target:IsA("GuiObject") then
 		return false
 	end
@@ -105,93 +112,95 @@ local function stopSchedulerIfIdle()
 	accumulatedTime = 0
 end
 
+local function removeState(gradient: UIGradient, state: CycleState)
+	if cycleStates[gradient] ~= state then
+		return
+	end
+	cycleStates[gradient] = nil
+	releasePalette(state)
+	if state.destroyConnection then
+		state.destroyConnection:Disconnect()
+		state.destroyConnection = nil
+	end
+	stopSchedulerIfIdle()
+end
+
 local function startScheduler()
 	if renderConnection then
 		return
 	end
 
 	renderConnection = RunService.RenderStepped:Connect(function(deltaTime)
-		schedulerTime += deltaTime
 		accumulatedTime += deltaTime
-
 		if accumulatedTime < UPDATE_INTERVAL then
 			return
 		end
 
-		accumulatedTime %= UPDATE_INTERVAL
+		local remainder = accumulatedTime % UPDATE_INTERVAL
+		local elapsed = accumulatedTime - remainder
+		accumulatedTime = remainder
 
 		for gradient, state in cycleStates do
-			if not gradient.Parent then
-				cycleStates[gradient] = nil
-				continue
-			end
-
 			if not isVisibleOnScreen(gradient) then
 				continue
 			end
 
 			local nextSequence = read(state.colorSequence)
 			if nextSequence ~= state.activeSequence then
+				releasePalette(state)
 				state.activeSequence = nextSequence
-				state.cycleStartedAt = schedulerTime
+				state.palette = acquirePalette(nextSequence)
+				state.phase = 0
 			end
 
-			if state.enabled and not read(state.enabled) then
-				gradient.Color = state.activeSequence
+			if (state.enabled ~= nil and not read(state.enabled)) or state.palette.prepared.IsSolid then
+				state.phase = 0
+				if gradient.Color ~= state.activeSequence then
+					gradient.Color = state.activeSequence
+				end
 				continue
 			end
 
 			local duration = math.max(if state.transitionTime then read(state.transitionTime) else 1, 0.01)
-			local elapsed = schedulerTime - state.cycleStartedAt
-			gradient.Color = getCycledSequence(state.activeSequence, elapsed, duration)
+			local palette = state.palette
+			state.phase = (state.phase + elapsed / (duration * palette.prepared.Steps)) % 1
+			if palette.lastPhase ~= state.phase then
+				palette.lastPhase = state.phase
+				palette.lastSample = ColorSequenceScroll.Sample(palette.prepared, state.phase)
+			end
+			gradient.Color = palette.lastSample :: ColorSequence
 		end
-
-		stopSchedulerIfIdle()
 	end)
 end
 
---[[
-	create("UIGradient")({
-		useColorSequenceCycle(ColorSequence.new({
-			ColorSequenceKeypoint.new(0, Color3.fromRGB(255, 75, 75)),
-			ColorSequenceKeypoint.new(1, Color3.fromRGB(115, 34, 34)),
-		}), 0.8),
-	})
-
-	transitionTime is the time in seconds for each keypoint color to reach the next color.
-	enabled can pause updates while the UI is hidden.
-]]
-
-local function useColorSequenceCycle(
-	colorSequence: Reactive<ColorSequence>,
-	transitionTime: Reactive<number>?,
-	enabled: Reactive<boolean>?
-)
+return function(colorSequence: Reactive<ColorSequence>, transitionTime: Reactive<number>?, enabled: Reactive<boolean>?)
 	return action(function(instance: Instance)
-		assert(instance:IsA("UIGradient"))
+		assert(instance:IsA("UIGradient"), "useColorSequenceCycle must be used on a UIGradient")
 
 		local gradient = instance :: UIGradient
+		local previousState = cycleStates[gradient]
+		if previousState then
+			removeState(gradient, previousState)
+		end
 		local activeSequence = read(colorSequence)
 		local state: CycleState = {
 			colorSequence = colorSequence,
 			transitionTime = transitionTime,
 			enabled = enabled,
 			activeSequence = activeSequence,
-			cycleStartedAt = schedulerTime,
+			palette = acquirePalette(activeSequence),
+			phase = 0,
 		}
 
 		gradient.Color = activeSequence
 		cycleStates[gradient] = state
+		state.destroyConnection = gradient.Destroying:Connect(function()
+			removeState(gradient, state)
+		end)
 		startScheduler()
 
 		cleanup(function()
-			if cycleStates[gradient] == state then
-				cycleStates[gradient] = nil
-			end
-
-			stopSchedulerIfIdle()
+			removeState(gradient, state)
 		end)
 	end)
 end
-
-return useColorSequenceCycle

@@ -67,7 +67,13 @@ export type Props = {
 -------------------------------------------------
 --// Local Functions
 -------------------------------------------------
-local function prepareRig(model: Model): RigState
+local function prepareRig(model: Model): RigState?
+	local root = model:FindFirstChild("HumanoidRootPart", true)
+	if not root or not root:IsA("BasePart") then
+		warn(`[RigViewport] Rig "{model.Name}" needs a HumanoidRootPart to create a preview.`)
+		return nil
+	end
+
 	for _, descendant in model:GetDescendants() do
 		if descendant:IsA("BaseScript") then
 			descendant:Destroy()
@@ -79,29 +85,16 @@ local function prepareRig(model: Model): RigState
 		end
 	end
 
-	local humanoidRootPart = model:FindFirstChild("HumanoidRootPart", true)
-	local root = model.PrimaryPart or humanoidRootPart
-	if not root or not root:IsA("BasePart") then
-		root = model:FindFirstChildWhichIsA("BasePart", true)
-	end
-	if root and root:IsA("BasePart") then
-		root.Anchored = true
-	end
-
+	-- Frame and rotate around the root only; limbs and accessories may be cropped.
+	model.PrimaryPart = root
+	root.PivotOffset = CFrame.identity
+	root.Anchored = true
 	model:PivotTo(CFrame.identity)
-	local bounds: CFrame
-	local size: Vector3
-	if humanoidRootPart and humanoidRootPart:IsA("BasePart") then
-		bounds = humanoidRootPart.CFrame
-		size = humanoidRootPart.Size
-	else
-		bounds, size = model:GetBoundingBox()
-	end
 
 	return {
 		Model = model,
-		Center = bounds.Position,
-		Radius = math.max(size.Magnitude * 0.5, MINIMUM_RADIUS),
+		Center = root.Position,
+		Radius = math.max(root.Size.Magnitude * 0.5, MINIMUM_RADIUS),
 	}
 end
 
@@ -207,11 +200,15 @@ return function(props: Props): ViewportFrame
 			warn(`[RigViewport] Rig "{rig.Name}" must be Archivable to create a preview.`)
 			return
 		end
+		local state = prepareRig(model)
+		if not state then
+			model:Destroy()
+			return
+		end
 		cleanup(function()
 			rigState(nil)
 			model:Destroy()
 		end)
-		local state = prepareRig(model)
 		model.Parent = viewport
 		rigState(state)
 	end)

@@ -35,7 +35,7 @@ return function()
 			Name = "HoverOutline",
 			Color = button.BackgroundColor3,
 			StrokeSizingMode = Enum.StrokeSizingMode.ScaledSize,
-			Thickness = 0.05,
+			Thickness = 0.04,
 			Transparency = spring(function()
 				return if isHovered() then 0 else 1
 			end, 0.3, 1),
@@ -44,8 +44,19 @@ return function()
 		})
 
 		local buttonGradient = button:FindFirstChildOfClass("UIGradient")
+		local gradientConnect
 		if buttonGradient then
-			buttonGradient:Clone().Parent = hoverOutline
+			local cloneGradient = buttonGradient:Clone()
+			cloneGradient.Parent = hoverOutline
+
+			gradientConnect = buttonGradient:GetPropertyChangedSignal("Color"):Connect(function()
+				cloneGradient.Color = buttonGradient.Color
+			end)
+		end
+
+		local buttonUICorner = button:FindFirstChildOfClass("UICorner")
+		if buttonUICorner then
+			buttonUICorner:Clone().Parent = hoverFrame
 		end
 
 		Vide.cleanup(function()
@@ -54,6 +65,10 @@ return function()
 
 			hoverFrame:Destroy()
 			hoverOutline:Destroy()
+
+			if gradientConnect then
+				gradientConnect:Disconnect()
+			end
 		end)
 	end)
 end

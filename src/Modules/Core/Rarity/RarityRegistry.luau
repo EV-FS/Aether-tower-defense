@@ -30,7 +30,7 @@ local PresentationData = {
 			ColorSequenceKeypoint.new(1, Color3.fromRGB(177, 158, 158)),
 		}),
 		Glow = Color3.fromRGB(180, 180, 180),
-		ShimmerSpeed = 3,
+		ShimmerSpeed = 1,
 	},
 	Rare = {
 		Color = Color3.new(0, 1, 1),
@@ -40,7 +40,7 @@ local PresentationData = {
 			ColorSequenceKeypoint.new(1, Color3.fromRGB(53, 76, 231)),
 		}),
 		Glow = Color3.fromRGB(70, 120, 255),
-		ShimmerSpeed = 3,
+		ShimmerSpeed = 1.5,
 	},
 	Epic = {
 		Color = Color3.new(0.5, 0, 1),
@@ -50,7 +50,7 @@ local PresentationData = {
 			ColorSequenceKeypoint.new(1, Color3.fromRGB(131, 0, 131)),
 		}),
 		Glow = Color3.fromRGB(210, 80, 255),
-		ShimmerSpeed = 2,
+		ShimmerSpeed = 1.5,
 	},
 	Legendary = {
 		Color = Color3.new(1, 1, 0),
@@ -60,7 +60,7 @@ local PresentationData = {
 			ColorSequenceKeypoint.new(1, Color3.fromRGB(226, 88, 46)),
 		}),
 		Glow = Color3.fromRGB(255, 190, 70),
-		ShimmerSpeed = 1.8,
+		ShimmerSpeed = 1.5,
 	},
 	Mythic = {
 		Color = Color3.new(1, 0, 0),
@@ -70,7 +70,7 @@ local PresentationData = {
 			ColorSequenceKeypoint.new(1, Color3.fromRGB(218, 0, 4)),
 		}),
 		Glow = Color3.fromRGB(255, 60, 60),
-		ShimmerSpeed = 3,
+		ShimmerSpeed = 1.5,
 	},
 	Absolute = {
 		Color = Color3.new(0.15, 0.15, 1),
@@ -80,17 +80,46 @@ local PresentationData = {
 			ColorSequenceKeypoint.new(1, Color3.fromRGB(239, 189, 255)),
 		}),
 		Glow = Color3.fromRGB(83, 46, 250),
-		ShimmerSpeed = 4.5,
+		ShimmerSpeed = 1.25,
 	},
 	Secret = {
-		Color = Color3.new(1, 0, 1),
+		Color = Color3.fromRGB(126, 0, 4),
 		Gradient = ColorSequence.new({
-			ColorSequenceKeypoint.new(0, Color3.fromRGB(62, 0, 2)),
+			ColorSequenceKeypoint.new(0, Color3.fromRGB(107, 0, 4)),
 			ColorSequenceKeypoint.new(0.5, Color3.fromRGB(255, 0, 8)),
-			ColorSequenceKeypoint.new(1, Color3.fromRGB(62, 0, 2)),
+			ColorSequenceKeypoint.new(1, Color3.fromRGB(107, 0, 4)),
 		}),
 		Glow = Color3.fromRGB(62, 0, 2),
-		ShimmerSpeed = 3,
+		ShimmerSpeed = 1.5,
+	},
+	Coins = {
+		Color = Color3.new(1, 0.65, 0),
+		Gradient = ColorSequence.new({
+			ColorSequenceKeypoint.new(0, Color3.fromRGB(255, 249, 140)),
+			ColorSequenceKeypoint.new(1, Color3.fromRGB(255, 128, 0)),
+		}),
+		Glow = Color3.new(1, 0.65, 0),
+		ShimmerSpeed = 1.5,
+	},
+	Gems = {
+		Color = Color3.fromRGB(0, 187, 255),
+		Gradient = ColorSequence.new({
+			ColorSequenceKeypoint.new(0, Color3.fromRGB(0, 187, 255)),
+			ColorSequenceKeypoint.new(0.5, Color3.fromRGB(185, 227, 255)),
+			ColorSequenceKeypoint.new(1, Color3.fromRGB(153, 0, 255)),
+		}),
+		Glow = Color3.fromRGB(0, 187, 255),
+		ShimmerSpeed = 1.5,
+	},
+	Blossom = {
+		Color = Color3.fromRGB(239, 181, 255),
+		Gradient = ColorSequence.new({
+			ColorSequenceKeypoint.new(0, Color3.fromRGB(255, 112, 248)),
+			ColorSequenceKeypoint.new(0.5, Color3.fromRGB(239, 181, 255)),
+			ColorSequenceKeypoint.new(1, Color3.fromRGB(243, 79, 255)),
+		}),
+		Glow = Color3.fromRGB(239, 181, 255),
+		ShimmerSpeed = 1.5,
 	},
 }
 
@@ -104,6 +133,9 @@ local ProgressionOrder = {
 	"Mythic",
 	"Absolute",
 	"Secret",
+	"Coins",
+	"Gems",
+	"Blossom",
 }
 
 local ProgressionData = {}
