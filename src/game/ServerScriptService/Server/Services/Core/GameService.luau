@@ -95,8 +95,6 @@ local function admitPlayer(player: Player, joinData: any): (boolean, string?)
 			return false, settingsError
 		end
 
-		-- Older lobbies send only Map/Difficulty. Transport version and source
-		-- place IDs are not required to play an otherwise valid selection.
 		local memberCount = teleportData.MemberCount
 		if memberCount == nil then
 			local members = { [player.UserId] = true }
@@ -271,6 +269,9 @@ function GameService:GameOver(isWin: boolean)
 	end
 	self.IsGameRunning = false
 
+	-- Stop resets CurrentWave, so preserve progress for defeat rewards.
+	local currentWave = WaveService.CurrentWave
+
 	WaveService:Stop()
 	EnemyService:DestroyAll()
 	UnitService:DestroyAll()
@@ -294,12 +295,8 @@ function GameService:GameOver(isWin: boolean)
 				exp = mapRewards.WinExp or 0
 				gems = mapRewards.WinGems or 0
 			else
-				local maxWave = WaveService:GetWaves()
-				local currentWave = WaveService.CurrentWave
-				local completionRatio = math.clamp(maxWave > 0 and (currentWave / maxWave) or 0, 0, 1)
-
-				coins = math.floor((mapRewards.LoseCoinsPerWave or 0) * completionRatio)
-				exp = math.floor((mapRewards.LoseExpPerWave or 0) * completionRatio)
+				coins = math.floor((mapRewards.LoseCoinsPerWave or 0) * currentWave)
+				exp = math.floor((mapRewards.LoseExpPerWave or 0) * currentWave)
 				gems = 0
 			end
 		else
