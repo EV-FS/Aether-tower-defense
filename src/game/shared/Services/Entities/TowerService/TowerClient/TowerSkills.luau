@@ -8,8 +8,8 @@ local InputService
 local TimeService
 
 local HOTKEYS = {
-	Enum.KeyCode.Q,
 	Enum.KeyCode.F,
+	Enum.KeyCode.B,
 	Enum.KeyCode.G,
 	Enum.KeyCode.H,
 	Enum.KeyCode.J,
