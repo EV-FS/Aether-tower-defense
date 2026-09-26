@@ -22,6 +22,19 @@ local function destroyBillboard(player: Player)
 end
 
 local function createEmojiContent(parent: Instance, emojiConfig: EmojiData.EmojiConfig)
+	if emojiConfig.Image == "" then
+		local symbol = Instance.new("TextLabel")
+		symbol.Name = "EmojiSymbol"
+		symbol.BackgroundTransparency = 1
+		symbol.FontFace = Font.fromEnum(Enum.Font.FredokaOne)
+		symbol.Position = UDim2.fromScale(0.1, 0.1)
+		symbol.Size = UDim2.fromScale(0.8, 0.8)
+		symbol.Text = emojiConfig.Symbol
+		symbol.TextColor3 = Color3.fromRGB(54, 117, 231)
+		symbol.TextScaled = true
+		symbol.Parent = parent
+		return
+	end
 	local image = Instance.new("ImageLabel")
 	image.Name = "EmojiImage"
 	image.AnchorPoint = Vector2.new(0.5, 0.5)
@@ -35,7 +48,7 @@ end
 
 local function showEmojiForPlayer(player: Player, emojiId: string)
 	local emojiConfig = EmojiData.ByName[emojiId]
-	if not emojiConfig or emojiConfig.Image == "" then
+	if not emojiConfig then
 		return
 	end
 
@@ -101,7 +114,7 @@ end
 
 function EmojiClient.ShowEmoji(emojiId: string)
 	local emojiConfig = EmojiData.ByName[emojiId]
-	if not emojiConfig or emojiConfig.Image == "" then
+	if not emojiConfig then
 		warn(`[EmojiClient] Emoji data not found: {emojiId}`)
 		return
 	end

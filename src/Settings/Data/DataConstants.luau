@@ -22,8 +22,15 @@ return TableUtils.DeepFreeze({
 			Emotes = {
 				["Look Out"] = 1,
 			},
+			Emojis = {
+				Wave = 1,
+				Laugh = 1,
+				Love = 1,
+				Surprised = 1,
+			},
 		},
 		EmoteLoadout = {},
+		EmojiLoadout = {},
 		Collection = {
 			Units = {},
 			Items = {},
@@ -45,6 +52,7 @@ return TableUtils.DeepFreeze({
 		_NextId = 1,
 		_StructureVersion = "v2",
 		_StarterTowerReceived = false,
+		_EmojiLoadoutInitialized = false,
 	},
 
 	PUBLIC_DATA_KEYS = {
@@ -61,6 +69,7 @@ return TableUtils.DeepFreeze({
 		DevProducts = true,
 		Loadout = true,
 		EmoteLoadout = true,
+		EmojiLoadout = true,
 		Settings = true,
 		Quests = true,
 	},

@@ -13,6 +13,7 @@ local ItemUtils = require(ReplicatedStorage.Shared.Modules.Utils.ItemUtils)
 local TowerData = require(ReplicatedStorage.Settings.Data.TowerData)
 local TraitData = require(ReplicatedStorage.Settings.Data.TraitData)
 local EmoteData = require(ReplicatedStorage.Settings.Data.EmoteData)
+local EmojiData = require(ReplicatedStorage.Settings.Data.EmojiData)
 local PurchaseData = require(ReplicatedStorage.Settings.Data.PurchaseData)
 local TableUtils = require(ReplicatedStorage.Shared.Modules.Utils.TableUtils)
 local ProfileStore = require(ServerScriptService.ServerPackages.ProfileStore)
@@ -184,6 +185,37 @@ local function patchEmoteInventory(playerData: PlayerData)
 		end
 	end
 	playerData.EmoteLoadout = cleanLoadout
+end
+
+local function patchEmojiInventory(playerData: PlayerData)
+	playerData.Inventory = if type(playerData.Inventory) == "table" then playerData.Inventory else {}
+	local rawEmojis = if type(playerData.Inventory.Emojis) == "table" then playerData.Inventory.Emojis else {}
+	local emojis = {}
+	for emojiId in EmojiData.ByName do
+		local count = tonumber(rawEmojis[emojiId]) or 0
+		if count > 0 then emojis[emojiId] = math.floor(count) end
+	end
+	for _, emojiId in { "Wave", "Laugh", "Love", "Surprised" } do
+		emojis[emojiId] = math.max(1, math.floor(tonumber(emojis[emojiId]) or 0))
+	end
+	playerData.Inventory.Emojis = emojis
+
+	local raw = if type(playerData.EmojiLoadout) == "table" then playerData.EmojiLoadout else {}
+	local clean = {}
+	local used = {}
+	for slot = 1, 4 do
+		local emojiId = raw[slot] or raw[tostring(slot)]
+		if type(emojiId) == "string" and emojis[emojiId] and emojis[emojiId] > 0
+			and EmojiData.ByName[emojiId] and not used[emojiId] then
+			clean[tostring(slot)] = emojiId
+			used[emojiId] = true
+		end
+	end
+	if not playerData._EmojiLoadoutInitialized then
+		if next(clean) == nil then clean["1"] = "Wave" end
+		playerData._EmojiLoadoutInitialized = true
+	end
+	playerData.EmojiLoadout = clean
 end
 
 -------------------------------------------------
@@ -641,6 +673,7 @@ function DataService:_MigrateData(profile: profile)
 	TraitData.MigrateOwnedTowers(playerData.OwnedTowers)
 	patchItemInventory(playerData)
 	patchEmoteInventory(playerData)
+	patchEmojiInventory(playerData)
 end
 
 function DataService._SetLevel(player: Player, playerData: PlayerData)

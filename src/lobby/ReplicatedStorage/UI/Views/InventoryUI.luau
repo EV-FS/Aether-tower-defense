@@ -1,10 +1,12 @@
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Vide = require(ReplicatedStorage.Packages.Vide)
+local Promise = require(ReplicatedStorage.Packages.Promise)
 local useMenuMotion = require(ReplicatedStorage.Shared.Modules.UI.Hooks.useMenuMotion)
 local RarityRegistry = require(ReplicatedStorage.Shared.Modules.Core.Rarity.RarityRegistry)
 local ItemData = require(ReplicatedStorage.Settings.Data.ItemData)
 local EmoteData = require(ReplicatedStorage.Settings.Data.EmoteData)
+local EmojiData = require(ReplicatedStorage.Settings.Data.EmojiData)
 local UISFX = require(ReplicatedStorage.Settings.Visuals.UISFX)
 local ServiceRegistry = require(ReplicatedStorage.Shared.Modules.Core.ServiceRegistry)
 local useAudio = require(ReplicatedStorage.Shared.Modules.UI.Hooks.useAudio)
@@ -12,8 +14,11 @@ local useButtonEffect = require(ReplicatedStorage.Shared.Modules.UI.Hooks.useBut
 local useColorSequenceCycle = require(ReplicatedStorage.Shared.Modules.UI.Hooks.useColorSequenceCycle)
 local ItemCard = require(ReplicatedStorage.UI.Components.ItemCard)
 local EmoteCard = require(ReplicatedStorage.UI.Components.EmoteCard)
+local EmojiCard = require(ReplicatedStorage.UI.Components.EmojiCard)
 local PlayerCharacter = require(ReplicatedStorage.Shared.Modules.UI.Emote.PlayerCharacter)
 local EmoteUI = require(ReplicatedStorage.UI.Views.EmoteUI)
+local EmojiUI = require(ReplicatedStorage.UI.Views.EmojiUI)
+local NotificationFeed = require(ReplicatedStorage.Shared.Modules.UI.Notifications.NotificationFeed)
 
 local create = Vide.create
 local action = Vide.action
@@ -29,7 +34,7 @@ local InventoryClient
 local UIController
 
 local VIEW_ID = "Inventory"
-local CATEGORIES = { "Material", "Skin", "Emote" }
+local CATEGORIES = { "Material", "Skin", "Emote", "Emoji" }
 local SORT_CRITERIA = { "Rarity", "ABC", "Quantity" }
 local selectedCategory = source("Material")
 local currentSort = source("Rarity")
@@ -49,6 +54,7 @@ end
 local function categoryStacks(): { [string]: number }
 	if selectedCategory() == "Skin" then return InventoryClient.Skins() end
 	if selectedCategory() == "Emote" then return InventoryClient.Emotes() end
+	if selectedCategory() == "Emoji" then return InventoryClient.Emojis() end
 	return InventoryClient.Items()
 end
 
@@ -68,6 +74,17 @@ local function getInfo(itemName: string, category: string?)
 			PlaybackSpeed = emote.PlaybackSpeed,
 		} else nil
 	end
+	if targetCategory == "Emoji" then
+		local emoji = EmojiData.ByName[itemName]
+		return if emoji then {
+			Name = emoji.Id,
+			DisplayName = emoji.DisplayName,
+			Rarity = "Rare",
+			ItemImage = emoji.Image,
+			Symbol = emoji.Symbol,
+			Description = "Equip this emoji to a wheel slot, then press B to show it.",
+		} else nil
+	end
 	return ItemData.ByName[itemName]
 		or {
 			Name = itemName,
@@ -82,7 +99,8 @@ local function matchesSearch(itemName: string): boolean
 		return true
 	end
 	local info = getInfo(itemName)
-	return string.find(string.lower(`{itemName} {info.Rarity}`), query, 1, true) ~= nil
+	if not info then return false end
+	return string.find(string.lower(`{itemName} {info.DisplayName or ""} {info.Rarity}`), query, 1, true) ~= nil
 end
 
 local function matchingItemCount(): number
@@ -242,6 +260,10 @@ function InventoryUI.RenderUI()
 		local name = selectedItemName()
 		return if selectedCategory() == "Emote" and name then InventoryClient.FindEquippedEmoteSlot(name) else nil
 	end)
+	local selectedEmojiSlot = derive(function()
+		local name = selectedItemName()
+		return if selectedCategory() == "Emoji" and name then InventoryClient.FindEquippedEmojiSlot(name) else nil
+	end)
 	local detailCamera = create("Camera")({
 		FieldOfView = 38,
 		CFrame = CFrame.lookAt(Vector3.new(0, 0.25, -6.4), Vector3.new(0, -0.45, 0)),
@@ -270,7 +292,10 @@ function InventoryUI.RenderUI()
 		if isVisible() then
 			InventoryClient.RefreshInventory()
 				:andThen(function()
-					return InventoryClient.RefreshEmoteLoadout()
+					return Promise.all({
+						InventoryClient.RefreshEmoteLoadout(),
+						InventoryClient.RefreshEmojiLoadout(),
+					})
 				end)
 				:andThen(function()
 					local name = selectedItemName()
@@ -419,6 +444,17 @@ function InventoryUI.RenderUI()
 							PaddingRight = UDim.new(0, 4),
 						}),
 						values(visibleEntries, function(entry, rank)
+							if entry.Category == "Emoji" then
+								return EmojiCard({
+									EmojiId = entry.Name,
+									LayoutOrder = function() return rank() end,
+									IsSelected = function() return selectedItemName() == entry.Name end,
+									IsEquipped = function()
+										return InventoryClient.FindEquippedEmojiSlot(entry.Name) ~= nil
+									end,
+									Activated = function() selectedItemName(entry.Name) end,
+								})
+							end
 							if entry.Category == "Emote" then
 								return EmoteCard({
 									EmoteName = entry.Name,
@@ -453,6 +489,7 @@ function InventoryUI.RenderUI()
 							end
 							if selectedCategory() == "Skin" then return "NO SKINS OWNED" end
 							if selectedCategory() == "Emote" then return "NO EMOTES OWNED" end
+							if selectedCategory() == "Emoji" then return "NO EMOJIS OWNED" end
 							return "NO MATERIALS OWNED"
 						end,
 						TextColor3 = Color3.fromRGB(218, 218, 226),
@@ -476,7 +513,8 @@ function InventoryUI.RenderUI()
 						ClearTextOnFocus = false,
 						FontFace = Font.new("rbxasset://fonts/families/FredokaOne.json"),
 						PlaceholderText = function()
-							return if selectedCategory() == "Emote" then "EMOTE NAME" else "ITEM NAME"
+							return if selectedCategory() == "Emote" then "EMOTE NAME"
+								elseif selectedCategory() == "Emoji" then "EMOJI NAME" else "ITEM NAME"
 						end,
 						Position = UDim2.fromScale(0.0363427, 0),
 						Size = UDim2.fromScale(0.82, 1),
@@ -553,6 +591,7 @@ function InventoryUI.RenderUI()
 						categoryButton("Material", 1, isVisible),
 						categoryButton("Skin", 2, isVisible),
 						categoryButton("Emote", 3, isVisible),
+						categoryButton("Emoji", 4, isVisible),
 					}),
 				}),
 			}),
@@ -582,7 +621,8 @@ function InventoryUI.RenderUI()
 					Position = UDim2.fromScale(0.49695, 0.055326),
 					Size = UDim2.fromScale(0.83363, 0.0605149),
 					Text = function()
-						return selectedItemName() or "SELECT AN ITEM"
+						local info = selectedInfo()
+						return if info then info.DisplayName or selectedItemName() else "SELECT AN ITEM"
 					end,
 					TextColor3 = Color3.new(1, 1, 1),
 					TextScaled = true,
@@ -599,7 +639,8 @@ function InventoryUI.RenderUI()
 					Text = function()
 						local info = selectedInfo()
 						if not info then return "" end
-						return if selectedCategory() == "Emote" then "EMOTE" else string.upper(info.Rarity)
+						return if selectedCategory() == "Emote" then "EMOTE"
+							elseif selectedCategory() == "Emoji" then "EMOJI" else string.upper(info.Rarity)
 					end,
 					TextColor3 = Color3.new(1, 1, 1),
 					TextScaled = true,
@@ -628,7 +669,7 @@ function InventoryUI.RenderUI()
 					Position = UDim2.fromScale(0.501848, 0.494182),
 					ScaleType = Enum.ScaleType.Fit,
 					Size = UDim2.fromScale(0.558716, 0.578273),
-					Visible = function() return selectedCategory() ~= "Emote" end,
+					Visible = function() return selectedCategory() ~= "Emote" and selectedCategory() ~= "Emoji" end,
 					create("UIAspectRatioConstraint")({}),
 				}),
 				create("ViewportFrame")({
@@ -659,6 +700,43 @@ function InventoryUI.RenderUI()
 						PlaybackSpeed = 1,
 					}),
 				}),
+				create("ImageLabel")({
+					Name = "EmojiPreview",
+					AnchorPoint = Vector2.new(0.5, 0.5),
+					BackgroundTransparency = 1,
+					Image = function()
+						local info = selectedInfo()
+						return if selectedCategory() == "Emoji" and info then info.ItemImage else ""
+					end,
+					Position = UDim2.fromScale(0.5, 0.52),
+					ScaleType = Enum.ScaleType.Fit,
+					Size = UDim2.fromScale(0.7, 0.7),
+					Visible = function()
+						local info = selectedInfo()
+						return selectedCategory() == "Emoji" and info ~= nil and info.ItemImage ~= ""
+					end,
+					ZIndex = 4,
+				}),
+				create("TextLabel")({
+					Name = "EmojiSymbolPreview",
+					AnchorPoint = Vector2.new(0.5, 0.5),
+					BackgroundTransparency = 1,
+					FontFace = Font.fromEnum(Enum.Font.FredokaOne),
+					Position = UDim2.fromScale(0.5, 0.52),
+					Size = UDim2.fromScale(0.7, 0.7),
+					Text = function()
+						local info = selectedInfo()
+						return if selectedCategory() == "Emoji" and info then info.Symbol else ""
+					end,
+					TextColor3 = Color3.fromRGB(115, 215, 255),
+					TextScaled = true,
+					Visible = function()
+						local info = selectedInfo()
+						return selectedCategory() == "Emoji" and info ~= nil and info.ItemImage == ""
+					end,
+					ZIndex = 4,
+					create("UIStroke")({ Thickness = 3 }),
+				}),
 			}),
 			create("Frame")({
 				Name = "OwnedFrame",
@@ -680,7 +758,7 @@ function InventoryUI.RenderUI()
 					FontFace = Font.new("rbxasset://fonts/families/SourceSansPro.json", Enum.FontWeight.Bold),
 					Position = UDim2.fromScale(0, 0.5),
 					Size = UDim2.fromScale(0.32, 0.72),
-					Text = function() return if selectedCategory() == "Emote" then "Status" else "Owned" end,
+					Text = function() return if selectedCategory() == "Emote" or selectedCategory() == "Emoji" then "Status" else "Owned" end,
 					TextColor3 = Color3.fromRGB(192, 192, 192),
 					TextScaled = true,
 					TextXAlignment = Enum.TextXAlignment.Left,
@@ -696,6 +774,9 @@ function InventoryUI.RenderUI()
 					Text = function()
 						if selectedCategory() == "Emote" then
 							return if selectedEmoteSlot() then "EQUIPPED" else "NOT EQUIPPED"
+						end
+						if selectedCategory() == "Emoji" then
+							return if selectedEmojiSlot() then "EQUIPPED" else "NOT EQUIPPED"
 						end
 						return `{selectedCount()}x`
 					end,
@@ -736,21 +817,41 @@ function InventoryUI.RenderUI()
 			create("ImageButton")({
 				Name = "EquipButton",
 				Active = function()
-					return selectedCategory() == "Emote" and selectedItemName() ~= nil and not emoteActionPending()
+					return (selectedCategory() == "Emote" or selectedCategory() == "Emoji")
+						and selectedItemName() ~= nil and not emoteActionPending()
 				end,
 				AnchorPoint = Vector2.new(0.5, 0.5),
 				BackgroundTransparency = 1,
 				Image = "rbxassetid://83967774994235",
 				ImageTransparency = function()
-					return if selectedCategory() == "Emote" and selectedItemName() and not emoteActionPending() then 0 else 0.45
+					return if (selectedCategory() == "Emote" or selectedCategory() == "Emoji")
+						and selectedItemName() and not emoteActionPending() then 0 else 0.45
 				end,
-				Visible = function() return selectedCategory() == "Emote" end,
+				Visible = function() return selectedCategory() == "Emote" or selectedCategory() == "Emoji" end,
 				Position = menuMotion:Spring(UDim2.fromScale(0.787698, 0.920119), UDim2.fromScale(0.787698, 1.05), "Action"),
 				Size = UDim2.fromScale(0.337246, 0.0842378),
 				ZIndex = 11,
 				Activated = function()
 					local emoteName = selectedItemName()
-					if selectedCategory() ~= "Emote" or not emoteName or emoteActionPending() then return end
+					if not emoteName or emoteActionPending() then return end
+					if selectedCategory() == "Emoji" then
+						if selectedEmojiSlot() then
+							emoteActionPending(true)
+							InventoryClient.UnequipEmoji(emoteName):andThen(function(result)
+								emoteActionPending(false)
+								if not result.Success then
+									NotificationFeed.Pull(result.Message or "Could not unequip emoji.", "Error")
+								end
+							end):catch(function(err)
+								emoteActionPending(false)
+								NotificationFeed.Pull(`Could not unequip emoji: {tostring(err)}`, "Error")
+							end)
+						else
+							EmojiUI.OpenEquipMode(emoteName)
+						end
+						return
+					end
+					if selectedCategory() ~= "Emote" then return end
 					if selectedEmoteSlot() then
 						emoteActionPending(true)
 						InventoryClient.UnequipEmote(emoteName):andThen(function(result)
@@ -776,7 +877,8 @@ function InventoryUI.RenderUI()
 					Size = UDim2.fromScale(0.467855, 0.487941),
 					Text = function()
 						if emoteActionPending() then return "WAIT" end
-						return if selectedEmoteSlot() then "UNEQUIP" else "EQUIP"
+						return if (selectedCategory() == "Emoji" and selectedEmojiSlot())
+							or (selectedCategory() == "Emote" and selectedEmoteSlot()) then "UNEQUIP" else "EQUIP"
 					end,
 					TextColor3 = Color3.new(1, 1, 1),
 					TextScaled = true,

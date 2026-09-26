@@ -18,6 +18,8 @@ export type EmoteData = {
 	IntroAnimationId: (number | string)?,
 	Looped: boolean?,
 	PlaybackSpeed: number?,
+	Image: string?,
+	Symbol: string?,
 }
 
 export type Props = {
@@ -28,6 +30,7 @@ export type Props = {
 	OnSlotSelected: ((slotIndex: number, emoteName: string?) -> ())?,
 	SlotActionText: (string | ((slotIndex: number, emoteName: string?) -> string))?,
 	InteractionDisabled: (boolean | (() -> boolean))?,
+	RenderPreview: ((slotIndex: number, getEntry: () -> EmoteData?) -> GuiObject)?,
 }
 
 type SlotConfig = {
@@ -243,7 +246,7 @@ return function(props: Props)
 				}),
 			}),
 
-			create("ViewportFrame")({
+			if props.RenderPreview then props.RenderPreview(config.Index, emoteGetter) else create("ViewportFrame")({
 				AnchorPoint = Vector2.new(0.5, 0.5),
 				BackgroundTransparency = 1,
 				Position = UDim2.fromScale(0.510283, 0.498906),
