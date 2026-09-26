@@ -25,14 +25,29 @@ function PassiveComponent:SetStats(passives)
 	self.Passives = passives or {}
 
 	if self.Started then
-		self:_Rebuild()
+		self:_SyncPassives()
 	end
 end
 
-function PassiveComponent:_Rebuild()
-	self:_DestroyPassives()
+function PassiveComponent:_SyncPassives()
+	local remainingPassives = table.clone(self.ActivePassives)
+	table.clear(self.ActivePassives)
 
 	for _, config in self.Passives do
+		local passive
+		for index, activePassive in remainingPassives do
+			if activePassive.Config.Type == config.Type then
+				passive = table.remove(remainingPassives, index)
+				break
+			end
+		end
+
+		if passive then
+			passive:UpdateConfig(config)
+			table.insert(self.ActivePassives, passive)
+			continue
+		end
+
 		local module = script.Passives:FindFirstChild(config.Type)
 		if not module then
 			warn(`알 수 없는 패시브: {config.Type}.`)
@@ -41,11 +56,15 @@ function PassiveComponent:_Rebuild()
 
 		table.insert(self.ActivePassives, require(module).new(self.Tower, config, self.FireTriggered))
 	end
+
+	for _, passive in remainingPassives do
+		passive:Destroy()
+	end
 end
 
 function PassiveComponent:Start()
 	self.Started = true
-	self:_Rebuild()
+	self:_SyncPassives()
 end
 
 function PassiveComponent:_DestroyPassives()
@@ -59,11 +78,7 @@ end
 function PassiveComponent:Destroy()
 	self.Started = false
 
-	for _, passive in self.ActivePassives do
-		passive:Destroy()
-	end
-
-	table.clear(self.ActivePassives)
+	self:_DestroyPassives()
 end
 
 return PassiveComponent

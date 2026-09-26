@@ -5,8 +5,8 @@ return table.freeze({
 	MinMembers = 1,
 	DefaultMap = "Chapter 1",
 	DefaultDifficulty = "Normal",
-	StudioMap = "Kitsune Raid", -- Preserve the existing game-place Studio preview.
-	StudioDifficulty = "Normal",
+	StudioMap = "Chapter 2", -- Preserve the existing game-place Studio preview.
+	StudioDifficulty = "Eternal",
 	ArrivalTimeout = 25,
 	RequestBurst = 8,
 	RequestsPerSecond = 4,

@@ -7,17 +7,22 @@ CashOnHit.__index = CashOnHit
 
 function CashOnHit.new(tower, config, fireTriggered)
 	local self = setmetatable({}, CashOnHit)
+	self.Config = config
 
 	self.Connection = tower:GetEvent("AfterDamaged"):Connect(function()
-		local amount = config.Amount
+		local amount = self.Config.Amount
 
 		EconomyService = EconomyService or ServiceRegistry:GetService("EconomyService")
 		EconomyService.AddCash(tower.Owner, amount)
 
-		fireTriggered(config.Type, amount)
+		fireTriggered(self.Config.Type, amount)
 	end)
 
 	return self
+end
+
+function CashOnHit:UpdateConfig(newConfig)
+	self.Config = newConfig
 end
 
 function CashOnHit:Destroy()
