@@ -111,6 +111,16 @@ local PresentationData = {
 		Glow = Color3.fromRGB(0, 187, 255),
 		ShimmerSpeed = 1.5,
 	},
+	Exp = {
+		Color = Color3.fromRGB(144, 255, 242),
+		Gradient = ColorSequence.new({
+			ColorSequenceKeypoint.new(0, Color3.new(1, 1, 1)),
+			ColorSequenceKeypoint.new(0.5, Color3.fromRGB(102, 255, 224)),
+			ColorSequenceKeypoint.new(1, Color3.fromRGB(21, 150, 255)),
+		}),
+		Glow = Color3.fromRGB(144, 255, 242),
+		ShimmerSpeed = 1.5,
+	},
 	Blossom = {
 		Color = Color3.fromRGB(239, 181, 255),
 		Gradient = ColorSequence.new({
@@ -135,6 +145,7 @@ local ProgressionOrder = {
 	"Secret",
 	"Coins",
 	"Gems",
+	"Exp",
 	"Blossom",
 }
 

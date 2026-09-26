@@ -17,8 +17,12 @@ local RawCurrencyData: CurrencyData = {
 		Index = 2,
 		CurrencyImage = "rbxassetid://104268323693949",
 	},
-	["Blossom"] = {
+	["Exp"] = {
 		Index = 3,
+		CurrencyImage = "rbxassetid://102542461186980",
+	},
+	["Blossom"] = {
+		Index = 4,
 		CurrencyImage = "rbxassetid://129066851213188",
 	},
 }

@@ -7,7 +7,7 @@ local Vide = require(ReplicatedStorage.Packages.Vide)
 local useButtonEffect = require(ReplicatedStorage.Shared.Modules.UI.Hooks.useButtonEffect)
 local useButtonHoverEffect = require(ReplicatedStorage.Shared.Modules.UI.Hooks.useButtonHoverEffect)
 local Net = require(ReplicatedStorage.Shared.Net)
-local Slot = require(ReplicatedStorage.UI.Components.Slot)
+local Slot = require(ReplicatedStorage.UI.Components.Base.Slot)
 
 local create = Vide.create
 local source = Vide.source
@@ -363,6 +363,24 @@ function ResultUI.RenderUI()
 								CurrencyQuantity = gems,
 							},
 							Rarity = "Gems",
+						}),
+							0.25
+					end),
+					show(function()
+						return resultVisible() and read(exp()) ~= 0
+					end, function()
+						return Slot({
+							Name = "Exp",
+							LayoutOrder = 3,
+							Size = UDim2.fromScale(0.216, 0.967),
+							Visible = true,
+
+							AssetType = "Currency",
+							AssetProps = {
+								CurrencyName = "Exp",
+								CurrencyQuantity = exp,
+							},
+							Rarity = "Exp",
 						}),
 							0.25
 					end),

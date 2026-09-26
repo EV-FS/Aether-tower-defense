@@ -1,6 +1,6 @@
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Vide = require(ReplicatedStorage.Packages.Vide)
-local Slot = require(ReplicatedStorage.UI.Components.Slot)
+local Slot = require(ReplicatedStorage.UI.Components.Base.Slot)
 
 return function(target)
 	local destroyVide = Vide.mount(function()
@@ -11,9 +11,9 @@ return function(target)
 			AssetType = "Tower",
 			AssetProps = {
 				TowerName = "Galahad",
-				TowerLevel = 30,
+				TraitName = "Dragon",
 			},
-			Rarity = "Absolute",
+			Rarity = "Secret",
 
 			OnActivated = function() end,
 		})

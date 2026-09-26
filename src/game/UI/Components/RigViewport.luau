@@ -55,6 +55,8 @@ export type Props = {
 	UseWorldModel: boolean?,
 	OnRigChanged: ((Model?) -> ())?,
 
+	Child: { Instance }?,
+
 	--RigAnmation
 	Animation: Reactive<Animation?>?,
 	AutoPlay: boolean?,
@@ -174,6 +176,7 @@ return function(props: Props): ViewportFrame
 		LightDirection = props.LightDirection or Vector3.new(-1, -1, -1),
 		CurrentCamera = camera,
 
+		props.Child,
 		camera,
 		worldModel,
 	})
@@ -209,7 +212,12 @@ return function(props: Props): ViewportFrame
 			rigState(nil)
 			model:Destroy()
 		end)
-		model.Parent = viewport
+		if props.UseWorldModel and worldModel then
+			model.Parent = worldModel
+		else
+			model.Parent = viewport
+		end
+
 		rigState(state)
 	end)
 

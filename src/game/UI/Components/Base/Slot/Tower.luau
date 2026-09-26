@@ -25,6 +25,7 @@ return function(props: Props)
 
 	local idleAnimation = derive(function()
 		local animations = ReplicatedStorage.Assets.Animations:FindFirstChild(read(props.TowerName))
+		print(animations and animations:FindFirstChild("Idle"))
 
 		return animations and animations:FindFirstChild("Idle")
 	end)
@@ -47,22 +48,40 @@ return function(props: Props)
 		AnchorPoint = Vector2.new(0.5, 0.5),
 		BackgroundTransparency = 1,
 		Position = UDim2.fromScale(0.5, 0.5),
-		Size = UDim2.fromScale(1, 1),
+		Size = UDim2.fromScale(0.95, 0.97),
 
 		RigViewport({
 			AnchorPoint = Vector2.new(0.5, 0),
 			BackgroundTransparency = 1,
 			Position = UDim2.fromScale(0.5, 0),
-			Size = UDim2.fromScale(1, 0.95),
+			Size = UDim2.fromScale(0.99, 0.98),
 
-			CenterOffset = Vector3.new(0, 0.55, 0),
+			CenterOffset = Vector3.new(0, 0.6, 0),
 			Rig = towerModel,
 			UseWorldModel = true,
-			Zoom = 0.7,
+			Zoom = 1,
 
 			Animation = idleAnimation,
+			AutoPlay = true,
 			AnimationLooped = true,
 			AnimationFadeTime = 0,
+
+			Child = {
+				create("UICorner")({
+					CornerRadius = UDim.new(0.1, 0),
+				}),
+				create("UIGradient")({
+					Name = "UIGradient",
+					Rotation = 90,
+					Transparency = NumberSequence.new({
+						NumberSequenceKeypoint.new(0, 0),
+						NumberSequenceKeypoint.new(0.85, 0),
+						NumberSequenceKeypoint.new(0.9, 0.45),
+						NumberSequenceKeypoint.new(0.95, 0.75),
+						NumberSequenceKeypoint.new(1, 1),
+					}),
+				}),
+			},
 		}),
 
 		create("TextLabel")({

@@ -3,7 +3,7 @@ local TweenService = game:GetService("TweenService")
 local Vide = require(ReplicatedStorage.Packages.Vide)
 local useButtonEffect = require(ReplicatedStorage.Shared.Modules.UI.Hooks.useButtonEffect)
 local useButtonHoverEffect = require(ReplicatedStorage.Shared.Modules.UI.Hooks.useButtonHoverEffect)
-local Slot = require(ReplicatedStorage.UI.Components.Slot)
+local Slot = require(ReplicatedStorage.UI.Components.Base.Slot)
 
 local create = Vide.create
 local source = Vide.source
@@ -20,6 +20,7 @@ local resultVisible = source(false)
 local matchResult = source("Defeat")
 local coins = source(10)
 local gems = source(10)
+local exp = source(10)
 
 local VICTORY_THEME = Color3.fromRGB(124, 236, 49)
 local DEFEAT_THEME = Color3.fromRGB(236, 49, 49)
@@ -351,6 +352,24 @@ return function(target: Instance)
 									CurrencyQuantity = gems,
 								},
 								Rarity = "Gems",
+							}),
+								0.25
+						end),
+						show(function()
+							return resultVisible() and read(exp()) ~= 0
+						end, function()
+							return Slot({
+								Name = "Exp",
+								LayoutOrder = 3,
+								Size = UDim2.fromScale(0.216, 0.967),
+								Visible = true,
+
+								AssetType = "Currency",
+								AssetProps = {
+									CurrencyName = "Exp",
+									CurrencyQuantity = exp,
+								},
+								Rarity = "Exp",
 							}),
 								0.25
 						end),
