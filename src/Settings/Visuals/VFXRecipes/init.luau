@@ -70,6 +70,9 @@ return TableUtils.DeepFreeze({
 		Place_Absolute = {
 			Steps.Emit("Towers/Shared/AbsolutePlace", { At = "Source.@Ground" }),
 		},
+		Place_Secret = {
+			Steps.Emit("Towers/Shared/SecretPlace", { At = "Source.@Ground" }),
+		},
 
 		Upgrade_Common = {
 			Steps.Emit("Towers/Shared/CommonUpgrade", { At = "Source.@Ground" }),
@@ -88,6 +91,9 @@ return TableUtils.DeepFreeze({
 		},
 		Upgrade_Absolute = {
 			Steps.Emit("Towers/Shared/AbsoluteUpgrade", { At = "Source.@Ground" }),
+		},
+		Upgrade_Secret = {
+			Steps.Emit("Towers/Shared/SecretUpgrade", { At = "Source.@Ground" }),
 		},
 
 		Sell = {
