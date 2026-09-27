@@ -42,12 +42,12 @@ local RawEnemyData = {
 	},
 	["Elite Goblin"] = {
 		Index = 8,
-		MaxHealth = 1_500,
+		MaxHealth = 2000,
 		WalkSpeed = 2.5,
 	},
 	["King Goblin"] = {
 		Index = 9,
-		MaxHealth = 4_000,
+		MaxHealth = 4_500,
 		WalkSpeed = 2,
 	},
 	["Elite Tanker Goblin"] = {
