@@ -39,7 +39,7 @@ function SceneTransform.Apply(scene: Instance, transform: CFrame?): number
 	for _, descendant in scene:GetDescendants() do
 		capture(descendant)
 	end
-	assert(partCount > 0, `Cutscene scene "{scene.Name}" has no BaseParts to place`)
+	assert(partCount > 0, `Scene "{scene.Name}" has no BaseParts to place`)
 
 	move(scene, transform)
 
@@ -50,11 +50,11 @@ function SceneTransform.Apply(scene: Instance, transform: CFrame?): number
 	end
 	for part, original in originalParts do
 		assert(matches(part.CFrame, transform * original),
-			`Cutscene placement changed the position of "{part:GetFullName()}"`)
+			`Scene placement changed the position of "{part:GetFullName()}"`)
 	end
 	for model, original in originalModels do
 		assert(matches(model:GetPivot(), transform * original),
-			`Cutscene placement changed the pivot of "{model:GetFullName()}"`)
+			`Scene placement changed the pivot of "{model:GetFullName()}"`)
 	end
 	return partCount
 end

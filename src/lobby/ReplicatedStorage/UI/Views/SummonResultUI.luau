@@ -4,6 +4,7 @@ local Lighting = game:GetService("Lighting")
 local TweenService = game:GetService("TweenService")
 
 local Vide = require(ReplicatedStorage.Packages.Vide)
+local CurrencyData = require(ReplicatedStorage.Settings.Data.CurrencyData)
 local RarityData = require(ReplicatedStorage.Settings.Data.RarityData)
 local UISFX = require(ReplicatedStorage.Settings.Visuals.UISFX)
 local ServiceRegistry = require(ReplicatedStorage.Shared.Modules.Core.ServiceRegistry)
@@ -600,7 +601,7 @@ function SummonResultUI.RenderUI()
 					Name = "Coin",
 					AnchorPoint = Vector2.new(0.5, 0),
 					BackgroundTransparency = 1,
-					Image = "rbxassetid://117112996963807",
+					Image = CurrencyData.ByName.Coins.CurrencyImage,
 					Position = UDim2.fromScale(0.5, 0),
 					Size = UDim2.fromScale(0.32, 0.48),
 					ZIndex = 56,

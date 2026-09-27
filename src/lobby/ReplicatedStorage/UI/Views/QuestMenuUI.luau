@@ -7,6 +7,7 @@ local UISFX = require(ReplicatedStorage.Settings.Visuals.UISFX)
 local ServiceRegistry = require(ReplicatedStorage.Shared.Modules.Core.ServiceRegistry)
 local useAudio = require(ReplicatedStorage.Shared.Modules.UI.Hooks.useAudio)
 local useButtonEffect = require(ReplicatedStorage.Shared.Modules.UI.Hooks.useButtonEffect)
+local CurrencyRewardCard = require(ReplicatedStorage.UI.Components.CurrencyRewardCard)
 
 local create = Vide.create
 local effect = Vide.effect
@@ -32,6 +33,7 @@ type QuestDisplay = {
 	Current: number,
 	Target: number,
 	Progress: string,
+	Claimed: boolean,
 	Rewards: { [string]: number },
 }
 
@@ -42,6 +44,7 @@ local EMPTY_QUEST: QuestDisplay = {
 	Current = 0,
 	Target = 1,
 	Progress = "",
+	Claimed = false,
 	Rewards = {},
 }
 
@@ -52,11 +55,14 @@ local function getQuestState(questId: string, config)
 	end
 	-- Auto-accepted quests must render immediately while the initial server
 	-- quest fetch is still in flight. Authoritative data replaces this fallback.
+	local initialProgress = if config.TargetMap and DataClient
+		then math.min(tonumber(DataClient.MapClears()[config.TargetMap]) or 0, config.TargetAmount)
+		else 0
 	return {
 		Active = true,
-		Progress = 0,
+		Progress = initialProgress,
 		Target = config.TargetAmount,
-		Completed = false,
+		Completed = initialProgress >= config.TargetAmount,
 		Claimed = false,
 	}
 end
@@ -69,8 +75,7 @@ local function getCategoryQuests(category: string): { QuestDisplay }
 		if
 			config.Theme == category
 			and state
-			and (state.Active or state.Completed)
-			and not state.Claimed
+			and (state.Active or state.Completed or state.Claimed)
 		then
 			local current = math.clamp(tonumber(state.Progress) or 0, 0, config.TargetAmount)
 			table.insert(displays, {
@@ -79,7 +84,8 @@ local function getCategoryQuests(category: string): { QuestDisplay }
 				Description = config.Description,
 				Current = current,
 				Target = config.TargetAmount,
-				Progress = `({current}/{config.TargetAmount})`,
+				Progress = if state.Claimed then "COMPLETED" else `({current}/{config.TargetAmount})`,
+				Claimed = state.Claimed == true,
 				Rewards = config.Rewards,
 			})
 		end
@@ -219,104 +225,16 @@ local function createCategoryButton(category: string)
 	})
 end
 
-local REWARD_ICONS = {
-	Coins = "rbxassetid://117112996963807",
-	Gems = "rbxassetid://104268323693949",
-}
-
 local function createRewardCard(getDisplay: () -> QuestDisplay, rewardName: string, layoutOrder: number)
-	local displayName = if rewardName == "Exp" then "EXP" else string.upper(rewardName)
-	local icon = REWARD_ICONS[rewardName]
-
-	return create("ImageLabel")({
-		Name = `{rewardName}Reward`,
-		BackgroundTransparency = 1,
-		Image = "rbxassetid://87496848270095",
+	return CurrencyRewardCard({
+		CurrencyName = rewardName,
 		LayoutOrder = layoutOrder,
 		Size = UDim2.fromScale(0.30, 0.92),
-		Visible = function()
-			return (getDisplay().Rewards[rewardName] or 0) > 0
+		Amount = function()
+			return getDisplay().Rewards[rewardName] or 0
 		end,
-
-		create("UIAspectRatioConstraint")({}),
-
-		if icon then create("ImageLabel")({
-			Name = "Icon",
-			BackgroundTransparency = 1,
-			Image = icon,
-			Position = UDim2.fromScale(0.1, 0.18),
-			ScaleType = Enum.ScaleType.Fit,
-			Size = UDim2.fromScale(0.8, 0.57),
-		}) else create("TextLabel")({
-			Name = "Icon",
-			BackgroundTransparency = 1,
-			FontFace = Font.new("rbxasset://fonts/families/FredokaOne.json"),
-			Position = UDim2.fromScale(0.1, 0.13),
-			Size = UDim2.fromScale(0.8, 0.55),
-			Text = "XP",
-			TextColor3 = Color3.fromRGB(98, 228, 255),
-			TextScaled = true,
-			create("UIStroke")({ Thickness = 2 }),
-		}),
-
-		create("ImageLabel")({
-			Name = "Quantity",
-			BackgroundTransparency = 1,
-			Image = "rbxassetid://104083646922843",
-			Position = UDim2.fromScale(0.02, 0.02),
-			Size = UDim2.fromScale(0.82, 0.24),
-			ZIndex = 10,
-
-			create("UIAspectRatioConstraint")({ AspectRatio = 3.2 }),
-			create("TextLabel")({
-				Name = "Amount",
-				AnchorPoint = Vector2.new(0.5, 0.5),
-				BackgroundTransparency = 1,
-				FontFace = Font.new(
-					"rbxasset://fonts/families/SourceSansPro.json",
-					Enum.FontWeight.Bold,
-					Enum.FontStyle.Normal
-				),
-				Position = UDim2.fromScale(0.48, 0.48),
-				Size = UDim2.fromScale(0.86, 0.82),
-				Text = function()
-					return tostring(getDisplay().Rewards[rewardName] or 0)
-				end,
-				TextColor3 = Color3.new(1, 1, 1),
-				TextScaled = true,
-				ZIndex = 11,
-				create("UIStroke")({ Thickness = 2 }),
-			}),
-		}),
-
-		create("TextLabel")({
-			Name = "Name",
-			BackgroundTransparency = 1,
-			FontFace = Font.new(
-				"rbxasset://fonts/families/SourceSansPro.json",
-				Enum.FontWeight.Bold,
-				Enum.FontStyle.Normal
-			),
-			Position = UDim2.fromScale(0.076, 0.73),
-			Size = UDim2.fromScale(0.85, 0.173),
-			Text = displayName,
-			TextColor3 = Color3.new(1, 1, 1),
-			TextScaled = true,
-			TextXAlignment = Enum.TextXAlignment.Left,
-			ZIndex = 10,
-			create("UIStroke")({ Thickness = 2 }),
-		}),
-
-		create("UIGradient")({
-			Color = ColorSequence.new({
-				ColorSequenceKeypoint.new(0, Color3.fromRGB(226, 88, 46)),
-				ColorSequenceKeypoint.new(1, Color3.fromRGB(255, 255, 30)),
-			}),
-			Rotation = 45,
-		}),
 	})
 end
-
 
 local function createRewardRow(getDisplay: () -> QuestDisplay, position: UDim2, size: UDim2)
 	return create("Frame")({
@@ -361,6 +279,7 @@ function QuestMenuUI.RenderUI()
 	})
 
 	local function togglePinnedQuest(index: number)
+		if getQuest(index).Claimed then return end
 		local key = getQuestKey(index)
 		if not key then
 			return
@@ -460,6 +379,7 @@ function QuestMenuUI.RenderUI()
 				Size = UDim2.fromScale(0.09, 0.22),
 				BackgroundTransparency = 1,
 				Image = "rbxassetid://128325259577735",
+				Visible = function() return not display().Claimed end,
 				ImageColor3 = function()
 					local key = getQuestKey(index)
 					return if key and pinnedQuestKeys()[key]
@@ -775,7 +695,9 @@ function QuestMenuUI.RenderUI()
 						FontFace = Font.new("rbxasset://fonts/families/FredokaOne.json"),
 						Position = UDim2.fromScale(0.0431852, 0.193485),
 						Size = UDim2.fromScale(0.570817, 0.564427),
-						Text = "REWARD",
+						Text = function()
+							return if getQuest(selectedQuestIndex()).Claimed then "REWARD CLAIMED" else "REWARD"
+						end,
 						TextColor3 = Color3.new(1, 1, 1),
 						TextScaled = true,
 						TextXAlignment = Enum.TextXAlignment.Left,

@@ -4,6 +4,7 @@ local TweenService = game:GetService("TweenService")
 local UserInputService = game:GetService("UserInputService")
 
 local Vide = require(ReplicatedStorage.Packages.Vide)
+local CurrencyData = require(ReplicatedStorage.Settings.Data.CurrencyData)
 local useMenuMotion = require(ReplicatedStorage.Shared.Modules.UI.Hooks.useMenuMotion)
 local UISFX = require(ReplicatedStorage.Settings.Visuals.UISFX)
 local ServiceRegistry = require(ReplicatedStorage.Shared.Modules.Core.ServiceRegistry)
@@ -681,7 +682,7 @@ function SettingsUI.RenderUI()
 						create("ImageLabel")({
 							Name = "Icon",
 							BackgroundTransparency = 1,
-							Image = "rbxassetid://117112996963807",
+							Image = CurrencyData.ByName.Coins.CurrencyImage,
 							Position = UDim2.fromScale(0.075, 0.19),
 							Size = UDim2.fromScale(0.17, 0.62),
 							create("UIAspectRatioConstraint")({}),

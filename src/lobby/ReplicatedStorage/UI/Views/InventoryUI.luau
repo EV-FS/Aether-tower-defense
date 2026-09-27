@@ -622,7 +622,7 @@ function InventoryUI.RenderUI()
 					Size = UDim2.fromScale(0.83363, 0.0605149),
 					Text = function()
 						local info = selectedInfo()
-						return if info then info.DisplayName or selectedItemName() else "SELECT AN ITEM"
+						return (info and (info.DisplayName or selectedItemName())) or "SELECT AN ITEM"
 					end,
 					TextColor3 = Color3.new(1, 1, 1),
 					TextScaled = true,
@@ -706,7 +706,7 @@ function InventoryUI.RenderUI()
 					BackgroundTransparency = 1,
 					Image = function()
 						local info = selectedInfo()
-						return if selectedCategory() == "Emoji" and info then info.ItemImage else ""
+						return if selectedCategory() == "Emoji" and info then info.ItemImage or "" else ""
 					end,
 					Position = UDim2.fromScale(0.5, 0.52),
 					ScaleType = Enum.ScaleType.Fit,
@@ -726,7 +726,7 @@ function InventoryUI.RenderUI()
 					Size = UDim2.fromScale(0.7, 0.7),
 					Text = function()
 						local info = selectedInfo()
-						return if selectedCategory() == "Emoji" and info then info.Symbol else ""
+						return if selectedCategory() == "Emoji" and info then info.Symbol or "" else ""
 					end,
 					TextColor3 = Color3.fromRGB(115, 215, 255),
 					TextScaled = true,

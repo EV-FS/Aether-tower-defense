@@ -2,6 +2,7 @@ local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Vide = require(ReplicatedStorage.Packages.Vide)
+local CurrencyData = require(ReplicatedStorage.Settings.Data.CurrencyData)
 local useMenuMotion = require(ReplicatedStorage.Shared.Modules.UI.Hooks.useMenuMotion)
 local TraitData = require(ReplicatedStorage.Settings.Data.TraitData)
 local UnitCatalog = require(ReplicatedStorage.Settings.Data.UnitCatalog)
@@ -319,7 +320,7 @@ function TraitUI.RenderUI()
 					Activated = rollSelected, useButtonEffect(0.94, 1.05),
 					create("TextLabel")({ Name = "Title", BackgroundTransparency = 1, FontFace = Font.new("rbxasset://fonts/families/FredokaOne.json"), Position = UDim2.fromScale(0.083, 0.142), Size = UDim2.fromScale(0.403, 0.65), Text = function() return if isRolling() then "..." else "Roll" end, TextColor3 = Color3.new(1, 1, 1), TextScaled = true, TextXAlignment = Enum.TextXAlignment.Left, create("UIStroke")({}) }),
 					create("TextLabel")({ Name = "Cost", BackgroundTransparency = 1, FontFace = Font.new("rbxasset://fonts/families/FredokaOne.json"), Position = UDim2.fromScale(0.65, 0.2), Size = UDim2.fromScale(0.164, 0.5), Text = tostring(TraitData.RollCost), TextColor3 = function() return if hasTraitCurrency() then Color3.new(1, 1, 1) else Color3.fromRGB(255, 72, 72) end, TextScaled = true, create("UIStroke")({}) }),
-					create("ImageLabel")({ Name = "Gems", BackgroundTransparency = 1, Image = "rbxassetid://104268323693949", Position = UDim2.fromScale(0.784, 0.084), Size = UDim2.fromScale(0.198, 0.781), ScaleType = Enum.ScaleType.Fit }),
+					create("ImageLabel")({ Name = "Gems", BackgroundTransparency = 1, Image = CurrencyData.ByName.Gems.CurrencyImage, Position = UDim2.fromScale(0.784, 0.084), Size = UDim2.fromScale(0.198, 0.781), ScaleType = Enum.ScaleType.Fit }),
 					create("UIGradient")({
 						Color = function()
 							return if canRollTrait() then ACTION_AVAILABLE_GRADIENT else ACTION_UNAVAILABLE_GRADIENT

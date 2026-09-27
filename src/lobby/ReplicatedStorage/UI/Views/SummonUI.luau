@@ -2,6 +2,7 @@ local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Vide = require(ReplicatedStorage.Packages.Vide)
+local CurrencyData = require(ReplicatedStorage.Settings.Data.CurrencyData)
 local useMenuMotion = require(ReplicatedStorage.Shared.Modules.UI.Hooks.useMenuMotion)
 local ServiceRegistry = require(ReplicatedStorage.Shared.Modules.Core.ServiceRegistry)
 local useButtonEffect = require(ReplicatedStorage.Shared.Modules.UI.Hooks.useButtonEffect)
@@ -55,7 +56,7 @@ local BANNER_IMAGE = "rbxassetid://98737132035258"
 local CARD_SHADOW_IMAGE = "rbxassetid://99201276937983"
 local NAME_PLATE_IMAGE = "rbxassetid://116700116064149"
 local PURCHASE_BUTTON_IMAGE = "rbxassetid://139274506988816"
-local CURRENCY_IMAGE = "rbxassetid://117112996963807"
+local CURRENCY_IMAGE = CurrencyData.ByName.Coins.CurrencyImage
 local PROBABILITY_BUTTON_IMAGE = "rbxassetid://120545788069786"
 
 local RARITY_GRADIENTS = SummonConfig.RarityGradients

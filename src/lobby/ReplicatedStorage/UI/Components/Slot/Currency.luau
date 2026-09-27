@@ -6,6 +6,8 @@ type Reactive<T> = T | (() -> T)
 type Props = {
 	CurrencyName: Reactive<string>,
 	CurrencyQuantity: Reactive<number>?,
+	CurrencyQuantityText: Reactive<string>?,
+	QuantityColor: Reactive<Color3>?,
 }
 
 local create = Vide.create
@@ -62,10 +64,10 @@ return function(props: Props)
 			BackgroundTransparency = 1,
 			Image = "rbxassetid://104083646922843",
 			Position = UDim2.fromScale(-0.0129994, -0.05),
-			Size = UDim2.fromScale(0.653434, 0.238322),
+			Size = if props.CurrencyQuantityText then UDim2.fromScale(0.94, 0.238322) else UDim2.fromScale(0.653434, 0.238322),
 			ZIndex = 10,
 			Visible = function()
-				return read(props.CurrencyQuantity) ~= nil
+				return props.CurrencyQuantityText ~= nil or read(props.CurrencyQuantity) ~= nil
 			end,
 
 			create("UIAspectRatioConstraint")({
@@ -82,12 +84,12 @@ return function(props: Props)
 					Enum.FontWeight.Bold,
 					Enum.FontStyle.Normal
 				),
-				Position = UDim2.fromScale(0.3, 0.489),
-				Size = UDim2.fromScale(0.477775, 0.75514),
+				Position = if props.CurrencyQuantityText then UDim2.fromScale(0.5, 0.489) else UDim2.fromScale(0.3, 0.489),
+				Size = if props.CurrencyQuantityText then UDim2.fromScale(0.84, 0.75514) else UDim2.fromScale(0.477775, 0.75514),
 				Text = function()
-					return `{read(props.CurrencyQuantity)}x`
+					return if props.CurrencyQuantityText then read(props.CurrencyQuantityText) else `{read(props.CurrencyQuantity)}x`
 				end,
-				TextColor3 = Color3.new(1, 1, 1),
+				TextColor3 = props.QuantityColor or Color3.new(1, 1, 1),
 				TextScaled = true,
 
 				create("UIStroke")({

@@ -54,13 +54,13 @@ return function(props: Props)
 					Size = UDim2.fromScale(1, 1),
 					Text = function()
 						local emoji = getEmoji()
-						return if emoji then emoji.Symbol else "+"
+						return if emoji then emoji.Symbol or "" else ""
 					end,
 					TextColor3 = Color3.fromRGB(115, 215, 255),
 					TextScaled = true,
 					Visible = function()
 						local emoji = getEmoji()
-						return emoji == nil or emoji.Image == ""
+						return emoji ~= nil and emoji.Image == ""
 					end,
 					create("UIStroke")({ Thickness = 3, Color = Color3.fromRGB(20, 28, 62) }),
 				}),

@@ -94,7 +94,7 @@ local function showEmojiForPlayer(player: Player, emojiId: string)
 
 	TweenService:Create(group, ENTER_TWEEN, { GroupTransparency = 0 }):Play()
 	TweenService:Create(scale, ENTER_TWEEN, { Scale = 1 }):Play()
-	TweenService:Create(billboard, ENTER_TWEEN, { StudsOffsetWorldSpace = Vector3.new(0, 2.5, 0) }):Play()
+	TweenService:Create(billboard, ENTER_TWEEN, { StudsOffsetWorldSpace = Vector3.new(0, 4.2, 0) }):Play()
 
 	task.delay(emojiConfig.Duration, function()
 		if activeBillboards[player] ~= billboard or not billboard.Parent then

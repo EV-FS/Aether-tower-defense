@@ -8,6 +8,7 @@ local TowerData = require(ReplicatedStorage.Settings.Data.TowerData)
 local RarityData = require(ReplicatedStorage.Settings.Data.RarityData)
 local UnitViewportProfiles = require(ReplicatedStorage.Settings.Visuals.UnitViewportProfiles)
 local TowerViewport = require(ReplicatedStorage.UI.Components.TowerViewport)
+local Slot = require(ReplicatedStorage.UI.Components.Slot)
 local Net = require(ReplicatedStorage.Shared.Net.client)
 local ServiceRegistry = require(ReplicatedStorage.Shared.Modules.Core.ServiceRegistry)
 local useButtonEffect = require(ReplicatedStorage.Shared.Modules.UI.Hooks.useButtonEffect)
@@ -239,12 +240,45 @@ local function ingredientCard(ingredient: CraftRecipes.Ingredient, layoutOrder: 
 	local function owned()
 		return if isCurrency then ownedCurrency(ingredient.Name) else ownedAmount(ingredient.Name)
 	end
-	local image = if ingredient.Name == "Coins" then "rbxassetid://117112996963807"
-		elseif ingredient.Name == "Gems" then "rbxassetid://104268323693949"
-		else itemInfo(ingredient.Name).ItemImage
-	local gradient = if ingredient.Name == "Coins" then RarityData.Get("Legendary").Presentation.Gradient
-		elseif ingredient.Name == "Gems" then RarityData.Get("Rare").Presentation.Gradient
-		else itemGradient(ingredient.Name)
+	if isCurrency then
+		return create("Frame")({
+			Name = ingredient.Name,
+			BackgroundTransparency = 1,
+			LayoutOrder = layoutOrder,
+			Size = function() return UDim2.fromOffset(cardSize(), cardSize()) end,
+			Slot({
+				Name = "CurrencySlot",
+				Active = false,
+				Position = UDim2.fromScale(0.5, 0.5),
+				Size = UDim2.fromScale(1, 1),
+				Rarity = ingredient.Name,
+				AssetType = "Currency",
+				AssetProps = {
+					CurrencyName = ingredient.Name,
+					CurrencyQuantityText = function()
+						return `{formatAmount(owned())}/{formatAmount(ingredient.Amount * craftAmount())}`
+					end,
+					QuantityColor = function()
+						return if owned() >= ingredient.Amount * craftAmount()
+							then Color3.new(1, 1, 1)
+							else Color3.fromRGB(255, 105, 105)
+					end,
+				},
+			}),
+			cardBorder(
+				"RequirementBorder",
+				function()
+					return if owned() >= ingredient.Amount * craftAmount()
+						then Color3.fromRGB(104, 255, 126)
+						else Color3.fromRGB(255, 73, 73)
+				end,
+				1.5,
+				0
+			),
+		})
+	end
+	local image = itemInfo(ingredient.Name).ItemImage
+	local gradient = itemGradient(ingredient.Name)
 	return create("ImageLabel")({
 		Name = ingredient.Name,
 		BackgroundTransparency = 1,

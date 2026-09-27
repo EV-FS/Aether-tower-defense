@@ -285,6 +285,7 @@ function GameService:GameOver(isWin: boolean)
 	local exp = 0
 	local gems = 0
 	local mapData = MapData[self.SelectedMap]
+	local completedMap = self.SelectedMap
 
 	if mapData then
 		local mapRewards = mapData.Rewards and mapData.Rewards[self.SelectedDifficulty]
@@ -327,6 +328,9 @@ function GameService:GameOver(isWin: boolean)
 
 			if isWin then
 				profile.Data.Wins = (profile.Data.Wins or 0) + 1
+				if MapData[completedMap] then
+					DataService:AddData(player, "MapClears", 1, completedMap)
+				end
 			end
 		end)
 	end

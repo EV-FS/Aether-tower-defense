@@ -5,6 +5,7 @@ local HttpService = game:GetService("HttpService")
 local Signal = require(ReplicatedStorage.Packages.Signal)
 local Protocol = require(ReplicatedStorage.Shared.Modules.Core.MatchProtocol)
 local Config = require(ReplicatedStorage.Settings.Game.PartySettings)
+local MapProgression = require(ReplicatedStorage.Shared.Modules.Core.MapProgression)
 
 type Settings = Protocol.Settings
 type Result<T> = Protocol.Result<T>
@@ -29,11 +30,18 @@ local sequences: { [Player]: number } = {}
 local rateLimits: { [Player]: RateLimit } = {}
 local connections: { RBXScriptConnection } = {}
 local MatchService: any
+local DataService: any
 local changedRemote: RemoteEvent?
 local requestRemote: RemoteFunction?
 local started = false
 
-local PartyService = { Dependencies = { "MatchService" }, Changed = Signal.new() }
+local PartyService = { Dependencies = { "MatchService", "DataService" }, Changed = Signal.new() }
+
+local function mapUnlocked(player: Player, mapName: string): boolean
+	if MapProgression.IsUnlocked(mapName, nil) then return true end
+	local playerData = DataService:GetData(player)
+	return playerData ~= nil and MapProgression.IsUnlocked(mapName, playerData.MapClears)
+end
 
 local function validPlayer(player: any): boolean
 	return typeof(player) == "Instance" and player:IsA("Player") and player.Parent == Players
@@ -171,6 +179,12 @@ function PartyService:CreateParty(player: Player, settings: Protocol.SettingsPat
 	if not selected then
 		return Protocol.Failure(code :: ErrorCode)
 	end
+	if not mapUnlocked(player, selected.Map) then
+		return Protocol.Failure("MAP_LOCKED")
+	end
+	if membership[player] or not validPlayer(player) then
+		return Protocol.Failure("ALREADY_IN_PARTY")
+	end
 	local party: Party = {
 		Id = HttpService:GenerateGUID(false),
 		Leader = player,
@@ -297,6 +311,12 @@ function PartyService:UpdateSettings(player: Player, patch: Protocol.SettingsPat
 	if not settings then
 		return Protocol.Failure(errorCode :: ErrorCode)
 	end
+	if not mapUnlocked(player, settings.Map) then
+		return Protocol.Failure("MAP_LOCKED")
+	end
+	if membership[player] ~= party or party.Leader ~= player or party.State ~= "Open" then
+		return Protocol.Failure("PARTY_BUSY")
+	end
 	party.Settings = settings
 	party.ErrorCode = nil
 	publish(party, "Updated", "SETTINGS_CHANGED")
@@ -324,6 +344,12 @@ function PartyService:StartParty(player: Player): Result<Snapshot>
 	local settings, errorCode = Protocol.ValidateStartSettings(party.Settings)
 	if not settings then
 		return Protocol.Failure(errorCode :: ErrorCode)
+	end
+	if not mapUnlocked(player, settings.Map) then
+		return Protocol.Failure("MAP_LOCKED")
+	end
+	if membership[player] ~= party or party.Leader ~= player or locked(party) then
+		return Protocol.Failure("PARTY_BUSY")
 	end
 	if #party.Members < Config.MinMembers then
 		return Protocol.Failure("PARTY_TOO_SMALL")
@@ -409,6 +435,7 @@ end
 
 function PartyService.Init(services)
 	MatchService = services:GetService("MatchService")
+	DataService = services:GetService("DataService")
 end
 
 function PartyService.Start()

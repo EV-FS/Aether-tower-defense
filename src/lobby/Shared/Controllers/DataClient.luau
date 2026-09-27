@@ -13,6 +13,7 @@ DataClient.Blossom = Vide.source(0)
 DataClient.Level = Vide.source(1)
 DataClient.Exp = Vide.source(0)
 DataClient.Quests = Vide.source({})
+DataClient.MapClears = Vide.source({} :: { [string]: number })
 
 function DataClient.ExpLogic(currentLevel: number): number
 	return 50 * (currentLevel + math.ceil(currentLevel / 10)) + 50
@@ -84,8 +85,19 @@ function DataClient.FetchQuests()
 	end)
 end
 
+function DataClient.FetchMapClears()
+	task.spawn(function()
+		local ok, clears = pcall(function()
+			return Net.DataService.GetDataValue.Invoke("MapClears"):expect()
+		end)
+		if ok and type(clears) == "table" then
+			DataClient.MapClears(clears)
+		end
+	end)
+end
+
 function DataClient.FetchAll()
-	for _, key in ipairs({ "Coins", "Gems", "Blossom", "Level", "Exp", "Quests" }) do
+	for _, key in ipairs({ "Coins", "Gems", "Blossom", "Level", "Exp", "Quests", "MapClears" }) do
 		task.spawn(function()
 			local ok, val = pcall(function()
 				return Net.DataService.GetDataValue.Invoke(key):expect()
@@ -103,6 +115,8 @@ function DataClient.FetchAll()
 					DataClient.Exp(val)
 				elseif key == "Quests" then
 					DataClient.Quests(val or {})
+				elseif key == "MapClears" then
+					DataClient.MapClears(val or {})
 				end
 			end
 		end)
@@ -149,6 +163,8 @@ function DataClient.Start()
 			DataClient.FetchQuests()
 		elseif data.CurrencyName == "Quests" then
 			DataClient.FetchQuests()
+		elseif data.CurrencyName == "MapClears" then
+			DataClient.FetchMapClears()
 		elseif data.CurrencyName == "Level" then
 			DataClient.Level(data.CurrencyValue)
 		elseif data.CurrencyName == "Exp" then

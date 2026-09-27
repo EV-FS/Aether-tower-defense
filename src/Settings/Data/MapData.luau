@@ -14,6 +14,9 @@ export type RewardDetail = {
 
 export type MapInfo = {
 	MapImage: string,
+	LayoutOrder: number,
+	Mode: "Story" | "Raid",
+	UnlockAfter: string?,
 	IntroCutscene: string?,
 	Difficulties: { Difficulty },
 	DifficultyWaves: { [Difficulty]: number },
@@ -32,6 +35,7 @@ return TableUtils.DeepFreeze({
 	["Chapter 1"] = {
 		MapName = "Chapter 1 - Goblin Cave",
 		MapImage = "rbxassetid://139254798620970",
+		Mode = "Story",
 		LayoutOrder = 1,
 		Difficulties = DEFAULT_DIFFICULTIES,
 		DifficultyWaves = {
@@ -80,7 +84,9 @@ return TableUtils.DeepFreeze({
 	},
 	["Chapter 2"] = {
 		MapName = "Chapter 2 - Monster Canyon",
-		MapImage = "rbxassetid://139254798620970",
+		MapImage = "rbxassetid://124875846241438",
+		Mode = "Story",
+		UnlockAfter = "Chapter 1",
 		LayoutOrder = 2,
 		Difficulties = DEFAULT_DIFFICULTIES,
 		DifficultyWaves = {
@@ -131,6 +137,7 @@ return TableUtils.DeepFreeze({
 	["Kitsune Raid"] = {
 		MapName = "Kitsune Raid",
 		MapImage = "rbxassetid://139254798620970",
+		Mode = "Raid",
 		LayoutOrder = 3,
 		Difficulties = {
 			"Normal",
@@ -180,6 +187,7 @@ return TableUtils.DeepFreeze({
 	["Raid"] = {
 		IntroCutscene = "RaidIntro",
 		MapImage = "rbxassetid://139254798620970",
+		Mode = "Raid",
 		LayoutOrder = 4,
 		Difficulties = {
 			"Normal",

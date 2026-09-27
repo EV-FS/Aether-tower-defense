@@ -1,6 +1,7 @@
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Vide = require(ReplicatedStorage.Packages.Vide)
+local CurrencyData = require(ReplicatedStorage.Settings.Data.CurrencyData)
 local ServiceRegistry = require(ReplicatedStorage.Shared.Modules.Core.ServiceRegistry)
 local LoadoutSlot = require(ReplicatedStorage.UI.Components.LoadoutSlot)
 
@@ -90,7 +91,7 @@ function LoadoutUI.RenderUI()
 					create("ImageLabel")({
 						Name = "ImageLabel",
 						BackgroundTransparency = 1,
-						Image = "rbxassetid://117112996963807",
+						Image = CurrencyData.ByName.Coins.CurrencyImage,
 						Position = UDim2.fromScale(0.0520515, -0.0882353),
 						ScaleType = Enum.ScaleType.Fit,
 						Size = UDim2.fromScale(0.2911, 1.11765),
@@ -152,7 +153,7 @@ function LoadoutUI.RenderUI()
 					create("ImageLabel")({
 						Name = "ImageLabel",
 						BackgroundTransparency = 1,
-						Image = "rbxassetid://104268323693949",
+						Image = CurrencyData.ByName.Gems.CurrencyImage,
 						Position = UDim2.fromScale(0.06, -0.17558),
 						ScaleType = Enum.ScaleType.Fit,
 						Size = UDim2.fromScale(0.2911, 1.29323),

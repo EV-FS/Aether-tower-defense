@@ -34,7 +34,7 @@ function QuestService.AcceptQuest(player: Player, questId: string): boolean
 	end
 
 	local currentQuest = playerData.Quests[questId]
-	if currentQuest and (currentQuest.Active or currentQuest.Claimed) then
+	if currentQuest and (currentQuest.Active or currentQuest.Completed or currentQuest.Claimed) then
 		return false
 	end
 
@@ -42,6 +42,8 @@ function QuestService.AcceptQuest(player: Player, questId: string): boolean
 	local objective = config.Entity.Objective
 	if objective.Kind == "Currency" and playerData[objective.Target] then
 		initialProgress = math.min(playerData[objective.Target], objective.Amount)
+	elseif objective.Kind == "MapClear" then
+		initialProgress = math.min(tonumber(playerData.MapClears and playerData.MapClears[objective.Target]) or 0, objective.Amount)
 	end
 
 	local questState = {
@@ -102,6 +104,9 @@ function QuestService.SetObjectiveProgress(player: Player, objectiveKind: string
 		local quest = playerData.Quests[questId]
 		if quest and quest.Active and not quest.Claimed then
 			local newProgress = math.min(amount, config.Entity.Objective.Amount)
+			if objectiveKind == "MapClear" then
+				newProgress = math.max(tonumber(quest.Progress) or 0, newProgress)
+			end
 			local completed = newProgress >= config.TargetAmount
 			if quest.Progress ~= newProgress or quest.Completed ~= completed then
 				quest.Progress = newProgress
@@ -136,10 +141,35 @@ function QuestService.Start()
 				end)
 			end
 		end
+		DataService:GetChangedSignal("MapClears"):Connect(function(player)
+			local playerData = DataService:GetData(player)
+			if not playerData then return end
+			for _, config in QuestData.QueryObjective("MapClear") do
+				local mapName = config.Entity.Objective.Target
+				local clears = tonumber(playerData.MapClears and playerData.MapClears[mapName]) or 0
+				QuestService.SetObjectiveProgress(player, "MapClear", mapName, clears)
+			end
+		end)
 
 		local function acceptStarterQuests(player: Player)
+			local playerData = DataService:GetData(player)
+			if not playerData then return end
+			-- Keep previously completed map quests valid when introducing MapClears to old profiles.
+			for _, config in QuestData.QueryObjective("MapClear") do
+				local quest = playerData.Quests and playerData.Quests[config.Id]
+				local mapName = config.Entity.Objective.Target
+				local clears = tonumber(playerData.MapClears and playerData.MapClears[mapName]) or 0
+				if quest and (quest.Completed or quest.Claimed) and clears < config.TargetAmount then
+					DataService:UpdateData(player, "MapClears", config.TargetAmount, mapName)
+				end
+			end
 			for _, config in QuestData.QueryLifecycle("AutoAccept") do
 				QuestService.AcceptQuest(player, config.Id)
+			end
+			for _, config in QuestData.QueryObjective("MapClear") do
+				local mapName = config.Entity.Objective.Target
+				local clears = tonumber(playerData.MapClears and playerData.MapClears[mapName]) or 0
+				QuestService.SetObjectiveProgress(player, "MapClear", mapName, clears)
 			end
 		end
 
