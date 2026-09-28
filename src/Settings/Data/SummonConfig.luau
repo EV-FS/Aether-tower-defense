@@ -21,17 +21,8 @@ return TableUtils.DeepFreeze({
 		},
 	},
 
-	UnitPool = {
-		Common = { "Fighter", "Harvester" },
-		Rare = { "YoungkkYongSa" },
-		Epic = { "Cowboy", "Elder Wizard", "Lancer", "Ganet" },
-		Legendary = { "장애인해적", "Knight" },
-		Mythic = { "어린용사(진화)", "Emperor", "Chronos" },
-		Absolute = { "Wizard", "Kisune Samurai", "Galahad", "Dragon Slayer", "Ranger Super Tower" },
-	},
-
 	-- Kept for profiles created while the summon banner still used the old roster.
-	-- New summons always use UnitPool above.
+	-- New banner candidates live in SummonBannerPool.
 	LegacyUnitRarities = {
 		Bacon = "Common",
 		Dummy = "Common",

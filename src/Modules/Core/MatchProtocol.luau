@@ -38,6 +38,10 @@ export type ErrorCode =
 	| "MATCH_BUSY"
 	| "MATCH_EXPIRED"
 	| "NO_MEMBERS"
+	| "INVITE_NOT_FOUND"
+	| "INVITE_EXPIRED"
+	| "INVITE_TARGET_UNAVAILABLE"
+	| "INVITE_COOLDOWN"
 	| "RESERVATION_FAILED"
 	| "TELEPORT_FAILED"
 	| "TELEPORT_PARTIAL"
@@ -63,6 +67,19 @@ export type PartyEvent = {
 	Party: PartySnapshot?,
 	Reason: string?,
 	Sequence: number,
+}
+export type PartyInvite = {
+	Id: string,
+	PartyId: string,
+	FromUserId: number,
+	FromName: string,
+	FromDisplayName: string,
+	FromLevel: number,
+	Map: string,
+	Difficulty: string,
+	MemberCount: number,
+	Loadout: { string },
+	ExpiresAt: number,
 }
 export type TeleportData = {
 	Version: number,

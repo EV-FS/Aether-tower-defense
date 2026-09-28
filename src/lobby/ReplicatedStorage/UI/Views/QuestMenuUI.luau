@@ -78,6 +78,10 @@ local function getCategoryQuests(category: string): { QuestDisplay }
 			and (state.Active or state.Completed or state.Claimed)
 		then
 			local current = math.clamp(tonumber(state.Progress) or 0, 0, config.TargetAmount)
+			if config.TargetMap and DataClient then
+				local recordedClears = tonumber(DataClient.MapClears()[config.TargetMap]) or 0
+				current = math.max(current, math.min(recordedClears, config.TargetAmount))
+			end
 			table.insert(displays, {
 				Id = questId,
 				Title = config.Title,
@@ -257,6 +261,12 @@ end
 
 function QuestMenuUI.RenderUI()
 	local isVisible = UIController:IsVisible(VIEW_ID)
+	effect(function()
+		if isVisible() then
+			DataClient.FetchMapClears()
+			DataClient.FetchQuests()
+		end
+	end)
 	local menuMotion = useMenuMotion(isVisible, function()
 		return UIController:GetActiveView()
 	end)

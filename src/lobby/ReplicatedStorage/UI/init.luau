@@ -8,12 +8,14 @@ local Vide = require(ReplicatedStorage.Packages.Vide)
 local App = require(script.App)
 local LoadingController = require(ReplicatedFirst:WaitForChild("LoadingController"))
 local UIOffsetScaler = require(script.Utils.UIOffsetScaler)
+local LobbyButtonEffects = require(script.Utils.LobbyButtonEffects)
 
 local mount = Vide.mount
 
 local UI = {}
 local isInitialized = false
 local unmount: (() -> ())? = nil
+local detachButtonEffects: (() -> ())? = nil
 local mountedViews = nil
 local viewUnmounts = {} :: { () -> () }
 local mountGeneration = 0
@@ -95,6 +97,7 @@ function UI.Init()
 			end
 		end
 	end
+	detachButtonEffects = LobbyButtonEffects.Attach(interface)
 
 	for _, view in views do
 		if view.Start then
@@ -111,6 +114,10 @@ function UI.Destroy()
 	end
 
 	mountGeneration += 1
+	if detachButtonEffects then
+		detachButtonEffects()
+		detachButtonEffects = nil
+	end
 	for index = #viewUnmounts, 1, -1 do
 		viewUnmounts[index]()
 		viewUnmounts[index] = nil

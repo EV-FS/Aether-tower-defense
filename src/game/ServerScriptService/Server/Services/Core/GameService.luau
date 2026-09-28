@@ -309,31 +309,48 @@ function GameService:GameOver(isWin: boolean)
 		warn(`[GameService] MapData에서 {self.SelectedMap}의 보상 정보를 찾을 수 없습니다.`)
 	end
 
+	local pendingResults = 0
+	local resultSaved = Instance.new("BindableEvent")
 	for _, player in ipairs(self:GetMatchPlayers()) do
+		pendingResults += 1
 		task.spawn(function()
-			local profile = DataService:GetProfile(player)
-			if not profile then
-				return
-			end
-
-			if coins > 0 then
-				DataService:AddData(player, "Coins", coins)
-			end
-			if exp > 0 then
-				DataService:AddData(player, "Exp", exp)
-			end
-			if gems > 0 then
-				DataService:AddData(player, "Gems", gems)
-			end
-
-			if isWin then
-				profile.Data.Wins = (profile.Data.Wins or 0) + 1
-				if MapData[completedMap] then
-					DataService:AddData(player, "MapClears", 1, completedMap)
+			local success, rewardError = pcall(function()
+				local profile = DataService:GetProfile(player)
+				if not profile or not profile:IsActive() then
+					warn(`[GameService] Could not record results for {player.Name}: profile unavailable`)
+					return
 				end
+
+				if coins > 0 then
+					DataService:AddData(player, "Coins", coins)
+				end
+				if exp > 0 then
+					DataService:AddData(player, "Exp", exp)
+				end
+				if gems > 0 then
+					DataService:AddData(player, "Gems", gems)
+				end
+
+				if isWin then
+					profile.Data.Wins = (profile.Data.Wins or 0) + 1
+					if MapData[completedMap] then
+						local clears = DataService:AddData(player, "MapClears", 1, completedMap)
+						if clears == nil then
+							warn(`[GameService] Failed to record {completedMap} clear for {player.Name}`)
+						end
+					end
+				end
+				DataService:SaveData(player)
+		end)
+			if not success then
+				warn(`[GameService] Failed to record results for {player.Name}: {rewardError}`)
 			end
+			pendingResults -= 1
+			resultSaved:Fire()
 		end)
 	end
+	while pendingResults > 0 do resultSaved.Event:Wait() end
+	resultSaved:Destroy()
 
 	Net.GameEvent.GameOver.FireAll({
 		isWin = isWin,

@@ -6,12 +6,12 @@ local AutoSellConfig = require(ReplicatedStorage.Settings.Data.AutoSellConfig)
 local SummonConfig = require(ReplicatedStorage.Settings.Data.SummonConfig)
 local UnitSellRewards = require(ReplicatedStorage.Settings.Data.UnitSellRewards)
 local Banner = require(script.Banner)
+local BannerSchedule = require(ReplicatedStorage.Shared.Modules.Core.Summon.BannerSchedule)
 local DataService
 
 local SummonService = {}
 local RANDOM = Random.new()
 local PRICES = SummonConfig.Prices
-local BANNER_TIMER_DURATION = SummonConfig.BannerTimerDuration
 local MYTHIC_PITY_LIMIT = SummonConfig.Pity.Mythic.Limit
 local ABSOLUTE_PITY_LIMIT = SummonConfig.Pity.Absolute.Limit
 local MYTHIC_PITY_ATTRIBUTE = SummonConfig.Pity.Mythic.Attribute
@@ -99,7 +99,7 @@ function SummonService.Summon(player: Player, amount: number)
 
 			local unitName, rarity
 			if forcedRarity then
-				unitName = Banner.GetUnitForRarity(forcedRarity)
+				unitName = Banner.GetUnitForRarity(forcedRarity, currentBanner)
 				if unitName then
 					rarity = forcedRarity
 				else
@@ -171,8 +171,8 @@ function SummonService.Start()
 	task.spawn(function()
 		while true do
 			local serverTime = workspace:GetServerTimeNow()
-			local secondsUntilTimerReset = BANNER_TIMER_DURATION - (serverTime % BANNER_TIMER_DURATION)
-			task.wait(secondsUntilTimerReset)
+			local nextChange = BannerSchedule.GetNextChange(serverTime)
+			task.wait(math.max(0.05, nextChange - serverTime))
 			Net.SummonService.BannerUpdated.FireAll(Banner.GetClientFormat())
 		end
 	end)

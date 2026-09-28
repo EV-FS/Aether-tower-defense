@@ -10,10 +10,10 @@ local NotificationFeed = require(ReplicatedStorage.Shared.Modules.UI.Notificatio
 local TouchZone = require(ReplicatedStorage.Shared.Modules.Utils.TouchZone)
 local Net = require(ReplicatedStorage.Shared.Net)
 local SummonConfig = require(ReplicatedStorage.Settings.Data.SummonConfig)
+local BannerSchedule = require(ReplicatedStorage.Shared.Modules.Core.Summon.BannerSchedule)
 local UISFX = require(ReplicatedStorage.Settings.Visuals.UISFX)
 local CutscenePlayer = require(ReplicatedStorage.Shared.Modules.Cutscene.CutscenePlayer)
 local useAudio = require(ReplicatedStorage.Shared.Modules.UI.Hooks.useAudio)
-local EmitModule = require(ReplicatedStorage.Shared.Modules.Utils.EmitModule)
 local TowerViewport = require(ReplicatedStorage.UI.Components.TowerViewport)
 local SummonResultUI = require(script.Parent.SummonResultUI)
 
@@ -143,16 +143,11 @@ local function emitCutsceneVFX(targetName: string)
 		return
 	end
 
-	if not EmitModule.setup then
-		EmitModule.init()
+	local forgeVFX = require(ReplicatedStorage.Shared.Modules.Utils.EmitModule)
+	if not forgeVFX.setup then
+		forgeVFX.init()
 	end
-	local vfx = shared.vfx
-	if not vfx or type(vfx.emit) ~= "function" then
-		warn("[SummonUI] shared.vfx is unavailable for the summon cutscene.")
-		return
-	end
-
-	vfx.emit(target)
+	forgeVFX.emit(target)
 end
 
 local function createRarityGradient(rarity: string)
@@ -402,7 +397,7 @@ end
 local function createStatusBar(
 	name: string,
 	fillName: string,
-	title: string,
+	title: string | (() -> string),
 	getRatio: () -> number,
 	getValueText: () -> string,
 	colors: ColorSequence,
@@ -515,6 +510,9 @@ end
 
 function SummonUI.UpdateBanner(bannerData)
 	if bannerData and type(bannerData.NextRerollTime) == "number" then
+		if bannerData.NextRerollTime < nextBannerTimerResetAt() then
+			return
+		end
 		nextBannerTimerResetAt(bannerData.NextRerollTime)
 	end
 
@@ -883,7 +881,11 @@ function SummonUI.RenderUI()
 			createStatusBar(
 				"BannerTimer",
 				"BannerTimerFill",
-				"TIMER",
+				function()
+					local resetAt = nextBannerTimerResetAt()
+					if resetAt <= 0 then resetAt = BannerSchedule.GetNextChange(workspace:GetServerTimeNow()) end
+					return `NEXT {BannerSchedule.FormatKST(resetAt)} KST`
+				end,
 				function()
 					return bannerSecondsRemaining() / BANNER_TIMER_DURATION
 				end,
@@ -1058,33 +1060,28 @@ function SummonUI.Start()
 	Net.SummonService.BannerUpdated.On(SummonUI.UpdateBanner)
 
 	task.spawn(function()
+		local requestInFlight = false
+		local nextRequestAt = 0
 		while true do
 			local serverTime = workspace:GetServerTimeNow()
 			local resetAt = nextBannerTimerResetAt()
-
-			if resetAt <= 0 then
-				resetAt = serverTime + (BANNER_TIMER_DURATION - (serverTime % BANNER_TIMER_DURATION))
-				nextBannerTimerResetAt(resetAt)
-			elseif resetAt <= serverTime then
-				local elapsedIntervals = math.floor((serverTime - resetAt) / BANNER_TIMER_DURATION) + 1
-				resetAt += elapsedIntervals * BANNER_TIMER_DURATION
-				nextBannerTimerResetAt(resetAt)
+			if resetAt <= serverTime and not requestInFlight and serverTime >= nextRequestAt then
+				requestInFlight = true
+				nextRequestAt = serverTime + 5
+				task.spawn(function()
+					local ok, success, bannerData = pcall(function()
+						return Net.SummonService.GetBanner.Invoke():await()
+					end)
+					if ok and success and bannerData then
+						SummonUI.UpdateBanner(bannerData)
+					elseif not ok then
+						warn("[SummonUI] GetBanner failed: " .. tostring(success))
+					end
+					requestInFlight = false
+				end)
 			end
-
 			bannerSecondsRemaining(math.max(0, resetAt - serverTime))
 			task.wait(0.2)
-		end
-	end)
-
-	task.spawn(function()
-		local ok, success, bannerData = pcall(function()
-			return Net.SummonService.GetBanner.Invoke():await()
-		end)
-
-		if ok and success and bannerData then
-			SummonUI.UpdateBanner(bannerData)
-		elseif not ok then
-			warn("[SummonUI] GetBanner failed: " .. tostring(success))
 		end
 	end)
 

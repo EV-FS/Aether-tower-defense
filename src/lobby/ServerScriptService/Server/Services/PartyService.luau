@@ -28,10 +28,13 @@ local parties: { [string]: Party } = {}
 local membership: { [Player]: Party } = {}
 local sequences: { [Player]: number } = {}
 local rateLimits: { [Player]: RateLimit } = {}
+local pendingInvites: { [Player]: Protocol.PartyInvite } = {}
+local inviteCooldowns: { [string]: number } = {}
 local connections: { RBXScriptConnection } = {}
 local MatchService: any
 local DataService: any
 local changedRemote: RemoteEvent?
+local inviteRemote: RemoteEvent?
 local requestRemote: RemoteFunction?
 local started = false
 
@@ -231,6 +234,62 @@ function PartyService:JoinParty(player: Player, partyId: string): Result<Snapsho
 	return Protocol.Success(snapshot(party))
 end
 
+function PartyService:SendInvite(player: Player, targetUserId: number): Result<nil>
+	local party, code = getOwnedParty(player)
+	if not party then return Protocol.Failure(code :: ErrorCode) end
+	if party.State ~= "Open" then return Protocol.Failure("PARTY_BUSY") end
+	if #party.Members >= Config.MaxMembers then return Protocol.Failure("PARTY_FULL") end
+	if type(targetUserId) ~= "number" or targetUserId % 1 ~= 0 or targetUserId == player.UserId then
+		return Protocol.Failure("INVALID_ARGUMENT")
+	end
+	local target = Players:GetPlayerByUserId(targetUserId)
+	if not target or membership[target] or target:GetAttribute("AFKTeleportPending")
+		or MatchService:IsPlayerBusy(target) then
+		return Protocol.Failure("INVITE_TARGET_UNAVAILABLE")
+	end
+	local cooldownKey = `{player.UserId}:{targetUserId}`
+	local now = os.clock()
+	if (inviteCooldowns[cooldownKey] or 0) > now then return Protocol.Failure("INVITE_COOLDOWN") end
+	inviteCooldowns[cooldownKey] = now + 5
+	local inviterData = DataService:GetData(player)
+	local loadout = table.create(6)
+	for slot = 1, 6 do
+		local entry = inviterData and inviterData.Loadout and inviterData.Loadout[tostring(slot)]
+		loadout[slot] = if type(entry) == "table" and type(entry.Name) == "string" then entry.Name else ""
+	end
+	local invite: Protocol.PartyInvite = {
+		Id = HttpService:GenerateGUID(false),
+		PartyId = party.Id,
+		FromUserId = player.UserId,
+		FromName = player.Name,
+		FromDisplayName = player.DisplayName,
+		FromLevel = if inviterData and type(inviterData.Level) == "number" then inviterData.Level else 1,
+		Map = party.Settings.Map,
+		Difficulty = party.Settings.Difficulty,
+		MemberCount = #party.Members,
+		Loadout = loadout,
+		ExpiresAt = workspace:GetServerTimeNow() + 30,
+	}
+	pendingInvites[target] = invite
+	if inviteRemote then inviteRemote:FireClient(target, invite) end
+	return Protocol.Success(nil)
+end
+
+function PartyService:RespondInvite(player: Player, response: any): Result<Snapshot>
+	if type(response) ~= "table" or type(response.Id) ~= "string" or type(response.Accept) ~= "boolean" then
+		return Protocol.Failure("INVALID_ARGUMENT")
+	end
+	local invite = pendingInvites[player]
+	if not invite or invite.Id ~= response.Id then return Protocol.Failure("INVITE_NOT_FOUND") end
+	pendingInvites[player] = nil
+	if workspace:GetServerTimeNow() > invite.ExpiresAt then return Protocol.Failure("INVITE_EXPIRED") end
+	if not response.Accept then return Protocol.Success(nil) end
+	local party = parties[invite.PartyId]
+	local inviter = Players:GetPlayerByUserId(invite.FromUserId)
+	if not party or not inviter or party.Leader ~= inviter then return Protocol.Failure("PARTY_NOT_FOUND") end
+	return self:JoinParty(player, party.Id)
+end
+
 function PartyService:LeaveParty(player: Player): Result<Snapshot>
 	local party = membership[player]
 	if not party then
@@ -332,6 +391,12 @@ function PartyService:StartParty(player: Player): Result<Snapshot>
 		return Protocol.Failure("PARTY_BUSY")
 	end
 	if party.State == "Retryable" and party.MatchId then
+		if not mapUnlocked(player, party.Settings.Map) then
+			return Protocol.Failure("MAP_LOCKED")
+		end
+		if membership[player] ~= party or party.Leader ~= player or locked(party) then
+			return Protocol.Failure("PARTY_BUSY")
+		end
 		local retry = MatchService:RetryMatch(party.MatchId)
 		if not retry.Success then
 			return Protocol.Failure(retry.Code)
@@ -453,8 +518,11 @@ function PartyService.Start()
 	request.Name = "PartyRequest"
 	local changed = Instance.new("RemoteEvent")
 	changed.Name = "PartyChanged"
+	local invite = Instance.new("RemoteEvent")
+	invite.Name = "PartyInvite"
 	requestRemote = request
 	changedRemote = changed
+	inviteRemote = invite
 	local actions: { [string]: any } = {
 		CreateParty = PartyService.CreateParty,
 		JoinParty = PartyService.JoinParty,
@@ -466,6 +534,8 @@ function PartyService.Start()
 		StartParty = PartyService.StartParty,
 		GetParty = PartyService.GetParty,
 		ListParties = PartyService.ListParties,
+		SendInvite = PartyService.SendInvite,
+		RespondInvite = PartyService.RespondInvite,
 	}
 	request.OnServerInvoke = function(player: Player, action: any, payload: any)
 		if not allowRequest(player) then
@@ -483,6 +553,7 @@ function PartyService.Start()
 		return result
 	end
 	changed.Parent = folder
+	invite.Parent = folder
 	request.Parent = folder
 	table.insert(
 		connections,
@@ -493,6 +564,10 @@ function PartyService.Start()
 			end
 			sequences[player] = nil
 			rateLimits[player] = nil
+			pendingInvites[player] = nil
+			for target, pending in pendingInvites do
+				if pending.FromUserId == player.UserId then pendingInvites[target] = nil end
+			end
 		end)
 	)
 end
@@ -511,10 +586,14 @@ function PartyService.Destroy()
 	if changedRemote then
 		changedRemote:Destroy()
 	end
+	if inviteRemote then inviteRemote:Destroy() end
 	requestRemote = nil
 	changedRemote = nil
+	inviteRemote = nil
 	table.clear(sequences)
 	table.clear(rateLimits)
+	table.clear(pendingInvites)
+	table.clear(inviteCooldowns)
 	PartyService.Changed:DisconnectAll()
 	started = false
 end

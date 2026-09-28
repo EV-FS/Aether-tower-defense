@@ -85,7 +85,7 @@ function DataClient.FetchQuests()
 	end)
 end
 
-function DataClient.FetchMapClears()
+function DataClient.FetchMapClears(onComplete: (() -> ())?)
 	task.spawn(function()
 		local ok, clears = pcall(function()
 			return Net.DataService.GetDataValue.Invoke("MapClears"):expect()
@@ -93,6 +93,7 @@ function DataClient.FetchMapClears()
 		if ok and type(clears) == "table" then
 			DataClient.MapClears(clears)
 		end
+		if onComplete then onComplete() end
 	end)
 end
 

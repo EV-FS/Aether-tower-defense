@@ -786,6 +786,7 @@ function DataService._PlayerAdded(player: Player)
 			DataService:UpdateData(player, "Loadout", { Name = DataConstants.STARTER_TOWER, Key = firstKey }, "1")
 		end
 	end
+	DataService:FireChanged(player, "ProfileLoaded", playerData)
 end
 
 function DataService._PlayerRemoving(player: Player)

@@ -3,7 +3,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
 
 local Vide = require(ReplicatedStorage.Packages.Vide)
-local ForgeVFX = require(ReplicatedStorage.Shared.Modules.Utils.ForgeVFX)
+local ForgeVFX: any = nil
 
 local cleanup = Vide.cleanup
 local create = Vide.create
@@ -122,6 +122,9 @@ local function isEffectRarity(rarity: string?): boolean
 end
 
 local function ensureForgeVFX()
+	if not ForgeVFX then
+		ForgeVFX = require(ReplicatedStorage.Shared.Modules.Utils.ForgeVFX)
+	end
 	if not ForgeVFX.setup then
 		ForgeVFX.init()
 	end

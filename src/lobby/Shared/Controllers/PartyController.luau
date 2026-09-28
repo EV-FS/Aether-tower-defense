@@ -7,6 +7,7 @@ local MatchProtocol = require(ReplicatedStorage.Shared.Modules.Core.MatchProtoco
 
 export type PartySnapshot = MatchProtocol.PartySnapshot
 export type PartyEvent = MatchProtocol.PartyEvent
+export type PartyInvite = MatchProtocol.PartyInvite
 export type Settings = MatchProtocol.Settings
 export type SettingsPatch = { Map: string?, Difficulty: string? }
 export type Result<T> = MatchProtocol.Result<T>
@@ -27,10 +28,12 @@ local lastSequence = -1
 local lastEventSequence = -1
 local requestRemote: RemoteFunction? = nil
 local changedConnection: RBXScriptConnection? = nil
+local inviteConnection: RBXScriptConnection? = nil
 local ready = nil
 local destroyed = false
 local generation = 0
 local snapshotChanged = Signal.new()
+local inviteReceived = Signal.new()
 
 local PartyController = {}
 
@@ -65,6 +68,7 @@ local function connect()
 		local folder = ReplicatedStorage:WaitForChild("RuntimeRemotes", 10)
 		local remote = folder and folder:WaitForChild("PartyRequest", 10)
 		local event = folder and folder:WaitForChild("PartyChanged", 10)
+		local inviteEvent = folder and folder:WaitForChild("PartyInvite", 10)
 		if
 			destroyed
 			or generation ~= currentGeneration
@@ -72,6 +76,8 @@ local function connect()
 			or not remote:IsA("RemoteFunction")
 			or not event
 			or not event:IsA("RemoteEvent")
+			or not inviteEvent
+			or not inviteEvent:IsA("RemoteEvent")
 		then
 			reject("NOT_READY")
 			return
@@ -80,6 +86,11 @@ local function connect()
 		requestRemote = remote
 		changedConnection = event.OnClientEvent:Connect(function(update: PartyEvent)
 			publish(update.Party, update.Sequence, update)
+		end)
+		inviteConnection = inviteEvent.OnClientEvent:Connect(function(invite: PartyInvite)
+			if type(invite) == "table" and type(invite.Id) == "string" then
+				inviteReceived:Fire(invite)
+			end
 		end)
 		resolve()
 	end):catch(function(err)
@@ -163,6 +174,18 @@ function PartyController:ListParties(): Request<Result<{ PartySnapshot }>>
 	return request("ListParties", nil, false)
 end
 
+function PartyController:SendInvite(userId: number): Request<Result<nil>>
+	return request("SendInvite", userId, false)
+end
+
+function PartyController:RespondInvite(id: string, accept: boolean): Request<Result<PartySnapshot>>
+	return request("RespondInvite", { Id = id, Accept = accept }, accept)
+end
+
+function PartyController:ObserveInvites(callback: (PartyInvite) -> ()): Connection
+	return inviteReceived:Connect(callback)
+end
+
 -- Snapshots are deeply frozen; callers cannot change the controller's cache.
 function PartyController:GetCachedParty(): PartySnapshot?
 	return cachedParty
@@ -191,7 +214,12 @@ function PartyController.Destroy()
 		changedConnection:Disconnect()
 		changedConnection = nil
 	end
+	if inviteConnection then
+		inviteConnection:Disconnect()
+		inviteConnection = nil
+	end
 	snapshotChanged:DisconnectAll()
+	inviteReceived:DisconnectAll()
 	requestRemote = nil
 	ready = nil
 	cachedParty = nil

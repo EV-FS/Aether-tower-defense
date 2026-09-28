@@ -171,14 +171,20 @@ function QuestService.Start()
 				local clears = tonumber(playerData.MapClears and playerData.MapClears[mapName]) or 0
 				QuestService.SetObjectiveProgress(player, "MapClear", mapName, clears)
 			end
+			for _, config in QuestData.QueryLifecycle("AutoClaim") do
+				local quest = playerData.Quests and playerData.Quests[config.Id]
+				if quest and quest.Completed and not quest.Claimed then
+					QuestService.ClaimQuest(player, config.Id)
+				end
+			end
 		end
 
+		DataService:GetChangedSignal("ProfileLoaded"):Connect(function(player)
+			task.spawn(acceptStarterQuests, player)
+		end)
 		for _, player in Players:GetPlayers() do
 			task.spawn(acceptStarterQuests, player)
 		end
-		Players.PlayerAdded:Connect(function(player)
-			task.spawn(acceptStarterQuests, player)
-		end)
 	end
 end
 
