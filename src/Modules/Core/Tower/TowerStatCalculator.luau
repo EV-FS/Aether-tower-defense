@@ -71,9 +71,6 @@ function TowerStatCalculator.FromStats(rawStats, towerProfile, shouldRound: bool
 	if stats.Damage then
 		additivePercent.Damage = (additivePercent.Damage or 0) + unitLevel * 0.006
 	end
-	if stats.Range then
-		additivePercent.Range = (additivePercent.Range or 0) + unitLevel * 0.006
-	end
 
 	for statName, multiplier in additivePercent do
 		if stats[statName] then
