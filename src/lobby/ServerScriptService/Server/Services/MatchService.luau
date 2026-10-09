@@ -8,6 +8,7 @@ local TeleportService = game:GetService("TeleportService")
 
 local MatchProtocol = require(ReplicatedStorage.Shared.Modules.Core.MatchProtocol)
 local PartySettings = require(ReplicatedStorage.Settings.Game.PartySettings)
+local DataService
 
 export type MatchRequest = {
 	Members: { Player },
@@ -124,6 +125,12 @@ beginAttempt = function(record: MatchRecord)
 		close(record, nil)
 		return
 	end
+	for _, player in members do
+		if DataService:IsLocked(player) then
+			close(record, "NOT_READY")
+			return
+		end
+	end
 	record.Attempt += 1
 	local attempt = record.Attempt
 	record.Pending = {}
@@ -145,6 +152,12 @@ beginAttempt = function(record: MatchRecord)
 		if #present == 0 then
 			close(record, nil)
 			return
+		end
+		for _, player in present do
+			if DataService:IsLocked(player) then
+				close(record, "NOT_READY")
+				return
+			end
 		end
 		local options = Instance.new("TeleportOptions")
 		options.ReservedServerAccessCode = record.AccessCode :: string
@@ -188,6 +201,9 @@ function MatchService:StartMatch(request: MatchRequest, onChanged: Observer): Ma
 		end
 		if typeof(player) ~= "Instance" or not player:IsA("Player") or player.Parent ~= Players then
 			return MatchProtocol.Failure("INVALID_PLAYER")
+		end
+		if DataService:IsLocked(player) then
+			return MatchProtocol.Failure("NOT_READY")
 		end
 		if members[player.UserId] then
 			return MatchProtocol.Failure("INVALID_ARGUMENT")
@@ -320,7 +336,11 @@ function MatchService:CloseMatch(matchId: string)
 	end
 end
 
-function MatchService.Init() end
+function MatchService.Init(services)
+	DataService = services:GetService("DataService")
+end
+
+MatchService.Dependencies = { "DataService" }
 
 function MatchService.Start()
 	if #connections > 0 then

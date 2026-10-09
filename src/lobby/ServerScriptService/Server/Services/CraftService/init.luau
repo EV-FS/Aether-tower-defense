@@ -16,18 +16,21 @@ local VALID_CURRENCIES = { Coins = true, Gems = true }
 -------------------------------------------------
 local function GetCraftable(player: Player, craftInfo: CraftRecipes.Recipe): boolean
 	local playerData = DataService:GetData(player)
-	if not playerData then
+	if not playerData or DataService:IsLocked(player) then
 		return false
 	end
 
-	local items = playerData.Inventory and playerData.Inventory.Items or {}
+	local requiredItems = {}
 	for _, ingredient in craftInfo.Ingredients do
-		if (items[ingredient.Name] or 0) < ingredient.Amount then
+		requiredItems[ingredient.Name] = (requiredItems[ingredient.Name] or 0) + ingredient.Amount
+	end
+	for name, amount in requiredItems do
+		if not DataService:CanAfford(player, "Inventory", amount, "Items", name) then
 			return false
 		end
 	end
 	for currency, amount in craftInfo.Currencies or {} do
-		if (playerData[currency] or 0) < amount then
+		if not DataService:CanAfford(player, currency, amount) then
 			return false
 		end
 	end
@@ -37,10 +40,13 @@ end
 
 local function ApplyDeductions(player: Player, craftInfo: CraftRecipes.Recipe)
 	for _, ingredient in craftInfo.Ingredients do
-		DataService:AddData(player, "Inventory", -ingredient.Amount, "Items", ingredient.Name)
+		assert(
+			DataService:AddData(player, "Inventory", -ingredient.Amount, "Items", ingredient.Name) ~= nil,
+			`Failed to deduct {ingredient.Name}.`
+		)
 	end
 	for currency, amount in craftInfo.Currencies or {} do
-		DataService:AddData(player, currency, -amount)
+		assert(DataService:AddData(player, currency, -amount) ~= nil, `Failed to deduct {currency}.`)
 	end
 end
 

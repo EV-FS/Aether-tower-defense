@@ -21,6 +21,7 @@ local ProfileStore = require(ServerScriptService.ServerPackages.ProfileStore)
 --/Variables
 local PlayerStore = ProfileStore.New("MainData_v1", DataConstants.PROFILE_TEMPLATE)
 local Profiles: { [Player]: profile } = {}
+local LockedPlayers: { [Player]: boolean } = {}
 
 --/Types
 type profile = typeof(PlayerStore:StartSessionAsync())
@@ -33,12 +34,19 @@ export type DataService = {
 	GetProfile: (self: DataService, player: Player) -> profile?,
 	GetData: (self: DataService, player: Player) -> PlayerData?,
 	SaveData: (self: DataService, player: Player) -> nil,
+	SaveDataAsync: (self: DataService, player: Player, timeoutSeconds: number?) -> (boolean, string?),
 	ClearData: (self: DataService, player: Player) -> nil,
+
+	Lock: (self: DataService, player: Player) -> nil,
+	Unlock: (self: DataService, player: Player) -> nil,
+	IsLocked: (self: DataService, player: Player) -> boolean,
 
 	AddData: (self: DataService, player: Player, mainKey: string, amount: number, ...any) -> number?,
 	UpdateData: (self: DataService, player: Player, mainKey: string, value: any, ...any) -> any?,
 
-	AddTower: (self: DataService, player: Player, towerName: string, towerData: towerTemplate?) -> any,
+	CanAfford: (self: DataService, player: Player, mainKey: string, amount: boolean | number, ...any) -> boolean,
+
+	AddTower: (self: DataService, player: Player, towerName: string, towerData: towerTemplate?) -> boolean,
 	AdjustTower: (
 		self: DataService,
 		player: Player,
@@ -46,8 +54,8 @@ export type DataService = {
 		towerKey: string,
 		key: string,
 		value: any
-	) -> nil,
-	RemoveTower: (self: DataService, player: Player, towerName: string, towerKey: string) -> nil,
+	) -> boolean,
+	RemoveTower: (self: DataService, player: Player, towerName: string, towerKey: string) -> boolean,
 
 	IsOwnGamePass: (self: DataService, player: Player, gamePassId: number | string) -> (boolean, PurchaseType?),
 	AddGamePass: (
@@ -163,11 +171,11 @@ end
 
 local function patchEmoteInventory(playerData: PlayerData)
 	playerData.Inventory = if type(playerData.Inventory) == "table" then playerData.Inventory else {}
-	playerData.Inventory.Emotes = if type(playerData.Inventory.Emotes) == "table" then playerData.Inventory.Emotes else {}
-	playerData.Inventory.Emotes["Look Out"] = math.max(
-		1,
-		math.floor(tonumber(playerData.Inventory.Emotes["Look Out"]) or 0)
-	)
+	playerData.Inventory.Emotes = if type(playerData.Inventory.Emotes) == "table"
+		then playerData.Inventory.Emotes
+		else {}
+	playerData.Inventory.Emotes["Look Out"] =
+		math.max(0, math.floor(tonumber(playerData.Inventory.Emotes["Look Out"]) or 0))
 
 	local rawLoadout = if type(playerData.EmoteLoadout) == "table" then playerData.EmoteLoadout else {}
 	local cleanLoadout = {}
@@ -193,10 +201,9 @@ local function patchEmojiInventory(playerData: PlayerData)
 	local emojis = {}
 	for emojiId in EmojiData.ByName do
 		local count = tonumber(rawEmojis[emojiId]) or 0
-		if count > 0 then emojis[emojiId] = math.floor(count) end
-	end
-	for _, emojiId in { "Wave", "Laugh", "Love", "Surprised" } do
-		emojis[emojiId] = math.max(1, math.floor(tonumber(emojis[emojiId]) or 0))
+		if count >= 0 then
+			emojis[emojiId] = math.floor(count)
+		end
 	end
 	playerData.Inventory.Emojis = emojis
 
@@ -205,14 +212,21 @@ local function patchEmojiInventory(playerData: PlayerData)
 	local used = {}
 	for slot = 1, 4 do
 		local emojiId = raw[slot] or raw[tostring(slot)]
-		if type(emojiId) == "string" and emojis[emojiId] and emojis[emojiId] > 0
-			and EmojiData.ByName[emojiId] and not used[emojiId] then
+		if
+			type(emojiId) == "string"
+			and emojis[emojiId]
+			and emojis[emojiId] > 0
+			and EmojiData.ByName[emojiId]
+			and not used[emojiId]
+		then
 			clean[tostring(slot)] = emojiId
 			used[emojiId] = true
 		end
 	end
 	if not playerData._EmojiLoadoutInitialized then
-		if next(clean) == nil then clean["1"] = "Wave" end
+		if next(clean) == nil and (emojis.Wave or 0) > 0 then
+			clean["1"] = "Wave"
+		end
 		playerData._EmojiLoadoutInitialized = true
 	end
 	playerData.EmojiLoadout = clean
@@ -256,8 +270,6 @@ function DataService.Start()
 		end)
 	end
 
-	-- Quest state is a table, so this event only invalidates the client's cache;
-	-- DataClient then fetches the authoritative quest table through GetDataValue.
 	DataService:GetChangedSignal("Quests"):Connect(function(player)
 		Net.DataService.CurrencyChanged.Fire(player, { CurrencyName = "Quests", CurrencyValue = 0 })
 	end)
@@ -320,6 +332,28 @@ function DataService:SaveData(player: Player)
 	end
 end
 
+function DataService:SaveDataAsync(player: Player, timeoutSeconds: number?): (boolean, string?)
+	local profile = DataService:GetProfile(player)
+	if not profile or not profile:IsActive() then
+		return false
+	end
+
+	local saveCounter = self:AddData(player, "_SaveAsyncCounter", 1)
+	if not saveCounter then
+		return false
+	end
+	profile:Save()
+
+	local deadline = os.clock() + (timeoutSeconds or 60)
+	while (profile.LastSavedData._SaveAsyncCounter or 0) < saveCounter do
+		if not profile:IsActive() or os.clock() >= deadline then
+			return false
+		end
+		task.wait(0.1)
+	end
+	return true
+end
+
 function DataService:ClearData(player: Player)
 	local profile = self:GetProfile(player)
 	if not profile or not profile:IsActive() then
@@ -328,6 +362,18 @@ function DataService:ClearData(player: Player)
 
 	profile.Data = TableUtils.DeepCopy(DataConstants.PROFILE_TEMPLATE)
 	profile:Save()
+end
+
+function DataService:Lock(player: Player)
+	LockedPlayers[player] = true
+end
+
+function DataService:Unlock(player: Player)
+	LockedPlayers[player] = nil
+end
+
+function DataService:IsLocked(player: Player): boolean
+	return LockedPlayers[player] == true
 end
 
 function DataService:AddData(player: Player, mainKey: string, amount: number, ...: any): number?
@@ -374,7 +420,7 @@ function DataService:AddData(player: Player, mainKey: string, amount: number, ..
 			return
 		end
 		totalValue = (parentTable[lastKey] or 0) + amount
-		parentTable[lastKey] = if mainKey == "Inventory" and totalValue == 0 then nil else totalValue
+		parentTable[lastKey] = totalValue
 	end
 
 	if string.upper(mainKey) == "EXP" then
@@ -412,10 +458,50 @@ function DataService:UpdateData(player: Player, mainKey: string, value: any, ...
 	return value
 end
 
-function DataService:AddTower(player: Player, towerName: string, towerData: towerTemplate?)
+function DataService:CanAfford(player: Player, mainKey: string, amount: boolean | number, ...: any): boolean
+	if typeof(amount) ~= "boolean" and (typeof(amount) ~= "number" or not (amount >= 0 and amount < math.huge)) then
+		return false
+	end
 	local playerData = self:GetData(player)
 	if not playerData then
-		return
+		return false
+	end
+
+	local subKeys = { ... }
+	if mainKey == "Inventory" and subKeys[1] == "Items" then
+		local canonicalName = ItemUtils.GetCanonicalName(subKeys[2])
+		if not canonicalName then
+			return false
+		end
+		subKeys[2] = canonicalName
+	end
+
+	local tradeReservations = playerData.TradeReservations
+	local keyValue = playerData[mainKey]
+	-- ReserveOfferAssets stores inventory categories directly under TradeReservations.
+	local reservedValue = if mainKey == "Inventory"
+		then tradeReservations
+		else tradeReservations and tradeReservations[mainKey]
+	for _, key in subKeys do
+		keyValue = if typeof(keyValue) == "table" then keyValue[key] else nil
+		reservedValue = if typeof(reservedValue) == "table" then reservedValue[key] else nil
+	end
+
+	if typeof(amount) == "boolean" then
+		return keyValue == amount
+	end
+	local owned = if keyValue == nil then 0 else keyValue
+	local reserved = if reservedValue == nil then 0 else reservedValue
+	if typeof(owned) ~= "number" or typeof(reserved) ~= "number" then
+		return false
+	end
+	return owned >= 0 and owned < math.huge and reserved >= 0 and reserved < math.huge and owned - reserved >= amount
+end
+
+function DataService:AddTower(player: Player, towerName: string, towerData: towerTemplate?): boolean
+	local playerData = self:GetData(player)
+	if not playerData then
+		return false
 	end
 
 	local towerId = playerData._NextId
@@ -430,24 +516,26 @@ function DataService:AddTower(player: Player, towerName: string, towerData: towe
 		towerKeyId = towerId,
 		towerData = newTower,
 	})
+
+	return true
 end
 
-function DataService:AdjustTower(player: Player, towerName: string, towerKey: string, key: string, value: any)
+function DataService:AdjustTower(player: Player, towerName: string, towerKey: string, key: string, value: any): boolean
 	local playerData = self:GetData(player)
 	if not playerData then
-		return
+		return false
 	end
 
 	local targetTowerType = playerData.OwnedTowers[towerName]
 	if not targetTowerType then
 		warn(`요청한 타워 타입 "{towerName}"이 존재하지 않음.`)
-		return
+		return false
 	end
 
 	local targetTower = playerData.OwnedTowers[towerName][towerKey]
 	if not targetTower then
 		warn(`요청한 타워 "{towerKey}"를 가지고 있지 않음.`)
-		return
+		return false
 	end
 
 	local handlers = {
@@ -497,36 +585,53 @@ function DataService:AdjustTower(player: Player, towerName: string, towerKey: st
 				IsShiny = value,
 			}
 		end,
+		Trading = function()
+			if typeof(value) ~= "boolean" then
+				warn(`추가하려는 타워 경험치 값이 유효하지 않음.`)
+				return
+			end
+
+			self:UpdateData(player, "OwnedTowers", value, towerName, towerKey, "Trading")
+
+			return "TowerTradingChanged",
+				{
+					TowerName = towerName,
+					TowerKey = towerKey,
+					IsShiny = value,
+				}
+		end,
 	}
 
 	local handler = handlers[key]
 	if not handler then
 		warn(`유효하지 않은 속성 "{key}"을 호출 함.`)
-		return
+		return false
 	end
 
 	local updateKey, newValue = handler()
 	if updateKey and newValue then
 		self:FireChanged(player, updateKey, newValue)
 	end
+
+	return true
 end
 
-function DataService:RemoveTower(player: Player, towerName: string, towerKey: string)
+function DataService:RemoveTower(player: Player, towerName: string, towerKey: string): boolean
 	local playerData = self:GetData(player)
 	if not playerData then
-		return
+		return false
 	end
 
 	local targetTowerType = playerData.OwnedTowers[towerName]
 	if not targetTowerType then
 		warn(`요청한 타워 타입 "{towerName}"이 존재하지 않음.`)
-		return
+		return false
 	end
 
 	local targetTower = playerData.OwnedTowers[towerName][towerKey]
 	if not targetTower then
 		warn(`요청한 타워 "{towerKey}"를 가지고 있지 않음.`)
-		return
+		return false
 	end
 
 	self:UpdateData(player, "OwnedTowers", nil, towerName, towerKey)
@@ -542,6 +647,8 @@ function DataService:RemoveTower(player: Player, towerName: string, towerKey: st
 		towerName = towerName,
 		towerKeyId = towerKeyId,
 	})
+
+	return true
 end
 
 function DataService:IsOwnGamePass(player: Player, gamePassId: number | string): (boolean, PurchaseType?)
@@ -790,6 +897,7 @@ function DataService._PlayerAdded(player: Player)
 end
 
 function DataService._PlayerRemoving(player: Player)
+	LockedPlayers[player] = nil
 	local profile = Profiles[player]
 	if profile ~= nil then
 		profile:EndSession()

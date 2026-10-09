@@ -152,15 +152,20 @@ function EmoteService.RemoveEmote(player: Player, targetEmote: number | string)
 	end
 
 	local playerData = DataService:GetData(player)
-	local playerEmote = playerData and playerData.Inventory and playerData.Inventory.Emotes[emoteName]
-	if not playerEmote or playerEmote <= 0 then
+	if not playerData or DataService:IsLocked(player) then
+		return
+	end
+	if not DataService:CanAfford(player, "Inventory", 1, "Emotes", emoteName) then
 		warn(`보유하지 않은 이모트 {emoteName}를 제거하려 시도함.`)
 		return
 	end
 
-	DataService:AddData(player, "Inventory", -1, "Emotes", emoteName)
+	local remaining = DataService:AddData(player, "Inventory", -1, "Emotes", emoteName)
+	if remaining == nil then
+		return
+	end
 
-	if playerEmote <= 1 then
+	if remaining == 0 then
 		local loadout = table.clone(playerData.EmoteLoadout or {})
 		local changed = false
 		for slot, equippedName in loadout do

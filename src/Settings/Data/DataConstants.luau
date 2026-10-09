@@ -51,6 +51,8 @@ return TableUtils.DeepFreeze({
 			Gems = 0,
 		},
 		_NextId = 1,
+		_LastAppliedTradeId = "",
+		_SaveAsyncCounter = 0,
 		_StructureVersion = "v2",
 		_StarterTowerReceived = false,
 		_EmojiLoadoutInitialized = false,

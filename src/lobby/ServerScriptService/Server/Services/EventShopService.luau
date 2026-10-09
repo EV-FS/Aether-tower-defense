@@ -37,7 +37,7 @@ function EventShopService:Purchase(player: Player, productId: any)
 	end
 
 	local playerData = DataService:GetData(player)
-	if not playerData then
+	if not playerData or DataService:IsLocked(player) then
 		return response(false, "Your data is still loading.")
 	end
 
@@ -48,7 +48,7 @@ function EventShopService:Purchase(player: Player, productId: any)
 	end
 
 	local balance = playerData.Blossom or 0
-	if balance < product.Price then
+	if not DataService:CanAfford(player, "Blossom", product.Price) then
 		return response(false, `Collect {product.Price - balance} more Blossoms.`, {
 			Balance = balance,
 			Required = product.Price,
@@ -60,13 +60,7 @@ function EventShopService:Purchase(player: Player, productId: any)
 		return response(false, "The purchase could not be completed.")
 	end
 
-	DataService:AddData(
-		player,
-		"Inventory",
-		product.RewardAmount,
-		product.RewardCategory,
-		product.RewardName
-	)
+	DataService:AddData(player, "Inventory", product.RewardAmount, product.RewardCategory, product.RewardName)
 
 	return response(true, `Purchased {product.Title}!`, {
 		Balance = newBalance,

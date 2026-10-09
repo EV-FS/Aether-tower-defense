@@ -66,6 +66,10 @@ attemptTeleport = function(player: Player)
 
 	state.Attempts += 1
 	local playerData = DataService:GetData(player)
+	if not playerData or DataService:IsLocked(player) then
+		pending[player] = nil
+		return
+	end
 	DataService:SaveData(player)
 	local options = Instance.new("TeleportOptions")
 	options:SetTeleportData({
@@ -87,7 +91,7 @@ attemptTeleport = function(player: Player)
 end
 
 local function requestTeleport(player: Player)
-	if pending[player] then
+	if pending[player] or DataService:IsLocked(player) then
 		return
 	end
 

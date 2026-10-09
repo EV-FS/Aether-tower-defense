@@ -23,22 +23,30 @@ local function response(success: boolean, message: string, extra: { [string]: an
 end
 
 local function normalizeTowerKey(value: any): string?
-	if typeof(value) ~= "string" and typeof(value) ~= "number" then return nil end
+	if typeof(value) ~= "string" and typeof(value) ~= "number" then
+		return nil
+	end
 	local text = tostring(value)
 	local idText = string.match(text, "^t_(%d+)$") or string.match(text, "^(%d+)$")
 	local id = if idText then tonumber(idText) else nil
-	if not id or id % 1 ~= 0 or id < 0 or id > MAX_TOWER_KEY_ID then return nil end
+	if not id or id % 1 ~= 0 or id < 0 or id > MAX_TOWER_KEY_ID then
+		return nil
+	end
 	return `t_{id}`
 end
 
 local function getRandomTrait(): string
 	local totalWeight = 0
-	for _, trait in TraitData.ByIndex do totalWeight += trait.Chance end
+	for _, trait in TraitData.ByIndex do
+		totalWeight += trait.Chance
+	end
 	local roll = RANDOM:NextNumber(0, totalWeight)
 	local cursor = 0
 	for _, trait in TraitData.ByIndex do
 		cursor += trait.Chance
-		if roll <= cursor then return trait.Name end
+		if roll <= cursor then
+			return trait.Name
+		end
 	end
 	return TraitData.ByIndex[#TraitData.ByIndex].Name
 end
@@ -50,7 +58,9 @@ function TraitService:RollTrait(player: Player, data: any)
 	end
 	lastRequestAt[player] = now
 
-	if typeof(data) ~= "table" then return response(false, "Invalid trait request.") end
+	if typeof(data) ~= "table" then
+		return response(false, "Invalid trait request.")
+	end
 	local towerName = data.TowerName
 	local towerKey = normalizeTowerKey(data.TowerKey)
 	if typeof(towerName) ~= "string" or towerName == "" or #towerName > MAX_TOWER_NAME_LENGTH or not towerKey then
@@ -58,19 +68,31 @@ function TraitService:RollTrait(player: Player, data: any)
 	end
 
 	local playerData = DataService:GetData(player)
-	if not playerData then return response(false, "Your data is still loading.") end
+	if not playerData or DataService:IsLocked(player) then
+		return response(false, "Your data is still loading.")
+	end
 	local ownedTower = playerData.OwnedTowers[towerName] and playerData.OwnedTowers[towerName][towerKey]
-	if typeof(ownedTower) ~= "table" then return response(false, "You do not own this unit.") end
-	if (playerData.Gems or 0) < TraitData.RollCost then
+	if typeof(ownedTower) ~= "table" then
+		return response(false, "You do not own this unit.")
+	end
+	if ownedTower.Trading == true then
+		return response(false, "This unit is being traded.")
+	end
+	if not DataService:CanAfford(player, "Gems", TraitData.RollCost) then
 		return response(false, `You need {TraitData.RollCost} Gems.`)
 	end
 
 	local gems = DataService:AddData(player, "Gems", -TraitData.RollCost)
-	if gems == nil then return response(false, "Could not spend Gems.") end
+	if gems == nil then
+		return response(false, "Could not spend Gems.")
+	end
 	local newTrait = getRandomTrait()
 	DataService:AdjustTower(player, towerName, towerKey, "Trait", newTrait)
 	return response(true, `Rolled {newTrait}!`, {
-		Trait = newTrait, Gems = gems, TowerName = towerName, TowerKey = towerKey,
+		Trait = newTrait,
+		Gems = gems,
+		TowerName = towerName,
+		TowerKey = towerKey,
 	})
 end
 
@@ -95,7 +117,9 @@ function TraitService.Start()
 	end
 	assert(remote:IsA("RemoteFunction"), "TraitRoll runtime remote must be a RemoteFunction")
 	remote.OnServerInvoke = function(player, data)
-		if activeRequests[player] then return response(false, "A roll is already in progress.") end
+		if activeRequests[player] then
+			return response(false, "A roll is already in progress.")
+		end
 		activeRequests[player] = true
 		local ok, result = pcall(TraitService.RollTrait, TraitService, player, data)
 		activeRequests[player] = nil

@@ -146,7 +146,7 @@ local function patchEmoteInventory(playerData: PlayerData)
 	playerData.Inventory = if type(playerData.Inventory) == "table" then playerData.Inventory else {}
 	playerData.Inventory.Emotes = if type(playerData.Inventory.Emotes) == "table" then playerData.Inventory.Emotes else {}
 	playerData.Inventory.Emotes["Look Out"] = math.max(
-		1,
+		0,
 		math.floor(tonumber(playerData.Inventory.Emotes["Look Out"]) or 0)
 	)
 

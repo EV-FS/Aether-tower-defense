@@ -64,7 +64,7 @@ function InventoryActionService:Perform(player: Player, data: any)
 	end
 
 	local playerData = DataService:GetData(player)
-	if not playerData then
+	if not playerData or DataService:IsLocked(player) then
 		return response(false, "Your data is still loading.")
 	end
 
@@ -72,6 +72,9 @@ function InventoryActionService:Perform(player: Player, data: any)
 	local tower = towersOfType and towersOfType[towerKey]
 	if typeof(tower) ~= "table" then
 		return response(false, "You do not own this unit.")
+	end
+	if tower.Trading == true then
+		return response(false, "Unit is trading.")
 	end
 
 	if action == "ToggleUnitLock" then
@@ -94,7 +97,9 @@ function InventoryActionService:Perform(player: Player, data: any)
 		return response(false, "This unit cannot be sold.")
 	end
 
-	DataService:RemoveTower(player, towerName, towerKey)
+	if not DataService:RemoveTower(player, towerName, towerKey) then
+		return response(false, "Could not sell this unit.")
+	end
 	local newCoins = DataService:AddData(player, "Coins", sellPrice)
 	local shardStones = if UnitSellRewards.Roll(rarity or "", random) then 1 else 0
 	if shardStones > 0 then

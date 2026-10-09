@@ -63,9 +63,13 @@ function SummonService.Summon(player: Player, amount: number)
 	end
 
 	local playerData = DataService:GetData(player)
+	if not playerData or DataService:IsLocked(player) then
+		return { Success = false, PulledUnits = {} }
+	end
 	local totalCost = PRICES[amount]
+	local canAfford = DataService:CanAfford(player, "Coins", totalCost)
 
-	if not playerData or playerData.Coins < totalCost then
+	if not canAfford then
 		warn(`Not enough coins to summon for {player.Name}.`)
 		return { Success = false, PulledUnits = {} }
 	end
@@ -79,7 +83,9 @@ function SummonService.Summon(player: Player, amount: number)
 			return false, {}
 		end
 
-		DataService:AddData(player, "Coins", -totalCost)
+		if DataService:AddData(player, "Coins", -totalCost) == nil then
+			return false, {}
+		end
 
 		local pity = getPity(playerData)
 		local results = {}
