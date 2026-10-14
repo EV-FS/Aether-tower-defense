@@ -73,6 +73,9 @@ local TowerClient = {}
 TowerClient.PlacedTowers = {}
 TowerClient.ActiveTowers = {}
 TowerClient.PendingStats = {}
+TowerClient.PendingStuns = {}
+
+local stunnedTowers = {}
 
 function TowerClient.Init(services)
 	EconomyService = services:GetService("EconomyService")
@@ -106,6 +109,14 @@ function TowerClient.Start()
 
 	--/Connect
 	RunService.PreRender:Connect(function()
+		local now = workspace:GetServerTimeNow()
+		for towerId, towerData in stunnedTowers do
+			towerData.StunRemaining = math.max(0, towerData.StunEndsAtReal - now)
+			if towerData.StunRemaining <= 0 then
+				stunnedTowers[towerId] = nil
+			end
+		end
+
 		TowerClient._UpdateHoverState()
 
 		if placementSession then
@@ -130,8 +141,11 @@ function TowerClient.Start()
 	Net.TowerService.TowerDestroyed.On(TowerClient.RemoveTower)
 	Net.TowerService.TowerSpawned.On(TowerClient._TowerSpawned)
 	Net.TowerService.TowerTargetModeUpdated.On(TowerClient._TowerTargetModeUpdated)
+	Net.TowerService.TowerStunned.On(TowerClient._OnStunned)
+
 	Net.TowerService.PassiveTriggered.On(TowerClient._PassiveTriggered)
 	Net.TowerService.SkillTriggered.On(TowerClient._SkillTriggered)
+
 	Net.TowerService.OnApplyBuff.On(TowerClient._OnApplyBuff)
 	Net.TowerService.OnRemoveBuff.On(TowerClient._OnRemoveBuff)
 	Net.TowerService.OnBuffAdded.On(TowerClient._OnBuffAdded)
@@ -214,7 +228,15 @@ function TowerClient.RegisterTower(player: Player?, towerId: number, data)
 		Level = 0,
 		Stats = TableUtils.DeepCopy(TowerData.ByName[data.towerName].Stats[0]),
 		ActiveBuffs = {},
+		StunRemaining = 0,
+		StunEndsAtReal = 0,
 	}
+
+	local pendingStun = TowerClient.PendingStuns[towerId]
+	if pendingStun then
+		TowerClient.PendingStuns[towerId] = nil
+		TowerClient._OnStunned({ towerId = towerId, stunEndsAtReal = pendingStun })
+	end
 
 	local pendingStats = TowerClient.PendingStats[towerId]
 	if pendingStats then
@@ -279,6 +301,8 @@ end
 
 function TowerClient.RemoveTower(towerId: number)
 	TowerClient.PendingStats[towerId] = nil
+	TowerClient.PendingStuns[towerId] = nil
+	stunnedTowers[towerId] = nil
 	local towerData = TowerClient.ActiveTowers[towerId]
 	if not towerData then
 		return
@@ -436,6 +460,23 @@ function TowerClient._TowerTargetModeUpdated(data: { towerId: number, targetMode
 	towerData.Target = data.targetMode
 	if selectedTowerId == data.towerId then
 		ClientSignals.TowerUpdated:Fire(data.towerId, towerData)
+	end
+end
+
+function TowerClient._OnStunned(data: { towerId: number, stunEndsAtReal: number })
+	local towerData = TowerClient.ActiveTowers[data.towerId]
+	if not towerData then
+		TowerClient.PendingStuns[data.towerId] = math.max(
+			TowerClient.PendingStuns[data.towerId] or 0,
+			data.stunEndsAtReal
+		)
+		return
+	end
+
+	towerData.StunEndsAtReal = math.max(towerData.StunEndsAtReal, data.stunEndsAtReal)
+	towerData.StunRemaining = math.max(0, towerData.StunEndsAtReal - workspace:GetServerTimeNow())
+	if towerData.StunRemaining > 0 then
+		stunnedTowers[data.towerId] = towerData
 	end
 end
 

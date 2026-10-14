@@ -51,6 +51,9 @@ function AttackComponent:Start()
 		if self.CooldownTimer > 0 then
 			return
 		end
+		if self.Tower.StunRemaining > 0 then
+			return false
+		end
 
 		local attackCount = 0
 		local maxAttacksPerFrame = 3

@@ -8,6 +8,7 @@ local BaseUnit = require(ServerScriptService.Server.Classes.Unit.BaseUnit)
 local UnitData = require(ReplicatedStorage.Settings.Data.UnitData)
 local EnemyData = require(ReplicatedStorage.Settings.Data.EnemyData)
 local GetPath = require(ReplicatedStorage.Shared.Modules.Core.GetPath)
+local NumberUtils = require(ReplicatedStorage.Shared.Modules.Utils.NumberUtils)
 local Net = require(ReplicatedStorage.Shared.Net)
 local UnitRegistry = require(script.Registry)
 
@@ -54,8 +55,6 @@ function UnitService.Spawn(
 
 	UnitService:StartMoveUnits()
 
-	self.SendTimeMs = math.floor(workspace:GetServerTimeNow() * 1000) % 65536
-
 	local unitIndex
 	if isEnemyType then
 		unitIndex = EnemyData.ByName[self.Name].Index
@@ -67,7 +66,7 @@ function UnitService.Spawn(
 		unitId = self.Id,
 		unitIndex = unitIndex,
 		summonerId = summoner.Id,
-		sendTimeMs = self.SendTimeMs,
+		sentClockMs = NumberUtils.FormatSendClockTimeMs(),
 		pathAlpha = self.PathAlpha and math.round(self.PathAlpha * 65535) or nil,
 		isEnemyType = self.IsEnemyType,
 	})
@@ -123,7 +122,7 @@ function UnitService.PlayerAdded(player: Player)
 			unitId = unit.Id,
 			unitIndex = UnitData.ByName[unit.Name].Index,
 			summonerId = unit.SummonerId,
-			sendTimeMs = unit.SendTimeMs or math.floor(workspace:GetServerTimeNow() * 1000) % 65536,
+			sentClockMs = NumberUtils.FormatSendClockTimeMs(),
 		})
 	end
 end

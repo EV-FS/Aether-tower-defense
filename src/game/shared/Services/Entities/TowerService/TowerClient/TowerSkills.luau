@@ -21,7 +21,6 @@ export type Skill = {
 	Config: { [string]: any },
 	ReadyAt: number,
 	IsRequesting: boolean,
-	SyncedAt: number,
 	CooldownRevision: number,
 }
 
@@ -34,74 +33,28 @@ export type Group = {
 
 type Snapshot = {
 	towerId: number,
-	skills: { [string]: { Config: { [string]: any }, CooldownLeft: number } },
-	sendTimeMs: number,
+	skills: { [string]: { Config: { [string]: any }, ReadyAt: number } },
 	revision: number,
 }
 
 local started = false
-local speedChanges: { { Time: number, Before: number } } = {}
 
 local TowerSkills = {}
 TowerSkills.GroupByName = {} :: { [string]: Group }
 TowerSkills.GroupByKey = {} :: { [Enum.KeyCode]: Group }
 
 -------------------------------------------------
---// Cooldown synchronization
+--// Local Functions
 -------------------------------------------------
-local function getSentAt(sendTimeMs: number, now: number): number
-	local currentTimeMs = math.floor(now * 1000) % 65536
-	local difference = (currentTimeMs - sendTimeMs) % 65536
-	if difference > 32768 then
-		difference -= 65536
-	end
-	return now - math.max(0, difference) / 1000
-end
-
-local function getElapsedGameTime(sentAt: number, now: number): number
-	local elapsed = 0
-	local speed = TimeService:GetGameSpeed()
-	local cursor = now
-
-	for i = #speedChanges, 1, -1 do
-		local change = speedChanges[i]
-		if change.Time <= sentAt then
-			break
-		end
-		elapsed += (cursor - change.Time) * speed
-		cursor = change.Time
-		speed = change.Before
-	end
-	return elapsed + (cursor - sentAt) * speed
-end
-
-local function syncCooldown(skill: Skill, cooldownLeft: number, sendTimeMs: number, revision: number)
+local function syncCooldown(skill: Skill, readyAt: number, revision: number)
 	if revision <= skill.CooldownRevision then
 		return
 	end
-	local now = workspace:GetServerTimeNow()
-	local sentAt = getSentAt(sendTimeMs, now)
 	skill.CooldownRevision = revision
-	skill.SyncedAt = sentAt
-	skill.ReadyAt = TimeService:Now() + cooldownLeft - getElapsedGameTime(sentAt, now)
+	skill.ReadyAt = readyAt
 end
 
-function TowerSkills._OnGameSpeedChanged(newSpeed: number, oldSpeed: number, pingTime: number?)
-	local now = workspace:GetServerTimeNow()
-	local changedAt = now - (pingTime or 0)
-
-	table.insert(speedChanges, { Time = changedAt, Before = oldSpeed })
-
-	while speedChanges[1] and speedChanges[1].Time < now - 32.768 do
-		table.remove(speedChanges, 1)
-	end
-
-	for _, group in TowerSkills.GroupByName do
-		for _, skill in group.Towers do
-			local elapsed = math.max(0, now - math.max(changedAt, skill.SyncedAt))
-			skill.ReadyAt -= elapsed * (newSpeed - oldSpeed)
-		end
-	end
+function TowerSkills._OnGameSpeedChanged()
 	ClientSignals.SkillsChanged:Fire()
 end
 
@@ -167,14 +120,13 @@ function TowerSkills._SyncSkills(data: Snapshot)
 				Config = dataSkill.Config,
 				ReadyAt = 0,
 				IsRequesting = false,
-				SyncedAt = 0,
 				CooldownRevision = 0,
 			}
 			group.Towers[data.towerId] = skill
 		end
 
 		skill.Config = dataSkill.Config
-		syncCooldown(skill, dataSkill.CooldownLeft, data.sendTimeMs, data.revision)
+		syncCooldown(skill, dataSkill.ReadyAt, data.revision)
 	end
 	ClientSignals.SkillsChanged:Fire()
 end
@@ -243,8 +195,8 @@ function TowerSkills.UseSkill(towerId: number, skillName: string): boolean
 
 	if TowerSkills.GetSkill(towerId, skillName) == skill then
 		skill.IsRequesting = false
-		if ok and response.cooldownLeft ~= nil then
-			syncCooldown(skill, response.cooldownLeft, response.sendTimeMs, response.revision)
+		if ok and response.readyAt ~= nil then
+			syncCooldown(skill, response.readyAt, response.revision)
 		end
 		ClientSignals.SkillsChanged:Fire()
 	end

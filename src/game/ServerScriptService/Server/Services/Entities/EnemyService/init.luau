@@ -11,6 +11,7 @@ local EnemyData = require(ReplicatedStorage.Settings.Data.EnemyData)
 local GameSettings = require(ReplicatedStorage.Settings.Game.GameSettings)
 local GetPath = require(ReplicatedStorage.Shared.Modules.Core.GetPath)
 local SpatialHashGrid = require(ReplicatedStorage.Shared.Modules.Core.SpatialHashGrid)
+local NumberUtils = require(ReplicatedStorage.Shared.Modules.Utils.NumberUtils)
 local Net = require(ReplicatedStorage.Shared.Net)
 local EnemyRegistry = require(script.Registry)
 
@@ -56,13 +57,11 @@ function EnemyService.SetupNewEnemy(name: string, isBoss: boolean?, pathAlpha: n
 
 	EnemyService:StartMoveEnemies()
 
-	self.SendTimeMs = math.floor(workspace:GetServerTimeNow() * 1000) % 65536
 	Net.EnemyService.ReplicatedEnemy.FireAll({
 		enemyId = self.Id,
 		enemyIndex = EnemyData.ByName[self.Name].Index,
-		sendTimeMs = self.SendTimeMs,
+		sentClockMs = NumberUtils.FormatSendClockTimeMs(),
 		isBoss = self.IsBoss,
-		-- Omit the optional f32 for the usual start-at-zero spawn (saves 4 bytes).
 		startPathAlpha = if self.PathAlpha == 0 then nil else self.PathAlpha,
 		pathId = self.PathId,
 	})
@@ -75,7 +74,6 @@ function EnemyService.Spawn(
 	isBoss: boolean?,
 	path: (string | number)?
 )
-	-- Resolve names once per group, before starting the asynchronous spawn loop.
 	local pathIds = GetPath:GetSpawnPathIds(isBoss, path)
 	return Promise.new(function(resolve, _, onCancel)
 		local isCancelled = false
@@ -93,7 +91,6 @@ function EnemyService.Spawn(
 					return
 				end
 
-				-- Explicit routes override defaults; unnamed spawns only use numbered paths.
 				for _, pathId in ipairs(pathIds) do
 					if isCancelled then
 						return
@@ -170,7 +167,7 @@ function EnemyService.PlayerAdded(player: Player)
 		Net.EnemyService.ReplicatedEnemy.Fire(player, {
 			enemyId = enemy.Id,
 			enemyIndex = EnemyData.ByName[enemy.Name].Index,
-			sendTimeMs = math.floor(workspace:GetServerTimeNow() * 1000) % 65536,
+			sentClockMs = NumberUtils.FormatSendClockTimeMs(),
 			isBoss = enemy.IsBoss,
 			startPathAlpha = if enemy.PathAlpha == 0 then nil else enemy.PathAlpha,
 			pathId = enemy.PathId,

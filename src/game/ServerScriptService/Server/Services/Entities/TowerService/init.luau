@@ -189,7 +189,6 @@ function TowerService.UseSkill(player: Player, towerId: number, skillName: strin
 	if not skillComponent then
 		return {
 			success = false,
-			sendTimeMs = math.floor(workspace:GetServerTimeNow() * 1000) % 65536,
 			revision = 0,
 		}
 	end

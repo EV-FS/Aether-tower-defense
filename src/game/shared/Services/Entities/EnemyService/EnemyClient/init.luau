@@ -30,16 +30,6 @@ local cframesToMove = {}
 -------------------------------------------------
 --// Local Functions
 -------------------------------------------------
-local function getPingTime(sendTimeMs: number): number
-	local currentTimeMs = math.floor(workspace:GetServerTimeNow() * 1000) % 65536
-	local difference = (currentTimeMs - sendTimeMs) % 65536
-	if difference > 32768 then
-		difference -= 65536
-	end
-
-	return math.max(0, difference) / 1000
-end
-
 local function removeStunVisuals(enemy)
 	if enemy.StunEffect then
 		enemy.StunEffect:Destroy()
@@ -167,7 +157,7 @@ end
 function EnemyClient.newEnemy(data: {
 	enemyId: number,
 	enemyIndex: number,
-	sendTimeMs: number,
+	sentClockMs: number,
 	isBoss: boolean?,
 	startPathAlpha: number?,
 	pathId: number,
@@ -187,12 +177,12 @@ function EnemyClient.newEnemy(data: {
 	clonedModel.PrimaryPart.Anchored = true
 
 	local pathLength = GetPath:Get(data.pathId):GetPathLength()
-	local pingTime = getPingTime(data.sendTimeMs)
+	local pingTime = NumberUtils.GetClockPingTime(data.sentClockMs / 1000)
 
 	local offsetVal = RANDOM:NextNumber(-0.5, 0.5)
 
 	local baseAlpha = data.startPathAlpha or 0
-	local pathAlphaVal = baseAlpha + ((enemyData.WalkSpeed * pingTime * TimeService:GetGameSpeed()) / pathLength)
+	local pathAlphaVal = baseAlpha + ((enemyData.WalkSpeed * pingTime) / pathLength)
 	pathAlphaVal = math.clamp(pathAlphaVal, 0, 1)
 
 	local finalCFrame = getEnemyCFrame(clonedModel, pathAlphaVal, offsetVal, 1, data.pathId)
@@ -346,26 +336,25 @@ end
 function EnemyClient._OnGameSpeedChanged(newSpeed: number, oldSpeed: number, pingTime: number)
 	for _, enemy in pairs(ActivedEnemies) do
 		local pathLength = GetPath:Get(enemy.PathId):GetPathLength()
-		local pingOffset = (enemy.WalkSpeed * pingTime * (newSpeed - oldSpeed)) / pathLength
+		local pingOffset = (enemy.WalkSpeed * pingTime * (newSpeed - oldSpeed) * enemy.MoveDirection) / pathLength
 
 		enemy.PathAlpha += pingOffset
 	end
 end
 
-function EnemyClient._OnUpdateSpeed(data: { enemyId: number, WalkSpeed: number, sendTimeMs: number })
+function EnemyClient._OnUpdateSpeed(data: { enemyId: number, WalkSpeed: number, sentClockTime: number })
 	local updatedEnemy = ActivedEnemies[data.enemyId]
 	if not updatedEnemy then
 		return
 	end
 
-	local pingTime = getPingTime(data.sendTimeMs)
+	local pingTime = NumberUtils.GetClockPingTime(data.sentClockTime)
 
 	local CalWalkSpeed = data.WalkSpeed / 100
 	local pathLength = GetPath:Get(updatedEnemy.PathId):GetPathLength()
 
-	local gameSpeed = TimeService:GetGameSpeed()
-	local pingOffset = (updatedEnemy.WalkSpeed * pingTime * gameSpeed) / pathLength
-	local alphaOffset = (CalWalkSpeed * pingTime * gameSpeed) / pathLength
+	local pingOffset = (updatedEnemy.WalkSpeed * pingTime * updatedEnemy.MoveDirection) / pathLength
+	local alphaOffset = (CalWalkSpeed * pingTime * updatedEnemy.MoveDirection) / pathLength
 
 	updatedEnemy.WalkSpeed = CalWalkSpeed
 	updatedEnemy.PathAlpha += -pingOffset + alphaOffset
@@ -386,21 +375,21 @@ function EnemyClient._OnUpdateSpeed(data: { enemyId: number, WalkSpeed: number, 
 	end
 end
 
-function EnemyClient._OnUpdateDirection(data: { enemyId: number, MoveDirection: boolean, sendTimeMs: number })
+function EnemyClient._OnUpdateDirection(data: { enemyId: number, MoveDirection: boolean, sentClockTime: number })
 	local updatedEnemy = ActivedEnemies[data.enemyId]
 	if not updatedEnemy then
 		return
 	end
 
-	local pingTime = getPingTime(data.sendTimeMs)
+	local pingTime = NumberUtils.GetClockPingTime(data.sentClockTime)
 
 	local convertDirection = data.MoveDirection and 1 or -1
 	local pathLength = GetPath:Get(updatedEnemy.PathId):GetPathLength()
 
-	local pingOffset = (updatedEnemy.WalkSpeed * pingTime * TimeService:GetGameSpeed()) / pathLength
+	local pingOffset = (updatedEnemy.WalkSpeed * pingTime * (convertDirection - updatedEnemy.MoveDirection)) / pathLength
 
 	updatedEnemy.MoveDirection = convertDirection
-	updatedEnemy.PathAlpha -= pingOffset
+	updatedEnemy.PathAlpha += pingOffset
 end
 
 function EnemyClient._TakeKnockback(data: { enemyId: number, studs: number })

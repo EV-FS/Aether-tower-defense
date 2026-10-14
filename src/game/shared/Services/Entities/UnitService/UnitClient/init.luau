@@ -13,6 +13,7 @@ local UnitRenderer = require(script.UnitRenderer)
 local UnitVisuals = require(script.UnitVisuals)
 local GetPath = require(ReplicatedStorage.Shared.Modules.Core.GetPath)
 local CharacterUtils = require(ReplicatedStorage.Shared.Modules.Utils.CharacterUtils)
+local NumberUtils = require(ReplicatedStorage.Shared.Modules.Utils.NumberUtils)
 local TableUtils = require(ReplicatedStorage.Shared.Modules.Utils.TableUtils)
 local Net = require(ReplicatedStorage.Shared.Net)
 local AnimationService
@@ -30,16 +31,6 @@ local cframesToMove = {}
 -------------------------------------------------
 --// Local Functions
 -------------------------------------------------
-local function getPingTime(sendTimeMs: number): number
-	local currentTimeMs = math.floor(workspace:GetServerTimeNow() * 1000) % 65536
-	local difference = (currentTimeMs - sendTimeMs) % 65536
-	if difference > 32768 then
-		difference -= 65536
-	end
-
-	return math.max(0, difference) / 1000
-end
-
 local function playSpawnEffects(summoner, clonedModel: Model, unitName: string)
 	if summoner then
 		VisualService.Play(summoner.Name, "Summon", summoner.Level, summoner.Model, clonedModel)
@@ -117,7 +108,7 @@ function UnitClient.newUnit(data: {
 	unitId: number,
 	unitIndex: number,
 	summonerId: number,
-	sendTimeMs: number,
+	sentClockMs: number,
 	pathAlpha: number?,
 	isEnemyType: boolean?,
 })
@@ -150,7 +141,7 @@ function UnitClient.newUnit(data: {
 	local summoner = TowerClient.ActiveTowers[data.summonerId]
 	playSpawnEffects(summoner, clonedModel, unitData.Name)
 
-	local pingTime = getPingTime(data.sendTimeMs)
+	local pingTime = NumberUtils.GetClockPingTime(data.sentClockMs / 1000)
 
 	local walkSpeed, maxHealth, stats = getUnitBaseStats(unitData, summoner)
 
@@ -165,7 +156,7 @@ function UnitClient.newUnit(data: {
 		Health = maxHealth,
 		Stats = stats,
 		Offset = RANDOM:NextNumber(-0.5, 0.5),
-		PathAlpha = startAlpha - (walkSpeed * pingTime * TimeService:GetGameSpeed()) / pathLength,
+		PathAlpha = startAlpha - (walkSpeed * pingTime) / pathLength,
 	}
 
 	UnitVisuals.Attach(data.unitId, unitData.Name, clonedModel, maxHealth)

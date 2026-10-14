@@ -1,6 +1,7 @@
 --/Services
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local RunService = game:GetService("RunService")
 
 --/Configs
 local Signal = require(ReplicatedStorage.Packages.Signal)
@@ -51,7 +52,11 @@ function BaseTower.new(player: Player, towerId: number, towerName: string, tower
 	self.MaxLevel = self:_CalculateMaxLevel()
 	self.TargetMode = "First"
 	self.Position = position
+	self.StunRemaining = 0
+	self.StunEndsAtReal = 0
+
 	DataService = DataService or ServiceRegistry:GetService("DataService")
+
 	local playerData = DataService and DataService:GetData(player)
 	local ownedTower = playerData and playerData.OwnedTowers[towerName] and playerData.OwnedTowers[towerName][towerKey]
 	self.TowerProfile = ownedTower
@@ -92,6 +97,22 @@ function BaseTower:Sell(player: Player): boolean
 	return true
 end
 
+function BaseTower:Stun(stunTime: number)
+	if self.IsDestroyed or stunTime <= 0 then
+		return
+	end
+
+	local now = workspace:GetServerTimeNow()
+	self.StunEndsAtReal = math.max(self.StunEndsAtReal, now + stunTime)
+	self.StunRemaining = self.StunEndsAtReal - now
+	self:_StartStunLoop()
+
+	Net.TowerService.TowerStunned.FireAll({
+		towerId = self.Id,
+		stunEndsAtReal = self.StunEndsAtReal,
+	})
+end
+
 function BaseTower:GetEvent(eventName: string)
 	if not self.EventSignals[eventName] then
 		self.EventSignals[eventName] = Signal.new()
@@ -104,6 +125,10 @@ function BaseTower:Destroy()
 		return
 	end
 	self.IsDestroyed = true
+	if self._StunConnection then
+		self._StunConnection:Disconnect()
+		self._StunConnection = nil
+	end
 
 	for _, component in pairs(self.Components) do
 		component:Destroy()
@@ -271,6 +296,21 @@ function BaseTower:_AddComponent(key: string, componentName: string, ...)
 	end
 
 	return newComponent
+end
+
+function BaseTower:_StartStunLoop()
+	if self._StunConnection then
+		return
+	end
+
+	self._StunConnection = RunService.Heartbeat:Connect(function()
+		self.StunRemaining = math.max(0, self.StunEndsAtReal - workspace:GetServerTimeNow())
+
+		if self.StunRemaining <= 0 then
+			self._StunConnection:Disconnect()
+			self._StunConnection = nil
+		end
+	end)
 end
 
 function BaseTower:_CalculateMaxLevel(): number

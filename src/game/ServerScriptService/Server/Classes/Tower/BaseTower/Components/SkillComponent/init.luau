@@ -3,11 +3,10 @@ local ServiceRegistry = require(ReplicatedStorage.Shared.Modules.Core.ServiceReg
 local Net = require(ReplicatedStorage.Shared.Net)
 local TimeService
 
--- Shared by snapshots and use responses, including recreated components.
 local syncRevision = 0
-local function getSyncStamp(): (number, number)
+local function getSyncStamp(): number
 	syncRevision += 1
-	return syncRevision, math.floor(workspace:GetServerTimeNow() * 1000) % 65536
+	return syncRevision
 end
 
 local SkillComponent = {}
@@ -62,6 +61,9 @@ function SkillComponent:UseSkill(skillName: string)
 	local skill = self.ActiveSkills[skillName]
 	if not skill then
 		warn(`알 수 없는 스킬: {skillName}.`)
+		return false
+	end
+	if self.Tower.StunRemaining > 0 then
 		return false
 	end
 
@@ -121,7 +123,6 @@ function SkillComponent:_Rebuild()
 	local seen = {}
 
 	for key, config in self.Skills do
-		-- Accept both named entries and arrays with an explicit Name.
 		if config.Name == nil and type(key) == "string" then
 			config = table.clone(config)
 			config.Name = key
@@ -152,32 +153,27 @@ function SkillComponent:_Rebuild()
 end
 
 function SkillComponent:_SyncClient()
-	TimeService = TimeService or ServiceRegistry:GetService("TimeService")
-	local now = TimeService:Now()
 	local skills = {}
 	for skillName, skill in self.ActiveSkills do
 		skills[skillName] = {
 			Config = skill.Config,
-			CooldownLeft = math.max(0, skill.ReadyAt - now),
+			ReadyAt = skill.ReadyAt,
 		}
 	end
 
-	local revision, sendTimeMs = getSyncStamp()
+	local revision = getSyncStamp()
 	Net.TowerService.SkillsUpdated.Fire(self.Tower.Owner, {
 		towerId = self.Tower.Id,
 		skills = skills,
-		sendTimeMs = sendTimeMs,
 		revision = revision,
 	})
 end
 
 function SkillComponent:GetCooldownState(skillName: string)
-	TimeService = TimeService or ServiceRegistry:GetService("TimeService")
 	local skill = self.ActiveSkills[skillName]
-	local revision, sendTimeMs = getSyncStamp()
+	local revision = getSyncStamp()
 	return {
-		cooldownLeft = if skill then math.max(0, skill.ReadyAt - TimeService:Now()) else nil,
-		sendTimeMs = sendTimeMs,
+		readyAt = if skill then skill.ReadyAt else nil,
 		revision = revision,
 	}
 end

@@ -256,14 +256,14 @@ function BaseEnemy:_RecalculateStats()
 		Net.EnemyService.UpdateSpeed.FireAll({
 			enemyId = self.Id,
 			WalkSpeed = self.WalkSpeed * 100,
-			sendTimeMs = math.floor(workspace:GetServerTimeNow() * 1000) % 65536,
+			sentClockTime = NumberUtils.FormatSendClockTime(),
 		})
 	end
 	if oldDirection ~= self.MoveDirection then
 		Net.EnemyService.UpdateDirection.FireAll({
 			enemyId = self.Id,
 			MoveDirection = (self.MoveDirection == 1),
-			sendTimeMs = math.floor(workspace:GetServerTimeNow() * 1000) % 65536,
+			sentClockTime = NumberUtils.FormatSendClockTime(),
 		})
 	end
 

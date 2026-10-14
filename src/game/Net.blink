@@ -10,7 +10,7 @@ scope EnemyService {
         data: struct {
             enemyId: u16,
             enemyIndex: u8,
-            sendTimeMs: u16,
+            sentClockMs: u32,
             isBoss: boolean?,
             startPathAlpha: f32?,
             pathId: u8,
@@ -30,7 +30,7 @@ scope EnemyService {
         data: struct {
             enemyId: u16,
             WalkSpeed: u16,
-            sendTimeMs: u16
+            sentClockTime: f64
         }
     }
 
@@ -41,7 +41,7 @@ scope EnemyService {
         data: struct {
             enemyId: u16,
             MoveDirection: boolean,
-            sendTimeMs: u16
+            sentClockTime: f64
         }
     }
 
@@ -54,7 +54,7 @@ scope EnemyService {
             studs: u8
         }
     }
-    
+
     event OnDamaged {
         from: Server,
         type: Reliable,
@@ -64,7 +64,7 @@ scope EnemyService {
             damaged: u32,
         }
     }
-}  
+}
 
 scope DataService {
     function GetDataValue {
@@ -185,9 +185,18 @@ scope TowerService {
         },
         Return: struct {
             success: boolean,
-            cooldownLeft: f32?,
-            sendTimeMs: u16,
+            readyAt: f64?,
             revision: u32,
+        }
+    }
+
+    event TowerStunned {
+        from: Server,
+        type: Reliable,
+        call: SingleSync,
+        data: struct {
+            towerId: u16,
+            stunEndsAtReal: f64,
         }
     }
 
@@ -218,7 +227,6 @@ scope TowerService {
         data: struct {
             towerId: u16,
             skills: unknown,
-            sendTimeMs: u16,
             revision: u32,
         }
     }
@@ -296,7 +304,7 @@ scope UnitService {
             unitId: u16,
             unitIndex: u8,
             summonerId: u16,
-            sendTimeMs: u16,
+            sentClockMs: u32,
             pathAlpha: u16?,
             isEnemyType: boolean?
         }
@@ -479,13 +487,25 @@ scope TimeService {
         Return: boolean
     }
 
+    function GetClockState {
+        Yield: Promise,
+        Return: struct {
+            clockTime: f64,
+            serverTime: f64,
+            gameSpeed: f64,
+            revision: u32,
+        }
+    }
+
     event GameSpeedChanged {
         From: Server,
         Type: Reliable,
         Call: SingleSync,
         Data: struct {
-            newSpeed: u8,
-            sendTimeMs: u16,
+            clockTime: f64,
+            serverTime: f64,
+            gameSpeed: f64,
+            revision: u32,
         },
     }
 }
@@ -499,7 +519,7 @@ scope GlobalExistService {
         },
         Return: u32,
     }
-    
+
     event CountUpdated {
         from: Server,
         type: Reliable,
