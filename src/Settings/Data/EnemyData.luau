@@ -31,9 +31,16 @@ local RawEnemyData = {
 		Index = 6,
 		MaxHealth = 500,
 		WalkSpeed = 2.5,
-		SummonCooldown = 5,
-		SummonCount = 2,
-		MinionName = "Skeleton",
+		Abilities = {
+			{
+				Id = "RaiseSkeletons",
+				Type = "Summon",
+				Cooldown = 5,
+				Count = 2,
+				Spacing = 0.4,
+				EnemyName = "Skeleton",
+			},
+		},
 	},
 	["Smith Goblin"] = {
 		Index = 7,
