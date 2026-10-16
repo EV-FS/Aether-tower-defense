@@ -34,6 +34,7 @@ ServiceRegistry:RegisterServices({
 	SharedServices.System.VFXService,
 	SharedServices.System.SettingsClient,
 	SharedServices.System.NotificationService,
+	SharedServices.System.ConfirmationService,
 	SharedServices.System.LootClient,
 	SharedServices.System.SprintClient,
 })
