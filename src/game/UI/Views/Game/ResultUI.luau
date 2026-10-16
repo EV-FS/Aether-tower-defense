@@ -4,17 +4,17 @@ local TweenService = game:GetService("TweenService")
 
 local ClientSignals = require(StarterPlayer.StarterPlayerScripts.Client.ClientSignals)
 local Vide = require(ReplicatedStorage.Packages.Vide)
+local ServiceRegistry = require(ReplicatedStorage.Shared.Modules.Core.ServiceRegistry)
 local useButtonEffect = require(ReplicatedStorage.Shared.Modules.UI.Hooks.useButtonEffect)
 local useButtonHoverEffect = require(ReplicatedStorage.Shared.Modules.UI.Hooks.useButtonHoverEffect)
 local Net = require(ReplicatedStorage.Shared.Net)
 local Slot = require(ReplicatedStorage.UI.Components.Base.Slot)
-
+local ConfirmationService
 local create = Vide.create
 local source = Vide.source
 local spring = Vide.spring
 local show = Vide.show
 local read = Vide.read
-local mount = Vide.mount
 
 local VICTORY_THEME = Color3.fromRGB(124, 236, 49)
 local DEFEAT_THEME = Color3.fromRGB(236, 49, 49)
@@ -41,6 +41,14 @@ end
 
 function ResultUI.RenderUI()
 	local wasVisible = false
+	local destroyConfirmation
+
+	Vide.cleanup(function()
+		if destroyConfirmation then
+			destroyConfirmation()
+		end
+	end)
+
 	local frameSize, setFrameSize = spring(function()
 		if isClose() then
 			return UDim2.fromScale(0.4, 0.4)
@@ -53,6 +61,11 @@ function ResultUI.RenderUI()
 		local visible = isVisible()
 		local didClose = wasVisible and not visible
 		wasVisible = visible
+
+		if not visible and destroyConfirmation then
+			destroyConfirmation()
+			destroyConfirmation = nil
+		end
 
 		if visible then
 			setFrameSize({
@@ -81,7 +94,7 @@ function ResultUI.RenderUI()
 	end)
 
 	return create("Frame")({
-		Name = "Container",
+		Name = "ResultUI",
 		AnchorPoint = Vector2.new(0.5, 0.5),
 		BackgroundTransparency = 1,
 		Rotation = spring(function()
@@ -96,8 +109,6 @@ function ResultUI.RenderUI()
 					mainFrame.Position = UDim2.fromScale(0.5, 0.5)
 					return
 				end
-
-				-- Keep the initial off-screen position until the UI has opened.
 				if not isClose() then
 					return
 				end
@@ -259,8 +270,18 @@ function ResultUI.RenderUI()
 				Visible = resultVisible,
 
 				MouseButton1Click = function()
-					ResultUI.OnExitActivated()
-					isVisible(false)
+					destroyConfirmation = ConfirmationService:Prompt({
+						Title = "Return To Lobby",
+						Text = "Are you sure to go back to lobby?",
+
+						AcceptText = "Return",
+						AcceptColor = Color3.fromRGB(255, 80, 80),
+
+						OnAccept = function()
+							ResultUI.OnExitActivated()
+							isVisible(false)
+						end,
+					})
 				end,
 
 				create("UICorner")({
@@ -717,7 +738,9 @@ function ResultUI.RenderUI()
 	})
 end
 
-function ResultUI.Init() end
+function ResultUI.Init()
+	ConfirmationService = ServiceRegistry:GetService("ConfirmationService")
+end
 
 function ResultUI.Start()
 	ClientSignals.GameOver:Connect(

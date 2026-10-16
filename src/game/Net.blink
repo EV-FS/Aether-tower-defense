@@ -14,6 +14,8 @@ scope EnemyService {
             isBoss: boolean?,
             startPathAlpha: f32?,
             pathId: u8,
+            maxHealth: u32,
+            maxShieldHealth: u32,
         }
     }
     event DestroyEnemy {
@@ -55,13 +57,14 @@ scope EnemyService {
         }
     }
 
-    event OnDamaged {
+    event HealthUpdated {
         from: Server,
         type: Reliable,
         call: SingleSync,
         data: struct {
             enemyId: u16,
-            damaged: u32,
+            health: f64,
+            shieldHealth: f64,
         }
     }
 }

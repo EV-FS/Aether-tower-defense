@@ -18,12 +18,15 @@ local MIN_BAR_HEIGHT = 6
 local HEALTH_HIGH_COLOR = Color3.fromRGB(72, 225, 119)
 local HEALTH_MID_COLOR = Color3.fromRGB(255, 211, 77)
 local HEALTH_LOW_COLOR = Color3.fromRGB(237, 70, 70)
+local SHIELD_COLOR = Color3.fromRGB(255, 255, 0)
 
 --/Types
 type HealthBarContent = {
 	Name: string,
 	Health: number,
 	MaxHealth: number,
+	ShieldHealth: number,
+	MaxShieldHealth: number,
 }
 
 local healthBars: { [number]: HealthBarContent } = {}
@@ -43,12 +46,15 @@ local function createDivider(position: number)
 		BorderSizePixel = 0,
 		Position = UDim2.fromScale(position, 0.5),
 		Size = UDim2.fromScale(0.008, 1),
+		ZIndex = 3,
 	})
 end
 
 local function createHealthBar(content: HealthBarContent): UIBillboard.View<HealthBarContent>
 	local health = source(content.Health)
 	local maximumHealth = source(content.MaxHealth)
+	local shieldHealth = source(content.ShieldHealth)
+	local maximumShieldHealth = source(content.MaxShieldHealth)
 	local name = source(content.Name)
 	local destroyScope, gui = root(function()
 		local ratio = derive(function()
@@ -57,6 +63,10 @@ local function createHealthBar(content: HealthBarContent): UIBillboard.View<Heal
 				return 0
 			end
 			return math.clamp(health() / maximum, 0, 1)
+		end)
+		local shieldRatio = derive(function()
+			local maximum = maximumShieldHealth()
+			return if maximum > 0 then math.clamp(shieldHealth() / maximum, 0, 1) else 0
 		end)
 		local frame = create("Frame")({
 			Name = "HealthBar",
@@ -111,6 +121,25 @@ local function createHealthBar(content: HealthBarContent): UIBillboard.View<Heal
 					create("UICorner")({
 						CornerRadius = UDim.new(1, 0),
 					}),
+					ZIndex = 1,
+				}),
+				create("Frame")({
+					Name = "ShieldHealth",
+					BackgroundColor3 = SHIELD_COLOR,
+					Size = function()
+						return UDim2.fromScale(shieldRatio(), 1)
+					end,
+					create("UIGradient")({
+						Color = ColorSequence.new({
+							ColorSequenceKeypoint.new(0, Color3.fromRGB(168, 168, 168)),
+							ColorSequenceKeypoint.new(1, Color3.new(1, 1, 1)),
+						}),
+						Rotation = -90,
+					}),
+					create("UICorner")({
+						CornerRadius = UDim.new(1, 0),
+					}),
+					ZIndex = 2,
 				}),
 				createDivider(0.1),
 				createDivider(0.3),
@@ -126,8 +155,9 @@ local function createHealthBar(content: HealthBarContent): UIBillboard.View<Heal
 					Size = UDim2.fromScale(1, 0.7),
 					Text = function()
 						local current = math.max(health(), 0)
+						local shield = math.max(shieldHealth(), 0)
 						local maximum = math.max(maximumHealth(), 0)
-						return `{NumberUtils.FormatComma(current)}/{NumberUtils.FormatComma(maximum)}`
+						return `{NumberUtils.FormatComma(current + shield)}/{NumberUtils.FormatComma(maximum)}`
 					end,
 					TextColor3 = Color3.new(1, 1, 1),
 					TextScaled = true,
@@ -135,6 +165,7 @@ local function createHealthBar(content: HealthBarContent): UIBillboard.View<Heal
 						StrokeSizingMode = Enum.StrokeSizingMode.ScaledSize,
 						Thickness = 0.12,
 					}),
+					ZIndex = 4,
 				}),
 			}),
 		})
@@ -151,6 +182,8 @@ local function createHealthBar(content: HealthBarContent): UIBillboard.View<Heal
 				name(newContent.Name)
 				maximumHealth(newContent.MaxHealth)
 				health(newContent.Health)
+				maximumShieldHealth(newContent.MaxShieldHealth)
+				shieldHealth(newContent.ShieldHealth)
 			end)
 		end,
 		Destroy = destroyScope,
@@ -169,44 +202,53 @@ function EnemyVisuals.Render(_dt: number)
 	billboards:Render()
 end
 
-function EnemyVisuals.Attach(enemyId: number, enemyName: string, enemyModel: Model, maxHealth: number, isBoss: boolean?)
-	EnemyVisuals.Destroy(enemyId)
+function EnemyVisuals.Attach(enemy)
+	EnemyVisuals.Destroy(enemy.Id)
 
+	local enemyModel = enemy.Model
 	local rootPart = enemyModel.PrimaryPart
-	if not rootPart or maxHealth <= 0 then
+	if not rootPart or enemy.Health <= 0 then
 		return
 	end
 
 	local content: HealthBarContent = {
-		Name = enemyName,
-		Health = maxHealth,
-		MaxHealth = maxHealth,
+		Name = enemy.Name,
+		Health = enemy.Health,
+		MaxHealth = enemy.MaxHealth,
+		ShieldHealth = enemy.ShieldHealth,
+		MaxShieldHealth = enemy.MaxShieldHealth,
 	}
-	healthBars[enemyId] = content
-	billboards:Attach(enemyId, {
+	healthBars[enemy.Id] = content
+	billboards:Attach(enemy.Id, {
 		Adornee = rootPart,
 		Offset = Vector3.new(0, CharacterUtils.GetHipHeight(enemyModel) - BAR_OFFSET, 0),
 		Size = BAR_SIZE_STUDS,
-		MinHeight = if isBoss then 0 else MIN_BAR_HEIGHT,
+		MinHeight = if enemy.IsBoss then 0 else MIN_BAR_HEIGHT,
 	}, content)
 end
 
-function EnemyVisuals.Update(enemyId: number, health: number, maxHealth: number?)
-	local state = healthBars[enemyId]
+function EnemyVisuals.Update(enemy)
+	local state = healthBars[enemy.Id]
 	if not state then
 		return
 	end
-	if health <= 0 then
-		EnemyVisuals.Destroy(enemyId)
+	if enemy.Health <= 0 then
+		EnemyVisuals.Destroy(enemy.Id)
 		return
 	end
 
-	local maximum = if maxHealth ~= nil then maxHealth else state.MaxHealth
-	if state.Health ~= health or state.MaxHealth ~= maximum then
-		state.Health = health
-		state.MaxHealth = maximum
-		billboards:Update(enemyId, state)
-		billboards:SetEnabled(enemyId, maximum > 0)
+	if
+		state.Health ~= enemy.Health
+		or state.MaxHealth ~= enemy.MaxHealth
+		or state.ShieldHealth ~= enemy.ShieldHealth
+		or state.MaxShieldHealth ~= enemy.MaxShieldHealth
+	then
+		state.Health = enemy.Health
+		state.MaxHealth = enemy.MaxHealth
+		state.ShieldHealth = enemy.ShieldHealth
+		state.MaxShieldHealth = enemy.MaxShieldHealth
+		billboards:Update(enemy.Id, state)
+		billboards:SetEnabled(enemy.Id, enemy.MaxHealth > 0)
 	end
 end
 

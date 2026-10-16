@@ -14,7 +14,6 @@ local EnemyVisuals = require(script.EnemyVisuals)
 local NumberUtils = require(ReplicatedStorage.Shared.Modules.Utils.NumberUtils)
 local TimeService
 local AnimationService
-local GameClient
 local VisualService
 
 local RANDOM = Random.new()
@@ -114,21 +113,6 @@ local function applyStunVisuals(enemy)
 	enemy.StunEffect = stunEffect
 end
 
-local function getHealthMultiplier(): number
-	local difficulty = GameClient and GameClient.SelectedDifficulty or "Normal"
-	local playerCount = GameClient and GameClient.StartPlayerCount or 1
-
-	local diffMultiplier = 1
-	if difficulty == "Hard" then
-		diffMultiplier = 2
-	elseif difficulty == "Eternal" then
-		diffMultiplier = 3
-	end
-	local playerMultiplier = 1 + ((playerCount - 1) * 0.5)
-
-	return diffMultiplier * playerMultiplier
-end
-
 -------------------------------------------------
 --// EnemyClient
 -------------------------------------------------
@@ -137,7 +121,6 @@ local EnemyClient = {}
 function EnemyClient.Init(services)
 	TimeService = services:GetService("TimeService")
 	AnimationService = services:GetService("AnimationService")
-	GameClient = services:GetService("GameClient")
 	VisualService = services:GetService("VisualService")
 end
 
@@ -145,7 +128,7 @@ function EnemyClient.Start()
 	Net.EnemyService.ReplicatedEnemy.On(EnemyClient.newEnemy)
 	Net.EnemyService.UpdateSpeed.On(EnemyClient._OnUpdateSpeed)
 	Net.EnemyService.UpdateDirection.On(EnemyClient._OnUpdateDirection)
-	Net.EnemyService.OnDamaged.On(EnemyClient._OnDamaged)
+	Net.EnemyService.HealthUpdated.On(EnemyClient._OnHealthUpdated)
 	Net.EnemyService.TakeKnockback.On(EnemyClient._TakeKnockback)
 	Net.EnemyService.DestroyEnemy.On(function(enemyId: number)
 		EnemyClient.Destroy(enemyId, true)
@@ -161,7 +144,12 @@ function EnemyClient.newEnemy(data: {
 	isBoss: boolean?,
 	startPathAlpha: number?,
 	pathId: number,
+	maxHealth: number,
+	maxShieldHealth: number,
 })
+	if data.maxHealth <= 0 then
+		return
+	end
 	local enemyData = EnemyData.ByIndex[data.enemyIndex]
 	if not enemyData then
 		return
@@ -201,7 +189,6 @@ function EnemyClient.newEnemy(data: {
 
 	VisualService.Play(enemyData.Name, "OnSpawn", 0, clonedModel, clonedModel)
 
-	local healthMultiplier = getHealthMultiplier()
 	ActivedEnemies[data.enemyId] = {
 		Id = data.enemyId,
 		Name = enemyData.Name,
@@ -214,8 +201,10 @@ function EnemyClient.newEnemy(data: {
 		Offset = offsetVal,
 		MoveDirection = 1,
 
-		MaxHealth = math.floor(enemyData.MaxHealth * healthMultiplier),
-		Health = math.floor(enemyData.MaxHealth * healthMultiplier),
+		MaxHealth = data.maxHealth,
+		Health = data.maxHealth,
+		MaxShieldHealth = data.maxShieldHealth,
+		ShieldHealth = data.maxShieldHealth,
 
 		IsBoss = data.isBoss,
 	}
@@ -224,7 +213,7 @@ function EnemyClient.newEnemy(data: {
 		ClientSignals.BossSpawned:Fire(ActivedEnemies[data.enemyId])
 	end
 
-	EnemyVisuals.Attach(data.enemyId, enemyData.Name, clonedModel, ActivedEnemies[data.enemyId].MaxHealth, data.isBoss)
+	EnemyVisuals.Attach(ActivedEnemies[data.enemyId])
 
 	EnemyClient.StartMoveLoop()
 end
@@ -431,20 +420,20 @@ function EnemyClient._TakeKnockback(data: { enemyId: number, studs: number })
 	end)
 end
 
-function EnemyClient._OnDamaged(data: { enemyId: number, damaged: number })
-	local updatedEnemy = ActivedEnemies[data.enemyId]
-	if not updatedEnemy then
+function EnemyClient._OnHealthUpdated(data: { enemyId: number, health: number, shieldHealth: number })
+	local enemy = ActivedEnemies[data.enemyId]
+	if not enemy then
 		return
 	end
 
-	updatedEnemy.Health -= data.damaged
-	EnemyVisuals.Update(data.enemyId, updatedEnemy.Health, updatedEnemy.MaxHealth)
-
-	if updatedEnemy.IsBoss then
-		ClientSignals.BossDamaged:Fire(data.enemyId, updatedEnemy.Health, updatedEnemy.MaxHealth)
+	enemy.Health = data.health
+	enemy.ShieldHealth = data.shieldHealth
+	EnemyVisuals.Update(enemy)
+	if enemy.IsBoss then
+		ClientSignals.BossDamaged:Fire(data.enemyId, enemy.Health, enemy.MaxHealth, enemy.ShieldHealth)
 	end
 
-	if updatedEnemy.Health <= 0 then
+	if enemy.Health <= 0 then
 		EnemyClient.Destroy(data.enemyId)
 	end
 end

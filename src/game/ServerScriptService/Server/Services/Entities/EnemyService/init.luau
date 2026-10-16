@@ -54,6 +54,7 @@ function EnemyService.SetupNewEnemy(name: string, isBoss: boolean?, pathAlpha: n
 	end)
 
 	EnemyRegistry.add(self)
+	EnemyService.EnemyGrid:Update(self, self.Position)
 
 	EnemyService:StartMoveEnemies()
 
@@ -64,7 +65,12 @@ function EnemyService.SetupNewEnemy(name: string, isBoss: boolean?, pathAlpha: n
 		isBoss = self.IsBoss,
 		startPathAlpha = if self.PathAlpha == 0 then nil else self.PathAlpha,
 		pathId = self.PathId,
+		maxHealth = self.MaxHealth,
+		maxShieldHealth = self.MaxShieldHealth,
 	})
+
+	self:Start()
+	return self
 end
 
 function EnemyService.Spawn(
@@ -122,7 +128,8 @@ function EnemyService:StartMoveEnemies()
 	isActived = true
 
 	connection = RunService.Heartbeat:Connect(function(dt)
-		local toMoveEnemies = EnemyRegistry.getAll()
+		-- New summons join the next update rather than the current iteration.
+		local toMoveEnemies = table.clone(EnemyRegistry.getAll())
 
 		if next(toMoveEnemies) == nil then
 			isActived = false
@@ -134,7 +141,12 @@ function EnemyService:StartMoveEnemies()
 		end
 
 		local gameSpeed = TimeService:GetGameSpeed()
+		local gameDt = dt * gameSpeed
+		local now = TimeService:Now()
 		for _, enemy in pairs(toMoveEnemies) do
+			if enemy.IsDead or enemy.IsDestroyed then
+				continue
+			end
 			local path = GetPath:Get(enemy.PathId)
 			local pathLength = path:GetPathLength()
 			enemy.PathAlpha += ((enemy.WalkSpeed * dt * gameSpeed) / pathLength) * enemy.MoveDirection
@@ -147,6 +159,13 @@ function EnemyService:StartMoveEnemies()
 				self.EnemyGrid:Remove(enemy)
 				self.EnemyReached:Fire(enemy)
 				enemy:Destroy()
+			end
+		end
+
+		-- Select targets and spawn at positions updated during this heartbeat.
+		for _, enemy in pairs(toMoveEnemies) do
+			if not enemy.IsDead and not enemy.IsDestroyed then
+				enemy:Update(now, gameDt)
 			end
 		end
 	end)
@@ -164,6 +183,9 @@ end
 
 function EnemyService.PlayerAdded(player: Player)
 	for _, enemy in EnemyRegistry.getAll() do
+		if enemy.IsDead or enemy.IsDestroyed then
+			continue
+		end
 		Net.EnemyService.ReplicatedEnemy.Fire(player, {
 			enemyId = enemy.Id,
 			enemyIndex = EnemyData.ByName[enemy.Name].Index,
@@ -171,7 +193,16 @@ function EnemyService.PlayerAdded(player: Player)
 			isBoss = enemy.IsBoss,
 			startPathAlpha = if enemy.PathAlpha == 0 then nil else enemy.PathAlpha,
 			pathId = enemy.PathId,
+			maxHealth = enemy.MaxHealth,
+			maxShieldHealth = enemy.MaxShieldHealth,
 		})
+		if enemy.Health ~= enemy.MaxHealth or enemy.ShieldHealth ~= enemy.MaxShieldHealth then
+			Net.EnemyService.HealthUpdated.Fire(player, {
+				enemyId = enemy.Id,
+				health = enemy.Health,
+				shieldHealth = enemy.ShieldHealth,
+			})
+		end
 	end
 end
 

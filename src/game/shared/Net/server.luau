@@ -178,9 +178,9 @@ Queue.Reliable[51] = table.create(256)
 Queue.Reliable[52] = table.create(256)
 Queue.Reliable[53] = table.create(256)
 Queue.Reliable[55] = table.create(256)
-function SerdesFunctions.EnemyService_WriteEVENT_ReplicatedEnemy(Value: { enemyId: number, enemyIndex: number, sentClockMs: number, isBoss: boolean?, startPathAlpha: number?, pathId: number }): ()
-	-- Allocate BLOCK: 11 bytes
-	local BLOCK_START = Allocate(11)
+function SerdesFunctions.EnemyService_WriteEVENT_ReplicatedEnemy(Value: { enemyId: number, enemyIndex: number, sentClockMs: number, isBoss: boolean?, startPathAlpha: number?, pathId: number, maxHealth: number, maxShieldHealth: number }): ()
+	-- Allocate BLOCK: 19 bytes
+	local BLOCK_START = Allocate(19)
 	buffer.writeu8(SendBuffer, BLOCK_START + 0, 0)
 	buffer.writeu16(SendBuffer, BLOCK_START + 1, Value.enemyId)
 	buffer.writeu8(SendBuffer, BLOCK_START + 3, Value.enemyIndex)
@@ -198,6 +198,8 @@ function SerdesFunctions.EnemyService_WriteEVENT_ReplicatedEnemy(Value: { enemyI
 		buffer.writef32(SendBuffer, BLOCK_START + 0, Value.startPathAlpha)
 	end
 	buffer.writeu8(SendBuffer, BLOCK_START + 10, Value.pathId)
+	buffer.writeu32(SendBuffer, BLOCK_START + 11, Value.maxHealth)
+	buffer.writeu32(SendBuffer, BLOCK_START + 15, Value.maxShieldHealth)
 end
 
 function SerdesFunctions.EnemyService_WriteEVENT_DestroyEnemy(Value: number): ()
@@ -233,12 +235,13 @@ function SerdesFunctions.EnemyService_WriteEVENT_TakeKnockback(Value: { enemyId:
 	buffer.writeu8(SendBuffer, BLOCK_START + 3, Value.studs)
 end
 
-function SerdesFunctions.EnemyService_WriteEVENT_OnDamaged(Value: { enemyId: number, damaged: number }): ()
-	-- Allocate BLOCK: 7 bytes
-	local BLOCK_START = Allocate(7)
+function SerdesFunctions.EnemyService_WriteEVENT_HealthUpdated(Value: { enemyId: number, health: number, shieldHealth: number }): ()
+	-- Allocate BLOCK: 19 bytes
+	local BLOCK_START = Allocate(19)
 	buffer.writeu8(SendBuffer, BLOCK_START + 0, 5)
 	buffer.writeu16(SendBuffer, BLOCK_START + 1, Value.enemyId)
-	buffer.writeu32(SendBuffer, BLOCK_START + 3, Value.damaged)
+	buffer.writef64(SendBuffer, BLOCK_START + 3, Value.health)
+	buffer.writef64(SendBuffer, BLOCK_START + 11, Value.shieldHealth)
 end
 
 function SerdesFunctions.DataService_ReadFUNCTION_DATA_GetDataValue(): (string)
@@ -863,7 +866,7 @@ if not RunService:IsRunning() then
 			FireList = NOOP,
 			FireExcept = NOOP
 		},
-		OnDamaged = {
+		HealthUpdated = {
 			Fire = NOOP,
 			FireAll = NOOP,
 			FireList = NOOP,
@@ -1437,12 +1440,12 @@ local Returns = table.freeze({
 
 	EnemyService = {
 		ReplicatedEnemy = {
-			Fire = function(Player: Player, Value: { enemyId: number, enemyIndex: number, sentClockMs: number, isBoss: boolean?, startPathAlpha: number?, pathId: number }): ()
+			Fire = function(Player: Player, Value: { enemyId: number, enemyIndex: number, sentClockMs: number, isBoss: boolean?, startPathAlpha: number?, pathId: number, maxHealth: number, maxShieldHealth: number }): ()
 				Load(PlayersMap[Player])
 				SerdesFunctions.EnemyService_WriteEVENT_ReplicatedEnemy(Value)
 				PlayersMap[Player] = Save()
 			end,
-			FireAll = function(Value: { enemyId: number, enemyIndex: number, sentClockMs: number, isBoss: boolean?, startPathAlpha: number?, pathId: number }): ()
+			FireAll = function(Value: { enemyId: number, enemyIndex: number, sentClockMs: number, isBoss: boolean?, startPathAlpha: number?, pathId: number, maxHealth: number, maxShieldHealth: number }): ()
 				Load()
 				SerdesFunctions.EnemyService_WriteEVENT_ReplicatedEnemy(Value)
 				local Buffer, Size, Instances = SendBuffer, SendCursor, SendInstances
@@ -1454,7 +1457,7 @@ local Returns = table.freeze({
 					PlayersMap[Player] = Save()
 				end
 			end,
-			FireList = function(List: {Player}, Value: { enemyId: number, enemyIndex: number, sentClockMs: number, isBoss: boolean?, startPathAlpha: number?, pathId: number }): ()
+			FireList = function(List: {Player}, Value: { enemyId: number, enemyIndex: number, sentClockMs: number, isBoss: boolean?, startPathAlpha: number?, pathId: number, maxHealth: number, maxShieldHealth: number }): ()
 				Load()
 				SerdesFunctions.EnemyService_WriteEVENT_ReplicatedEnemy(Value)
 				local Buffer, Size, Instances = SendBuffer, SendCursor, SendInstances
@@ -1466,7 +1469,7 @@ local Returns = table.freeze({
 					PlayersMap[Player] = Save()
 				end
 			end,
-			FireExcept = function(Except: Player, Value: { enemyId: number, enemyIndex: number, sentClockMs: number, isBoss: boolean?, startPathAlpha: number?, pathId: number }): ()
+			FireExcept = function(Except: Player, Value: { enemyId: number, enemyIndex: number, sentClockMs: number, isBoss: boolean?, startPathAlpha: number?, pathId: number, maxHealth: number, maxShieldHealth: number }): ()
 				Load()
 				SerdesFunctions.EnemyService_WriteEVENT_ReplicatedEnemy(Value)
 				local Buffer, Size, Instances = SendBuffer, SendCursor, SendInstances
@@ -1666,15 +1669,15 @@ local Returns = table.freeze({
 				end
 			end,
 		},
-		OnDamaged = {
-			Fire = function(Player: Player, Value: { enemyId: number, damaged: number }): ()
+		HealthUpdated = {
+			Fire = function(Player: Player, Value: { enemyId: number, health: number, shieldHealth: number }): ()
 				Load(PlayersMap[Player])
-				SerdesFunctions.EnemyService_WriteEVENT_OnDamaged(Value)
+				SerdesFunctions.EnemyService_WriteEVENT_HealthUpdated(Value)
 				PlayersMap[Player] = Save()
 			end,
-			FireAll = function(Value: { enemyId: number, damaged: number }): ()
+			FireAll = function(Value: { enemyId: number, health: number, shieldHealth: number }): ()
 				Load()
-				SerdesFunctions.EnemyService_WriteEVENT_OnDamaged(Value)
+				SerdesFunctions.EnemyService_WriteEVENT_HealthUpdated(Value)
 				local Buffer, Size, Instances = SendBuffer, SendCursor, SendInstances
 				for _, Player in Players:GetPlayers() do
 					Load(PlayersMap[Player])
@@ -1684,9 +1687,9 @@ local Returns = table.freeze({
 					PlayersMap[Player] = Save()
 				end
 			end,
-			FireList = function(List: {Player}, Value: { enemyId: number, damaged: number }): ()
+			FireList = function(List: {Player}, Value: { enemyId: number, health: number, shieldHealth: number }): ()
 				Load()
-				SerdesFunctions.EnemyService_WriteEVENT_OnDamaged(Value)
+				SerdesFunctions.EnemyService_WriteEVENT_HealthUpdated(Value)
 				local Buffer, Size, Instances = SendBuffer, SendCursor, SendInstances
 				for _, Player in List do
 					Load(PlayersMap[Player])
@@ -1696,9 +1699,9 @@ local Returns = table.freeze({
 					PlayersMap[Player] = Save()
 				end
 			end,
-			FireExcept = function(Except: Player, Value: { enemyId: number, damaged: number }): ()
+			FireExcept = function(Except: Player, Value: { enemyId: number, health: number, shieldHealth: number }): ()
 				Load()
-				SerdesFunctions.EnemyService_WriteEVENT_OnDamaged(Value)
+				SerdesFunctions.EnemyService_WriteEVENT_HealthUpdated(Value)
 				local Buffer, Size, Instances = SendBuffer, SendCursor, SendInstances
 				for _, Player in Players:GetPlayers() do
 					if Player == Except then

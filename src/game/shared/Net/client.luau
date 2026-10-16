@@ -217,9 +217,9 @@ Queue.Reliable[53] = table.create(256)
 Queue.Reliable[54] = table.create(256)
 Queue.Reliable[55] = table.create(256)
 Queue.Reliable[56] = table.create(256)
-function SerdesFunctions.EnemyService_ReadEVENT_ReplicatedEnemy(): ({ enemyId: number, enemyIndex: number, sentClockMs: number, isBoss: boolean?, startPathAlpha: number?, pathId: number })
-	-- Read BLOCK: 10 bytes
-	local BLOCK_START = Read(10)
+function SerdesFunctions.EnemyService_ReadEVENT_ReplicatedEnemy(): ({ enemyId: number, enemyIndex: number, sentClockMs: number, isBoss: boolean?, startPathAlpha: number?, pathId: number, maxHealth: number, maxShieldHealth: number })
+	-- Read BLOCK: 18 bytes
+	local BLOCK_START = Read(18)
 	local Value = {} :: any
 	Value.enemyId = buffer.readu16(RecieveBuffer, BLOCK_START + 0)
 	Value.enemyIndex = buffer.readu8(RecieveBuffer, BLOCK_START + 2)
@@ -235,6 +235,8 @@ function SerdesFunctions.EnemyService_ReadEVENT_ReplicatedEnemy(): ({ enemyId: n
 		Value.startPathAlpha = buffer.readf32(RecieveBuffer, BLOCK_START + 0)
 	end
 	Value.pathId = buffer.readu8(RecieveBuffer, BLOCK_START + 9)
+	Value.maxHealth = buffer.readu32(RecieveBuffer, BLOCK_START + 10)
+	Value.maxShieldHealth = buffer.readu32(RecieveBuffer, BLOCK_START + 14)
 	return Value
 end
 
@@ -274,12 +276,13 @@ function SerdesFunctions.EnemyService_ReadEVENT_TakeKnockback(): ({ enemyId: num
 	return Value
 end
 
-function SerdesFunctions.EnemyService_ReadEVENT_OnDamaged(): ({ enemyId: number, damaged: number })
-	-- Read BLOCK: 6 bytes
-	local BLOCK_START = Read(6)
+function SerdesFunctions.EnemyService_ReadEVENT_HealthUpdated(): ({ enemyId: number, health: number, shieldHealth: number })
+	-- Read BLOCK: 18 bytes
+	local BLOCK_START = Read(18)
 	local Value = {} :: any
 	Value.enemyId = buffer.readu16(RecieveBuffer, BLOCK_START + 0)
-	Value.damaged = buffer.readu32(RecieveBuffer, BLOCK_START + 2)
+	Value.health = buffer.readf64(RecieveBuffer, BLOCK_START + 2)
+	Value.shieldHealth = buffer.readf64(RecieveBuffer, BLOCK_START + 10)
 	return Value
 end
 
@@ -950,7 +953,7 @@ if not RunService:IsRunning() then
 		TakeKnockback = {
 			On = NOOP
 		},
-		OnDamaged = {
+		HealthUpdated = {
 			On = NOOP
 		},
 	},
@@ -1170,7 +1173,7 @@ Reliable.OnClientEvent:Connect(function(Buffer: buffer, Instances: {Instance})
 		local BLOCK_START = Read(1)
 		local Index = buffer.readu8(RecieveBuffer, BLOCK_START + 0)
 		if Index == 0 then
-			local Value: { enemyId: number, enemyIndex: number, sentClockMs: number, isBoss: boolean?, startPathAlpha: number?, pathId: number } = SerdesFunctions.EnemyService_ReadEVENT_ReplicatedEnemy()
+			local Value: { enemyId: number, enemyIndex: number, sentClockMs: number, isBoss: boolean?, startPathAlpha: number?, pathId: number, maxHealth: number, maxShieldHealth: number } = SerdesFunctions.EnemyService_ReadEVENT_ReplicatedEnemy()
 			if Events.Reliable[0] ~= nil then
 				SerdesEvent = "ReplicatedEnemy"
 				Events.Reliable[0](Value)
@@ -1225,13 +1228,13 @@ Reliable.OnClientEvent:Connect(function(Buffer: buffer, Instances: {Instance})
 				table.insert(Queue.Reliable[4], {Value} :: {any})
 			end
 		elseif Index == 5 then
-			local Value: { enemyId: number, damaged: number } = SerdesFunctions.EnemyService_ReadEVENT_OnDamaged()
+			local Value: { enemyId: number, health: number, shieldHealth: number } = SerdesFunctions.EnemyService_ReadEVENT_HealthUpdated()
 			if Events.Reliable[5] ~= nil then
-				SerdesEvent = "OnDamaged"
+				SerdesEvent = "HealthUpdated"
 				Events.Reliable[5](Value)
 			else
 				if #Queue.Reliable[5] > 256 then
-					warn("[Blink]: Event queue of \"OnDamaged\" exceeded 256, did you forget to implement a listener?")
+					warn("[Blink]: Event queue of \"HealthUpdated\" exceeded 256, did you forget to implement a listener?")
 				end
 				table.insert(Queue.Reliable[5], {Value} :: {any})
 			end
@@ -1785,7 +1788,7 @@ local Returns = table.freeze({
 
 	EnemyService = {
 		ReplicatedEnemy = {
-			On = function(Listener: (Value: { enemyId: number, enemyIndex: number, sentClockMs: number, isBoss: boolean?, startPathAlpha: number?, pathId: number }) -> ()): () -> ()
+			On = function(Listener: (Value: { enemyId: number, enemyIndex: number, sentClockMs: number, isBoss: boolean?, startPathAlpha: number?, pathId: number, maxHealth: number, maxShieldHealth: number }) -> ()): () -> ()
 				Events.Reliable[0] = Listener
 				for Index, Arguments in Queue.Reliable[0] do
 					Listener(table.unpack(Arguments))
@@ -1854,8 +1857,8 @@ local Returns = table.freeze({
 				end
 			end
 		},
-		OnDamaged = {
-			On = function(Listener: (Value: { enemyId: number, damaged: number }) -> ()): () -> ()
+		HealthUpdated = {
+			On = function(Listener: (Value: { enemyId: number, health: number, shieldHealth: number }) -> ()): () -> ()
 				Events.Reliable[5] = Listener
 				for Index, Arguments in Queue.Reliable[5] do
 					Listener(table.unpack(Arguments))

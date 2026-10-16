@@ -4,6 +4,8 @@ local RunService = game:GetService("RunService")
 
 --/Modules
 local Debuffs = require(script.Debuffs)
+local AbilityComponent = require(script.Components.AbilityComponent)
+local AttributeComponent = require(script.Components.AttributeComponent)
 local Signal = require(ReplicatedStorage.Packages.Signal)
 local EnemyData = require(ReplicatedStorage.Settings.Data.EnemyData)
 local GetPath = require(ReplicatedStorage.Shared.Modules.Core.GetPath)
@@ -32,11 +34,16 @@ export type Enemy = {
 
 	IsDead: boolean,
 	Destroyed: typeof(Signal.new()),
+	IsDestroyed: boolean,
+	Components: { [string]: any },
+	EventSignals: { [string]: typeof(Signal.new()) },
 
 	BaseSpeed: number,
 	WalkSpeed: number,
 	MaxHealth: number,
 	Health: number,
+	MaxShieldHealth: number,
+	ShieldHealth: number,
 	IsBoss: boolean?,
 }
 
@@ -91,6 +98,10 @@ function BaseEnemy.new(id, name, isBoss, pathId: number?, pathAlpha: number?): E
 	self._DebuffTime = 0
 
 	self.IsDead = false
+	self.IsDestroyed = false
+	self.Started = false
+	self.Components = {}
+	self.EventSignals = {}
 	self._connections = {}
 
 	self.Destroyed = Signal.new()
@@ -99,11 +110,84 @@ function BaseEnemy.new(id, name, isBoss, pathId: number?, pathAlpha: number?): E
 	if targetData then
 		self.BaseSpeed = targetData.WalkSpeed
 		self.WalkSpeed = self.BaseSpeed
-		self.MaxHealth = math.floor(targetData.MaxHealth * GetHealthMultiplier())
+
+		local healthMultiplier = GetHealthMultiplier()
+		self.MaxHealth = math.floor(targetData.MaxHealth * healthMultiplier)
 		self.Health = self.MaxHealth
+		self.MaxShieldHealth = math.max(0, math.floor((targetData.ShieldHealth or 0) * healthMultiplier))
+		self.ShieldHealth = self.MaxShieldHealth
+
+		if targetData.Attributes and next(targetData.Attributes) then
+			self.Components.Attributes = AttributeComponent.new(self, targetData.Attributes)
+		end
+		if targetData.Abilities and next(targetData.Abilities) then
+			self.Components.Abilities = AbilityComponent.new(self, targetData.Abilities)
+		end
 	end
 
 	return self
+end
+
+function BaseEnemy:GetEvent(eventName: string)
+	if not self.EventSignals[eventName] then
+		self.EventSignals[eventName] = Signal.new()
+	end
+	return self.EventSignals[eventName]
+end
+
+function BaseEnemy:SetAttribute(name: string, config)
+	if self.IsDead or self.IsDestroyed then
+		return
+	end
+
+	local component = self.Components.Attributes
+	if not component then
+		component = AttributeComponent.new(self)
+		self.Components.Attributes = component
+		if self.Started then
+			component:Start()
+		end
+	end
+	return component:SetAttribute(name, config)
+end
+
+function BaseEnemy:GetAttribute(name: string)
+	local component = self.Components.Attributes
+	return component and component:GetAttribute(name)
+end
+
+function BaseEnemy:HasAttribute(name: string): boolean
+	local component = self.Components.Attributes
+	return component ~= nil and component:HasAttribute(name)
+end
+
+function BaseEnemy:RemoveAttribute(name: string)
+	local component = self.Components.Attributes
+	if component then
+		component:RemoveAttribute(name)
+	end
+end
+
+function BaseEnemy:Start()
+	if self.Started or self.IsDead or self.IsDestroyed then
+		return
+	end
+	self.Started = true
+	for _, component in pairs(self.Components) do
+		component:Start()
+	end
+	self:GetEvent("Spawned"):Fire(self)
+end
+
+function BaseEnemy:Update(now: number, gameDt: number)
+	if not self.Started or self.IsDead or self.IsDestroyed then
+		return
+	end
+	for _, component in pairs(self.Components) do
+		if component.Update then
+			component:Update(now, gameDt)
+		end
+	end
 end
 
 function BaseEnemy:ApplyDebuff(name: string, duration: number, power: number?, source: any?)
@@ -195,30 +279,101 @@ function BaseEnemy:TakeKnockback(studs: number)
 end
 
 function BaseEnemy:TakeDamage(amount: number)
-	if self.IsDead or self.Health <= 0 then
+	if self.IsDead or self.IsDestroyed or self.Health <= 0 or amount <= 0 then
 		return 0, false
 	end
 
-	local actualDamage = math.min(self.Health, amount)
-	self.Health -= actualDamage
+	local shieldDamage = math.min(self.ShieldHealth, amount)
+	local healthDamage = if self.ShieldHealth > 0 then 0 else math.min(self.Health, amount)
+	local actualDamage = shieldDamage + healthDamage
+	self.ShieldHealth -= shieldDamage
+	self.Health -= healthDamage
+	self:_ReplicateHealth()
 
-	Net.EnemyService.OnDamaged.FireAll({
-		enemyId = self.Id,
-		damaged = actualDamage,
-	})
+	local isKilled = self.Health <= 0
+	local context = {
+		EnemyId = self.Id,
+		Name = self.Name,
+		Damage = actualDamage,
+		HealthDamage = healthDamage,
+		ShieldDamage = shieldDamage,
+		Health = self.Health,
+		MaxHealth = self.MaxHealth,
+		ShieldHealth = self.ShieldHealth,
+		MaxShieldHealth = self.MaxShieldHealth,
+		Position = self.Position,
+		PathId = self.PathId,
+		PathAlpha = self.PathAlpha,
+	}
 
-	if self.Health <= 0 and not self.IsDead then
+	if isKilled then
 		self.IsDead = true
+	end
 
+	if not self.IsDestroyed then
+		self:GetEvent("Damaged"):Fire(context)
+	end
+
+	if isKilled then
 		EconomyService = EconomyService or ServiceRegistry:GetService("EconomyService")
 		EconomyService.AddKillCash(self.MaxHealth)
+		if not self.IsDestroyed then
+			self:GetEvent("Died"):Fire(context)
+		end
 		self:Destroy()
 	end
 
-	return actualDamage, self.IsDead
+	return actualDamage, isKilled
+end
+
+function BaseEnemy:Heal(amount: number): number
+	if self.IsDead or self.IsDestroyed or amount <= 0 then
+		return 0
+	end
+
+	local healed = math.min(self.MaxHealth - self.Health, math.floor(amount))
+	if healed <= 0 then
+		return 0
+	end
+	self.Health += healed
+	self:_ReplicateHealth()
+	return healed
+end
+
+function BaseEnemy:RestoreShield(amount: number): number
+	if self.IsDead or self.IsDestroyed or amount <= 0 then
+		return 0
+	end
+
+	local restored = math.min(self.MaxShieldHealth - self.ShieldHealth, math.floor(amount))
+	if restored <= 0 then
+		return 0
+	end
+	self.ShieldHealth += restored
+	self:_ReplicateHealth()
+	return restored
+end
+
+function BaseEnemy:_ReplicateHealth()
+	Net.EnemyService.HealthUpdated.FireAll({
+		enemyId = self.Id,
+		health = self.Health,
+		shieldHealth = self.ShieldHealth,
+	})
 end
 
 function BaseEnemy:Destroy(forcing: boolean?)
+	if self.IsDestroyed then
+		return
+	end
+	self.IsDestroyed = true
+	self.Started = false
+
+	for _, component in pairs(self.Components) do
+		component:Destroy()
+	end
+	table.clear(self.Components)
+
 	self:_StopDebuffLoop()
 
 	for _, conn in ipairs(self._connections) do
@@ -229,6 +384,11 @@ function BaseEnemy:Destroy(forcing: boolean?)
 	self.ActiveDebuffs = nil
 
 	self.Destroyed:Fire(forcing)
+	for _, signal in pairs(self.EventSignals) do
+		signal:Destroy()
+	end
+	table.clear(self.EventSignals)
+	task.defer(self.Destroyed.Destroy, self.Destroyed)
 end
 
 function BaseEnemy:_RecalculateStats()
