@@ -148,12 +148,21 @@ function BaseEnemy:SetAttribute(name: string, config)
 			component:Start()
 		end
 	end
-	return component:SetAttribute(name, config)
+	local appliedConfig = component:SetAttribute(name, config)
+	if appliedConfig and self.Started then
+		self:_ReplicateAttributes()
+	end
+	return appliedConfig
 end
 
 function BaseEnemy:GetAttribute(name: string)
 	local component = self.Components.Attributes
 	return component and component:GetAttribute(name)
+end
+
+function BaseEnemy:GetAttributes()
+	local component = self.Components.Attributes
+	return if component then component:GetAttributes() else {}
 end
 
 function BaseEnemy:HasAttribute(name: string): boolean
@@ -163,9 +172,19 @@ end
 
 function BaseEnemy:RemoveAttribute(name: string)
 	local component = self.Components.Attributes
-	if component then
+	if component and component:HasAttribute(name) then
 		component:RemoveAttribute(name)
+		if self.Started then
+			self:_ReplicateAttributes()
+		end
 	end
+end
+
+function BaseEnemy:_ReplicateAttributes()
+	Net.EnemyService.AttributesUpdated.FireAll({
+		enemyId = self.Id,
+		attributes = self:GetAttributes(),
+	})
 end
 
 function BaseEnemy:Start()

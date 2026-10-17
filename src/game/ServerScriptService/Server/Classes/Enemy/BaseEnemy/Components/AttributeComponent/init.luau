@@ -65,6 +65,14 @@ function AttributeComponent:GetAttribute(name: string)
 	return config and table.clone(config)
 end
 
+function AttributeComponent:GetAttributes()
+	local attributes = {}
+	for name, config in pairs(self.Attributes) do
+		attributes[name] = table.clone(config)
+	end
+	return attributes
+end
+
 function AttributeComponent:HasAttribute(name: string): boolean
 	return self.Attributes[name] ~= nil
 end

@@ -35,6 +35,7 @@ local RawEnemyData = {
 			{
 				Id = "RaiseSkeletons",
 				Type = "Summon",
+				Delay = 1,
 				Cooldown = 5,
 				Count = 2,
 				Spacing = 0.4,

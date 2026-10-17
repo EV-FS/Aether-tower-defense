@@ -1,3 +1,6 @@
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local Net = require(ReplicatedStorage.Shared.Net)
+
 local AbilityComponent = {}
 AbilityComponent.__index = AbilityComponent
 
@@ -13,6 +16,11 @@ function AbilityComponent.new(enemy, abilities)
 		if self.IsDestroyed or self.Enemy.IsDestroyed then
 			return
 		end
+		Net.EnemyService.AbilityTriggered.FireAll({
+			enemyId = self.Enemy.Id,
+			abilityType = abilityType,
+			arg = arg,
+		})
 		self.Enemy:GetEvent("AbilityTriggered"):Fire(abilityType, arg)
 	end
 

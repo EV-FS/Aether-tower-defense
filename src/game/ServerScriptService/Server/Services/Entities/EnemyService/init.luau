@@ -69,6 +69,14 @@ function EnemyService.SetupNewEnemy(name: string, isBoss: boolean?, pathAlpha: n
 		maxShieldHealth = self.MaxShieldHealth,
 	})
 
+	local attributes = self:GetAttributes()
+	if next(attributes) then
+		Net.EnemyService.AttributesUpdated.FireAll({
+			enemyId = self.Id,
+			attributes = attributes,
+		})
+	end
+
 	self:Start()
 	return self
 end
@@ -196,6 +204,13 @@ function EnemyService.PlayerAdded(player: Player)
 			maxHealth = enemy.MaxHealth,
 			maxShieldHealth = enemy.MaxShieldHealth,
 		})
+		local attributes = enemy:GetAttributes()
+		if next(attributes) then
+			Net.EnemyService.AttributesUpdated.Fire(player, {
+				enemyId = enemy.Id,
+				attributes = attributes,
+			})
+		end
 		if enemy.Health ~= enemy.MaxHealth or enemy.ShieldHealth ~= enemy.MaxShieldHealth then
 			Net.EnemyService.HealthUpdated.Fire(player, {
 				enemyId = enemy.Id,

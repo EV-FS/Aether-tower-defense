@@ -49,6 +49,8 @@ local ClientSignals = {
 	BossSpawned = Signal.new(),
 	BossDamaged = Signal.new(),
 	BossDestroyed = Signal.new(),
+	EnemyAttributesChanged = Signal.new(),
+	EnemyAbilityTriggered = Signal.new(),
 
 	-- EconomyService -> any
 	CashChanged = Signal.new(),

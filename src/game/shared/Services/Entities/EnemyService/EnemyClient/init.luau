@@ -22,6 +22,7 @@ local RENDER_STEP_NAME = "EnemyClient.Render"
 
 local isActived = false
 local ActivedEnemies = {}
+local DyingEnemies = {}
 
 local partsToMove = {}
 local cframesToMove = {}
@@ -129,6 +130,8 @@ function EnemyClient.Start()
 	Net.EnemyService.UpdateSpeed.On(EnemyClient._OnUpdateSpeed)
 	Net.EnemyService.UpdateDirection.On(EnemyClient._OnUpdateDirection)
 	Net.EnemyService.HealthUpdated.On(EnemyClient._OnHealthUpdated)
+	Net.EnemyService.AttributesUpdated.On(EnemyClient._OnAttributesUpdated)
+	Net.EnemyService.AbilityTriggered.On(EnemyClient._OnAbilityTriggered)
 	Net.EnemyService.TakeKnockback.On(EnemyClient._TakeKnockback)
 	Net.EnemyService.DestroyEnemy.On(function(enemyId: number)
 		EnemyClient.Destroy(enemyId, true)
@@ -157,6 +160,7 @@ function EnemyClient.newEnemy(data: {
 
 	local enemyModel = ReplicatedStorage.Assets.Enemies:FindFirstChild(enemyData.Name)
 	if not enemyModel then
+		warn("적 모델이 존재하지 않음.")
 		return
 	end
 
@@ -205,6 +209,7 @@ function EnemyClient.newEnemy(data: {
 		Health = data.maxHealth,
 		MaxShieldHealth = data.maxShieldHealth,
 		ShieldHealth = data.maxShieldHealth,
+		Attributes = {},
 
 		IsBoss = data.isBoss,
 	}
@@ -231,6 +236,15 @@ function EnemyClient.Destroy(enemyId: number, forcing: boolean?)
 	EnemyVisuals.Destroy(enemyId)
 
 	if targetEnemy.Model then
+		if not forcing then
+			DyingEnemies[enemyId] = targetEnemy
+			targetEnemy.Model.Destroying:Once(function()
+				if DyingEnemies[enemyId] == targetEnemy then
+					DyingEnemies[enemyId] = nil
+				end
+			end)
+		end
+
 		if not forcing and AnimationService.GetTrack(targetEnemy.Model, "Death") then
 			AnimationService.Stop(targetEnemy.Model)
 			local track = AnimationService.Play(targetEnemy.Model, "Death") :: AnimationTrack
@@ -375,7 +389,8 @@ function EnemyClient._OnUpdateDirection(data: { enemyId: number, MoveDirection: 
 	local convertDirection = data.MoveDirection and 1 or -1
 	local pathLength = GetPath:Get(updatedEnemy.PathId):GetPathLength()
 
-	local pingOffset = (updatedEnemy.WalkSpeed * pingTime * (convertDirection - updatedEnemy.MoveDirection)) / pathLength
+	local pingOffset = (updatedEnemy.WalkSpeed * pingTime * (convertDirection - updatedEnemy.MoveDirection))
+		/ pathLength
 
 	updatedEnemy.MoveDirection = convertDirection
 	updatedEnemy.PathAlpha += pingOffset
@@ -436,6 +451,40 @@ function EnemyClient._OnHealthUpdated(data: { enemyId: number, health: number, s
 	if enemy.Health <= 0 then
 		EnemyClient.Destroy(data.enemyId)
 	end
+end
+
+function EnemyClient.Get(enemyId: number)
+	return ActivedEnemies[enemyId]
+end
+
+function EnemyClient._OnAttributesUpdated(data: { enemyId: number, attributes: { [string]: any } })
+	local enemy = ActivedEnemies[data.enemyId]
+	if not enemy then
+		return
+	end
+
+	enemy.Attributes = data.attributes
+	ClientSignals.EnemyAttributesChanged:Fire(enemy)
+end
+
+function EnemyClient._OnAbilityTriggered(data: { enemyId: number, abilityType: string, arg: any? })
+	local enemy = ActivedEnemies[data.enemyId] or DyingEnemies[data.enemyId]
+	if not enemy or not enemy.Model.Parent then
+		return
+	end
+
+	local eventName = `Ability_{data.abilityType}`
+	local arg = data.arg
+	local targetModel = if typeof(arg) == "table" and arg.EnemyId
+		then workspace.Enemies:FindFirstChild(`Enemy_{arg.EnemyId}`)
+		else nil
+	local range = if typeof(arg) == "table" and typeof(arg.Range) == "number" then arg.Range else nil
+
+	if ActivedEnemies[data.enemyId] and AnimationService.GetTrack(enemy.Model, eventName) then
+		AnimationService.Play(enemy.Model, eventName)
+	end
+	VisualService.Play(enemy.Name, eventName, 0, enemy.Model, targetModel, range)
+	ClientSignals.EnemyAbilityTriggered:Fire(enemy, data.abilityType, arg)
 end
 
 return EnemyClient

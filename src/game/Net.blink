@@ -67,6 +67,27 @@ scope EnemyService {
             shieldHealth: f64,
         }
     }
+
+    event AttributesUpdated {
+        from: Server,
+        type: Reliable,
+        call: SingleSync,
+        data: struct {
+            enemyId: u16,
+            attributes: unknown,
+        }
+    }
+
+    event AbilityTriggered {
+        from: Server,
+        type: Reliable,
+        call: SingleSync,
+        data: struct {
+            enemyId: u16,
+            abilityType: string,
+            arg: unknown?,
+        }
+    }
 }
 
 scope DataService {
