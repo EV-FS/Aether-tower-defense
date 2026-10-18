@@ -26,6 +26,7 @@ ServiceRegistry:RegisterServices({
 	ServerServices.EmojiService,
 	ServerServices.TimerService,
 	ServerServices.DialogueService,
+	ServerServices.CommanderService,
 	ServerServices.QuestService,
 	ServerServices.RoleTagService,
 	ServerServices.MatchService,

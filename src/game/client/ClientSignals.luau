@@ -13,6 +13,7 @@ local ClientSignals = {
 	WaveCompleted = Signal.new(),
 
 	GameOver = Signal.new(),
+	GameEnding = Signal.new(),
 	Restarted = Signal.new(),
 
 	ReadyVoted = Signal.new(),

@@ -4,6 +4,7 @@ local RunService = game:GetService("RunService")
 local ServiceRegistry = require(ReplicatedStorage.Shared.Modules.Core.ServiceRegistry)
 local Matter = require(ReplicatedStorage.Packages.Matter)
 local UI = require(ReplicatedStorage.UI)
+local CommanderClient = require(ReplicatedStorage.Shared.Controllers.CommanderClient)
 
 local SharedServices = ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Services")
 local Controllers = ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Controllers")
@@ -45,7 +46,9 @@ ServiceRegistry:Start()
 		-- Prepare the complete interface while the loading cover is still visible.
 		UI.Init()
 		print("UI 로드 완료.")
-		UI.HideLoading()
+		if UI.HideLoadingAndWait() then
+			task.spawn(CommanderClient.PlayIntroduction)
+		end
 	end)
 	:catch(function(err)
 		warn(`클라이언트 초기화 실패: {err}`)

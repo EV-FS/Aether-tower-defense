@@ -180,6 +180,8 @@ Queue.Reliable[23] = table.create(256)
 Queue.Reliable[27] = table.create(256)
 Queue.Reliable[28] = table.create(256)
 Queue.Reliable[32] = table.create(256)
+Queue.Reliable[35] = table.create(256)
+Queue.Reliable[36] = table.create(256)
 function SerdesFunctions.GroupReward_WriteEVENT_SendPromptJoin(Value: nil): ()
 	-- Allocate BLOCK: 1 bytes
 	local BLOCK_START = Allocate(1)
@@ -797,6 +799,23 @@ function SerdesFunctions.DialogueService_WriteEVENT_CloseDialogue(Value: nil): (
 	buffer.writeu8(SendBuffer, BLOCK_START + 0, 34)
 end
 
+function SerdesFunctions.CommanderService_ReadFUNCTION_DATA_RequestIntroduction(): (nil)
+	return nil
+end
+
+function SerdesFunctions.CommanderService_WriteFUNCTION_RETURN_RequestIntroduction(Value: boolean, InvocationIdentifier: number): ()
+	-- Allocate BLOCK: 4 bytes
+	local BLOCK_START = Allocate(4)
+	buffer.writeu8(SendBuffer, BLOCK_START + 0, 35)
+	buffer.writeu8(SendBuffer, BLOCK_START + 1, InvocationIdentifier)
+	buffer.writeu8(SendBuffer, BLOCK_START + 2, 1)
+	buffer.writeu8(SendBuffer, BLOCK_START + 3, Value and 1 or 0)
+end
+
+function SerdesFunctions.CommanderService_ReadEVENT_CompleteIntroduction(): (nil)
+	return nil
+end
+
 if not RunService:IsRunning() then
 	local NOOP = function() end
 	local Returns = table.freeze({
@@ -982,6 +1001,14 @@ if not RunService:IsRunning() then
 			FireAll = NOOP,
 			FireList = NOOP,
 			FireExcept = NOOP
+		},
+	},
+	CommanderService = {
+		RequestIntroduction = {
+			On = NOOP
+		},
+		CompleteIntroduction = {
+			On = NOOP
 		},
 	},
 	})
@@ -1277,6 +1304,30 @@ Reliable.OnServerEvent:Connect(function(Player: Player, Buffer: buffer, Instance
 					warn("[Blink]: Event queue of \"ChooseDialogue\" exceeded 256, did you forget to implement a listener?")
 				end
 				table.insert(Queue.Reliable[32], {Player, Value} :: {any})
+			end
+		elseif Index == 35 then
+			-- Read BLOCK: 1 bytes
+			local BLOCK_START = Read(1)
+			local InvocationIdentifier = buffer.readu8(RecieveBuffer, BLOCK_START + 0)
+			local Value: nil = SerdesFunctions.CommanderService_ReadFUNCTION_DATA_RequestIntroduction()
+			if Events.Reliable[35] ~= nil then
+				task.spawn(Events.Reliable[35], Player, Value, InvocationIdentifier)
+			else
+				if #Queue.Reliable[35] > 256 then
+					warn("[Blink]: Event queue of \"RequestIntroduction\" exceeded 256, did you forget to implement a listener?")
+				end
+				table.insert(Queue.Reliable[35], {Player, Value, InvocationIdentifier} :: {any})
+			end
+		elseif Index == 36 then
+			local Value: nil = SerdesFunctions.CommanderService_ReadEVENT_CompleteIntroduction()
+			if Events.Reliable[36] ~= nil then
+				SerdesEvent = "CompleteIntroduction"
+				Events.Reliable[36](Player, Value)
+			else
+				if #Queue.Reliable[36] > 256 then
+					warn("[Blink]: Event queue of \"CompleteIntroduction\" exceeded 256, did you forget to implement a listener?")
+				end
+				table.insert(Queue.Reliable[36], {Player, Value} :: {any})
 			end
 		end
 	end
@@ -2601,6 +2652,50 @@ local Returns = table.freeze({
 					PlayersMap[Player] = Save()
 				end
 			end,
+		},
+	},
+	CommanderService = {
+		RequestIntroduction = {
+		On = function(Listener: (Player, nil) -> (boolean)): ()
+			Events.Reliable[35] = function(Player: Player, Value: nil, InvocationIdentifier: number): ()
+				local ReturnValue: boolean;
+				local Success, Error = pcall(function ()
+					ReturnValue = Listener(Player, Value)
+				end)
+				Load(PlayersMap[Player])
+				if Success ~= true then
+					local Position = Allocate(3)
+					buffer.writeu8(SendBuffer, Position, 35)
+					buffer.writeu8(SendBuffer, Position + 1, InvocationIdentifier)
+					buffer.writeu8(SendBuffer, Position + 2, 0)
+					warn(`"RequestIntroduction" encountered an error, {Error}`)
+				else
+					SerdesFunctions.CommanderService_WriteFUNCTION_RETURN_RequestIntroduction(ReturnValue, InvocationIdentifier)
+				end
+				PlayersMap[Player] = Save()
+			end
+			task.spawn(function (): ()
+				local EventQueue = Queue.Reliable[35] or {}
+				Queue.Reliable[35] = nil
+				for Index, Arguments in EventQueue do
+					Events.Reliable[35](table.unpack(Arguments))
+				end
+			end)
+		end
+		},
+		CompleteIntroduction = {
+			On = function(Listener: (Player: Player, Value: nil) -> ()): () -> ()
+				Events.Reliable[36] = Listener
+				for Index, Arguments in Queue.Reliable[36] do
+					Listener(table.unpack(Arguments))
+				end
+				Queue.Reliable[36] = {}
+				return function (): ()
+					if Events.Reliable[36] == Listener then
+						Events.Reliable[36] = nil
+					end
+				end
+			end
 		},
 	},
 })

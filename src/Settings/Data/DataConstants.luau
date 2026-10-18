@@ -56,6 +56,7 @@ return TableUtils.DeepFreeze({
 		_StructureVersion = "v2",
 		_StarterTowerReceived = false,
 		_EmojiLoadoutInitialized = false,
+		CommanderIntroductionSeen = false,
 	},
 
 	PUBLIC_DATA_KEYS = {

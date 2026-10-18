@@ -201,6 +201,7 @@ Queue.Reliable[30] = table.create(256)
 Queue.Reliable[31] = table.create(256)
 Queue.Reliable[33] = table.create(256)
 Queue.Reliable[34] = table.create(256)
+Queue.Reliable[35] = table.create(256)
 function SerdesFunctions.GroupReward_ReadEVENT_SendPromptJoin(): (nil)
 	return nil
 end
@@ -880,6 +881,30 @@ function SerdesFunctions.DialogueService_ReadEVENT_CloseDialogue(): (nil)
 	return nil
 end
 
+function SerdesFunctions.CommanderService_WriteFUNCTION_DATA_RequestIntroduction(Value: nil, InvocationIdentifier: number): ()
+	-- Allocate BLOCK: 2 bytes
+	local BLOCK_START = Allocate(2)
+	buffer.writeu8(SendBuffer, BLOCK_START + 0, 35)
+	buffer.writeu8(SendBuffer, BLOCK_START + 1, InvocationIdentifier)
+end
+
+function SerdesFunctions.CommanderService_ReadFUNCTION_RETURN_RequestIntroduction(): (boolean)
+	-- Read BLOCK: 2 bytes
+	local BLOCK_START = Read(2)
+	local Success = buffer.readu8(RecieveBuffer, BLOCK_START + 0)
+	if Success ~= 1 then
+		error("Server encountered an error.")
+	end
+	local Value = (buffer.readu8(RecieveBuffer, BLOCK_START + 1) == 1)
+	return Value
+end
+
+function SerdesFunctions.CommanderService_WriteEVENT_CompleteIntroduction(Value: nil): ()
+	-- Allocate BLOCK: 1 bytes
+	local BLOCK_START = Allocate(1)
+	buffer.writeu8(SendBuffer, BLOCK_START + 0, 36)
+end
+
 if not RunService:IsRunning() then
 	local NOOP = function() end
 	local Returns = table.freeze({
@@ -1014,6 +1039,14 @@ if not RunService:IsRunning() then
 		},
 		CloseDialogue = {
 			On = NOOP
+		},
+	},
+	CommanderService = {
+		RequestIntroduction = {
+			Invoke = NOOP
+		},
+		CompleteIntroduction = {
+			Fire = NOOP
 		},
 	},
 	})
@@ -1443,6 +1476,17 @@ Reliable.OnClientEvent:Connect(function(Buffer: buffer, Instances: {Instance})
 					warn("[Blink]: Event queue of \"CloseDialogue\" exceeded 256, did you forget to implement a listener?")
 				end
 				table.insert(Queue.Reliable[34], {Value} :: {any})
+			end
+		elseif Index == 35 then
+			-- Read BLOCK: 1 bytes
+			local BLOCK_START = Read(1)
+			local InvocationIdentifier = buffer.readu8(RecieveBuffer, BLOCK_START + 0)
+				local Success, ReturnValue = pcall(function ()
+					return SerdesFunctions.CommanderService_ReadFUNCTION_RETURN_RequestIntroduction()
+				end)
+			if Calls[InvocationIdentifier] ~= nil then
+				task.spawn(Calls[InvocationIdentifier], Success, ReturnValue)
+				Calls[InvocationIdentifier] = nil
 			end
 		end
 	end
@@ -2117,6 +2161,35 @@ local Returns = table.freeze({
 						Events.Reliable[34] = nil
 					end
 				end
+			end
+		},
+	},
+	CommanderService = {
+		RequestIntroduction = {
+			Invoke = function(Value: nil)
+				return Promise.new(function (Resolve, Reject, OnCancel)
+					local InvocationIdentifier = Invoke()
+					if Calls[InvocationIdentifier] ~= nil then
+						Invocations -= 1
+						error("More than 256 calls are awaiting a response, this packet has been dropped.")
+					end
+					SerdesFunctions.CommanderService_WriteFUNCTION_DATA_RequestIntroduction(Value, InvocationIdentifier)
+					Calls[InvocationIdentifier] = coroutine.running()
+					OnCancel(function ()
+						Calls[InvocationIdentifier] = nil
+					end)
+					local Success, ReturnValue: boolean = coroutine.yield()
+					if Success ~= true then
+						Reject("There was an exception while processing \"RequestIntroduction\".")
+						return
+					end
+					Resolve(ReturnValue)
+				end)
+			end
+		},
+		CompleteIntroduction = {
+			Fire = function(Value: nil): ()
+				SerdesFunctions.CommanderService_WriteEVENT_CompleteIntroduction(Value)
 			end
 		},
 	},

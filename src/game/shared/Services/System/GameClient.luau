@@ -90,6 +90,7 @@ local GameClient = {}
 GameClient.SelectedDifficulty = "Normal"
 GameClient.StartPlayerCount = 1
 GameClient.IsGameStarted = false
+GameClient.CurrentWave = 0
 
 function GameClient.UpdateGameInfo(data: { Difficulty: string, StartPlayerCount: number })
 	GameClient.SelectedDifficulty = data.Difficulty
@@ -111,20 +112,26 @@ function GameClient.Start()
 	end)
 
 	Net.GameEvent.WaveStarted.On(function(waveNumber: number)
+		GameClient.IsGameStarted = true
+		GameClient.CurrentWave = waveNumber
 		ClientSignals.WaveStarted:Fire(waveNumber)
 		GetPath:StopGuide()
 	end)
 
-	Net.GameEvent.WaveCompleted.On(function()
-		ClientSignals.WaveCompleted:Fire()
+	Net.GameEvent.WaveCompleted.On(function(waveNumber: number)
+		ClientSignals.WaveCompleted:Fire(waveNumber)
 	end)
 
 	Net.GameEvent.GameOver.On(function(data: { coins: number, exp: number, gems: number, isWin: boolean })
+		GameClient.IsGameStarted = false
+		ClientSignals.GameEnding:Fire(data.isWin)
 		TowerRewardCalculator.CalculateGainedTowersAsync():andThen(function(gainedTowers)
 			ClientSignals.GameOver:Fire(data.isWin, data.coins, data.exp, data.gems, gainedTowers)
 		end)
 	end)
 	Net.GameEvent.Restarted.On(function()
+		GameClient.IsGameStarted = false
+		GameClient.CurrentWave = 0
 		ClientSignals.Restarted:Fire()
 		GetPath:StartGuide()
 	end)

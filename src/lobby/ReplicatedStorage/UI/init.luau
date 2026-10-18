@@ -27,6 +27,10 @@ function UI.HideLoading()
 	LoadingController.Hide()
 end
 
+function UI.HideLoadingAndWait(): boolean
+	return LoadingController.HideAndWait()
+end
+
 local function GetViews()
 	local views = {}
 

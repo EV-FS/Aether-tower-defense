@@ -338,3 +338,16 @@ scope DialogueService {
     }
 }
 
+scope CommanderService {
+    function RequestIntroduction {
+        Yield: Promise,
+        Return: boolean,
+    }
+
+    event CompleteIntroduction {
+        from: Client,
+        type: Reliable,
+        call: SingleSync,
+    }
+}
+

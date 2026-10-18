@@ -841,6 +841,9 @@ function DataService._PlayerAdded(player: Player)
 	end
 
 	profile:AddUserId(player.UserId)
+	if profile.Data.CommanderIntroductionSeen == nil then
+		profile.Data.CommanderIntroductionSeen = profile.SessionLoadCount > 1
+	end
 	profile:Reconcile()
 
 	DataService:_MigrateData(profile)

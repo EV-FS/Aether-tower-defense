@@ -40,8 +40,9 @@ function WaveService.onEnemyDefeated()
 			skipPromise:cancel()
 		end
 
-		WaveService.WaveCompleted:Fire(WaveService.CurrentWave)
-		Net.GameEvent.WaveCompleted.FireAll(WaveService.CurrentWave)
+		local completedWave = WaveService.CurrentWave
+		WaveService.WaveCompleted:Fire(completedWave)
+		Net.GameEvent.WaveCompleted.FireAll(completedWave)
 	end
 end
 
