@@ -7,6 +7,8 @@ local SummonConfig = require(ReplicatedStorage.Settings.Data.SummonConfig)
 local UnitSellRewards = require(ReplicatedStorage.Settings.Data.UnitSellRewards)
 local Banner = require(script.Banner)
 local BannerSchedule = require(ReplicatedStorage.Shared.Modules.Core.Summon.BannerSchedule)
+local SummonBannerPool = require(ReplicatedStorage.Settings.Data.SummonBannerPool)
+local TowerAssets = require(ReplicatedStorage.Shared.Modules.Utils.TowerAssets)
 local DataService
 
 local SummonService = {}
@@ -170,6 +172,31 @@ function SummonService.Init(services)
 end
 
 function SummonService.Start()
+	local assetSubscriptions = {}
+	local observedNames = {}
+	local observing = true
+	local refreshPending = false
+	local function refreshAssets(_, _, changed)
+		if not changed or refreshPending or not observing then return end
+		refreshPending = true
+		task.defer(function()
+			refreshPending = false
+			if observing then Net.SummonService.BannerUpdated.FireAll(Banner.GetClientFormat()) end
+		end)
+	end
+	for _, pool in SummonBannerPool do
+		for _, name in pool do
+			if not observedNames[name] then
+				observedNames[name] = true
+				table.insert(assetSubscriptions, TowerAssets.Observe(name, refreshAssets))
+			end
+		end
+	end
+	script.Destroying:Once(function()
+		observing = false
+		for _, disconnect in assetSubscriptions do disconnect() end
+		table.clear(assetSubscriptions)
+	end)
 	Players.PlayerRemoving:Connect(function(player)
 		ActiveSummons[player] = nil
 	end)

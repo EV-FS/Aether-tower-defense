@@ -17,6 +17,7 @@ local function updateCamera()
 	end
 
 	local camera = workspace.CurrentCamera
+	if not camera then return end
 
 	if not RunService:IsRunning() then
 		camera.CFrame *= totalShakeCF:Inverse()
@@ -60,6 +61,7 @@ local camera_shake = {}
 
 local conn
 local lastCameraCf
+local lastCamera
 
 function camera_shake.init()
 	if conn then
@@ -68,11 +70,17 @@ function camera_shake.init()
 
 	if RunService:IsRunning() then
 		conn = RunService.Heartbeat:Connect(function()
+			local camera = workspace.CurrentCamera
+			if not camera or camera ~= lastCamera or camera.CameraType == Enum.CameraType.Scriptable then
+				lastCameraCf = nil
+				lastCamera = nil
+				return
+			end
 			if not lastCameraCf then
 				return
 			end
 
-			workspace.CurrentCamera.CFrame = lastCameraCf
+			camera.CFrame = lastCameraCf
 		end)
 	end
 
@@ -86,6 +94,8 @@ function camera_shake.deinit()
 	end
 
 	RunService:UnbindFromRenderStep("forge_updateCameraShake")
+	lastCameraCf = nil
+	lastCamera = nil
 end
 
 function camera_shake.emit(ref: RayValue, scope: types.scope)
@@ -161,8 +171,12 @@ function camera_shake.emit(ref: RayValue, scope: types.scope)
 
 	shake:BindToRenderStep(Shake.NextRenderName(), utility.RENDER_PRIORITY + scope.depth, function(pos, rot, isDone)
 		local camera = workspace.CurrentCamera
+		if not camera then return end
 
-		lastCameraCf = camera.CFrame
+		if camera.CameraType ~= Enum.CameraType.Scriptable then
+			lastCameraCf = camera.CFrame
+			lastCamera = camera
+		end
 
 		local origin = ref:FindFirstAncestorOfClass("Attachment") or ref:FindFirstAncestorWhichIsA("BasePart")
 
@@ -182,6 +196,7 @@ function camera_shake.emit(ref: RayValue, scope: types.scope)
 
 		if isDone then
 			lastCameraCf = nil
+			lastCamera = nil
 			task.spawn(thread)
 		end
 	end)

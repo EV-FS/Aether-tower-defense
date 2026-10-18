@@ -3,6 +3,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
 
 local Vide = require(ReplicatedStorage.Packages.Vide)
+local useTowerAsset = require(ReplicatedStorage.Shared.Modules.UI.Hooks.useTowerAsset)
 local ForgeVFX: any = nil
 
 local cleanup = Vide.cleanup
@@ -60,6 +61,7 @@ export type Props = {
 	AnimationFadeTime: Reactive<number>?,
 	UseCharacterBounds: Reactive<boolean>?,
 	Darkened: Reactive<boolean>?,
+	OnModelChanged: ((Model?) -> ())?,
 }
 
 local DEFAULT_SCREEN_POSITION = Vector2.new(0.5, 0.39)
@@ -128,19 +130,6 @@ local function ensureForgeVFX()
 	if not ForgeVFX.setup then
 		ForgeVFX.init()
 	end
-end
-
-local function getTowerAsset(towerName: string): Model?
-	local assets = ReplicatedStorage:FindFirstChild("Assets")
-	local towers = assets and assets:FindFirstChild("Towers")
-	local towerAsset = towers and towers:FindFirstChild(towerName)
-
-	if not towerAsset or not towerAsset:IsA("Model") then
-		warn(`[WorldTowerDisplay] Tower model "{towerName}" was not found in ReplicatedStorage.Assets.Towers.`)
-		return nil
-	end
-
-	return towerAsset
 end
 
 local function findRootPart(model: Model): BasePart?
@@ -585,6 +574,10 @@ end
 local function prepareModel(model: Model, useCharacterBounds: boolean): ModelState
 	local transparencyTargets = {}
 	local rootPart = findRootPart(model)
+	if rootPart then
+		model.PrimaryPart = rootPart
+		rootPart.PivotOffset = CFrame.identity
+	end
 
 	for _, descendant in model:GetDescendants() do
 		if descendant:IsA("BaseScript") then
@@ -717,6 +710,7 @@ end
 
 return function(props: Props)
 	local modelState = source(nil :: ModelState?)
+	local towerTemplate = useTowerAsset(props.TowerName)
 
 	effect(function()
 		local towerName = read(props.TowerName)
@@ -727,14 +721,35 @@ return function(props: Props)
 			return
 		end
 
-		local towerAsset = getTowerAsset(towerName)
+		local towerAsset = towerTemplate()
 		if not towerAsset then
 			return
 		end
 
 		local model = towerAsset:Clone()
+		if not model then return end
 		model.Name = `SummonDisplay_{towerName}`
-		local state = prepareModel(model, read(props.UseCharacterBounds) == true)
+		local state: ModelState? = nil
+		local stopAnimation = function() end
+		local effectThread: thread? = nil
+		cleanup(function()
+			if effectThread and coroutine.status(effectThread) ~= "dead" then task.cancel(effectThread) end
+			local stopped, stopError = pcall(stopAnimation)
+			if not stopped then warn(`[WorldTowerDisplay] Animation cleanup failed: {stopError}`) end
+			if state then
+				local ok, err = pcall(cleanupSummonEffects, state)
+				if not ok then warn(`[WorldTowerDisplay] Effect cleanup failed: {err}`) end
+			end
+			if modelState() == state then modelState(nil) end
+			if props.OnModelChanged then props.OnModelChanged(nil) end
+			model:Destroy()
+		end)
+		local ok, prepared = pcall(prepareModel, model, read(props.UseCharacterBounds) == true)
+		if not ok then
+			warn(`[WorldTowerDisplay] Could not prepare {towerName}: {prepared}`)
+			return
+		end
+		state = prepared
 		local darkenHighlight = Instance.new("Highlight")
 		darkenHighlight.Name = "SummonAutoSoldDarken"
 		darkenHighlight.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
@@ -743,18 +758,24 @@ return function(props: Props)
 		darkenHighlight.OutlineTransparency = 1
 		darkenHighlight.Enabled = read(props.Darkened) == true
 		darkenHighlight.Parent = model
-		prepareSummonEffects(state, rarity)
-		model.Parent = workspace.CurrentCamera
-		local stopAnimation = playAnimation(model, towerName, props)
+		model.Parent = workspace.CurrentCamera or workspace
 		modelState(state)
-
-		cleanup(function()
-			cleanupSummonEffects(state)
-			stopAnimation()
-			if modelState() == state then
-				modelState(nil)
+		if props.OnModelChanged then props.OnModelChanged(model) end
+		local animated, animationCleanup = pcall(playAnimation, model, towerName, props)
+		if animated then
+			stopAnimation = animationCleanup
+		else
+			warn(`[WorldTowerDisplay] Animation unavailable for {towerName}: {animationCleanup}`)
+		end
+		effectThread = task.defer(function()
+			local success, err = pcall(prepareSummonEffects, state, rarity)
+			if not success then
+				warn(`[WorldTowerDisplay] Effects unavailable for {towerName}: {err}`)
+				pcall(cleanupSummonEffects, state)
+				for _, name in { "BurstEffect", "ExtraBurstEffect", "StaticEffect", "StaticOverlay" } do
+					if state[name] then state[name]:Destroy(); state[name] = nil end
+				end
 			end
-			model:Destroy()
 		end)
 	end)
 

@@ -5,6 +5,7 @@ local SummonBannerPool = require(ReplicatedStorage.Settings.Data.SummonBannerPoo
 local TowerData = require(ReplicatedStorage.Settings.Data.TowerData)
 local CraftRecipes = require(ReplicatedStorage.Settings.Data.CraftRecipes)
 local BannerSchedule = require(ReplicatedStorage.Shared.Modules.Core.Summon.BannerSchedule)
+local TowerAssets = require(ReplicatedStorage.Shared.Modules.Utils.TowerAssets)
 
 local Banner = {}
 
@@ -12,6 +13,7 @@ local SERVER_SALT = 8472957102
 local MAX_RANDOM_SEED = 2147483647
 local currentSlot: number? = nil
 local currentBanner = nil
+local currentModels: { [string]: Model } = {}
 local craftOnlyUnits = {}
 for _, recipe in CraftRecipes do
 	if recipe.ResultType == "Tower" then
@@ -19,11 +21,19 @@ for _, recipe in CraftRecipes do
 	end
 end
 
-local function hasTowerModel(unitName: string): boolean
-	local assets = ReplicatedStorage:FindFirstChild("Assets")
-	local towers = assets and assets:FindFirstChild("Towers")
-	local towerModel = towers and towers:FindFirstChild(unitName)
-	return towerModel ~= nil and towerModel:IsA("Model")
+--[[ Detects whether the available summon templates have changed. ]]
+local function haveModelsChanged(): boolean
+	local changed = false
+	for _, pool in SummonBannerPool do
+		for _, name in pool do
+			local model = TowerAssets.Resolve(name)
+			if currentModels[name] ~= model then
+				currentModels[name] = model
+				changed = true
+			end
+		end
+	end
+	return changed
 end
 
 local function getValidPool(rarity: string): { string }
@@ -38,12 +48,13 @@ local function getValidPool(rarity: string): { string }
 		if seen[unitName] then continue end
 		seen[unitName] = true
 		local unitInfo = TowerData.ByName[unitName]
+		local towerModel, modelReason = TowerAssets.Resolve(unitName)
 		if craftOnlyUnits[unitName] then
 			warn(`[SummonBanner] Skipping craft-only unit {unitName}.`)
 		elseif not unitInfo or unitInfo.Rarity ~= rarity then
 			warn(`[SummonBanner] Skipping {unitName}: TowerData rarity does not match {rarity}.`)
-		elseif not hasTowerModel(unitName) then
-			warn(`[SummonBanner] Skipping {unitName}: ReplicatedStorage.Assets.Towers model is missing.`)
+		elseif not towerModel then
+			warn(`[SummonBanner] Skipping ReplicatedStorage.Assets.Towers.{unitName}: {modelReason}.`)
 		else
 			table.insert(validPool, unitName)
 		end
@@ -75,7 +86,8 @@ end
 
 function Banner.GetActiveBanner(timestamp: number?)
 	local slot = BannerSchedule.GetSlot(timestamp or workspace:GetServerTimeNow())
-	if currentSlot ~= slot then
+	local modelsChanged = haveModelsChanged()
+	if currentSlot ~= slot or modelsChanged then
 		currentBanner = buildBanner(slot)
 		currentSlot = slot
 	end

@@ -11,6 +11,7 @@ local ServiceRegistry = require(ReplicatedStorage.Shared.Modules.Core.ServiceReg
 local useAudio = require(ReplicatedStorage.Shared.Modules.UI.Hooks.useAudio)
 local WorldTowerDisplay = require(ReplicatedStorage.UI.Components.WorldTowerDisplay)
 local LocalEmotePlayer = require(ReplicatedStorage.Shared.Modules.UI.Emote.LocalEmotePlayer)
+local UnitCatalog = require(ReplicatedStorage.Settings.Data.UnitCatalog)
 
 local create = Vide.create
 local cleanup = Vide.cleanup
@@ -38,6 +39,7 @@ local revealPhase = source(false)
 local isTransitioning = source(false)
 local isClosing = source(false)
 local slideSign = source(1)
+local modelReady = source(false)
 local queuedAdvance = false
 
 local EXIT_DELAY = 0.34
@@ -486,6 +488,7 @@ function SummonResultUI.RenderUI()
 		}),
 
 		WorldTowerDisplay({
+			OnModelChanged = function(model) modelReady(model ~= nil) end,
 			TowerName = function()
 				local unit = getCurrentUnit()
 				return unit and unit.UnitName or ""
@@ -517,6 +520,26 @@ function SummonResultUI.RenderUI()
 			ModelRotation = spring(function()
 				return if isRevealed() then 0 else slideSign() * 14
 			end, if isClosing() then 0.34 else 0.4, 0.72),
+		}),
+
+		create("ImageLabel")({
+			Name = "UnitImageFallback",
+			AnchorPoint = Vector2.new(0.5, 0.5),
+			BackgroundTransparency = 1,
+			Position = UDim2.fromScale(0.5, 0.39),
+			Size = UDim2.fromScale(0.4, 0.44),
+			ScaleType = Enum.ScaleType.Fit,
+			Image = function()
+				local unit = getCurrentUnit()
+				return if unit then UnitCatalog.GetImage(unit.UnitName) else ""
+			end,
+			ImageColor3 = function()
+				local unit = getCurrentUnit()
+				return if unit and unit.Sold then Color3.fromRGB(100, 100, 100) else Color3.new(1, 1, 1)
+			end,
+			ImageTransparency = spring(function() return if isRevealed() then 0 else 1 end, 0.4, 0.82),
+			Visible = function() return UIController:IsOpen(VIEW_ID) and not modelReady() end,
+			ZIndex = 50,
 		}),
 
 		create("Frame")({

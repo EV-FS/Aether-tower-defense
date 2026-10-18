@@ -7,12 +7,14 @@ local FOVController = {}
 
 local defaultFOV = DEFAULT_FOV
 local targetFOV = DEFAULT_FOV
+local renderConnection: RBXScriptConnection? = nil
 
 function FOVController.SetFOV(fov: number, instant: boolean?)
 	targetFOV = fov
 
-	if instant then
-		workspace.CurrentCamera.FieldOfView = fov
+	local camera = workspace.CurrentCamera
+	if instant and camera and camera.CameraType ~= Enum.CameraType.Scriptable then
+		camera.FieldOfView = fov
 	end
 end
 
@@ -29,19 +31,29 @@ function FOVController.SetDefaultFOV(fov: number, apply: boolean?)
 end
 
 function FOVController.GetFOV(): number
-	return workspace.CurrentCamera.FieldOfView
+	local camera = workspace.CurrentCamera
+	return if camera then camera.FieldOfView else targetFOV
 end
 
 function FOVController.Start()
-	RunService.PreRender:Connect(function(dt)
+	if renderConnection then return end
+	renderConnection = RunService.PreRender:Connect(function(dt)
 		local camera = workspace.CurrentCamera
-		if not camera then
+		if not camera or camera.CameraType == Enum.CameraType.Scriptable then
 			return
 		end
 
 		local alpha = 1 - math.exp(-SMOOTH_SPEED * dt)
 		camera.FieldOfView += (targetFOV - camera.FieldOfView) * alpha
 	end)
+end
+
+--[[ Releases the controller's owned update connection. ]]
+function FOVController.Destroy()
+	if renderConnection then
+		renderConnection:Disconnect()
+		renderConnection = nil
+	end
 end
 
 return FOVController

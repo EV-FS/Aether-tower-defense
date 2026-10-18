@@ -3,6 +3,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Vide = require(ReplicatedStorage.Packages.Vide)
 local ViewportModel = require(ReplicatedStorage.Shared.Modules.Utils.ViewportModel)
 local PortraitCamera = require(script.Parent.PortraitCamera)
+local useTowerAsset = require(ReplicatedStorage.Shared.Modules.UI.Hooks.useTowerAsset)
 
 local cleanup = Vide.cleanup
 local create = Vide.create
@@ -77,19 +78,6 @@ export type Props = {
 	AnimationFadeTime: Reactive<number>?,
 	OnModelChanged: ((Model?) -> ())?,
 }
-
-local function getTowerAsset(towerName: string): Model?
-	local assets = ReplicatedStorage:FindFirstChild("Assets")
-	local towers = assets and assets:FindFirstChild("Towers")
-	local towerAsset = towers and towers:FindFirstChild(towerName)
-
-	if not towerAsset or not towerAsset:IsA("Model") then
-		warn(`[TowerViewport] Tower model "{towerName}" was not found in ReplicatedStorage.Assets.Towers.`)
-		return nil
-	end
-
-	return towerAsset
-end
 
 local function findRootPart(model: Model): BasePart?
 	local humanoidRootPart = model:FindFirstChild("HumanoidRootPart", true)
@@ -340,6 +328,14 @@ end
 	properties can be static values or Vide getters without recreating the model.
 ]]
 return function(props: Props)
+	local towerTemplate = useTowerAsset(props.TowerName, function(asset)
+		local prepared = preparedTemplates[asset]
+		if prepared then
+			preparedTemplates[asset] = nil
+			preparedTemplateCount -= 1
+			prepared.Model:Destroy()
+		end
+	end)
 	local camera = create("Camera")({ Name = "TowerCamera" })
 	local worldModel = create("WorldModel")({ Name = "TowerWorld" })
 	local modelState = source(nil :: ModelState?)
@@ -363,7 +359,7 @@ return function(props: Props)
 			return
 		end
 
-		local towerAsset = getTowerAsset(towerName)
+		local towerAsset = towerTemplate()
 		if not towerAsset then
 			return
 		end
