@@ -65,7 +65,12 @@ local entries = {
 	},
 }
 
-local TraitData = { RollCost = 5, ByName = {}, ByIndex = entries }
+local TraitData = {
+	RollCost = 5,
+	ProtectedRarities = { Epic = true, Legendary = true, Mythic = true, Absolute = true, Secret = true },
+	ByName = {},
+	ByIndex = entries,
+}
 local totalWeight = 0
 for _, entry in entries do
 	totalWeight += entry.Chance
@@ -76,6 +81,12 @@ for index, entry in entries do
 	entry.Color = RarityRegistry.Get(entry.Rarity).Presentation.Color
 	entry.Probability = entry.Chance / totalWeight * 100
 	TraitData.ByName[entry.Name] = entry
+end
+
+--[[ Identifies traits that require permission before replacement. ]]
+function TraitData.RequiresConfirmation(traitName: string?): boolean
+	local trait = if traitName then TraitData.ByName[traitName] else nil
+	return trait ~= nil and TraitData.ProtectedRarities[trait.Rarity] == true
 end
 
 -- Retired IDs are migrated at profile load; they are not available in the roll pool.

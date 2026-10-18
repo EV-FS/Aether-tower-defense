@@ -4,7 +4,7 @@ local Promise = require(ReplicatedStorage.Packages.Promise)
 local InventoryClient
 local TraitClient = {}
 
-function TraitClient.Roll(towerName: string, towerKey: string | number)
+function TraitClient.Roll(towerName: string, towerKey: string | number, expectedTrait: string?, confirmedTrait: string?)
 	return Promise.new(function(resolve, reject)
 		task.spawn(function()
 			local remotes = ReplicatedStorage:WaitForChild("RuntimeRemotes", 5)
@@ -14,11 +14,16 @@ function TraitClient.Roll(towerName: string, towerKey: string | number)
 				return
 			end
 			local ok, result = pcall(function()
-				return remote:InvokeServer({ TowerName = towerName, TowerKey = towerKey })
+				return remote:InvokeServer({
+					TowerName = towerName,
+					TowerKey = towerKey,
+					ExpectedTrait = expectedTrait,
+					ConfirmedTrait = confirmedTrait,
+				})
 			end)
 			if not ok then reject(result) return end
 			if typeof(result) ~= "table" then reject("Invalid trait response.") return end
-			if result.Success == true then
+			if result.Success == true or result.RequiresConfirmation == true or result.TraitChanged == true then
 				InventoryClient.UpdateTowerField(towerName, towerKey, "Trait", result.Trait)
 			end
 			resolve(result)

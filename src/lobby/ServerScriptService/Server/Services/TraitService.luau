@@ -78,6 +78,18 @@ function TraitService:RollTrait(player: Player, data: any)
 	if ownedTower.Trading == true then
 		return response(false, "This unit is being traded.")
 	end
+	if TraitData.RequiresConfirmation(ownedTower.Trait) and data.ConfirmedTrait ~= ownedTower.Trait then
+		return response(false, "Confirm before replacing this rare trait.", {
+			RequiresConfirmation = true,
+			Trait = ownedTower.Trait,
+		})
+	end
+	if data.ExpectedTrait ~= ownedTower.Trait then
+		return response(false, "The trait changed. Review it before rolling again.", {
+			TraitChanged = true,
+			Trait = ownedTower.Trait,
+		})
+	end
 	if not DataService:CanAfford(player, "Gems", TraitData.RollCost) then
 		return response(false, `You need {TraitData.RollCost} Gems.`)
 	end
@@ -87,7 +99,10 @@ function TraitService:RollTrait(player: Player, data: any)
 		return response(false, "Could not spend Gems.")
 	end
 	local newTrait = getRandomTrait()
-	DataService:AdjustTower(player, towerName, towerKey, "Trait", newTrait)
+	if not DataService:AdjustTower(player, towerName, towerKey, "Trait", newTrait) then
+		DataService:AddData(player, "Gems", TraitData.RollCost)
+		return response(false, "Could not replace the trait. Gems were refunded.")
+	end
 	return response(true, `Rolled {newTrait}!`, {
 		Trait = newTrait,
 		Gems = gems,

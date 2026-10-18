@@ -31,6 +31,7 @@ local InventoryClient
 local TraitClient
 local DataClient
 local UIController
+local ConfirmationService
 
 type UnitSelection = {
 	Name: string,
@@ -42,6 +43,9 @@ type UnitSelection = {
 local selectedUnit = source(nil :: UnitSelection?)
 local isRolling = source(false)
 local statusText = source("SELECT A UNIT")
+local pendingConfirmation = source(nil)
+local closeConfirmation: (() -> ())? = nil
+local rollGeneration = 0
 local traitZone
 
 local ACTION_AVAILABLE_GRADIENT = ColorSequence.new({
@@ -54,6 +58,15 @@ local ACTION_UNAVAILABLE_GRADIENT = ColorSequence.new({
 })
 
 local TraitUI = {}
+
+--[[ Releases a trait replacement prompt owned by this view. ]]
+local function cancelConfirmation()
+	pendingConfirmation(nil)
+	if closeConfirmation then
+		closeConfirmation()
+		closeConfirmation = nil
+	end
+end
 
 local function getUnits()
 	local units = {}
@@ -87,18 +100,25 @@ local function hasTraitCurrency(): boolean
 end
 
 local function canRollTrait(): boolean
-	return selectedUnit() ~= nil and not isRolling() and hasTraitCurrency()
+	return selectedUnit() ~= nil and not isRolling() and pendingConfirmation() == nil
+		and ConfirmationService:GetCurrent() == nil and hasTraitCurrency()
 end
 
-local function rollSelected()
+--[[ Revalidates the reviewed unit before submitting its replacement. ]]
+local function performRoll(selection: UnitSelection, expectedTrait: string?, confirmedTrait: string?)
 	if isRolling() then return end
-	local selection = selectedUnit()
-	if not selection then
-		statusText("SELECT A UNIT")
-		NotificationFeed.Pull("Select a unit first.", "Error")
+	local current = selectedUnit()
+	if not UIController:IsOpen(VIEW_ID) or not current
+		or current.Name ~= selection.Name or current.Key ~= selection.Key then
 		return
 	end
 	local towerName, towerKey = selection.Name, selection.Key
+	local tower = InventoryClient.GetTower(towerName, towerKey)
+	if not tower or tower.Trait ~= expectedTrait or tower.Trading == true then
+		statusText("UNIT CHANGED")
+		NotificationFeed.Pull("The unit changed. Review it before rolling again.", "Error")
+		return
+	end
 	if not hasTraitCurrency() then
 		statusText(`NEED {TraitData.RollCost} GEMS`)
 		NotificationFeed.Pull(`You need {TraitData.RollCost} Gems to reroll.`, "Error")
@@ -107,8 +127,12 @@ local function rollSelected()
 
 	isRolling(true)
 	statusText("ROLLING...")
-	TraitClient.Roll(towerName, towerKey):andThen(function(result)
+	local token = rollGeneration
+	TraitClient.Roll(towerName, towerKey, expectedTrait, confirmedTrait):andThen(function(result)
+		if token ~= rollGeneration then return end
 		isRolling(false)
+		local selected = selectedUnit()
+		if not selected or selected.Name ~= towerName or selected.Key ~= towerKey then return end
 		if result.Success == true then
 			statusText(`ROLLED: {string.upper(result.Trait)}`)
 		else
@@ -116,11 +140,51 @@ local function rollSelected()
 			NotificationFeed.Pull(result.Message or "Trait reroll failed.", "Error")
 		end
 	end):catch(function(err)
+		if token ~= rollGeneration then return end
 		isRolling(false)
 		statusText("ROLL FAILED")
 		warn(`[TraitUI] Roll failed: {err}`)
 		NotificationFeed.Pull("Trait reroll failed. Please try again.", "Error")
 	end)
+end
+
+--[[ Protects valuable traits until their replacement is explicitly accepted. ]]
+local function rollSelected()
+	if not UIController:IsOpen(VIEW_ID) then return end
+	if isRolling() or pendingConfirmation() or ConfirmationService:GetCurrent() then return end
+	local selection = selectedUnit()
+	if not selection then
+		NotificationFeed.Pull("Select a unit first.", "Error")
+		return
+	end
+	local tower = InventoryClient.GetTower(selection.Name, selection.Key)
+	if not tower then return end
+	local traitName = tower.Trait
+	if not hasTraitCurrency() or not TraitData.RequiresConfirmation(traitName) then
+		performRoll(selection, traitName)
+		return
+	end
+	local trait = TraitData.ByName[traitName]
+	local pending = { Name = selection.Name, Key = selection.Key, Trait = traitName }
+	closeConfirmation = ConfirmationService:Prompt({
+		Title = "Replace Rare Trait?",
+		Text = `Reroll {trait.Name} on {selection.Name}?`,
+		SubText = `{trait.Rarity}\nYour current trait will be lost.`,
+		AcceptText = "Reroll",
+		AcceptColor = Color3.fromRGB(255, 80, 80),
+		DeclineText = "Keep",
+		DeclineColor = Color3.fromRGB(80, 190, 100),
+		OnAccept = function()
+			pendingConfirmation(nil)
+			performRoll(selection, traitName, traitName)
+		end,
+		OnDecline = function()
+			pendingConfirmation(nil)
+			statusText(`KEPT: {string.upper(traitName)}`)
+		end,
+	})
+	pending.Request = ConfirmationService:GetCurrent()
+	pendingConfirmation(pending)
 end
 
 local function traitRow(trait, rowHeight)
@@ -196,6 +260,18 @@ function TraitUI.RenderUI()
 		local _towers = InventoryClient.Towers()
 		if isVisible() then ensureSelection() end
 	end)
+	effect(function()
+		local pending = pendingConfirmation()
+		if not pending then return end
+		local selection = selectedUnit()
+		local tower = if selection then InventoryClient.GetTower(selection.Name, selection.Key) else nil
+		if not isVisible() or not selection or selection.Name ~= pending.Name or selection.Key ~= pending.Key
+			or not tower or tower.Trait ~= pending.Trait or tower.Trading == true
+			or ConfirmationService:GetCurrent() ~= pending.Request then
+			cancelConfirmation()
+		end
+	end)
+	cleanup(cancelConfirmation)
 
 	local rowHeight = source(90)
 	local rows = table.create(#TraitData.ByIndex)
@@ -312,8 +388,8 @@ function TraitUI.RenderUI()
 				}),
 				create("ImageButton")({
 					Name = "PurchaseButton", AnchorPoint = Vector2.new(0.5, 0.5), BackgroundTransparency = 1,
-					Active = function() return isVisible() and not isRolling() end,
-					Interactable = function() return isVisible() and not isRolling() end,
+					Active = function() return isVisible() and canRollTrait() end,
+					Interactable = function() return isVisible() and canRollTrait() end,
 					AutoButtonColor = false,
 					Image = "rbxassetid://139274506988816",
 					Position = UDim2.fromScale(0.440864, 0.923101), Size = UDim2.fromScale(0.39314, 0.120926),
@@ -387,6 +463,7 @@ function TraitUI.Init()
 	TraitClient = ServiceRegistry:GetService("TraitClient")
 	DataClient = ServiceRegistry:GetService("DataClient")
 	UIController = ServiceRegistry:GetService("UIController")
+	ConfirmationService = ServiceRegistry:GetService("ConfirmationService")
 end
 
 function TraitUI.Start()
@@ -410,6 +487,9 @@ function TraitUI.Start()
 end
 
 function TraitUI.Destroy()
+	rollGeneration += 1
+	cancelConfirmation()
+	isRolling(false)
 	if traitZone then traitZone:Destroy() traitZone = nil end
 end
 

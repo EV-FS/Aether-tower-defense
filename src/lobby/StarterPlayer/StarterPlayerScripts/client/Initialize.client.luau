@@ -20,6 +20,7 @@ end
 -------------------------------------------------
 ServiceRegistry:RegisterServices({
 	SharedServices.NotificationService,
+	SharedServices.ConfirmationService,
 
 	Controllers.FOVController,
 	Controllers.AudioController,

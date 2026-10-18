@@ -30,7 +30,6 @@ CommanderBattleClient.HintText = "AUTO / TAP TO CONTINUE"
 local ready = Vide.source(false)
 local roundEnded = Vide.source(false)
 local cutsceneActive = Vide.source(false)
-local towerSelected = Vide.source(false)
 local queue: { Entry } = {}
 local milestoneWaves: { number } = {}
 local seen: { [string]: boolean } = {}
@@ -161,7 +160,6 @@ local function resetRound(ended: boolean)
 	current = nil
 	gapRemaining = 0
 	currentWave = 0
-	towerSelected(false)
 	CommanderBattleClient.IsOpen(false)
 	CommanderBattleClient.IsDanger(false)
 	roundEnded(ended)
@@ -226,10 +224,8 @@ end
 
 --[[ Reports whether combat overlays can currently receive attention. ]]
 function CommanderBattleClient.CanPresent(): boolean
-	local entry = current or queue[1]
-	local urgent = entry ~= nil and entry.Message.Priority > 1
 	return ready() and not roundEnded() and not cutsceneActive()
-		and (urgent or not towerSelected()) and UIController:GetActiveView() == nil
+		and UIController:GetActiveView() == nil
 end
 
 --[[ Reports whether a transmission is currently visible. ]]
@@ -289,12 +285,6 @@ function CommanderBattleClient.Start()
 	end))
 	table.insert(connections, ClientSignals.Restarted:Connect(function()
 		resetRound(false)
-	end))
-	table.insert(connections, ClientSignals.TowerSelected:Connect(function()
-		towerSelected(true)
-	end))
-	table.insert(connections, ClientSignals.TowerUnselected:Connect(function()
-		towerSelected(false)
 	end))
 	table.insert(connections, ReplicatedStorage.ChildAdded:Connect(function(child)
 		if child.Name == "ActiveCutscene" then
