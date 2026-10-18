@@ -48,17 +48,23 @@ function AttackComponent:Start()
 	self.HeartbeatConnection = RunService.Heartbeat:Connect(function(dt)
 		self.CooldownTimer -= dt * TimeService:GetGameSpeed()
 
-		if self.CooldownTimer > 0 then
+		if self.Tower.StunRemaining > 0 then
+			self.CooldownTimer = math.max(0, self.CooldownTimer)
 			return
 		end
-		if self.Tower.StunRemaining > 0 then
-			return false
+		if self.CooldownTimer > 0 then
+			return
 		end
 
 		local attackCount = 0
 		local maxAttacksPerFrame = 3
 
 		while self.CooldownTimer <= 0 and attackCount < maxAttacksPerFrame do
+			if self.Tower.IsDestroyed or self.Tower.StunRemaining > 0 then
+				self.CooldownTimer = math.max(0, self.CooldownTimer)
+				break
+			end
+
 			local didAttack = self:_Attack()
 
 			if didAttack then
@@ -144,6 +150,9 @@ function AttackComponent:_Attack(): boolean
 	local stats = table.clone(self.Stats)
 	local target = FindTarget.GetTarget(self.Tower, stats.Range)
 	if not target then
+		return false
+	end
+	if self.Tower.StunRemaining > 0 then
 		return false
 	end
 

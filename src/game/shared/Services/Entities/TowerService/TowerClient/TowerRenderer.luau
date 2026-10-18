@@ -6,6 +6,7 @@ local RunService = game:GetService("RunService")
 --/ Modules
 local TowerData = require(ReplicatedStorage.Settings.Data.TowerData)
 local CharacterUtils = require(ReplicatedStorage.Shared.Modules.Utils.CharacterUtils)
+local StunEffect = require(ReplicatedStorage.Shared.Modules.Utils.StunEffect)
 local CreateRangeIndicator = require(ReplicatedStorage.Shared.Services.Entities.TowerService.Utils.CreateRangeIndicator)
 local TimeService
 local AnimationService
@@ -171,7 +172,7 @@ function TowerRenderer.Setup(towerId: number, towerModel: Model, towerName: stri
 	end)
 	towerModel.Parent = workspace.Towers
 
-	AnimationService.Load(towerModel, towerName)
+	AnimationService.Load(towerModel, towerName, "TowerShared")
 
 	if AnimationService.GetTrack(towerModel, "OnSpawn") then
 		AnimationService.PlayOnce(towerModel, "OnSpawn", { Resume = "Idle" })
@@ -191,6 +192,7 @@ function TowerRenderer.Setup(towerId: number, towerModel: Model, towerName: stri
 		Model = towerModel,
 		Name = towerName,
 		Level = 0,
+		IsStunned = false,
 	}
 
 	TowerRenderer.ApplyAppearence(0, towerId)
@@ -198,6 +200,36 @@ function TowerRenderer.Setup(towerId: number, towerModel: Model, towerName: stri
 
 	if VisualService then
 		VisualService.Play(towerName, "OnSpawn", 0, towerModel, towerModel)
+	end
+end
+
+function TowerRenderer.SetStunned(towerId: number, stunned: boolean)
+	local renderData = TowerRenderer.RenderStates[towerId]
+	if not renderData then
+		return
+	end
+	if renderData.IsStunned == stunned then
+		if stunned then
+			StunEffect.Update(renderData)
+		end
+		return
+	end
+
+	renderData.IsStunned = stunned
+	if stunned then
+		TowerRenderer.TrackingTowers[towerId] = nil
+		AnimationService.Stop(renderData.Model)
+		local track = AnimationService.GetTrack(renderData.Model, "Stun")
+		if track then
+			track.Looped = true
+			track.Priority = Enum.AnimationPriority.Action4
+			AnimationService.Play(renderData.Model, "Stun")
+		end
+		StunEffect.Attach(renderData)
+	else
+		StunEffect.Remove(renderData)
+		AnimationService.Stop(renderData.Model, "Stun")
+		AnimationService.Play(renderData.Model, "Idle", renderData.Level, 0.1)
 	end
 end
 
@@ -392,10 +424,12 @@ function TowerRenderer.OnSkillTriggered(towerId: number, skillName: string, arg:
 		else nil
 	local range = if typeof(arg) == "table" and typeof(arg.Range) == "number" then arg.Range else nil
 
-	AnimationService.PlayOnce(targetTower.Model, eventName, {
-		Level = targetTower.Level,
-		Resume = "Idle",
-	})
+	if not targetTower.IsStunned then
+		AnimationService.PlayOnce(targetTower.Model, eventName, {
+			Level = targetTower.Level,
+			Resume = "Idle",
+		})
+	end
 
 	VisualService.Play(
 		targetTower.Name,
@@ -480,10 +514,12 @@ function TowerRenderer.OnAttack(towerId: number, enemyModel: Model, stats, attac
 		renderData[comboIndexKey] = nil
 	end
 
-	AnimationService.PlayOnce(towerModel, animName, {
-		Level = renderData.Level,
-		Resume = "Idle",
-	})
+	if not renderData.IsStunned then
+		AnimationService.PlayOnce(towerModel, animName, {
+			Level = renderData.Level,
+			Resume = "Idle",
+		})
+	end
 
 	local comboEventPrefix = if comboIndex then `{variant}AttackCombo{comboIndex}` else nil
 	local function playAttackVisual(eventSuffix: string, range: number?, delay: number?)
@@ -525,7 +561,7 @@ function TowerRenderer.OnAttack(towerId: number, enemyModel: Model, stats, attac
 
 	playAttackVisual("End", stats.Range, if attackEndDelay > 0 then attackEndDelay else nil)
 
-	if not targetPart:GetAttribute("Dead") then
+	if not renderData.IsStunned and not targetPart:GetAttribute("Dead") then
 		TowerRenderer.LookAt(towerModel, targetPart.Position)
 		TowerRenderer.TrackingTowers[towerId] = {
 			TowerModel = towerModel,
@@ -565,6 +601,10 @@ end
 
 function TowerRenderer.Cleanup(towerId: number)
 	local renderData = TowerRenderer.RenderStates[towerId]
+	if not renderData then
+		return
+	end
+	StunEffect.Remove(renderData)
 	AnimationService.Clear(renderData.Model)
 
 	if renderData and renderData.Model then

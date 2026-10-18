@@ -112,6 +112,7 @@ function TowerClient.Start()
 		local now = workspace:GetServerTimeNow()
 		for towerId, towerData in stunnedTowers do
 			towerData.StunRemaining = math.max(0, towerData.StunEndsAtReal - now)
+			TowerRenderer.SetStunned(towerId, towerData.StunRemaining > 0)
 			if towerData.StunRemaining <= 0 then
 				stunnedTowers[towerId] = nil
 			end
@@ -478,6 +479,7 @@ function TowerClient._OnStunned(data: { towerId: number, stunEndsAtReal: number 
 	if towerData.StunRemaining > 0 then
 		stunnedTowers[data.towerId] = towerData
 	end
+	TowerRenderer.SetStunned(data.towerId, towerData.StunRemaining > 0)
 end
 
 function TowerClient._SkillTriggered(data: { towerId: number, skillName: string, arg: any? })

@@ -87,7 +87,7 @@ end
 -------------------------------------------------
 local AnimationService = {}
 
-function AnimationService.Load(model: Model, folderName: string)
+function AnimationService.Load(model: Model, folderName: string, sharedFolderName: string?)
 	AnimationService.Clear(model)
 
 	if not model:IsDescendantOf(workspace) then
@@ -96,8 +96,9 @@ function AnimationService.Load(model: Model, folderName: string)
 
 	local animator = getAnimator(model)
 	local folder = ANIMATIONS:FindFirstChild(folderName)
+	local sharedFolder = if sharedFolderName then ANIMATIONS:FindFirstChild(sharedFolderName) else nil
 
-	if not animator or not folder then
+	if not animator or not (folder or sharedFolder) then
 		return
 	end
 
@@ -107,12 +108,19 @@ function AnimationService.Load(model: Model, folderName: string)
 		Connection = nil,
 	}
 
-	for _, anim in ipairs(folder:GetChildren()) do
-		if anim:IsA("Animation") then
-			local realTrack = animator:LoadAnimation(anim)
-			data.Tracks[anim.Name] = wrapTrack(realTrack, data)
+	local function loadFolder(animationFolder)
+		if not animationFolder then
+			return
+		end
+		for _, anim in ipairs(animationFolder:GetChildren()) do
+			if anim:IsA("Animation") and not data.Tracks[anim.Name] then
+				local realTrack = animator:LoadAnimation(anim)
+				data.Tracks[anim.Name] = wrapTrack(realTrack, data)
+			end
 		end
 	end
+	loadFolder(folder)
+	loadFolder(sharedFolder)
 
 	data.Connection = model.Destroying:Connect(function()
 		AnimationService.Clear(model)
@@ -201,6 +209,10 @@ function AnimationService.Stop(model: Model, name: string?, fadeTime: number?)
 	local data = Cache[model]
 	if not data then
 		return
+	end
+
+	if not name then
+		data.CurrentPlayOnceId = (data.CurrentPlayOnceId or 0) + 1
 	end
 
 	for trackName, track in pairs(data.Tracks) do

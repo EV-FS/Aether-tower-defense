@@ -9,6 +9,7 @@ local ClientSignals = require(StarterPlayer.StarterPlayerScripts.Client.ClientSi
 local EnemyData = require(ReplicatedStorage.Settings.Data.EnemyData)
 local GetPath = require(ReplicatedStorage.Shared.Modules.Core.GetPath)
 local CharacterUtils = require(ReplicatedStorage.Shared.Modules.Utils.CharacterUtils)
+local StunEffect = require(ReplicatedStorage.Shared.Modules.Utils.StunEffect)
 local Net = require(ReplicatedStorage.Shared.Net)
 local EnemyVisuals = require(script.EnemyVisuals)
 local NumberUtils = require(ReplicatedStorage.Shared.Modules.Utils.NumberUtils)
@@ -30,13 +31,6 @@ local cframesToMove = {}
 -------------------------------------------------
 --// Local Functions
 -------------------------------------------------
-local function removeStunVisuals(enemy)
-	if enemy.StunEffect then
-		enemy.StunEffect:Destroy()
-		enemy.StunEffect = nil
-	end
-end
-
 local function getEnemyCFrame(
 	model: Model,
 	pathAlpha: number,
@@ -57,61 +51,10 @@ local function getEnemyCFrame(
 end
 
 local function applyStunVisuals(enemy)
-	if enemy.StunEffect then
+	if ActivedEnemies[enemy.Id] ~= enemy or enemy.WalkSpeed ~= 0 then
 		return
 	end
-
-	local stunModel = ReplicatedStorage.Assets.Visuals:FindFirstChild("Stun")
-	if not stunModel then
-		return
-	end
-
-	local stunEffect = stunModel:Clone()
-	local rootPart = enemy.Model.PrimaryPart
-	if not rootPart then
-		stunEffect:Destroy()
-		return
-	end
-
-	if stunEffect:IsA("BasePart") then
-		stunEffect.Anchored = true
-	end
-	for _, part in stunEffect:GetDescendants() do
-		if part:IsA("BasePart") then
-			part.Anchored = true
-		end
-	end
-
-	local scale = 1
-	local headPart = enemy.Model:FindFirstChild("Head")
-	if headPart and headPart:IsA("BasePart") then
-		scale = headPart.Size.Y
-	else
-		scale = rootPart.Size.Y / 2
-	end
-
-	if stunEffect:IsA("Model") then
-		stunEffect:ScaleTo(scale)
-	elseif stunEffect:IsA("BasePart") then
-		stunEffect.Size = stunEffect.Size * scale
-	end
-
-	local targetCFrame
-	if headPart and headPart:IsA("BasePart") then
-		targetCFrame = CFrame.new(headPart.Position + Vector3.new(0, scale, 0))
-	else
-		local HipHeight = CharacterUtils.GetHipHeight(enemy.Model)
-		targetCFrame = rootPart.CFrame + Vector3.new(0, HipHeight, 0)
-	end
-
-	if stunEffect:IsA("Model") then
-		stunEffect:PivotTo(targetCFrame)
-	elseif stunEffect:IsA("BasePart") then
-		stunEffect.CFrame = targetCFrame
-	end
-
-	stunEffect.Parent = workspace:WaitForChild("Visuals")
-	enemy.StunEffect = stunEffect
+	StunEffect.Attach(enemy)
 end
 
 -------------------------------------------------
@@ -266,7 +209,7 @@ function EnemyClient.Destroy(enemyId: number, forcing: boolean?)
 		end
 	end
 
-	removeStunVisuals(targetEnemy)
+	StunEffect.Remove(targetEnemy)
 
 	ActivedEnemies[enemyId] = nil
 end
@@ -322,6 +265,11 @@ function EnemyClient.MoveAllEnemies(dt)
 	if #partsToMove > 0 then
 		workspace:BulkMoveTo(partsToMove, cframesToMove, Enum.BulkMoveMode.FireCFrameChanged)
 	end
+	for _, enemy in pairs(ActivedEnemies) do
+		if enemy.StunEffect then
+			StunEffect.Update(enemy)
+		end
+	end
 
 	return hasEnemies
 end
@@ -374,7 +322,7 @@ function EnemyClient._OnUpdateSpeed(data: { enemyId: number, WalkSpeed: number, 
 			task.defer(applyStunVisuals, updatedEnemy)
 		end)
 	else
-		removeStunVisuals(updatedEnemy)
+		StunEffect.Remove(updatedEnemy)
 	end
 end
 
@@ -483,6 +431,7 @@ function EnemyClient._OnAbilityTriggered(data: { enemyId: number, abilityType: s
 	if ActivedEnemies[data.enemyId] and AnimationService.GetTrack(enemy.Model, eventName) then
 		AnimationService.Play(enemy.Model, eventName)
 	end
+	print(eventName)
 	VisualService.Play(enemy.Name, eventName, 0, enemy.Model, targetModel, range)
 	ClientSignals.EnemyAbilityTriggered:Fire(enemy, data.abilityType, arg)
 end
