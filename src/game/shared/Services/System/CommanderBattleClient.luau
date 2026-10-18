@@ -13,10 +13,11 @@ local GameClient = require(script.Parent.GameClient)
 local UIController = require(script.Parent.UIController)
 
 type Message = { Id: string, Caption: string, Priority: number, Lines: { string } }
-type Entry = { Message: Message, QueuedAt: number, Wave: number }
+type Entry = { Message: Message, ResumeLine: number?, ResumeReveal: number?, ResumeRead: number? }
 
 local CommanderBattleClient = {}
 CommanderBattleClient.IsOpen = Vide.source(false)
+CommanderBattleClient.IsDanger = Vide.source(false)
 CommanderBattleClient.Rig = Vide.source(nil :: Model?)
 CommanderBattleClient.Text = Vide.source("")
 CommanderBattleClient.VisibleGraphemes = Vide.source(0)
@@ -31,6 +32,7 @@ local roundEnded = Vide.source(false)
 local cutsceneActive = Vide.source(false)
 local towerSelected = Vide.source(false)
 local queue: { Entry } = {}
+local milestoneWaves: { number } = {}
 local seen: { [string]: boolean } = {}
 local connections: { RBXScriptConnection } = {}
 local current: Entry? = nil
@@ -38,16 +40,22 @@ local tickConnection: RBXScriptConnection? = nil
 local loadThread: thread? = nil
 local started = false
 local generation = 0
-local currentWave = 0
 local characterCount = 0
 local revealProgress = 0
 local readElapsed = 0
 local readDuration = 0
-local hiddenElapsed = 0
 local gapRemaining = 0
+local currentWave = 0
 local update: (number) -> ()
 
 -- // FUNCTIONS // --
+--[[ Keeps the display synchronized with the passage's reveal and reading time. ]]
+local function updateReadProgress()
+	local typingDuration = characterCount / DialogueData.CharactersPerSecond
+	local elapsed = revealProgress / DialogueData.CharactersPerSecond + readElapsed
+	CommanderBattleClient.ReadProgress(math.clamp(elapsed / (typingDuration + readDuration), 0, 1))
+end
+
 --[[ Identifies the chapter selected by the match server. ]]
 local function isSupportedMap(): boolean
 	return ReplicatedStorage:GetAttribute("SelectedMap") == ChapterData.Map
@@ -57,6 +65,7 @@ end
 local function finishCurrent()
 	current = nil
 	CommanderBattleClient.IsOpen(false)
+	CommanderBattleClient.IsDanger(false)
 	gapRemaining = MenuMotion.ExitDuration + 0.05
 end
 
@@ -73,7 +82,6 @@ local function setLine(index: number)
 	end
 	revealProgress = 0
 	readElapsed = 0
-	hiddenElapsed = 0
 	readDuration = math.clamp(
 		characterCount / ChapterData.ReadingCharactersPerSecond,
 		ChapterData.MinimumReadTime,
@@ -92,45 +100,51 @@ local function ensureTicking()
 	end
 end
 
---[[ Begins the next relevant transmission without retaining stale advice. ]]
+--[[ Begins the next transmission or resumes its interrupted passage. ]]
 local function startNext()
-	local now = os.clock()
-	for index = #queue, 1, -1 do
-		local entry = queue[index]
-		if now - entry.QueuedAt > ChapterData.QueueLifetime or currentWave - entry.Wave > ChapterData.MaxWaveLag then
-			table.remove(queue, index)
-		end
-	end
 	if not CommanderBattleClient.CanPresent() or #queue == 0 then
 		return
 	end
 	current = table.remove(queue, 1)
 	local message = current.Message
+	CommanderBattleClient.IsDanger(message.Priority > 1)
 	CommanderBattleClient.Caption(message.Caption)
 	CommanderBattleClient.AccentColor(if message.Priority > 1 then ChapterData.WarningColor else DialogueData.Presentation.AccentColor)
-	setLine(1)
+	setLine(current.ResumeLine or 1)
+	revealProgress = current.ResumeReveal or 0
+	readElapsed = current.ResumeRead or 0
+	CommanderBattleClient.VisibleGraphemes(math.floor(revealProgress))
+	updateReadProgress()
 	CommanderBattleClient.IsOpen(true)
 end
 
---[[ Queues each transmission once and gives urgent reports precedence. ]]
-local function enqueue(message: Message)
-	if roundEnded() or not isSupportedMap() or seen[message.Id] or #message.Lines == 0 then
-		return
-	end
-	seen[message.Id] = true
-	local entry = { Message = message, QueuedAt = os.clock(), Wave = currentWave }
+--[[ Orders reports by urgency while preserving interrupted work. ]]
+local function insertEntry(entry: Entry, resumeFirst: boolean?)
 	local insertion = #queue + 1
 	for index, queued in queue do
-		if message.Priority > queued.Message.Priority then
+		if entry.Message.Priority > queued.Message.Priority
+			or (resumeFirst and entry.Message.Priority == queued.Message.Priority)
+		then
 			insertion = index
 			break
 		end
 	end
 	table.insert(queue, insertion, entry)
-	if #queue > ChapterData.QueueLimit then
-		table.remove(queue)
+end
+
+--[[ Queues each transmission once and gives urgent reports precedence. ]]
+local function enqueue(message: Message, occurrenceId: string?)
+	local key = occurrenceId or message.Id
+	if roundEnded() or not isSupportedMap() or seen[key] or #message.Lines == 0 then
+		return
 	end
-	if current and message.Priority >= 3 and current.Message.Priority < message.Priority then
+	seen[key] = true
+	insertEntry({ Message = message })
+	if current and message.Priority > 1 and current.Message.Priority < message.Priority then
+		current.ResumeLine = CommanderBattleClient.LineIndex()
+		current.ResumeReveal = revealProgress
+		current.ResumeRead = readElapsed
+		insertEntry(current, true)
 		finishCurrent()
 	end
 	ensureTicking()
@@ -145,10 +159,11 @@ local function resetRound(ended: boolean)
 	table.clear(queue)
 	table.clear(seen)
 	current = nil
-	currentWave = 0
 	gapRemaining = 0
+	currentWave = 0
 	towerSelected(false)
 	CommanderBattleClient.IsOpen(false)
+	CommanderBattleClient.IsDanger(false)
 	roundEnded(ended)
 end
 
@@ -170,16 +185,10 @@ local function onWaveStarted(wave: number)
 	elseif wave == getFinalWave() then
 		enqueue(ChapterData.FinalWave)
 	end
-end
-
---[[ Offers advice after configured milestones are completed. ]]
-local function onWaveCompleted(wave: number)
-	if type(wave) ~= "number" or roundEnded() then
-		return
-	end
-	local message = ChapterData.CompletedWaves[wave]
-	if message then
-		enqueue(message)
+	for _, milestone in milestoneWaves do
+		if milestone <= wave then
+			enqueue(ChapterData.Waves[milestone], `Wave:{milestone}`)
+		end
 	end
 end
 
@@ -196,28 +205,20 @@ update = function(deltaTime: number)
 		end
 		return
 	end
-	if currentWave - current.Wave > ChapterData.MaxWaveLag then
-		finishCurrent()
-		return
-	end
 	if not CommanderBattleClient.CanPresent() then
-		hiddenElapsed += deltaTime
-		if hiddenElapsed > ChapterData.QueueLifetime then
-			finishCurrent()
-		end
 		return
 	end
-	hiddenElapsed = 0
 	if CommanderBattleClient.IsTyping() then
-		revealProgress = math.min(revealProgress + deltaTime * DialogueData.CharactersPerSecond, characterCount)
+		local typingTime = math.min(deltaTime, (characterCount - revealProgress) / DialogueData.CharactersPerSecond)
+		revealProgress = math.min(revealProgress + typingTime * DialogueData.CharactersPerSecond, characterCount)
+		deltaTime -= typingTime
 		local visible = math.floor(revealProgress)
 		if visible ~= CommanderBattleClient.VisibleGraphemes() then
 			CommanderBattleClient.VisibleGraphemes(visible)
 		end
-		return
 	end
-	readElapsed += deltaTime
-	CommanderBattleClient.ReadProgress(math.min(readElapsed / readDuration, 1))
+	readElapsed = math.min(readElapsed + deltaTime, readDuration)
+	updateReadProgress()
 	if readElapsed >= readDuration then
 		CommanderBattleClient.Advance()
 	end
@@ -225,7 +226,10 @@ end
 
 --[[ Reports whether combat overlays can currently receive attention. ]]
 function CommanderBattleClient.CanPresent(): boolean
-	return ready() and not roundEnded() and not cutsceneActive() and not towerSelected() and UIController:GetActiveView() == nil
+	local entry = current or queue[1]
+	local urgent = entry ~= nil and entry.Message.Priority > 1
+	return ready() and not roundEnded() and not cutsceneActive()
+		and (urgent or not towerSelected()) and UIController:GetActiveView() == nil
 end
 
 --[[ Reports whether a transmission is currently visible. ]]
@@ -246,6 +250,7 @@ function CommanderBattleClient.Advance()
 	if CommanderBattleClient.IsTyping() then
 		revealProgress = characterCount
 		CommanderBattleClient.VisibleGraphemes(characterCount)
+		updateReadProgress()
 	elseif CommanderBattleClient.LineIndex() < #current.Message.Lines then
 		setLine(CommanderBattleClient.LineIndex() + 1)
 	else
@@ -276,9 +281,8 @@ function CommanderBattleClient.Start()
 		end
 		onWaveStarted(wave)
 	end))
-	table.insert(connections, ClientSignals.WaveCompleted:Connect(onWaveCompleted))
 	table.insert(connections, ClientSignals.BossSpawned:Connect(function()
-		enqueue(ChapterData.BossContact)
+		enqueue(ChapterData.BossContact, `BossContact:{currentWave}`)
 	end))
 	table.insert(connections, ClientSignals.GameEnding:Connect(function()
 		resetRound(true)
@@ -348,4 +352,9 @@ function CommanderBattleClient.Destroy()
 end
 
 -- // INITIALIZATION // --
+for wave in ChapterData.Waves do
+	table.insert(milestoneWaves, wave)
+end
+table.sort(milestoneWaves)
+
 return CommanderBattleClient

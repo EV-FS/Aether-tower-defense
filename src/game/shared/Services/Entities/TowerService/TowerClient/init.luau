@@ -328,6 +328,7 @@ function TowerClient.RemoveTower(towerId: number)
 
 	if selectedTowerId == towerId then
 		selectedTowerId = nil
+		ClientSignals.TowerUnselected:Fire()
 	end
 end
 

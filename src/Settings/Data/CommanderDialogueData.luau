@@ -1,6 +1,8 @@
 return {
 	SpeakerName = "Commander",
 	CharactersPerSecond = 30,
+	IdleAnimationId = "rbxassetid://112198790555537",
+	DangerAnimationId = "rbxassetid://123743091785084",
 	Typography = {
 		ReferencePanelHeight = 200,
 		BodyMaxSize = 24,
@@ -17,6 +19,7 @@ return {
 		FieldOfView = 35,
 		Direction = Vector3.new(0, 0, -1),
 		Padding = 1.12,
+		TorsoFraction = 0.6,
 	},
 	Introduction = {
 		"Welcome, recruit. I'm the commander of this operation.",

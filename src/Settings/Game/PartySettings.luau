@@ -6,8 +6,8 @@ return table.freeze({
 	DefaultMap = "Chapter 1",
 	DefaultDifficulty = "Normal",
 	PartySceneTransform = CFrame.new(30000, 0, 0), -- Offset every PartyMap descendant, including the Cam BasePart.
-	StudioMap = "Chapter 2", -- Preserve the existing game-place Studio preview.
-	StudioDifficulty = "Eternal",
+	StudioMap = "Chapter 1", -- Game-place Studio preview.
+	StudioDifficulty = "Normal", -- Game-place Studio preview.
 	ArrivalTimeout = 25,
 	RequestBurst = 8,
 	RequestsPerSecond = 4,
