@@ -2,7 +2,9 @@ local Debris = game:GetService("Debris")
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local InputController = require(ReplicatedStorage.Shared.Controllers.InputController)
+local ServiceRegistry = require(ReplicatedStorage.Shared.Modules.Core.ServiceRegistry)
 local EmitParticles = require(ReplicatedStorage.Shared.Modules.Utils.EmitParticles)
+local FOVController
 
 local DashInput
 local PLAYER = Players.LocalPlayer
@@ -72,6 +74,11 @@ local function PlayDashVFX(rootPart: BasePart, dashVector: Vector2)
 	effect:PivotTo(CFrame.lookAt(rootPart.Position, rootPart.Position + direction))
 	effect.Parent = workspace
 
+	FOVController.SetFOV(90)
+	task.delay(0.5, function()
+		FOVController.ResetFOV()
+	end)
+
 	EmitParticles(effect)
 	Debris:AddItem(effect, DASH_VFX_LIFETIME)
 end
@@ -133,7 +140,9 @@ function DashClient:Dash()
 	Debris:AddItem(linearVelocity, dashInfo.Duration)
 end
 
-function DashClient.Init() end
+function DashClient.Init(controllers)
+	FOVController = controllers:GetService("FOVController")
+end
 
 function DashClient.Start()
 	LoadDashTracks(PLAYER.Character or PLAYER.CharacterAdded:Wait())

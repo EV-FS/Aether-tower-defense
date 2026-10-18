@@ -3,6 +3,7 @@ local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local UserInputService = game:GetService("UserInputService")
 local SetMobileStyle = require(ReplicatedStorage.Shared.Modules.UI.SetMobileStyle)
+local FOVController
 
 local camera = workspace.CurrentCamera
 local player = Players.LocalPlayer
@@ -25,6 +26,13 @@ end
 local function updateSpeed()
 	if not currentHumanoid or not isEnabled then
 		return
+	end
+	if isSprinting then
+		FOVController.SetDefaultFOV(80)
+		FOVController.SetFOV(80)
+	else
+		FOVController.SetDefaultFOV(70)
+		FOVController.SetFOV(70)
 	end
 	currentHumanoid.WalkSpeed = isSprinting and sprintSpeed or normalSpeed
 	updateMobileVisual()
@@ -68,7 +76,9 @@ function SprintClient.IsEnabled(): boolean
 	return isEnabled
 end
 
-function SprintClient.Init() end
+function SprintClient.Init(controllers)
+	FOVController = controllers:GetService("FOVController")
+end
 
 function SprintClient.Start()
 	local function onCharacterAdded(character: Model)

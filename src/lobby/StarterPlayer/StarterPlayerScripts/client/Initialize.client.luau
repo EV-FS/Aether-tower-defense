@@ -20,6 +20,7 @@ end
 ServiceRegistry:RegisterServices({
 	SharedServices.NotificationService,
 
+	Controllers.FOVController,
 	Controllers.AudioController,
 	Controllers.VFXController,
 	Controllers.SettingsClient,
@@ -38,16 +39,18 @@ ServiceRegistry:RegisterServices({
 	Controllers.PartyController,
 })
 
-ServiceRegistry:Start():andThen(function()
-	print("클라이언트 로드 완료.")
-	-- Prepare the complete interface while the loading cover is still visible.
-	UI.Init()
-	print("UI 로드 완료.")
-	UI.HideLoading()
-end):catch(function(err)
-	warn(`클라이언트 초기화 실패: {err}`)
-	UI.HideLoading()
-end)
+ServiceRegistry:Start()
+	:andThen(function()
+		print("클라이언트 로드 완료.")
+		-- Prepare the complete interface while the loading cover is still visible.
+		UI.Init()
+		print("UI 로드 완료.")
+		UI.HideLoading()
+	end)
+	:catch(function(err)
+		warn(`클라이언트 초기화 실패: {err}`)
+		UI.HideLoading()
+	end)
 
 -------------------------------------------------
 --// Load Matter
