@@ -33,7 +33,6 @@ local RawEnemyData = {
 		WalkSpeed = 2.5,
 		Abilities = {
 			{
-				Id = "RaiseSkeletons",
 				Type = "Summon",
 				Delay = 1,
 				Cooldown = 5,
