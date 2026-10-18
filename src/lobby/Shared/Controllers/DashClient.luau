@@ -4,6 +4,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local InputController = require(ReplicatedStorage.Shared.Controllers.InputController)
 local ServiceRegistry = require(ReplicatedStorage.Shared.Modules.Core.ServiceRegistry)
 local EmitParticles = require(ReplicatedStorage.Shared.Modules.Utils.EmitParticles)
+local LocalEmotePlayer = require(ReplicatedStorage.Shared.Modules.UI.Emote.LocalEmotePlayer)
 local FOVController
 
 local DashInput
@@ -33,7 +34,7 @@ local DashClient = {}
 DashClient.DashInfo = {
 	Forward = { Speed = 130, Duration = 0.2, AnimationId = "rbxassetid://112359286044213" },
 	Backward = { Speed = 130, Duration = 0.2, AnimationId = "rbxassetid://99143998068665" },
-	Left = { Speed = 130, Duration = 0.2, AnimationId = "rbxassetid://139209194154392 " },
+	Left = { Speed = 130, Duration = 0.2, AnimationId = "rbxassetid://139209194154392" },
 	Right = { Speed = 130, Duration = 0.2, AnimationId = "rbxassetid://131581512006061" },
 }
 
@@ -116,7 +117,13 @@ function DashClient:Dash()
 	end
 	LastDashTime = now
 
-	DashTracks[dashDirection]:Play(0.1)
+	LocalEmotePlayer.Interrupt(character)
+	character:SetAttribute("Dashing", true)
+	task.delay(dashInfo.Duration, function()
+		character:SetAttribute("Dashing", nil)
+	end)
+	local track = DashTracks[dashDirection]
+	if track then track:Play(0.1) end
 	PlayDashVFX(rootPart, dashVector)
 
 	local dashAttachment = rootPart:FindFirstChild("DashAttachment") or Instance.new("Attachment")

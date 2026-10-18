@@ -24,6 +24,8 @@ function PlayerEmoteState.new(player: Player)
 		Player = player,
 		CurrentEmote = nil :: string?,
 		SavedWalkSpeed = nil :: number?,
+		Character = nil :: Model?,
+		Humanoid = nil :: Humanoid?,
 		Connections = {} :: { RBXScriptConnection },
 		LastEmoteTime = 0 :: number,
 	}, PlayerEmoteState)
@@ -41,10 +43,20 @@ function PlayerEmoteState:Play(emoteName: string, emoteConfig: EmoteConfig): boo
 	if not character then
 		return false
 	end
+	local humanoid = character:FindFirstChildOfClass("Humanoid")
+	if not humanoid or humanoid.Health <= 0 or character:FindFirstChildOfClass("Tool") then
+		return false
+	end
+	local humanoidState = humanoid:GetState()
+	if humanoidState ~= Enum.HumanoidStateType.Running and humanoidState ~= Enum.HumanoidStateType.RunningNoPhysics
+		and humanoidState ~= Enum.HumanoidStateType.Landed then
+		return false
+	end
 
 	self:Stop(true)
 
-	local humanoid = character:FindFirstChildOfClass("Humanoid")
+	self.Character = character
+	self.Humanoid = humanoid
 	if humanoid then
 		self.SavedWalkSpeed = humanoid.WalkSpeed
 	end
@@ -71,11 +83,18 @@ function PlayerEmoteState:Play(emoteName: string, emoteConfig: EmoteConfig): boo
 		table.insert(conns, jumpConn)
 
 		local stateConn = humanoid.StateChanged:Connect(function(_, newState: Enum.HumanoidStateType)
-			if newState == Enum.HumanoidStateType.Jumping or newState == Enum.HumanoidStateType.Freefall then
+			if newState ~= Enum.HumanoidStateType.Running and newState ~= Enum.HumanoidStateType.RunningNoPhysics
+				and newState ~= Enum.HumanoidStateType.Landed then
 				self:Stop()
 			end
 		end)
 		table.insert(conns, stateConn)
+		table.insert(conns, humanoid.Died:Connect(function()
+			self:Stop()
+		end))
+		table.insert(conns, character.ChildAdded:Connect(function(child)
+			if child:IsA("Tool") then self:Stop() end
+		end))
 
 		self.Connections = conns
 	end
@@ -92,17 +111,19 @@ function PlayerEmoteState:Stop(suppressNotify: boolean?): boolean
 	end
 	table.clear(self.Connections)
 
-	local character = self.Player.Character
+	local character = self.Character
 	if character then
 		character:SetAttribute("CurrentEmote", nil)
 		EmotePropUtils.ClearProps(character)
 
-		local humanoid = character:FindFirstChildOfClass("Humanoid")
+		local humanoid = self.Humanoid
 		if humanoid and self.SavedWalkSpeed ~= nil then
 			humanoid.WalkSpeed = self.SavedWalkSpeed
 		end
 	end
 	self.SavedWalkSpeed = nil
+	self.Character = nil
+	self.Humanoid = nil
 	self.CurrentEmote = nil
 
 	if hadEmote and not suppressNotify then

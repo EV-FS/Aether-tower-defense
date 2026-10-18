@@ -10,6 +10,7 @@ local UISFX = require(ReplicatedStorage.Settings.Visuals.UISFX)
 local ServiceRegistry = require(ReplicatedStorage.Shared.Modules.Core.ServiceRegistry)
 local useAudio = require(ReplicatedStorage.Shared.Modules.UI.Hooks.useAudio)
 local WorldTowerDisplay = require(ReplicatedStorage.UI.Components.WorldTowerDisplay)
+local LocalEmotePlayer = require(ReplicatedStorage.Shared.Modules.UI.Emote.LocalEmotePlayer)
 
 local create = Vide.create
 local cleanup = Vide.cleanup
@@ -162,6 +163,7 @@ local function lockPlayerControls()
 	if controlsLocked then
 		return
 	end
+	LocalEmotePlayer.Interrupt(PLAYER.Character)
 	controlsLocked = true
 	PLAYER:SetAttribute(CONTROL_LOCK_ATTRIBUTE, true)
 

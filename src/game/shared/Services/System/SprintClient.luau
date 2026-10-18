@@ -3,6 +3,7 @@ local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local UserInputService = game:GetService("UserInputService")
 local SetMobileStyle = require(ReplicatedStorage.Shared.Modules.UI.SetMobileStyle)
+local LocalEmotePlayer = require(ReplicatedStorage.Shared.Modules.UI.Emote.LocalEmotePlayer)
 
 local camera = workspace.CurrentCamera
 local player = Players.LocalPlayer
@@ -31,6 +32,9 @@ local function updateSpeed()
 end
 
 local function handleSprint(_, inputState)
+	if inputState == Enum.UserInputState.Begin and currentHumanoid and currentHumanoid.Health > 0 then
+		LocalEmotePlayer.Interrupt(player.Character)
+	end
 	if not currentHumanoid or not isEnabled then
 		return
 	end

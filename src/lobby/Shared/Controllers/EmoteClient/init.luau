@@ -29,6 +29,8 @@ local LocalEmotePlayer = require(ReplicatedStorage.Shared.Modules.UI.Emote.Local
 local localPlayer = Players.LocalPlayer
 local emotePlayer: LocalEmotePlayer.LocalEmotePlayer
 local characterObservers: { [Player]: CharacterEmoteObserver.CharacterEmoteObserver } = {}
+local requestCharacter: Model? = nil
+local requestActionVersion = 0
 
 -------------------------------------------------
 --// EmoteClient Controller
@@ -44,11 +46,16 @@ function EmoteClient.StartLocalEmote(emoteId: string)
 	end
 
 	local didStart = emotePlayer:Start(emoteId, emoteConfig)
+	if not didStart then
+		Net.EmoteService.RequestStopEmote.Invoke():catch(function(err)
+			warn(`[EmoteClient] Rejected playback cleanup failed: {err}`)
+		end)
+	end
 	local sprintCtrl = ServiceUtils.Get("SprintClient")
 	if sprintCtrl then
 		if didStart then
 			sprintCtrl.Disable()
-		else
+		elseif not localPlayer:GetAttribute("SummonControlsLocked") then
 			sprintCtrl.Enable()
 		end
 	end
@@ -57,6 +64,10 @@ end
 --[[ Stops the local player's emote without notifying the server. ]]
 function EmoteClient.StopLocalEmote()
 	emotePlayer:Stop()
+	local sprintCtrl = ServiceUtils.Get("SprintClient")
+	if sprintCtrl and not localPlayer:GetAttribute("SummonControlsLocked") then
+		sprintCtrl.Enable()
+	end
 end
 
 --[[ Requests the server to play an emote (with cooldown check). ]]
@@ -71,6 +82,8 @@ function EmoteClient.PlayEmote(emoteId: string)
 		return
 	end
 
+	requestCharacter = localPlayer.Character
+	requestActionVersion = LocalEmotePlayer.GetActionVersion(requestCharacter)
 	Net.EmoteService.RequestPlayEmote
 		.Invoke({ EmoteId = emoteId })
 		:andThen(function(success: boolean)
@@ -85,17 +98,11 @@ end
 
 --[[ Stops the current emote and notifies the server. ]]
 function EmoteClient.StopEmote()
-	local hadEmote = emotePlayer:IsPlaying()
+	LocalEmotePlayer.Interrupt(localPlayer.Character)
 	emotePlayer:Stop()
 
-	if hadEmote then
-		Net.EmoteService.RequestStopEmote.Invoke():catch(function(err: any)
-			warn(`[EmoteClient] StopEmote error: {err}`)
-		end)
-	end
-
 	local sprintCtrl = ServiceUtils.Get("SprintClient")
-	if sprintCtrl then
+	if sprintCtrl and not localPlayer:GetAttribute("SummonControlsLocked") then
 		sprintCtrl.Enable()
 	end
 end
@@ -114,7 +121,7 @@ function EmoteClient.Init()
 		end)
 
 		local sprintCtrl = ServiceUtils.Get("SprintClient")
-		if sprintCtrl then
+		if sprintCtrl and not localPlayer:GetAttribute("SummonControlsLocked") then
 			sprintCtrl.Enable()
 		end
 	end
@@ -132,7 +139,12 @@ function EmoteClient.Start()
 				characterObservers[player] = nil
 			end
 
-			characterObservers[player] = CharacterEmoteObserver.new(character)
+			local observer = CharacterEmoteObserver.new(character)
+			if player.Character ~= character then
+				observer:Destroy()
+				return
+			end
+			characterObservers[player] = observer
 		end
 
 		if player.Character then
@@ -140,6 +152,13 @@ function EmoteClient.Start()
 		end
 
 		player.CharacterAdded:Connect(onCharacterAdded)
+		player.CharacterRemoving:Connect(function()
+			local observer = characterObservers[player]
+			if observer then
+				observer:Destroy()
+				characterObservers[player] = nil
+			end
+		end)
 	end
 
 	for _, player in ipairs(Players:GetPlayers()) do
@@ -162,19 +181,21 @@ function EmoteClient.Start()
 	Net.EmoteService.EmoteStarted.On(function(data: { Player: unknown, EmoteId: string })
 		local targetPlayer = data.Player :: Player?
 		if targetPlayer == localPlayer and emotePlayer.CurrentEmoteId ~= data.EmoteId then
+			if requestCharacter and (requestCharacter ~= localPlayer.Character
+				or requestActionVersion ~= LocalEmotePlayer.GetActionVersion(requestCharacter)) then
+				Net.EmoteService.RequestStopEmote.Invoke():catch(function(err)
+					warn(`[EmoteClient] Superseded request cleanup failed: {err}`)
+				end)
+				return
+			end
 			EmoteClient.StartLocalEmote(data.EmoteId)
 		end
 	end)
 
 	Net.EmoteService.EmoteStopped.On(function(data: { Player: unknown })
 		local targetPlayer = data.Player :: Player?
-		if targetPlayer == localPlayer and emotePlayer:IsPlaying() then
+		if targetPlayer == localPlayer then
 			EmoteClient.StopLocalEmote()
-
-				local sprintCtrl = ServiceUtils.Get("SprintClient")
-			if sprintCtrl then
-				sprintCtrl.Enable()
-			end
 		end
 	end)
 end

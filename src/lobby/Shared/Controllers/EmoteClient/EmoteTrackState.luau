@@ -33,6 +33,7 @@ export type EmoteTrackState = typeof(setmetatable({} :: {
 	OnDestroy: () -> (),
 	Connections: { RBXScriptConnection },
 	Sounds: { any },
+	Destroyed: boolean,
 }, EmoteTrackState))
 
 function EmoteTrackState.new(
@@ -48,6 +49,7 @@ function EmoteTrackState.new(
 		OnDestroy = onDestroy,
 		Connections = {} :: { RBXScriptConnection },
 		Sounds = {} :: { any },
+		Destroyed = false,
 	}, EmoteTrackState)
 
 	self:_initialize()
@@ -103,19 +105,13 @@ function EmoteTrackState._setupKeyframeEvents(self: EmoteTrackState)
 		return
 	end
 
-	task.spawn(function()
-		if self.Track.Length == 0 then
-			self.Track:GetPropertyChangedSignal("Length"):Wait()
+	local keyframeConn = self.Track.KeyframeReached:Connect(function(keyframeName)
+		local eventData = keyframeEvents[keyframeName]
+		if eventData then
+			self:_handleKeyframeEvent(eventData)
 		end
-
-		local keyframeConn = self.Track.KeyframeReached:Connect(function(keyframeName)
-			local eventData = keyframeEvents[keyframeName]
-			if eventData then
-				self:_handleKeyframeEvent(eventData)
-			end
-		end)
-		table.insert(self.Connections, keyframeConn)
 	end)
+	table.insert(self.Connections, keyframeConn)
 end
 
 -------------------------------------------------
@@ -123,6 +119,7 @@ end
 -------------------------------------------------
 
 function EmoteTrackState._handleKeyframeEvent(self: EmoteTrackState, eventData: KeyframeEventData)
+	if self.Destroyed then return end
 	local rootPart = CharacterUtils.GetRootPart(self.Character)
 	if not rootPart then
 		return
@@ -196,6 +193,8 @@ end
 -------------------------------------------------
 
 function EmoteTrackState.Destroy(self: EmoteTrackState)
+	if self.Destroyed then return end
+	self.Destroyed = true
 	for _, sound in ipairs(self.Sounds) do
 		if sound and typeof(sound.Stop) == "function" then
 			sound:Stop()
@@ -210,6 +209,7 @@ function EmoteTrackState.Destroy(self: EmoteTrackState)
 
 	if self.OnDestroy then
 		self.OnDestroy()
+		self.OnDestroy = nil
 	end
 end
 

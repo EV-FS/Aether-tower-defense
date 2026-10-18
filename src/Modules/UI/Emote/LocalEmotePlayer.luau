@@ -20,6 +20,8 @@ type EmoteConfig = EmoteData.EmoteConfig
 -------------------------------------------------
 local EMOTE_COOLDOWN = 0.2
 local localPlayer = Players.LocalPlayer
+local activePlayers: { [Model]: any } = setmetatable({}, { __mode = "k" })
+local actionVersions: { [Model]: number } = setmetatable({}, { __mode = "k" })
 
 -------------------------------------------------
 --// LocalEmotePlayer Class
@@ -33,6 +35,8 @@ export type LocalEmotePlayer = typeof(setmetatable({} :: {
 	CurrentAnimation: Animation?,
 	Connections: { RBXScriptConnection },
 	SavedWalkSpeed: number?,
+	Humanoid: Humanoid?,
+	Character: Model?,
 	LastEmoteTime: number,
 	OnAutoStopped: (() -> ())?,
 }, LocalEmotePlayer))
@@ -44,6 +48,8 @@ function LocalEmotePlayer.new(): LocalEmotePlayer
 		CurrentAnimation = nil :: Animation?,
 		Connections = {} :: { RBXScriptConnection },
 		SavedWalkSpeed = nil :: number?,
+		Humanoid = nil :: Humanoid?,
+		Character = nil :: Model?,
 		LastEmoteTime = 0 :: number,
 		OnAutoStopped = nil :: (() -> ())?,
 	}, LocalEmotePlayer)
@@ -76,12 +82,30 @@ function LocalEmotePlayer.Start(self: LocalEmotePlayer, emoteId: string, emoteCo
 	if not character then
 		return false
 	end
+	if localPlayer:GetAttribute("SummonControlsLocked") or character:GetAttribute("Dashing") then
+		return false
+	end
 
 	local humanoid = character:FindFirstChildOfClass("Humanoid")
 	local animator = humanoid and humanoid:FindFirstChildOfClass("Animator")
-	if not animator or not humanoid then
+	if not animator or not humanoid or humanoid.Health <= 0 then
 		return false
 	end
+	local state = humanoid:GetState()
+	if state ~= Enum.HumanoidStateType.Running and state ~= Enum.HumanoidStateType.RunningNoPhysics
+		and state ~= Enum.HumanoidStateType.Landed then
+		return false
+	end
+	if character:FindFirstChildOfClass("Tool") then
+		return false
+	end
+	local previous = activePlayers[character]
+	if previous and previous ~= self then
+		previous:_autoStop()
+	end
+	self.Character = character
+	self.Humanoid = humanoid
+	activePlayers[character] = self
 
 	-- Save walkspeed before modification
 	if self.SavedWalkSpeed == nil then
@@ -101,11 +125,24 @@ function LocalEmotePlayer.Start(self: LocalEmotePlayer, emoteId: string, emoteCo
 	table.insert(self.Connections, jumpConn)
 
 	local stateConn = humanoid.StateChanged:Connect(function(_, newState: Enum.HumanoidStateType)
-		if newState == Enum.HumanoidStateType.Jumping or newState == Enum.HumanoidStateType.Freefall then
+		if newState ~= Enum.HumanoidStateType.Running and newState ~= Enum.HumanoidStateType.RunningNoPhysics
+			and newState ~= Enum.HumanoidStateType.Landed then
 			self:_autoStop()
 		end
 	end)
 	table.insert(self.Connections, stateConn)
+	table.insert(self.Connections, humanoid.Died:Connect(function()
+		self:_autoStop()
+	end))
+	table.insert(self.Connections, character.ChildAdded:Connect(function(child)
+		if child:IsA("Tool") then self:_autoStop() end
+	end))
+	table.insert(self.Connections, localPlayer.CharacterRemoving:Connect(function(removing)
+		if removing == character then self:_autoStop() end
+	end))
+	table.insert(self.Connections, localPlayer:GetAttributeChangedSignal("SummonControlsLocked"):Connect(function()
+		if localPlayer:GetAttribute("SummonControlsLocked") then self:_autoStop() end
+	end))
 
 	self.CurrentEmoteId = emoteId
 
@@ -113,27 +150,34 @@ function LocalEmotePlayer.Start(self: LocalEmotePlayer, emoteId: string, emoteCo
 		local animation = Instance.new("Animation")
 		animation.AnimationId = tostring(rawAnimationId)
 		animation.Parent = animator
-		local track = animator:LoadAnimation(animation)
+		local ok, track = pcall(animator.LoadAnimation, animator, animation)
+		if not ok then
+			animation:Destroy()
+			error(track)
+		end
 		track.Priority = emoteConfig.Priority or Enum.AnimationPriority.Action
 		track.Looped = looped
-		track:AdjustSpeed(emoteConfig.PlaybackSpeed or 1)
 		self.CurrentAnimation = animation
 		self.CurrentTrack = track
 		if onStopped then
 			local stopConn = track.Stopped:Once(onStopped)
 			table.insert(self.Connections, stopConn)
 		end
-		track:Play()
+		track:Play(0.1, 1, emoteConfig.PlaybackSpeed or 1)
 		return track
 	end
 
 	local function playMainAnimation()
 		if self.CurrentEmoteId ~= emoteId then return end
-		if self.CurrentTrack then
-			self.CurrentTrack:Destroy()
+		local oldTrack = self.CurrentTrack
+		local oldAnimation = self.CurrentAnimation
+		self.CurrentTrack = nil
+		self.CurrentAnimation = nil
+		if oldTrack then
+			oldTrack:Destroy()
 		end
-		if self.CurrentAnimation then
-			self.CurrentAnimation:Destroy()
+		if oldAnimation then
+			oldAnimation:Destroy()
 		end
 		local mainTrack
 		mainTrack = playTrack(emoteConfig.AnimationId, emoteConfig.Looped == true, function()
@@ -143,15 +187,27 @@ function LocalEmotePlayer.Start(self: LocalEmotePlayer, emoteId: string, emoteCo
 		end)
 	end
 
-	if emoteConfig.IntroAnimationId then
-		local introTrack
-		introTrack = playTrack(emoteConfig.IntroAnimationId, false, function()
-			if self.CurrentEmoteId == emoteId and self.CurrentTrack == introTrack then
-				playMainAnimation()
-			end
-		end)
-	else
-		playMainAnimation()
+	local function startAnimation()
+		if emoteConfig.IntroAnimationId then
+			local introTrack
+			introTrack = playTrack(emoteConfig.IntroAnimationId, false, function()
+				if self.CurrentEmoteId == emoteId and self.CurrentTrack == introTrack then
+					local ok, err = pcall(playMainAnimation)
+					if not ok then
+						self:_autoStop()
+						warn(`[LocalEmotePlayer] Could not continue {emoteId}: {err}`)
+					end
+				end
+			end)
+		else
+			playMainAnimation()
+		end
+	end
+	local ok, err = pcall(startAnimation)
+	if not ok then
+		self:Stop()
+		warn(`[LocalEmotePlayer] Could not play {emoteId}: {err}`)
+		return false
 	end
 
 	return true
@@ -172,8 +228,8 @@ function LocalEmotePlayer.Stop(self: LocalEmotePlayer)
 	self.CurrentEmoteId = nil
 
 	if currentTrack then
-		currentTrack:Stop(0)
 		pcall(function()
+			currentTrack:Stop(0)
 			currentTrack:Destroy()
 		end)
 	end
@@ -181,14 +237,33 @@ function LocalEmotePlayer.Stop(self: LocalEmotePlayer)
 		currentAnimation:Destroy()
 	end
 
-	local character = localPlayer.Character
-	if character then
-		local humanoid = character:FindFirstChildOfClass("Humanoid")
-		if humanoid and self.SavedWalkSpeed ~= nil then
-			humanoid.WalkSpeed = self.SavedWalkSpeed
-		end
+	local character = self.Character
+	if character and activePlayers[character] == self then
+		activePlayers[character] = nil
+	end
+	local humanoid = self.Humanoid
+	if humanoid and humanoid.Parent and self.SavedWalkSpeed ~= nil then
+		humanoid.WalkSpeed = self.SavedWalkSpeed
 	end
 	self.SavedWalkSpeed = nil
+	self.Character = nil
+	self.Humanoid = nil
+end
+
+--[[ Cancels a character's local emote before another action takes control. ]]
+function LocalEmotePlayer.Interrupt(character: Model?): boolean
+	if character then
+		actionVersions[character] = (actionVersions[character] or 0) + 1
+	end
+	local player = if character then activePlayers[character] else nil
+	if not player then return false end
+	player:_autoStop()
+	return true
+end
+
+--[[ Identifies whether a newer action superseded an emote request. ]]
+function LocalEmotePlayer.GetActionVersion(character: Model?): number
+	return if character then actionVersions[character] or 0 else 0
 end
 
 --[[ Returns true if an emote is currently playing. ]]
