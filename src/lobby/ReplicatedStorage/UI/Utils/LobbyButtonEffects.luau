@@ -10,6 +10,10 @@ local function isVisualButton(button: GuiButton): boolean
 		or (not button.Active and not button.Selectable) then
 		return false
 	end
+	if button.Name:match("^Emote%d+$") and button.Parent and button.Parent.Name == "Main"
+		and button.Parent.Parent and button.Parent.Parent.Name == "Container" then
+		return false
+	end
 	if button:FindFirstChildOfClass("UIGradient") or button:FindFirstChildOfClass("UICorner")
 		or button:FindFirstChildOfClass("UIStroke") then
 		return true
